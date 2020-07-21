@@ -10,18 +10,18 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
     Discretized point mass model environment class 
     '''
 
-    def __init__(self, dt=1e-2, integrator='euler'):
+    def __init__(self, dt=1e-3, integrator='euler'):
         crocoddyl.ActionModelAbstract.__init__(self, crocoddyl.StateVector(3), 1, 4) # nu = 1, nr = 3
         self.nx = 3
         self.unone = np.zeros(self.nu)
         self.dt = dt                        # integration step 
         self.integrator = integrator
         self.w_x, self.w_u = 10., 0.         # cost x, u
-        self.m, self.K, self.B = 1., 1., 0.  # mass, stiffness, damping
+        self.m, self.K, self.B = 1., 20., 1.  # mass, stiffness, damping
         # CT dynamics
         self.Ac = np.array([[0, 1, 0],
-                            [0, 0, -1/self.m],
-                            [0, -self.K, self.B/self.m]])
+                            [0, 0, 1/self.m],
+                            [0, -self.K, -self.B/self.m]])
         self.Bc = np.array([[0],
                             [1/self.m],
                             [-self.B/self.m]])
@@ -76,18 +76,24 @@ dt = 1e-2
 running_IAM = ActionModelPointMassContact(dt, 'rk4')
 terminal_IAM = ActionModelPointMassContact(dt, 'rk4')
 
-# # Define shooting problem 
-x = np.matrix([-1., 0., 0.]).T
-# u = np.matrix([0.])
-T = 500
+# Initial conditions
+p0 = 0. # reference contact point 
+p = 1.
+v = 0.
+lmb = -running_IAM.K*(p - p0) - running_IAM.B*v
+x = np.matrix([p, v, lmb]).T
+u = np.matrix([0.])
+
+# Define shooting problem
+T = 1000
 problem = crocoddyl.ShootingProblem(x, [running_IAM]*T, terminal_IAM)
 
 # Integrate (rollout)
-# us = [ u ]*T
-# xs = problem.rollout(us)
+us = [ u ]*T
+xs = problem.rollout(us)
 
-# Extract and plot trajectories
-# plotPointMass(xs, us)
+# # Extract and plot trajectories
+# 
 
 # # Animate
 # from IPython.display import HTML
@@ -101,13 +107,14 @@ ddp.setCallbacks([ crocoddyl.CallbackVerbose() ])
 # Solve and retrieve X,U
 done = ddp.solve([], [], 10)
 
-# plotPointMass(ddp.xs, ddp.us)
+plotPointMass(ddp.xs, ddp.us)
 from IPython.display import HTML
-anim = animatePointMass(ddp.xs, sleep=5.)
+anim = animatePointMass(ddp.xs)
 # HTML(anim.to_html5_video())
 
 
-# Display norm of partial derivatives
+# Display norm of partial derivatives ???
+
 
 
 

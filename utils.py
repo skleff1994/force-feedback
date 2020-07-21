@@ -4,7 +4,7 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 
 
-def animatePointMass(xs, sleep=50):
+def animatePointMass(xs, sleep=1):
     print("processing the animation ... ")
     cart_size = 1.
     pole_length = 5.
