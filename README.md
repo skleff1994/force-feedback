@@ -1,2 +1,2 @@
-# ddp-al
-DDP with constraints based on Augmented Lagrangian 
+# force-feedback
+Force feedback for optimal control
