@@ -5,11 +5,11 @@
 import numpy as np
 import crocoddyl
 from point_mass_contact_model import ActionModelPointMassContact
-from utils import animatePointMass, simulate, plotPointMass
+from utils import animatePointMass, plotPointMass
 
 # soft contact model params
-K = 5.  # stiffness
-B = 1.  # damping
+K = 1e4  # stiffness
+B = 1.      # damping
 # Create IAM (integrate DAM with Euler)
 dt = 1e-2 #5e-2
 running_IAM = ActionModelPointMassContact(K=K, B=B, dt=dt, integrator='rk4')
@@ -23,7 +23,7 @@ lmb = -K*(p-p0) - B*v # initial contact force
 x = np.matrix([p, v, lmb]).T
 u = np.matrix([0.])
 # Define shooting problem
-T = 500
+T = 200
 problem = crocoddyl.ShootingProblem(x, [running_IAM]*T, terminal_IAM)
 # Integrate (rollout)
 us = [ u ]*T
@@ -42,7 +42,7 @@ ddp.setCallbacks([ crocoddyl.CallbackVerbose() ])
 
 # Solve and retrieve X,U
 done = ddp.solve([], [], 10)
-# plotPointMass(ddp.xs, ddp.us)
+plotPointMass(ddp.xs, ddp.us)
 
 # from IPython.display import HTML
 # anim = animatePointMass(ddp.xs)

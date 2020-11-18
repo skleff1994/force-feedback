@@ -118,7 +118,7 @@ def plotPointMass(xs, us, dt=1e-2):
     # Legend
     handles, labels = ax[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.suptitle('Point mass trajectory with [p0, v0] = [0,1] and u = 0', size=16)
+    fig.suptitle('Point mass trajectory with [p0, v0] = [1,0] and u = 0', size=16)
     plt.show()
 
 # def animateCartpole(xs, sleep=50):

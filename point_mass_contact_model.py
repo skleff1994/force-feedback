@@ -18,7 +18,7 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
         self.xnone = np.zeros(self.nx)
         self.dt = dt                        # integration step 
         self.integrator = integrator
-        self.w_x, self.w_u = 10., 1.         # cost x, u
+        self.w_x, self.w_u = 1., .1        # cost x, u
         self.m, self.K, self.B = 1., K, B   # mass, stiffness, damping
         # CT dynamics
         self.Ac = np.array([[0, 1, 0],
