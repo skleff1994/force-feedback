@@ -5,16 +5,20 @@
 
 # Test of the "augmented state" approach for force feedback on the point mass system 
 
+import os.path
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
+
 import numpy as np
 import crocoddyl
-from point_mass_contact_model import ActionModelPointMassContact
+from models.croco_IAMs import ActionModelPointMassContact
 from utils import animatePointMass, plotPointMass
 
 # soft contact model params
-K = 1e4  # stiffness
-B = 1.      # damping
+K = 1e6     # stiffness
+B = 0.      # damping
 # Create IAM (integrate DAM with Euler)
-dt = 1e-2 #5e-2
+dt = 1e-4 #5e-2
 running_IAM = ActionModelPointMassContact(K=K, B=B, dt=dt, integrator='rk4')
 terminal_IAM = ActionModelPointMassContact(K=K, B=B, dt=dt, integrator='rk4')
 
@@ -32,13 +36,6 @@ problem = crocoddyl.ShootingProblem(x, [running_IAM]*T, terminal_IAM)
 us = [ u ]*T
 xs = problem.rollout(us)
 
-# Extract and plot trajectories
-# plotPointMass(xs, us)
-# Animate
-# from IPython.display import HTML
-# anim = animatePointMass(xs)
-# HTML(anim.to_html5_video())
-
 # Create the DDP solver and setup callbacks
 ddp = crocoddyl.SolverDDP(problem)
 ddp.setCallbacks([ crocoddyl.CallbackVerbose() ])
@@ -48,10 +45,8 @@ done = ddp.solve([], [], 10)
 plotPointMass(ddp.xs, ddp.us)
 
 # from IPython.display import HTML
-# anim = animatePointMass(ddp.xs)
+anim = animatePointMass(ddp.xs, sleep=10)
 # HTML(anim.to_html5_video())
-
-
 # xs, us = simulate(running_IAM, ddp)
 # plotPointMass(xs, us)
 
