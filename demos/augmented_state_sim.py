@@ -1,6 +1,9 @@
-# Author: Sebastien
-# NYU 2020
-# Simulation of the "augmented state" approach for the point mass system 
+# Title : augmented_state_sim.py
+# Author: Sebastien Kleff
+# Date : 18.11.2020 
+# Copyright LAAS-CNRS, NYU
+
+# Test of the "augmented state" approach for force feedback on the point mass system 
 
 import numpy as np
 import crocoddyl

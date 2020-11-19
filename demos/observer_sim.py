@@ -1,6 +1,9 @@
-# Author: Sebastien
-# NYU 2020
-# Simulation of the "observer" approach for the point mass system 
+# Title : observer_sim.py
+# Author: Sebastien Kleff
+# Date : 18.11.2020 
+# Copyright LAAS-CNRS, NYU
+
+# Test of the "observer" approach for force feedback on the point mass system 
 
 import numpy as np
 import crocoddyl

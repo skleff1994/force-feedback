@@ -1,8 +1,14 @@
+# Title : utils.py
+# Author: Sebastien Kleff
+# Date : 18.11.2020 
+# Copyright LAAS-CNRS, NYU
+
+# Utilities
+
 from math import cos, sin
 import numpy as np
 from matplotlib import animation
 from matplotlib import pyplot as plt
-
 
 def animatePointMass(xs, sleep=1):
     # Check which model is used

@@ -1,6 +1,9 @@
-# Author: Sebastien
-# NYU 2020
-# Kalman filter
+# Title : kalman_filter.py
+# Author: Sebastien Kleff
+# Date : 18.11.2020 
+# Copyright LAAS-CNRS, NYU
+
+# Custom Kalman filter
 
 import numpy as np
 import matplotlib.pyplot as plt
