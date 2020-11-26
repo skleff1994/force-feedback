@@ -11,38 +11,80 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
 
 import numpy as np
 import crocoddyl
-from models.croco_IAMs import ActionModelPointMassContact
+
+from models.dyn_models import PointMassContact
+from models.cost_models import *
+from models.croco_IAMs import ActionModelPM
+
 from utils import animatePointMass, plotPointMass
 
-# soft contact model params
-K = 1e3     # stiffness
-B = 10.      # damping
-# Create IAM
-dt = 1e-3   # 5e-2
-running_IAM = ActionModelPointMassContact(K=K, B=B, dt=dt, integrator='rk4')
-terminal_IAM = ActionModelPointMassContact(K=K, B=B, dt=0., integrator='rk4')
+# Create dynamics model
+dt = 1e-3
+K = 1000
+B = 10.
+model = PointMassContact(K=K, B=B, dt=dt, integrator='rk4')
 
+# Running and terminal cost models
+running_cost = CostSum(model)
+terminal_cost = CostSum(model)
+  # Setup cost terms
+x_ref = np.array([0., 0., 0.])
+running_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*np.eye(model.nx)))  
+running_cost.add_cost(QuadCtrlRegCost(model, .1*np.eye(model.nu)))
+terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*np.eye(model.nx)))
+  # IAMs for Crocoddyl
+running_IAM = ActionModelPM(model, running_cost, dt) 
+terminal_IAM = ActionModelPM(model, terminal_cost, 0.) 
+# Define shooting problem
 # Initial conditions
 p0 = 0.               # reference position (contact point)
 p = 1.                # initial position
-v = 0.                # initial velocity 
+v = 1.                # initial velocity 
 lmb = -K*(p-p0) - B*v # initial contact force
-x = np.matrix([p, v, lmb]).T
-u = np.matrix([0.])
-# Define shooting problem
-T = 200
-problem = crocoddyl.ShootingProblem(x, [running_IAM]*T, terminal_IAM)
-# Integrate (rollout)
-us = [ u ]*T
-xs = problem.rollout(us)
-
+x0 = np.matrix([p, v, lmb]).T
+u0 = np.matrix([0.])
+T = 1000
+problem = crocoddyl.ShootingProblem(x0, [running_IAM]*T, terminal_IAM)
 # Create the DDP solver and setup callbacks
 ddp = crocoddyl.SolverDDP(problem)
 ddp.setCallbacks([ crocoddyl.CallbackVerbose() ])
-
 # Solve and retrieve X,U
 done = ddp.solve([], [], 10)
-plotPointMass(ddp.xs, ddp.us)
+X_real = np.array(ddp.xs)
+U_real = np.array(ddp.us)
+
+from utils import plotPointMass
+plotPointMass(X_real, U_real)
+
+# # soft contact model params
+# K = 1e3      # stiffness
+# B = 10.      # damping
+# # Create IAM
+# dt = 1e-3   # 5e-2
+# running_IAM = ActionModelPointMassContact(K=K, B=B, dt=dt, integrator='rk4')
+# terminal_IAM = ActionModelPointMassContact(K=K, B=B, dt=0., integrator='rk4')
+
+# # Initial conditions
+# p0 = 0.               # reference position (contact point)
+# p = 1.                # initial position
+# v = 0.                # initial velocity 
+# lmb = -K*(p-p0) - B*v # initial contact force
+# x = np.matrix([p, v, lmb]).T
+# u = np.matrix([0.])
+# # Define shooting problem
+# T = 200
+# problem = crocoddyl.ShootingProblem(x, [running_IAM]*T, terminal_IAM)
+# # Integrate (rollout)
+# us = [ u ]*T
+# xs = problem.rollout(us)
+
+# # Create the DDP solver and setup callbacks
+# ddp = crocoddyl.SolverDDP(problem)
+# ddp.setCallbacks([ crocoddyl.CallbackVerbose() ])
+
+# # Solve and retrieve X,U
+# done = ddp.solve([], [], 10)
+# plotPointMass(ddp.xs, ddp.us)
 
 # from IPython.display import HTML
 anim = animatePointMass(ddp.xs, sleep=10)

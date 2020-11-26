@@ -107,7 +107,7 @@ def plotPointMass(xs, us, dt=1e-2):
     # Legend
     handles, labels = ax[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.suptitle('Point mass trajectory with [p0, v0] = [1,0] and u = 0', size=16)
+    fig.suptitle('Point mass trajectory', size=16)
     plt.show()
 
 
@@ -120,10 +120,12 @@ def plotFiltered(Y_mea, X_hat, X_real, dt=1e-2):
     '''
     # Extract trajectories and reshape
     T = len(Y_mea)
+    ny = len(Y_mea[0])
+    nx = len(X_real[0])
     tspan = np.linspace(0, T*dt, T+1)
-    Y_mea = np.array(Y_mea).reshape((T,2))
-    X_hat = np.array(X_hat).reshape((T+1,2))
-    X_real = np.array(X_real).reshape((T+1,2))
+    Y_mea = np.array(Y_mea).reshape((T, ny))
+    X_hat = np.array(X_hat).reshape((T+1, nx))
+    X_real = np.array(X_real).reshape((T+1, nx))
     # Create fig
     fig, ax = plt.subplots(2,1)
     # Plot position
@@ -143,9 +145,8 @@ def plotFiltered(Y_mea, X_hat, X_real, dt=1e-2):
     # Legend
     handles, labels = ax[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.suptitle('Point mass trajectory with [p0, v0] = [1,0] and u = 0', size=16)
+    fig.suptitle('Kalman-filtered point mass trajectory', size=16)
     plt.show()
-
 
 # def animateCartpole(xs, sleep=50):
 #     print("processing the animation ... ")

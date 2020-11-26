@@ -14,7 +14,7 @@ class KalmanFilter:
     Kalman filter environment class
     '''
     
-    def __init__(self, model, Q, H, R):
+    def __init__(self, model, Q, R):
         '''
         Initialize model & filter parameters
          Input:
@@ -24,18 +24,19 @@ class KalmanFilter:
           - R     : measurement noise covariance matrix
         '''
 
-        # State transition model
+        # State transition model 
+        # x(n+1) = Ax(n) + Bu(n) + w(n) where w(n)~N(0,Q)
         self.A = model.Ad
         self.B = model.Bd
         self.Q = Q
         # Measurement model
-        self.H = H
+        # y(n) = Hx(n) + v(n) where v(n)~N(0,R)
+        self.H = model.Hd
         self.R = R
         # Dimensions
         self.nx = self.A.shape[0]
         self.nu = self.B.shape[1]
-        self.nz = self.H.shape[0]
-        # Record state estimates 
+        self.ny = self.H.shape[0]
     
     def step(self, x, P, u, y):
         '''

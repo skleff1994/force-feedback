@@ -3,17 +3,25 @@
 # Date : 18.11.2020 
 # Copyright LAAS-CNRS, NYU
 
-# Collection dynamics model classes that are compatible with BOTH
-#   - custom DDP solver in ../core/ddp.py 
-#   - Crocoddyl
-# All environment classes below inherit from Croco IAM (follow the same template to add new models)
+# Collection dynamics model classes compatible with custom DDP solver in ../core/ddp.py 
+# Can also be used to initialize custom IAMs compatible with Crocoddyl , see croco_IAMs.py
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 class PointMass:
     '''
-    Dynamics model of point mass
+    Discretized dynamics model of the point mass (1D double integrator)
+    Variables: 
+      State   : x = position, velocity
+      Control : u = input_force
+      Output  : y = x = position, velocity 
+    CT model:
+      state transition : x'(t) = A x(t) + B u(t)
+      output equation  : y(t)  = x(t)
+    DT model:  
+      state transition : x(n+1) = Ad x(n) + Bd u(n)
+      output equation  : y(n)   = x(n) 
     '''
     def __init__(self, dt=0.01, integrator='exact'):
         # Dimensins
@@ -26,9 +34,11 @@ class PointMass:
         # CT model
         self.Ac = np.array([[0,1],[0,0]])
         self.Bc = np.array([[0],[1]])
+        self.Hc = np.eye(2)
         # DT model
         self.Ad = np.eye(self.nx) + self.dt*self.Ac
         self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
+        self.Hd = self.Hc
         # Integration type
         self.integrator = integrator
 
@@ -73,7 +83,122 @@ class PointMass:
         X[0,:] = x0.T
         for i in range(N):
             U[i,:] = us[i].T
-            X[i+1,:] = self.calc(np.array([X[i,:]]).T, us[i].T).T
+            X[i+1,:] = self.calc(X[i,:], U[i,:])
+        return X, U
+
+    def plot_traj(self, X, U):
+        '''
+        Plot trajectories X, U
+        '''
+        N = np.shape(U)[0]
+        p = X[:,:self.nu]
+        v = X[:,self.nu:]
+        u = U
+        # Create time spans for X and U
+        tspan_x = np.linspace(0, N*self.dt, N+1)
+        tspan_u = np.linspace(0, N*self.dt, N)
+        # Create figs and subplots
+        fig_x, ax_x = plt.subplots(1, 2)
+        fig_u, ax_u = plt.subplots(1, 1)
+        # Plot joints
+        ax_x[0].plot(tspan_x, p, 'b-', label='pos')
+        ax_x[0].set(xlabel='t (s)', ylabel='p (m)')
+        ax_x[1].plot(tspan_x, v, 'b-', label='vel')
+        ax_x[1].set(xlabel='t (s)', ylabel='v (m/s)')
+        ax_u.plot(tspan_u, u, 'b-', label='acc') 
+        ax_u.set(xlabel='t (s)', ylabel='u (N)')
+        # Legend
+        handles_x, labels_x = ax_x[0].get_legend_handles_labels()
+        fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+        handles_u, labels_u = ax_u.get_legend_handles_labels()
+        fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
+        # Titles
+        fig_x.suptitle('State trajectories', size=16)
+        fig_u.suptitle('Control trajectory', size=16)
+        plt.show()
+
+
+class PointMassPartialObs:
+    '''
+    Discretized dynamics model of the point mass (1D double integrator)
+    with visco-elastic force-position measurement model
+    Variables: 
+      State   : x = position, velocity
+      Control : u = input_force
+      Output  : y = contact_force, position
+    CT model:
+      state transition : x'(t) = A x(t) + B u(t)
+      output equation  : y(t)  = H x(t)
+    DT model:  
+      state transition : x(n+1) = Ad x(n) + Bd u(n)
+      output equation  : y(n)   = Hd x(n) 
+    '''
+    def __init__(self, dt=0.01, K=1, B=1., integrator='exact'):
+        # Dimensins
+        self.nx = 2
+        self.nu = 1
+        # Default u 
+        self.u_none = np.zeros(self.nu)
+        # Sampling time
+        self.dt = dt
+        # CT model
+            # State transition
+        self.Ac = np.array([[0,1],[0,0]])
+        self.Bc = np.array([[0],[1]])
+          # Measurement model
+        self.K = K
+        self.B = B
+        self.Hc = np.array([[1, 0],
+                            [-K, -B]])
+        # DT model
+        self.Ad = np.eye(self.nx) + self.dt*self.Ac
+        self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
+        self.Hd = self.Hc
+        # Integration type
+        self.integrator = integrator
+
+    def f(self, x, u):
+        '''
+        CT dynamics [mandatory function]
+        '''
+        return self.Ac.dot(x) + self.Bc.dot(u)
+
+    def calc(self, x, u):
+        '''
+        DT dynamics [mandatory function]
+        '''
+        # Euler step
+        if(self.integrator=='euler'):
+            xnext = x + self.f(x,u)*self.dt
+        # RK4 step 
+        if(self.integrator=='rk4'):
+            k1 = self.f(x, u) * self.dt
+            k2 = self.f(x + k1 / 2.0, u) * self.dt
+            k3 = self.f(x + k2 / 2.0, u) * self.dt
+            k4 = self.f(x + k3, u) * self.dt
+            xnext = x + (k1 + 2 * (k2 + k3) + k4) / 6
+        # Exact (default)
+        else:
+            xnext = self.Ad.dot(x) + self.Bd.dot(u) 
+        return xnext 
+    
+    def calcDiff(self, x, u):
+        '''
+        Get partial derivatives f_x, f_u at (x,u)
+        '''
+        return self.Ad, self.Bd
+
+    def rollout(self, x0, us):
+        '''
+        Rollout from x0 using us 
+        '''
+        N = len(us)
+        X = np.zeros((N+1, self.nx))
+        U = np.zeros((N, self.nu))
+        X[0,:] = x0.T
+        for i in range(N):
+            U[i,:] = us[i].T
+            X[i+1,:] = self.calc(X[i,:], U[i,:])
         return X, U
 
     def plot_traj(self, X, U):
@@ -110,9 +235,16 @@ class PointMass:
 
 class PointMassContact:
     '''
-    Dynamics model of point mass with visco-elastic contact
+    Dynamics model of point mass in visco-elastic contact
+    Variables: 
+      State   : x = position, velocity, contact_force 
+      Control : u = input_force
+    CT model:
+      state transition : x'(t) = A x(t) + B u(t)
+    DT model:  
+      state transition : x(n+1) = Ad x(n) + Bd u(n)
     '''
-    def __init__(self, m=1, K=1000, dt=0.01, integrator='exact'):
+    def __init__(self, m=1, K=1, B=1., dt=0.01, integrator='euler'):
         # Dimensins
         self.nx = 3
         self.nu = 1
@@ -121,9 +253,14 @@ class PointMassContact:
         # Mass and stiffness
         self.m = m
         self.K = K
-        # CT model
-        self.Ac = np.array([[0,1,0],[0,0,1/self.m],[0,-self.K,0]])
-        self.Bc = np.array([[0],[1/self.m],[0]])
+        self.B = B
+        # CT dynamics
+        self.Ac = np.array([[0, 1, 0],
+                            [0, 0, 1/self.m],
+                            [0, -self.K, -self.B/self.m]])
+        self.Bc = np.array([[0],
+                            [1/self.m],
+                            [-self.B/self.m]])
         # DT model
         self.Ad = np.eye(self.nx) + self.dt*self.Ac
         self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
@@ -154,19 +291,12 @@ class PointMassContact:
         else:
             xnext = self.Ad.dot(x) + self.Bd.dot(u) 
         return xnext 
-
-    def calcDiff(self, xs, us):
+    
+    def calcDiff(self, x, u):
         '''
-        Get partial derivatives of f along (xs,us) [mandatory function]
+        Get partial derivatives f_x, f_u at (x,u)
         '''
-        # to store
-        f_x = []
-        f_u = []
-        # fill 
-        for i in range(len(us)):
-            f_x.append(self.Ad)
-            f_u.append(self.Bd)
-        return f_x, f_u
+        return self.Ad, self.Bd
 
     def rollout(self, x0, us):
         '''
@@ -178,7 +308,7 @@ class PointMassContact:
         X[0,:] = x0.T
         for i in range(N):
             U[i,:] = us[i].T
-            X[i+1,:] = self.calc(np.array([X[i,:]]).T, us[i].T).T
+            X[i+1,:] = self.calc(X[i,:], U[i,:])
         return X, U
 
     def plot_traj(self, X, U):
@@ -216,6 +346,7 @@ class PointMassContact:
         fig_x.suptitle('State trajectories', size=16)
         fig_u.suptitle('Control trajectory', size=16)
         plt.show()
+
 
 
 # class CartPole:

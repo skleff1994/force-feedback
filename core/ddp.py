@@ -44,8 +44,8 @@ class DDPSolver:
         # State and control trajectories
         self.xs = []
         self.us = []
-        self.us = [np.zeros((self.nu, 1))]*self.N
-        self.xs.append(np.array([[0],[0]]))
+        self.us = [np.zeros(self.nu)]*self.N
+        self.xs.append(np.array([0,0]))
         for i in range(self.N):
             self.xs.append(self.model.calc(self.xs[i], self.us[i]))
 
@@ -69,10 +69,15 @@ class DDPSolver:
         start = time.time()
         i = 0
         self.dJ = np.inf
-        while (i < maxiter and self.dJ > tol):
-            self.backward_pass()  
-            print("Iteration "+str(i)+" | COST = "+str(float(self.cost)))        
+        while (i < maxiter):
+            self.backward_pass()
+            if(i==0):
+                print("INITIAL COST = "+str(float(self.cost)))
+            else:
+                print("Iter "+str(i)+": COST = "+str(float(self.cost)))        
             self.forward_pass() 
+            if(self.dJ <= tol):
+                break
             i+=1
         end = time.time()
         print("Converged in "+str(i)+" iterations ("+str(end-start)+" s).")
@@ -94,7 +99,7 @@ class DDPSolver:
             if t==0:
                 x = self.xs[-1].copy()
                 V = self.terminal_cost.calc(x)
-                V_x, V_xx = self.terminal_cost.calcDiff(x) 
+                V_x, _, V_xx, _, _ = self.terminal_cost.calcDiff(x) 
                 self.cost += V
             # Get current node
             x = self.xs[self.N-t-1].copy()

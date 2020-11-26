@@ -28,14 +28,14 @@ ddp.init_all(T)
 # Add cost models
 Q = np.eye(model.nx)
 R = np.eye(model.nu)
-x_ref = np.array([[1],[0]])
+x_ref = np.array([1,0])
 
 # Running and terminal cost sums
 running_cost = CostSum(model)
-running_cost.add_cost(QuadTrackingRunningCost(model, x_ref, 1.*Q))  
+running_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*Q))  
 running_cost.add_cost(QuadCtrlRegCost(model, 1e-3*R))
-terminal_cost = CostSum(model, isTerminal=True)
-terminal_cost.add_cost(QuadTrackingTerminalCost(model, x_ref, 10.*Q))
+terminal_cost = CostSum(model)
+terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 10.*Q))
 # Add to OCP 
 ddp.set_running_cost(running_cost)
 ddp.set_terminal_cost(terminal_cost)
