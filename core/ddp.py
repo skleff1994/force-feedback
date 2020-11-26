@@ -27,7 +27,6 @@ class DDPSolver:
         self.terminal_costs = []
         # Hessian regularization
         self.reg = reg
-    
 
     def init_all(self, T, xs_init = None, us_init = None):
         '''
@@ -50,65 +49,17 @@ class DDPSolver:
         for i in range(self.N):
             self.xs.append(self.model.calc(self.xs[i], self.us[i]))
 
-    def add_running_cost(self, running_cost_model):
+    def set_running_cost(self, running_cost):
         '''
-        Add a cost term in the running cost function 
+        Define the running cost function (type CostSum)
         '''
-        self.running_costs.append(running_cost_model)
+        self.running_cost = running_cost
 
-    def add_terminal_cost(self, terminal_cost_model):
+    def set_terminal_cost(self, terminal_cost):
         '''
-        Add a cost term in the terminal cost function 
+        Define the terminal cost function (type CostSum)
         '''
-        self.terminal_costs.append(terminal_cost_model)
-    
-    def running_calc(self, x, u):
-        '''
-        Get running cost at (x,u)
-        '''
-        l = 0
-        for cost in self.running_costs:
-            l += cost.calc(x, u)
-        return l
-
-    def terminal_calc(self, x):
-        '''
-        Get terminal cost at x
-        '''
-        l = 0
-        for cost in self.terminal_costs:
-            l += cost.calc(x)
-        return l
-
-    def running_calcDiff(self, x, u):
-        '''
-        Get partial derivatives of running cost at (x,u)
-        '''
-        l_x = np.zeros((self.model.nx, 1))
-        l_xx = np.zeros((self.model.nx, self.model.nx))
-        l_u = np.zeros((self.model.nu, 1))
-        l_ux = np.zeros((self.model.nu, self.model.nx))
-        l_uu = np.zeros((self.model.nu, self.model.nu))
-        for cost in self.running_costs:
-            c_x, c_u, c_xx, c_uu, c_ux = cost.calcDiff(x, u)
-            l_x += c_x
-            l_u += c_u
-            l_xx += c_xx
-            l_uu += c_uu
-            l_ux += c_ux
-        return l_x, l_u, l_xx, l_uu, l_ux
-
-    def terminal_calcDiff(self, x):
-        '''
-        Get partial derivatives of terminal cost at x
-        '''
-        l_x = np.zeros((self.model.nx, 1))
-        l_xx = np.zeros((self.model.nx, self.model.nx))
-        for cost in self.terminal_costs:
-            c_x, c_xx = cost.calcDiff(x)
-            l_x += c_x
-            l_xx += c_xx
-        return l_x, l_xx
+        self.terminal_cost = terminal_cost
 
 
     def solve(self, maxiter=50, tol=1e-4):
@@ -142,15 +93,15 @@ class DDPSolver:
             # Value function model at terminal node
             if t==0:
                 x = self.xs[-1].copy()
-                V = self.terminal_calc(x)
-                V_x, V_xx = self.terminal_calcDiff(x) 
+                V = self.terminal_cost.calc(x)
+                V_x, V_xx = self.terminal_cost.calcDiff(x) 
                 self.cost += V
             # Get current node
             x = self.xs[self.N-t-1].copy()
             u = self.us[self.N-t-1].copy()
             # Get calc and calcDiff at current node
-            self.cost += self.running_calc(x, u)
-            l_x, l_u, l_xx, l_uu, l_ux = self.running_calcDiff(x, u)
+            self.cost += self.running_cost.calc(x, u)
+            l_x, l_u, l_xx, l_uu, l_ux = self.running_cost.calcDiff(x, u)
             f_x, f_u = self.model.calcDiff(x, u)
             # Construct quadratic model of Hamiltonian around current node
             Q_x = l_x + f_x.T.dot(V_x)
@@ -184,8 +135,8 @@ class DDPSolver:
             # Rollout
             U_new.append(self.us[t] + self.k_ff[t] + self.k_fb[t].dot(X_new[t] - self.xs[t]))
             X_new.append(self.model.calc(X_new[t], U_new[t]))
-            new_cost += self.running_calc(X_new[t], U_new[t]) 
-        new_cost += self.terminal_calc(X_new[-1])
+            new_cost += self.running_cost.calc(X_new[t], U_new[t]) 
+        new_cost += self.terminal_cost.calc(X_new[-1])
         # Calculate actual reduction in cost
         self.dJ = self.cost - new_cost
         # Update trajectories 

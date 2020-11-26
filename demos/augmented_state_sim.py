@@ -15,12 +15,12 @@ from models.croco_IAMs import ActionModelPointMassContact
 from utils import animatePointMass, plotPointMass
 
 # soft contact model params
-K = 1e6     # stiffness
-B = 0.      # damping
-# Create IAM (integrate DAM with Euler)
-dt = 1e-4 #5e-2
+K = 1e3     # stiffness
+B = 10.      # damping
+# Create IAM
+dt = 1e-3   # 5e-2
 running_IAM = ActionModelPointMassContact(K=K, B=B, dt=dt, integrator='rk4')
-terminal_IAM = ActionModelPointMassContact(K=K, B=B, dt=dt, integrator='rk4')
+terminal_IAM = ActionModelPointMassContact(K=K, B=B, dt=0., integrator='rk4')
 
 # Initial conditions
 p0 = 0.               # reference position (contact point)

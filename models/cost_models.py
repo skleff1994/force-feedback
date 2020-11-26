@@ -96,6 +96,64 @@ class QuadCtrlRegCost:
         return l_x, l_u, l_xx, l_uu, l_ux 
 
 
+class CostSum:
+    '''
+    Sum of cost models, i.e. describes the cost function at one node (x,u) of the OCP 
+    '''
+    def __init__(self, model):
+        # Cost models
+        self.costs = []
+        # Dynamics model
+        self.model = model
+
+    def add_cost(self, cost):
+        '''
+        Add cost term (i.e. one of the above classes) to the cost function 
+        '''
+        self.costs.append(cost)
+
+    def calc(self, x, u=None):
+        '''
+        Evaluate the cost sum at node (x,u)
+        '''
+        value = 0.
+        if(u is None):
+            for cost in self.costs:
+                value += cost.calc(x) 
+        else:
+            for cost in self.costs:
+                value += cost.calc(x, u)
+        return value 
+
+    def calcDiff(self, x, u=None):
+        '''
+        Calculate partial derivatives of the cost sum at (x,u)
+        '''
+        # If terminal cost, skip derivatives w.r.t "u"
+        if(u is None):
+            l_x = np.zeros((self.model.nx, 1))
+            l_xx = np.zeros((self.model.nx, self.model.nx))
+            for cost in self.costs:
+                c_x, c_xx = cost.calcDiff(x)
+                l_x += c_x
+                l_xx += c_xx
+            return l_x, l_xx
+        # Otherwise take all derivatives
+        else:
+            l_x = np.zeros((self.model.nx, 1))
+            l_xx = np.zeros((self.model.nx, self.model.nx))
+            l_u = np.zeros((self.model.nu, 1))
+            l_ux = np.zeros((self.model.nu, self.model.nx))
+            l_uu = np.zeros((self.model.nu, self.model.nu))
+            for cost in self.costs:
+                c_x, c_u, c_xx, c_uu, c_ux = cost.calcDiff(x, u)
+                l_x += c_x
+                l_u += c_u
+                l_xx += c_xx
+                l_uu += c_uu
+                l_ux += c_ux
+            return l_x, l_u, l_xx, l_uu, l_ux
+
 # class QuadCost:
 #     '''
 #     Quadratic cost model to track a reference state + x/u reg

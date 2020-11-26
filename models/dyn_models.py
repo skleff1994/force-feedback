@@ -3,9 +3,10 @@
 # Date : 18.11.2020 
 # Copyright LAAS-CNRS, NYU
 
-# Collection dynamics models compatible with the custom DDP 
-# implementation of this package
-# (NOT compatible with Crocoddyl)
+# Collection dynamics model classes that are compatible with BOTH
+#   - custom DDP solver in ../core/ddp.py 
+#   - Crocoddyl
+# All environment classes below inherit from Croco IAM (follow the same template to add new models)
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,10 +15,12 @@ class PointMass:
     '''
     Dynamics model of point mass
     '''
-    def __init__(self, dt=0.01):
+    def __init__(self, dt=0.01, integrator='exact'):
         # Dimensins
         self.nx = 2
         self.nu = 1
+        # Default u 
+        self.u_none = np.zeros(self.nu)
         # Sampling time
         self.dt = dt
         # CT model
@@ -26,6 +29,8 @@ class PointMass:
         # DT model
         self.Ad = np.eye(self.nx) + self.dt*self.Ac
         self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
+        # Integration type
+        self.integrator = integrator
 
     def f(self, x, u):
         '''
@@ -37,7 +42,20 @@ class PointMass:
         '''
         DT dynamics [mandatory function]
         '''
-        return self.Ad.dot(x) + self.Bd.dot(u) 
+        # Euler step
+        if(self.integrator=='euler'):
+            xnext = x + self.f(x,u)*self.dt
+        # RK4 step 
+        if(self.integrator=='rk4'):
+            k1 = self.f(x, u) * self.dt
+            k2 = self.f(x + k1 / 2.0, u) * self.dt
+            k3 = self.f(x + k2 / 2.0, u) * self.dt
+            k4 = self.f(x + k3, u) * self.dt
+            xnext = x + (k1 + 2 * (k2 + k3) + k4) / 6
+        # Exact (default)
+        else:
+            xnext = self.Ad.dot(x) + self.Bd.dot(u) 
+        return xnext 
     
     def calcDiff(self, x, u):
         '''
@@ -94,7 +112,7 @@ class PointMassContact:
     '''
     Dynamics model of point mass with visco-elastic contact
     '''
-    def __init__(self, m=1, K=1000, dt=0.01):
+    def __init__(self, m=1, K=1000, dt=0.01, integrator='exact'):
         # Dimensins
         self.nx = 3
         self.nu = 1
@@ -109,6 +127,8 @@ class PointMassContact:
         # DT model
         self.Ad = np.eye(self.nx) + self.dt*self.Ac
         self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
+        # Integration type 
+        self.integrator = integrator
 
     def f(self, x, u):
         '''
@@ -120,18 +140,20 @@ class PointMassContact:
         '''
         DT dynamics [mandatory function]
         '''
-        # # Euler step
-        # xnext = x + self.f(x,u)*self.dt
-
+        # Euler step
+        if(self.integrator=='euler'):
+            xnext = x + self.f(x,u)*self.dt
         # RK4 step 
-        k1 = self.f(x, u) * self.dt
-        k2 = self.f(x + k1 / 2.0, u) * self.dt
-        k3 = self.f(x + k2 / 2.0, u) * self.dt
-        k4 = self.f(x + k3, u) * self.dt
-        xnext = x + (k1 + 2 * (k2 + k3) + k4) / 6
-
-        return xnext
-        # return self.Ad.dot(x) + self.Bd.dot(u) 
+        if(self.integrator=='rk4'):
+            k1 = self.f(x, u) * self.dt
+            k2 = self.f(x + k1 / 2.0, u) * self.dt
+            k3 = self.f(x + k2 / 2.0, u) * self.dt
+            k4 = self.f(x + k3, u) * self.dt
+            xnext = x + (k1 + 2 * (k2 + k3) + k4) / 6
+        # Exact (default)
+        else:
+            xnext = self.Ad.dot(x) + self.Bd.dot(u) 
+        return xnext 
 
     def calcDiff(self, xs, us):
         '''
@@ -144,7 +166,6 @@ class PointMassContact:
         for i in range(len(us)):
             f_x.append(self.Ad)
             f_u.append(self.Bd)
-        print(f_x[0])
         return f_x, f_u
 
     def rollout(self, x0, us):

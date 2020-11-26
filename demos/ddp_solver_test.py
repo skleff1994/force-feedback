@@ -1,16 +1,15 @@
-# Title : point_mass_sim.py
+# Title : ddp_solver_test.py
 # Author: Sebastien Kleff
 # Date : 18.11.2020 
 # Copyright LAAS-CNRS, NYU
-
-# simple point mass simulation with custom DDP solver 
+# Test custom DDP solver on point mass : offline trajectory generation + plots and animation
 
 import os.path
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
 
 from models.dyn_models import PointMass
-from models.cost_models import QuadCtrlRegCost, QuadTrackingRunningCost, QuadTrackingTerminalCost
+from models.cost_models import *
 from core.ddp import DDPSolver
 
 import numpy as np 
@@ -30,9 +29,16 @@ ddp.init_all(T)
 Q = np.eye(model.nx)
 R = np.eye(model.nu)
 x_ref = np.array([[1],[0]])
-ddp.add_running_cost(QuadTrackingRunningCost(model, x_ref, 1.*Q))
-ddp.add_terminal_cost(QuadTrackingTerminalCost(model, x_ref, 10.*Q))
-ddp.add_running_cost(QuadCtrlRegCost(model, 1e-3*R))
+
+# Running and terminal cost sums
+running_cost = CostSum(model)
+running_cost.add_cost(QuadTrackingRunningCost(model, x_ref, 1.*Q))  
+running_cost.add_cost(QuadCtrlRegCost(model, 1e-3*R))
+terminal_cost = CostSum(model, isTerminal=True)
+terminal_cost.add_cost(QuadTrackingTerminalCost(model, x_ref, 10.*Q))
+# Add to OCP 
+ddp.set_running_cost(running_cost)
+ddp.set_terminal_cost(terminal_cost)
 
 # Solve 
 ddp.solve()
@@ -40,7 +46,7 @@ ddp.solve()
 us = ddp.us
 xs = ddp.xs
 # X, U = model.rollout(x_0, us)
-# # model.plot_traj(X,U)
+# model.plot_traj(X,U)
 from utils import animatePointMass, plotPointMass
-animatePointMass(xs, sleep=10)
-# plotPointMass(xs, us)
+# animatePointMass(xs, sleep=10)
+plotPointMass(xs, us)
