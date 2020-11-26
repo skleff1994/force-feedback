@@ -3,7 +3,7 @@
 # Date : 18.11.2020 
 # Copyright LAAS-CNRS, NYU
 
-# Collection of Integrated Action Models (IAM) followikng Crocoddyl template
+# Collection of Integrated Action Models (IAM) following Crocoddyl template
 #   i.e. contains both the dynamics and the cost model 
 #        and IAM is separated from data
 # Directly usable with python interface of Crocoddyl 
