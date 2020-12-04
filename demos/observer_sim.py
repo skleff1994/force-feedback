@@ -20,7 +20,7 @@ from core.kalman_filter import KalmanFilter
 
 # Create dynamics model
 dt = 1e-2
-K = 100
+K = 1000
 B = 10.
 model = PointMassPartialObs(dt=dt, K=K, B=B, integrator='euler')
 # Running and terminal cost models
@@ -30,7 +30,7 @@ terminal_cost = CostSum(model)
 x_ref = np.array([0., 0.])
 running_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*np.eye(model.nx)))  
 running_cost.add_cost(QuadCtrlRegCost(model, .1*np.eye(model.nu)))
-terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*np.eye(model.nx)))
+terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 100.*np.eye(model.nx)))
   # IAMs for Crocoddyl
 running_IAM = ActionModelPM(model, running_cost, dt) 
 terminal_IAM = ActionModelPM(model, terminal_cost, 0.) 
@@ -56,8 +56,8 @@ U_real = np.array(ddp.us)
 # plotPointMass(X_real, U_real)
 
 # Create the filter 
-Q_cov = .001*np.eye(2) # Process noise cov
-R_cov = 0.1*np.eye(2)  # Measurement noise cov
+Q_cov = .01*np.eye(2) # Process noise cov
+R_cov = 0.01*np.eye(2)  # Measurement noise cov
 kalman = KalmanFilter(model, Q_cov, R_cov)
 
 # Add noise on DDP trajectory and filter it to test Kalman filter
@@ -72,7 +72,7 @@ P_cov.append(np.eye(2))
 X_hat.append(X_real[0])
 # Noise params
 mean = np.zeros(2)
-std = np.array([0.05, 5.])
+std = np.array([0.05, 100])
 for i in range(N):
     # Generate noisy force measurement 
       # Ideal visco-elastic force and real position

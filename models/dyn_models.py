@@ -244,7 +244,7 @@ class PointMassContact:
     DT model:  
       state transition : x(n+1) = Ad x(n) + Bd u(n)
     '''
-    def __init__(self, m=1, K=1, B=1., dt=0.01, integrator='euler'):
+    def __init__(self, m=1, K=1, B=1., p0=0., dt=0.01, integrator='euler'):
         # Dimensins
         self.nx = 3
         self.nu = 1
@@ -254,6 +254,8 @@ class PointMassContact:
         self.m = m
         self.K = K
         self.B = B
+        # Contact anchor point
+        self.p0 = p0
         # CT dynamics
         self.Ac = np.array([[0, 1, 0],
                             [0, 0, 1/self.m],
@@ -261,7 +263,7 @@ class PointMassContact:
         self.Bc = np.array([[0],
                             [1/self.m],
                             [-self.B/self.m]])
-        # DT model
+        # DT model # That's Euler
         self.Ad = np.eye(self.nx) + self.dt*self.Ac
         self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
         # Integration type 

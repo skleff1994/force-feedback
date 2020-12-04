@@ -50,7 +50,7 @@ def animatePointMass(xs, sleep=1):
     return anim
 
 
-def plotPointMass(xs, us, dt=1e-2):
+def plotPointMass(xs, us, dt=1e-2, ref=None):
     '''
     Plots state-control trajectories  (xs,us) of point mass or point mass in contact
     '''
@@ -77,6 +77,9 @@ def plotPointMass(xs, us, dt=1e-2):
         x3 = np.zeros(len(xs)) 
         for i in range(len(xs)):
             x3[i] = xs[i][2]
+    # Is there a reference to plot as well?
+    if(ref is not None):
+        with_ref = True
     # Create figs
     if(with_contact):
         fig, ax = plt.subplots(4,1)
@@ -84,11 +87,15 @@ def plotPointMass(xs, us, dt=1e-2):
         fig, ax = plt.subplots(3,1)
     # Plot position
     ax[0].plot(tspan, x1, 'b-', linewidth=3, label='p')
+    if(with_ref):
+        ax[0].plot(tspan, [ref[0]]*(T+1), 'k-.', linewidth=2, label='ref')
     ax[0].set_title('Position p', size=16)
     ax[0].set(xlabel='time (s)', ylabel='p (m)')
     ax[0].grid()
     # Plot velocity
     ax[1].plot(tspan, x2, 'b-', linewidth=3, label='v')
+    if(with_ref):
+        ax[1].plot(tspan, [ref[1]]*(T+1), 'k-.', linewidth=2, label='ref')
     ax[1].set_title('Velocity v', size=16)
     ax[1].set(xlabel='time (s)', ylabel='v (m/s)')
     ax[1].grid()
@@ -96,6 +103,8 @@ def plotPointMass(xs, us, dt=1e-2):
     if(with_contact):
         # Contact
         ax[2].plot(tspan, x3, 'b-', linewidth=3, label='lambda')
+        if(with_ref):
+            ax[2].plot(tspan, [ref[2]]*(T+1), 'k-.', linewidth=2, label='ref')
         ax[2].set_title('Contact force lambda', size=16)
         ax[2].set(xlabel='time (s)', ylabel='lmb (N)')
         ax[2].grid()
