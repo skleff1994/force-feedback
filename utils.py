@@ -80,6 +80,8 @@ def plotPointMass(xs, us, dt=1e-2, ref=None):
     # Is there a reference to plot as well?
     if(ref is not None):
         with_ref = True
+    else:
+        with_ref = False
     # Create figs
     if(with_contact):
         fig, ax = plt.subplots(4,1)

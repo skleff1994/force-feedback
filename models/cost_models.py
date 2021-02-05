@@ -35,6 +35,7 @@ class QuadTrackingCost:
         l_xx = self.Q
         l_uu = np.zeros((self.model.nu, self.model.nu))
         l_ux = np.zeros((self.model.nu, self.model.nx))
+        # print("cost_model.l_x = ", l_x)
         return l_x, l_u, l_xx, l_uu, l_ux 
 
 
@@ -103,9 +104,12 @@ class CostSum:
         l_uu = np.zeros((self.model.nu, self.model.nu))
         for cost in self.costs:
             c_x, c_u, c_xx, c_uu, c_ux = cost.calcDiff(x, u)
+            # print("C_X = ",c_x)
             l_x += c_x 
+            # print("L_X = ", l_x)
             l_u += c_u
             l_xx += c_xx
             l_uu += c_uu
             l_ux += c_ux
+        # print("cost_model_sum.l_x = ", l_x)
         return l_x, l_u, l_xx, l_uu, l_ux

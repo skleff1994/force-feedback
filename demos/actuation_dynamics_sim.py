@@ -20,8 +20,8 @@ from utils import animatePointMass, plotPointMass
 
 # Create dynamics model
 dt = 5e-2
-K = 10
-B = 1
+K = 1e6
+B = 1e3
 model = PointMassContact(K=K, B=B, dt=dt, p0=0., integrator='euler')
 p0 = model.p0 
 
@@ -35,8 +35,8 @@ lmb_ref = -K*(p_ref - p0) - B*v_ref
 x_ref = np.array([p_ref, v_ref, lmb_ref])
 print("REF. ORIGIN = ", x_ref)
 Q = np.eye(model.nx)
-# running_cost.add_cost(QuadTrackingCost(model, x_ref, 100.*Q))  
-# running_cost.add_cost(QuadCtrlRegCost(model, 0.00001*np.eye(model.nu)))
+# running_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*Q))  
+# running_cost.add_cost(QuadCtrlRegCost(model, 1.*np.eye(model.nu)))
 terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*Q))
   # IAMs for Crocoddyl
 running_IAM = ActionModelPM(model, running_cost, dt) 
@@ -140,3 +140,29 @@ plotPointMass(X_real, U_real, ref=x_ref)
 # for i in range(N):
 
 #   X,U = 
+
+
+# contactPhase = IntegratedActionModelLPF(contactDifferentialModel, dt)
+# contactPhase.set_alpha(f_c)
+# contactPhase.u_lb = - robot_model.effortLimit
+# contactPhase.u_ub = robot_model.effortLimit
+
+# and then as usual you could create the problem with the IAM
+
+# problem_with_contact = crocoddyl.ShootingProblem(x0,
+#                                                 [contactPhase] * contactNodes + [runningModel] * flyingNodes,
+#                                                 terminalModel)
+
+# In the code the state in the IAM is the augmented one, so u is the unfiltered torque (which is only bounded inside the actuation limits either with a barrier cost or with the projection of the BoxFDDP), while the last part of the state is the torque with the filtering
+
+# To work more confortably with this change of notation I was using another class to just select the "real" torque that goes to the system
+
+# class extractDDPLPF():
+#         def __init__(self, ddp, nu):
+#                 self.xs = np.array(ddp.xs)[:,:-nu]
+#                 self.us = np.array(ddp.xs)[1:,-nu:]
+#                 self.w = ddp.us
+#                 self.robot_model = ddp.robot_model
+#                 self.problem = ddp.problem
+
+# ddpLPF = extractDDPLPF(ddp, actuation.nu)

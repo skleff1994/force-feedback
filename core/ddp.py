@@ -61,7 +61,6 @@ class DDPSolver:
         '''
         self.terminal_cost = terminal_cost
 
-
     def solve(self, maxiter=50, tol=1e-4):
         '''
         Main DDP loop: alternate between backward and forward pass
@@ -83,7 +82,6 @@ class DDPSolver:
         print("Converged in "+str(i)+" iterations ("+str(end-start)+" s).")
         print("Optimal cost = "+str(float(self.cost)))
         return self.xs, self.us
-
 
     def backward_pass(self):
         '''
@@ -126,7 +124,6 @@ class DDPSolver:
             self.k_ff.insert(0, k_ff)
             self.k_fb.insert(0, k_fb)
  
-
     def forward_pass(self, tol=0.):
         '''
         Rollout from x0 using gains computed in the backward pass
@@ -187,7 +184,6 @@ class DDPSolver:
     #             ls_count += 1
     #     self.xs = X_new
     #     self.us = U_new 
-
 
     def plot(self):
         '''

@@ -13,15 +13,23 @@ from pinocchio.visualize import GepettoVisualizer
 urdf_path = os.path.join('/home/skleff/force-feedback/demos', 'point_mass.urdf')
 mesh_dir = '/home/skleff/force-feedback/demos'
 # pin_robot = RobotWrapper(pin.buildModelFromUrdf(urdf_path))
-model, collision_model, visual_model = pin.buildModelsFromUrdf(urdf_path, '/home/skleff/force-feedback/demos', pin.JointModelFreeFlyer())
+model,_,_ = pin.buildModelsFromUrdf(urdf_path, '/home/skleff/force-feedback/demos')
 
 # # Pinrobot wrapper
 from pinocchio.robot_wrapper import RobotWrapper
-# pin_robot = RobotWrapper(model)
+pin_robot = RobotWrapper(model)
+print(model)
+print(pin_robot)
 # print(pin_robot.model)
 # id_endeff = pin_robot.model.getFrameId('contact')
 # nq = pin_robot.model.nq 
 # nv = pin_robot.model.nv
+##########
+# VIEWER #
+#########
+pin_robot.initViewer(loadModel=True)
+pin_robot.display(pin.neutral(model))
+
 
 # simulation loop (pinocchio + )
 N = 10
@@ -38,12 +46,10 @@ for i in range(N):
     # Get new state
 
     # Increment
+    pass
 
 
-# Visualize in gepetto viewer
-viz = GepettoVisualizer(model, collision_model, visual_model)
-viz.initViewer()
 
-# Display a robot configuration.
-q0 = pin.neutral(model)
-viz.display(q0)
+# # Display a robot configuration.
+# q0 = pin.neutral(model)
+# viz.display(q0)

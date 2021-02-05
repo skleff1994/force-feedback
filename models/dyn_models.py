@@ -350,6 +350,203 @@ class PointMassContact:
         plt.show()
 
 
+class PointMassLPF:
+    '''
+    Dynamics model of point mass in visco-elastic contact
+    Variables: 
+      State   : x = position, velocity, torque 
+      Control : u = torque derivative
+      Output  : force
+    CT model:
+      state transition : x'(t) = A x(t) + B u(t)
+    DT model:  
+      state transition : x(n+1) = Ad x(n) + Bd u(n)
+    '''
+
+# import numpy as np
+# from matplotlib import pyplot as plt
+
+# # these packages for animating the robot env
+# import IPython
+# import matplotlib.pyplot as plt
+# import matplotlib.animation as animation
+# from matplotlib.animation import FuncAnimation
+
+
+# class TwoDOFManipulator:
+#     '''
+#     Dynamics model of 2-DoF manipulator 
+#     Variables: 
+#       State   : x = joint positions, joint velocities = (q1, q2, dq1, dq2)
+#       Control : u = joint torques = (tau1, tau2)
+#     CT model:
+#       state transition : x'(t) = A x(t) + B u(t)
+#     DT model:  
+#       state transition : x(n+1) = Ad x(n) + Bd u(n)
+#     '''
+#     def __init__(self, l1=0.1, l2=0.1, m1=0.5, m2=0.5, dt=0.01, integrator='euler'):
+#         # Dimensions
+#         self.nx = 4
+#         self.nu = 2
+#         # gravity vector
+#         self.g = 9.81 
+#         # Links lengths, masses and inertias (around CoM axis and rotor axis)
+#         self.l1 = l1
+#         self.l2 = l2
+#         self.m1 = m1
+#         self.m2 = m2
+#         self.Il1 = self.m1*(self.l1**2)/12.0 
+#         self.Il2 = self.m2*(self.l2**2)/12.0 
+#         self.Im1 = 4*self.Il1 
+#         self.Im2 = 4*self.Il2 
+#         # Integrator
+#         self.dt = dt 
+#         self.integrator = integrator
+        
+#     def f(self, x, u):
+#         '''
+#         Compute the forward dynamics qddot = M^{-1}(tau-h) = b
+#         Input:
+#             x : state
+#             u : control input
+#         Output:
+#             dxdt : acceleration
+#         '''
+#         # Extract vars for clarity
+#         q1, q2, dq1, dq2, tau1, tau2 = x[0], x[1], x[2], x[3], u[0], u[1]        
+#         # Compute generalized inertia matrix (LHS)
+#         A = np.zeros((2, 2))
+#         A[0,0] = self.Im1 + self.m2*self.l1**2 + self.Im2 + self.m2*self.l1*self.l2*np.cos(q2)
+#         A[0,1] = self.Im2 + self.m2*self.l1*self.l2*np.cos(q2)/2.0
+#         A[1,0] = self.Im2 + self.m2*self.l1*self.l2*np.cos(q2)/2.0
+#         A[1,1] = self.Im2
+#         # Compute gravity and coriolis (RHS)
+#         b = np.zeros(2)
+#         b[0] = tau1 + self.m2*self.l1*self.l2*dq1*dq2*np.sin(q2) + \
+#                     self.m2*self.l1*self.l2*(dq2**2)*np.sin(q2)/2.0 - self.m2*self.l2*self.g*np.cos(q1+q2)/2.0 \
+#                     - (self.m1*self.l1/2.0 + self.m2*self.l1)*self.g*np.cos(q1)
+        
+#         b[1] = tau2 - self.m2*self.l1*self.l2*(dq1**2)*np.sin(q2)/2.0 - self.m2*self.l2*self.g*np.cos(q1+q2)/2.0
+#         # Forward dynamics (invert A)
+#         A_inv = np.zeros((2,2))
+#         A_inv[0,0] = A[1, 1]
+#         A_inv[1,1] = A[0, 0]
+#         A_inv[0,1] = -A[0,1]
+#         A_inv[1,0] = -A[1,0]
+#         A_inv = (1/np.linalg.det(A))*A_inv
+#         # Acceleration
+#         dxdt = np.zeros(self.nx)
+#         dxdt[0] = dq1
+#         dxdt[1] = dq2
+#         dxdt[2:] = np.matmul(A_inv, b.T)
+#         return dxdt
+    
+#     def calc(self, x, u):
+#         '''
+#         DT dynamics [mandatory function] 
+#         '''
+#         # Euler step
+#         if(self.integrator=='euler'):
+#             xnext = x + self.f(x,u)*self.dt
+#         # RK4 step 
+#         if(self.integrator=='rk4'):
+#             k1 = self.f(x, u) * self.dt
+#             k2 = self.f(x + k1 / 2.0, u) * self.dt
+#             k3 = self.f(x + k2 / 2.0, u) * self.dt
+#             k4 = self.f(x + k3, u) * self.dt
+#             xnext = x + (k1 + 2 * (k2 + k3) + k4) / 6
+#         # Exact (default)
+#         else:
+#             raise Exception('Unknown integrator ! Please use "euler" or "rk4"')
+#         return xnext 
+    
+#     def calcDiff(self, x, u):
+#         '''
+#         Get partial derivatives f_x, f_u at (x,u)
+#         '''
+#         f_x = np.zeros((self.nx, self.nx))
+#         f_u = np.zeros((self.nu, self.nx)) 
+#         # f_x = 
+#         return f_x, f_u
+    
+#     def animate(self, freq = 25):
+        
+#         sim_data = self.sim_data[:,::freq]
+
+#         fig = plt.figure()
+#         ax = plt.axes(xlim=(-self.l1 - self.l2 -1, self.l1 + self.l2 + 1), ylim=(-self.l1 - self.l2 -1, self.l1 + self.l2 + 1))
+#         text_str = "Two Dof Manipulator Animation"
+#         arm1, = ax.plot([], [], lw=4)
+#         arm2, = ax.plot([], [], lw=4)
+#         base, = ax.plot([], [], 'o', color='black')
+#         joint, = ax.plot([], [], 'o', color='green')
+#         hand, = ax.plot([], [], 'o', color='pink')
+        
+#         def init():
+#             arm1.set_data([], [])
+#             arm2.set_data([], [])
+#             base.set_data([], [])
+#             joint.set_data([], [])
+#             hand.set_data([], [])
+            
+#             return arm1, arm2, base, joint, hand
+        
+#         def animate(i):
+#             theta1_t = sim_data[:,i][0]
+#             theta2_t = sim_data[:,i][1]
+            
+#             joint_x = self.l1*np.cos(theta1_t)
+#             joint_y = self.l1*np.sin(theta1_t)
+            
+#             hand_x = joint_x + self.l2*np.cos(theta1_t + theta2_t)
+#             hand_y = joint_y + self.l2*np.sin(theta1_t + theta2_t)
+            
+#             base.set_data([0, 0])
+#             arm1.set_data([0,joint_x], [0,joint_y])
+#             joint.set_data([joint_x, joint_y])
+#             arm2.set_data([joint_x, hand_x], [joint_y, hand_y])
+#             hand.set_data([hand_x, hand_y])
+
+#             return base, arm1, joint, arm2, hand
+        
+#         props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+#         ax.text(0.05, 0.95, text_str, transform=ax.transAxes, fontsize=15,
+#         verticalalignment='top', bbox=props)
+#         ax.grid()
+#         anim = FuncAnimation(fig, animate, init_func=init,
+#                                        frames=np.shape(sim_data)[1], interval=25, blit=True)
+
+#         plt.close(fig)
+#         plt.close(anim._fig)
+#         IPython.display.display_html(IPython.core.display.HTML(anim.to_html5_video()))
+
+#     def plot(self):
+#         '''
+#         This function plots the joint positions, velocities and torques
+#         '''
+        
+#         fig, axs = plt.subplots(3,1, figsize = (10, 10))
+#         axs[0].plot((180/np.pi)*self.sim_data[0], label = 'joint position_1')
+#         axs[0].plot((180/np.pi)*self.sim_data[1], label = 'joint position_2')
+#         axs[0].grid()
+#         axs[0].legend()
+#         axs[0].set_ylabel("degrees")
+
+#         axs[1].plot(self.sim_data[2], label = 'joint velocity_1')
+#         axs[1].plot(self.sim_data[3], label = 'joint velocity_2')
+#         axs[1].grid()
+#         axs[1].legend()
+#         axs[1].set_ylabel("rad/sec")
+    
+#         axs[2].plot(self.sim_data[4,:-1], label = 'torque_1')
+#         axs[2].plot(self.sim_data[5,:-1], label = 'torque_2')
+#         axs[2].grid()
+#         axs[2].legend()
+#         axs[2].set_ylabel("Newton/(Meter Second)")
+    
+#         plt.show()
+
+
 
 # class CartPole:
 #     '''

@@ -10,7 +10,6 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
 
 from models.dyn_models import PointMass
-from models.cost_models import QuadCtrlRegCost, QuadTrackingRunningCost, QuadTrackingTerminalCost
 from core.ddp import DDPSolver
 
 import numpy as np 
