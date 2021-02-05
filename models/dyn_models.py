@@ -9,6 +9,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class PointMass:
     '''
     Discretized dynamics model of the point mass (1D double integrator)
@@ -362,6 +363,113 @@ class PointMassLPF:
     DT model:  
       state transition : x(n+1) = Ad x(n) + Bd u(n)
     '''
+    def __init__(self, m=1, K=1, B=1., p0=0., dt=0.01, integrator='euler'):
+        # Dimensins
+        self.nx = 3
+        self.nu = 1
+        # Sampling time
+        self.dt = dt
+        # Mass and stiffness
+        self.m = m
+        self.K = K
+        self.B = B
+        # Contact anchor point
+        self.p0 = p0
+        # CT dynamics
+        self.Ac = np.array([[0, 1, 0],
+                            [0, 0, 1/self.m],
+                            [0, -self.K, -self.B/self.m]])
+        self.Bc = np.array([[0],
+                            [1/self.m],
+                            [-self.B/self.m]])
+        # DT model # That's Euler
+        self.Ad = np.eye(self.nx) + self.dt*self.Ac
+        self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
+        # Integration type 
+        self.integrator = integrator
+
+    def f(self, x, u):
+        '''
+        CT dynamics [mandatory function]
+        '''
+        return self.Ac.dot(x) + self.Bc.dot(u)
+
+    def calc(self, x, u):
+        '''
+        DT dynamics [mandatory function]
+        '''
+        # Euler step
+        if(self.integrator=='euler'):
+            xnext = x + self.f(x,u)*self.dt
+        # RK4 step 
+        if(self.integrator=='rk4'):
+            k1 = self.f(x, u) * self.dt
+            k2 = self.f(x + k1 / 2.0, u) * self.dt
+            k3 = self.f(x + k2 / 2.0, u) * self.dt
+            k4 = self.f(x + k3, u) * self.dt
+            xnext = x + (k1 + 2 * (k2 + k3) + k4) / 6
+        # Exact (default)
+        else:
+            xnext = self.Ad.dot(x) + self.Bd.dot(u) 
+        return xnext 
+    
+    def calcDiff(self, x, u):
+        '''
+        Get partial derivatives f_x, f_u at (x,u)
+        '''
+        return self.Ad, self.Bd
+
+    def rollout(self, x0, us):
+        '''
+        Rollout from x0 using us 
+        '''
+        N = len(us)
+        X = np.zeros((N+1, self.nx))
+        U = np.zeros((N, self.nu))
+        X[0,:] = x0.T
+        for i in range(N):
+            U[i,:] = us[i].T
+            X[i+1,:] = self.calc(X[i,:], U[i,:])
+        return X, U
+
+    def plot_traj(self, X, U):
+        '''
+        Plot trajectories X, U
+        '''
+        N = np.shape(U)[0]
+        p = X[:,:self.nu]
+        v = X[:,self.nu:-1]
+        f = X[:,-1:]
+        u = U
+        # Create time spans for X and U
+        tspan_x = np.linspace(0, N*self.dt, N+1)
+        tspan_u = np.linspace(0, N*self.dt, N)
+        # Create figs and subplots
+        fig_x, ax_x = plt.subplots(1, 3)
+        fig_u, ax_u = plt.subplots(1, 1)
+        # Plot joints
+        ax_x[0].plot(tspan_x, p, 'b-', label='pos')
+        ax_x[0].set(xlabel='t (s)', ylabel='p (m)')
+        ax_x[1].plot(tspan_x, v, 'g-', label='vel')
+        ax_x[1].set(xlabel='t (s)', ylabel='v (m/s)')
+        ax_x[2].plot(tspan_x, f, 'r-', label='force')
+        ax_x[2].set(xlabel='t (s)', ylabel='f (N)')
+        ax_u.plot(tspan_u, u, 'k-', label='control') 
+        ax_u.set(xlabel='t (s)', ylabel='u (N)')
+        # Legend
+        # handles_x, labels_x = ax_x[0]get_legend_handles_labels()
+        # fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+        fig_x.legend(loc='upper right', prop={'size': 16})
+        # handles_u, labels_u = ax_u.get_legend_handles_labels()
+        # fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
+        fig_u.legend(loc='upper right', prop={'size': 16})
+        # Titles
+        fig_x.suptitle('State trajectories', size=16)
+        fig_u.suptitle('Control trajectory', size=16)
+        plt.show()
+
+
+
 
 # import numpy as np
 # from matplotlib import pyplot as plt
