@@ -33,7 +33,7 @@ x_ref = np.array([0., 0., 0.])
 print("REF. ORIGIN = ", x_ref)
 Q = np.eye(model.nx)
 running_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*Q))  
-running_cost.add_cost(QuadCtrlRegCost(model, 0.01*np.eye(model.nu)))
+running_cost.add_cost(QuadCtrlRegCost(model, 0.001*np.eye(model.nu)))
 terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*Q))
   # IAMs for Crocoddyl
 running_IAM = ActionModel(model, running_cost) 
@@ -43,7 +43,7 @@ terminal_IAM = ActionModel(model, terminal_cost)
 x0 = np.matrix([1., 0., 0.]).T
 u0 = np.matrix([0.])
 print("Initial state = ", x0)
-T = 100
+T = 200
 problem = crocoddyl.ShootingProblem(x0, [running_IAM]*T, terminal_IAM)
 print(" Initial guess = x0 and u0 = quasiStatic(x0) ")
 xs0 = [x0]*(T+1)
@@ -57,6 +57,8 @@ X_real = np.array(ddp.xs)
 U_real = np.array(ddp.us)
 # Plot result
 model.plot_traj(X_real, U_real, ref=x_ref)
+
+# What about force ?
 
 # contactPhase = IntegratedActionModelLPF(contactDifferentialModel, dt)
 # contactPhase.set_alpha(f_c)

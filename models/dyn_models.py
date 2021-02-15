@@ -351,6 +351,14 @@ class PointMassContact:
         fig_u.suptitle('Control trajectory', size=16)
         plt.show()
 
+    def get_residual(self, X, p0):
+        '''
+        Compute integration residual (force)
+        '''
+        res = np.zeros(np.shape(X)[0])
+        for i in range(np.shape(X)[0]):
+            res[i] = X[i,2] + self.K*(X[i,0]-p0) + self.B*X[i,1]
+        return res
 
 class PointMassLPF:
     '''
