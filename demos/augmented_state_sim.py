@@ -14,7 +14,7 @@ import crocoddyl
 
 from models.dyn_models import PointMassContact
 from models.cost_models import *
-from models.croco_IAMs import ActionModelPM
+from models.croco_IAMs import ActionModel
 
 from utils import animatePointMass, plotPointMass
 
@@ -39,8 +39,8 @@ Q = np.eye(model.nx)
 # running_cost.add_cost(QuadCtrlRegCost(model, 0.00001*np.eye(model.nu)))
 terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*Q))
   # IAMs for Crocoddyl
-running_IAM = ActionModelPM(model, running_cost, dt) 
-terminal_IAM = ActionModelPM(model, terminal_cost, 0.) 
+running_IAM = ActionModel(model, running_cost) 
+terminal_IAM = ActionModel(model, terminal_cost) 
 # Define shooting problem
 # Initial conditions
 p = 1.                # initial position

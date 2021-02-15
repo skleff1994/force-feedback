@@ -14,7 +14,7 @@ import crocoddyl
 from models.dyn_models import PointMassPartialObs
 from models.cost_models import *
 
-from models.croco_IAMs_new import ActionModelPM
+from models.croco_IAMs import ActionModel
 from utils import animatePointMass, plotPointMass, plotFiltered
 from core.kalman_filter import KalmanFilter
 
@@ -32,8 +32,8 @@ running_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*np.eye(model.nx)))
 running_cost.add_cost(QuadCtrlRegCost(model, .1*np.eye(model.nu)))
 terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 100.*np.eye(model.nx)))
   # IAMs for Crocoddyl
-running_IAM = ActionModelPM(model, running_cost, dt) 
-terminal_IAM = ActionModelPM(model, terminal_cost, 0.) 
+running_IAM = ActionModel(model, running_cost) 
+terminal_IAM = ActionModel(model, terminal_cost) 
 # Define shooting problem
 # Initial conditions
 p0 = 0.               # reference position (contact point)
