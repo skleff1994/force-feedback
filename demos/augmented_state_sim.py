@@ -22,9 +22,9 @@ from utils import animatePointMass, plotPointMass
 # MODEL #
 #########
 # Create dynamics model
-dt = 1e-2
-K = 10
-B = 1
+dt = 1e-3
+K = 10.
+B = 2
 model = PointMassContact(K=K, B=B, dt=dt, p0=0., integrator='euler')
 p0 = model.p0 
 # Running and terminal cost models
@@ -36,10 +36,10 @@ v_ref = 0.
 lmb_ref = -K*(p_ref - p0) - B*v_ref
 x_ref = np.array([p_ref, v_ref, lmb_ref])
 print("REF. ORIGIN = "+str(x_ref))
-Q = np.eye(model.nx)
-# running_cost.add_cost(QuadTrackingCost(model, x_ref, .01*Q))  
-running_cost.add_cost(QuadCtrlRegCost(model, 0.00001*np.eye(model.nu)))
-terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 10.*Q))
+# running_cost.add_cost(QuadTrackingCost(model, np.zeros(3), 1e-4*np.eye(model.nx)))
+# running_cost.add_cost(QuadTrackingCost(model, x_ref, .1*np.eye(model.nx)))    
+running_cost.add_cost(QuadCtrlRegCost(model, 1e-2*np.eye(model.nu)))
+terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 10.*np.eye(model.nx)))
   # IAMs for Crocoddyl
 running_IAM = ActionModel(model, running_cost) 
 terminal_IAM = ActionModel(model, terminal_cost) 
@@ -96,8 +96,9 @@ U_real = np.array(ddp.us)
 # MPC #
 #######
 # Parameters
-T_tot = .1
-plan_freq = 1000                      # MPC re-planning frequency (Hz)
+maxit=2
+T_tot = 2.
+plan_freq = 500                      # MPC re-planning frequency (Hz)
 ctrl_freq = 1000                         # Control - simulation - frequency (Hz)
 N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
 N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved during the simulation
@@ -109,60 +110,56 @@ X_des = np.zeros((N_tot+1, nx))       # Desired states
 U_des = np.zeros((N_tot, nu))         # Desired controls 
 X_pred = np.zeros((N_p, N_h+1, nx))   # MPC predictions (state)
 U_pred = np.zeros((N_p, N_h, nu))     # MPC predictions (control)
-
 # Replan counter
 nb_replan = 0
-
 # Measure initial state from simulation environment
 X_mea[0, :] = list(x0)
 X_des[0, :] = list(x0)
-
+# SIMULATION LOOP
 # Simulation loop (at control rate)
 for i in range(N_tot): 
   print("  ")
-  print("Sim step "+str(0)+"/"+str(N_tot))
+  print("Sim step "+str(i)+"/"+str(N_tot))
   # Solve OCP if we are in a planning cycle
-  if(0%int(ctrl_freq/plan_freq) == 0):
+  if(i%int(ctrl_freq/plan_freq) == 0):
     print("  Replan step "+str(nb_replan)+"/"+str(N_p))
     # Reset problem to measured state 
     # print("    from state "+str(X_mea[0, :]))
-    ddp.problem.x0 = X_mea[0, :]
-    xs_init = [ddp.problem.x0]*(N_h+1)
-    us_init = problem.quasiStatic(xs_init[:-1])
-    ddp.solve(xs_init, us_init, 1)
+    ddp.problem.x0 = X_mea[i, :]
+    xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
+    xs_init[0] = X_mea[i, :]
+    us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
+    ddp.solve(xs_init, us_init, maxit, False)
     # Record trajectories
     X_pred[nb_replan, :, :] = np.array(ddp.xs)
     U_pred[nb_replan, :, :] = np.array(ddp.us)
-    # print(X_pred[nb_replan, :, :])
     # Extract 1st control and 2nd state
     u_des = U_pred[nb_replan, 0, :] 
     x_des = X_pred[nb_replan, 1, :]
     # Increment replan counter
     nb_replan += 1
   # Record and apply the 1st control
-  U_des[0, :] = u_des
+  U_des[i, :] = u_des
   # Measure new state from simulation 
-  X_mea[0+1,:] = model.calc(X_mea[0,:] , u_des) #+ np.random.rand(3)
+  X_mea[i+1,:] = model.calc(X_mea[i,:] , u_des) 
   # Record desired state
-  X_des[0+1, :] = x_des
+  X_des[i+1, :] = x_des
 
-# model.plot_traj(X_mea, U_des)
 
 # GENERATE NICE PLOT OF SIMULATION
 with_predictions = True
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
+import matplotlib
 # Time step duration of the control loop
 dt_ctrl = float(1./ctrl_freq)
 # Time step duration of planning loop
 dt_plan = float(1./plan_freq)
-
 # Joints & torques
     # State predictions (MPC)
 q_pred = X_pred[:,:,:nq]
 v_pred = X_pred[:,:,nv:]
 u_pred = U_pred[:,:,:]
-
     # State measurements (PyBullet)
 q_mea = X_mea[:,:nq]
 v_mea = X_mea[:,nv:]
@@ -171,20 +168,16 @@ q_des = X_des[:,:nq]
 v_des = X_des[:,nv:]
     # 'Desired' control = interpolation of DDP ff torques 
 u_des = U_des
-
 # Create time spans for X and U
 tspan_x = np.linspace(0, T_tot, N_tot+1)
 tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)
-
 # Create figs and subplots
 fig_x, ax_x = plt.subplots(nq, 2)
 fig_u, ax_u = plt.subplots(nq, 1)
-
 # Extract state predictions of 0^th joint
 q_pred_i = q_pred[:,:,0]
 v_pred_i = v_pred[:,:,0]
 u_pred_i = u_pred[:,:,0]
-import matplotlib
 # print(u_pred_i[0,0])
 if(with_predictions):
   # For each planning step in the trajectory
@@ -226,42 +219,29 @@ if(with_predictions):
     ax_x[0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
     ax_x[1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
     ax_u.scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
-
 # Desired joint position (interpolated from prediction)
 ax_x[0].plot(tspan_x, q_des[:,0], 'b-', label='Desired')
 # Measured joint position (PyBullet)
 ax_x[0].plot(tspan_x, q_mea[:,0], 'r-', label='Measured')
 ax_x[0].set(xlabel='t (s)', ylabel='$q_{0}$ (rad)')
 ax_x[0].grid()
-
 # Desired joint velocity (interpolated from prediction)
 ax_x[1].plot(tspan_x, v_des[:,0], 'b-', label='Desired')
 # Measured joint velocity (PyBullet)
 ax_x[1].plot(tspan_x, v_mea[:,0], 'r-', label='Measured')
 ax_x[1].set(xlabel='t (s)', ylabel='$v_{0}$ (rad/s)')
 ax_x[1].grid()
-
 # Desired joint torque (interpolated feedforward)
 ax_u.plot(tspan_u, u_des, 'b-', label='Desired (ff)')
-# Total
-# ax_u[0].plot(tspan_u, u_mea, 'r-', label='Measured (ff+fb)') 
-# ax_u[0].plot(tspan_u[0], u_mea[0,0], 'co', label='Initial')
-# print(" U0 mea plotted = "+str(u_mea[0,0]))
-# ax_u[0].plot(tspan_u, u_mea[:,0]-u_des[:,0], 'g-', label='Riccati (fb)')
-# Total torque applied
 ax_u.set(xlabel='t (s)', ylabel='$u_{0}$ (Nm)')
 ax_u.grid()
-
 # Legend
 handles_x, labels_x = ax_x[0].get_legend_handles_labels()
 fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-
 handles_u, labels_u = ax_u.get_legend_handles_labels()
 fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
-
 fig_x.suptitle('Joint trajectories: des. vs sim. (DDP-based MPC)', size=16)
 fig_u.suptitle('Joint torques: des. vs sim. (DDP-based MPC)', size=16)
-
 plt.show() 
 
 
