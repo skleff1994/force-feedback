@@ -183,6 +183,7 @@ class ActionModelPointMassObserver(crocoddyl.ActionModelAbstract):
         # Initialize abstract model
         crocoddyl.ActionModelAbstract.__init__(self, crocoddyl.StateVector(2), 1, 5) 
         self.nx = 2
+        self.ny = 2
         # Must be defined for Croco
         self.unone = np.zeros(self.nx)
         self.xnone = np.zeros(self.nu)
