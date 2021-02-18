@@ -87,7 +87,7 @@ U = np.array(ddp.us)
 
 # TEST FILTERING
 # Create the filter 
-Q_cov = .01*np.eye(2)   # Process noise cov
+Q_cov = .1*np.eye(2)   # Process noise cov
 R_cov = 0.01*np.eye(2)  # Measurement noise cov
 kalman = KalmanFilter(running_model, Q_cov, R_cov)
 # Observation model (spring-damper )
@@ -115,6 +115,7 @@ X_hat[0,:] = X[0, :]
 mean = np.zeros(2)
 std = np.array([0.05, N_h])
 for i in range(N_h):
+    print("Step "+str(i)+"/"+str(N_h))
     # Generate noisy force measurement 
       # Ideal visco-elastic force and real position
     lmb = -K*(X[i,0]- 0.) - B*X[i,1]
@@ -136,23 +137,21 @@ dV_dP = np.vstack(( np.array([[K_gain[i][1,0] for i in range(N_h)]]).transpose()
 dV_dF = np.vstack(( np.array([[K_gain[i][1,1] for i in range(N_h)]]).transpose())) 
 
 # Norms
-print("dP_dP Kalman gain norm : ", np.linalg.norm(dP_dP))
-print("dP_dF Kalman gain norm : ", np.linalg.norm(dP_dF))
-print("dV_dP Kalman gain norm : ", np.linalg.norm(dV_dP))
-print("dV_dF Kalman gain norm : ", np.linalg.norm(dV_dF))
+# print("dP_dP Kalman gain norm : ", np.linalg.norm(dP_dP))
+# print("dP_dF Kalman gain norm : ", np.linalg.norm(dP_dF))
+# print("dV_dP Kalman gain norm : ", np.linalg.norm(dV_dP))
+# print("dV_dF Kalman gain norm : ", np.linalg.norm(dV_dF))
 
 
 # Plot results 
 import matplotlib.pyplot as plt
 # Extract trajectories and reshape
-print(X_hat)
 tspan = np.linspace(0, N_h*dt, N_h+1)
 Y_mea = np.array(Y_mea).reshape((N_h, ny))
 X_hat = np.array(X_hat).reshape((N_h+1, nx))
 X = np.array(X).reshape((N_h+1, nx))
 # Create fig
 fig, ax = plt.subplots(3,1)
-print( X_hat[:,0])
 # Plot position
 ax[0].plot(tspan[:N_h], Y_mea[:,0], 'b-', linewidth=2, alpha=.5, label='Measured')
 ax[0].plot(tspan, X_hat[:,0], 'r-', linewidth=3, alpha=.8, label='Estimated')
