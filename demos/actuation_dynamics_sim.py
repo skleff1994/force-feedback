@@ -1,4 +1,4 @@
-# Title : augmented_state_sim.py
+# Title : actuation_dynamics_sim.py
 # Author: Sebastien Kleff
 # Date : 18.11.2020 
 # Copyright LAAS-CNRS, NYU
@@ -19,7 +19,7 @@ from models.croco_IAMs import ActionModel
 from utils import animatePointMass, plotPointMass
 
 # Create dynamics model
-dt = 5e-3
+dt = 1e-2
 model = PointMassLPF(dt=dt, k=.5)
 # Test LPF
 # X,U = model.rollout(np.array([0,0,0]), np.ones(100))
@@ -33,7 +33,7 @@ x_ref = np.array([0., 0., 0.])
 print("REF. ORIGIN = ", x_ref)
 Q = np.eye(model.nx)
 # running_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*Q))  
-running_cost.add_cost(QuadCtrlRegCost(model, 0.0001*np.eye(model.nu)))
+# running_cost.add_cost(QuadCtrlRegCost(model, 0.0001*np.eye(model.nu)))
 terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*Q))
   # IAMs for Crocoddyl
 running_IAM = ActionModel(model, running_cost) 
@@ -43,7 +43,7 @@ terminal_IAM = ActionModel(model, terminal_cost)
 x0 = np.matrix([1., 0., 0.]).T
 u0 = np.matrix([0.])
 print("Initial state = ", x0)
-N_h = 50
+N_h = 100
 problem = crocoddyl.ShootingProblem(x0, [running_IAM]*N_h, terminal_IAM)
 print(" Initial guess = x0 and u0 = quasiStatic(x0) ")
 xs0 = [x0]*(N_h+1)
@@ -64,8 +64,8 @@ U_real = np.array(ddp.us)
 #######
 # Parameters
 maxit= 1
-T_tot = 1.
-plan_freq = 250                      # MPC re-planning frequency (Hz)
+T_tot = .01
+plan_freq = 1000                      # MPC re-planning frequency (Hz)
 ctrl_freq = 1000                         # Control - simulation - frequency (Hz)
 N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
 N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved during the simulation
@@ -92,10 +92,13 @@ for i in range(N_tot):
     print("  Replan step "+str(nb_replan)+"/"+str(N_p))
     # Reset problem to measured state 
     # print("    from state "+str(X_mea[0, :]))
+    # Set initial state to measured state
     ddp.problem.x0 = X_mea[i, :]
+    # Warm-start solution
     xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
     xs_init[0] = X_mea[i, :]
     us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
+    # Solve OCP
     ddp.solve(xs_init, us_init, maxit, False)
     # Record trajectories
     X_pred[nb_replan, :, :] = np.array(ddp.xs)

@@ -13,9 +13,70 @@ crocoddyl.switchToNumpyArray()
 import numpy as np
 
 # Could be replace by simple IAMEuler?
+class ActionModelPointMass(crocoddyl.ActionModelAbstract):
+    '''
+    IAM for point mass using Euler integration
+    Cost is hard-coded in this class
+    dyn_model  : CT model + discretization
+    cost_model : cost model
+    '''
+    def __init__(self, dt=0.01):
+        # Initialize abstract model
+        crocoddyl.ActionModelAbstract.__init__(self, crocoddyl.StateVector(2), 1, 5) 
+        # Must be defined for Croco
+        self.unone = np.zeros(2)
+        self.xnone = np.zeros(1)
+        # dt (Euler)
+        self.dt = dt
+        # Cost ref 
+        self.x_tar = np.zeros(2)
+        self.x_ref = np.zeros(2)
+        self.u_ref = 0.
+        # Cost weights
+        self.w_x = 0.
+        self.w_xreg = 0. 
+        self.w_ureg = 0.
+        # CT dynamics
+        self.Ac = np.array([[0,1],[0,0]])
+        self.Bc = np.array([[0],[1]])
+
+    def f(self, x, u):
+        '''
+        CT dynamics
+        '''
+        return self.Ac.dot(x) + self.Bc.dot(u)
+
+    def calc(self, data, x, u):
+        '''
+        Discretized dynamics (Euler) + cost residuals
+        '''
+        # Euler integration
+        data.xnext = x + self.f(x,u)*self.dt
+
+        data.r[:2] = self.w_x * ( x - self.x_tar ) 
+        data.r[2:4] = self.w_xreg * ( x - self.x_ref )
+        data.r[4:] = self.w_ureg * ( u - self.u_ref )
+        # Cost value
+        data.cost = .5 * sum(data.r**2)
+
+    def calcDiff(self, data, x, u):
+        ''' 
+        Partial derivatives of dynamics and cost (for crocoddyl)
+        '''
+        data.Fx = np.eye(2) + self.dt*self.Ac
+        data.Fu = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
+        data.Lx = ( x - self.x_tar ) * ( [self.w_x**2] * 2 ) + ( x - self.x_ref ) * ( [self.w_xreg**2] * 2 ) 
+        data.Lu = ( u - self.u_ref ) * ( [self.w_ureg**2] * 2)
+        data.Lxx = self.w_x**2 * np.eye(2)
+        data.Luu = np.array([self.w_ureg**2])
+
+
+# Could be replace by simple IAMEuler?
 class ActionModel(crocoddyl.ActionModelAbstract):
     '''
     IAM compatible with Crocoddyl python interface
+    dyn_model  : CT model + discretization
+    cost_model : cost model
     '''
     def __init__(self, dyn_model, cost_model):
         # Initialize abstract model
@@ -26,6 +87,8 @@ class ActionModel(crocoddyl.ActionModelAbstract):
         # Must be defined for Croco
         self.unone = np.zeros(self.dyn_model.nu)
         self.xnone = np.zeros(self.dyn_model.nx)
+        # dt (Euler)
+        self.dt = self.dyn_model.dt 
 
     def f(self, x, u):
         '''
@@ -70,13 +133,13 @@ class ActionModel(crocoddyl.ActionModelAbstract):
         if(data is None):
             return f_x, f_u, l_x, l_u, l_xx, l_uu, l_ux
         else:
-            data.Fx = f_x.copy()
-            data.Fu = f_u.copy()
-            data.Lx = l_x.copy()
-            data.Lx = l_u.copy()
-            data.Lxx = l_xx.copy()
-            data.Luu = l_uu.copy()
-            data.Lux = l_ux.copy()
+            data.Fx = self.dt * f_x.copy()
+            data.Fu = self.dt * f_u.copy()
+            data.Lx = self.dt * l_x.copy()
+            data.Lx = self.dt * l_u.copy()
+            data.Lxx = self.dt * l_xx.copy()
+            data.Luu = self.dt * l_uu.copy()
+            data.Lux = self.dt * l_ux.copy()
 
     def rollout(self, x0, us):
         '''
@@ -260,6 +323,7 @@ class IntegratedActionModelLPF(crocoddyl.ActionModelAbstract):
             data.Lu[:] += self.w_bound * data.activation.Ar + w * self.w_reg
             data.Luu[:, :] += self.w_bound * data.activation.Arr + np.diag(np.ones(self.nu)) * self.w_reg
 
+
 class IntegratedActionDataLPF(crocoddyl.ActionDataAbstract):
     '''
     Creates a data class with differential and augmented matrices from IAM (initialized with stateVector)
@@ -432,3 +496,45 @@ class IntegratedActionDataLPF(crocoddyl.ActionDataAbstract):
 #             self.activation.calcDiff(data.activation, w)
 #             data.Lu[:] += self.w_bound * data.activation.Ar + w * self.w_reg
 #             data.Luu[:, :] += self.w_bound * data.activation.Arr + np.diag(np.ones(self.nu)) * self.w_reg
+
+
+class DAMPointMass(crocoddyl.DifferentialActionModelAbstract):
+    def __init__(self):
+        crocoddyl.DifferentialActionModelAbstract.__init__(self, crocoddyl.StateVector(2), 1, 6)  # nu = 1; nr = 6
+        self.unone = np.zeros(self.nu)
+        self.m1 = 1.
+        self.m2 = .1
+        self.l  = .5
+        self.g  = 9.81
+        self.costWeights = [1., 1., 0.1, 0.001, 0.001, 1.]  # sin, 1-cos, x, xdot, thdot, f
+        
+    def calc(self, data, x, u=None):
+        if u is None: 
+            u = model.unone
+        # Getting the state and control variables
+        y, th, ydot, thdot = x[0].item(), x[1].item(), x[2].item(), x[3].item()
+        f = u[0].item()
+
+        # Shortname for system parameters
+        m1, m2, l, g = self.m1, self.m2, self.l, self.g
+        s, c = np.sin(th), np.cos(th)
+
+        ###########################################################################
+        ############ TODO: Write the dynamics equation of your system #############
+        ###########################################################################
+        # Hint:
+        # You don't need to implement integration rules for your dynamic system.
+        # Remember that DAM implemented action models in continuous-time.
+        m = m1 + m2
+        mu = m1 + m2 * s ** 2
+        xddot, thddot = cartpole_dynamics(self, data, x, u)  # Write the cartpole dynamics here
+        data.xout = np.matrix([ xddot, thddot ]).T
+        
+        # Computing the cost residual and value : using cost model?
+        data.r = np.matrix(self.costWeights * np.array([ s, 1 - c, y, ydot, thdot, f ])).T
+        data.cost = .5 * sum(np.asarray(data.r) ** 2).item()
+
+    def calcDiff(model,data,x,u=None):
+        # Advance user might implement the derivatives in cartpole_analytical_derivatives
+        pass
+        # cartpole_analytical_derivatives(model, data, x, u)

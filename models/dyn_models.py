@@ -362,7 +362,8 @@ class PointMassContact:
 
 class PointMassLPF:
     '''
-    Dynamics model of point mass in visco-elastic contact
+    Dynamics model of point mass in visco-elastic contact 
+    with LPF on input (actuation dynamics)
     Variables: 
       State   : x = position, velocity, torque 
       Control : u = torque derivative
