@@ -15,20 +15,19 @@ import numpy as np
 # Action model for the point mass 
 class ActionModelPointMass(crocoddyl.ActionModelAbstract):
     '''
-    IAM for point mass using Euler integration
+    IAM for point mass using Euler, RK4 or exact integration
     Cost is hard-coded in this class
-    dyn_model  : CT model + discretization
-    cost_model : cost model
     '''
-    def __init__(self, dt=0.01):
+    def __init__(self, dt=0.01, integrator='euler'):
         # Initialize abstract model
         crocoddyl.ActionModelAbstract.__init__(self, crocoddyl.StateVector(2), 1, 5) 
         self.nx = 2
         # Must be defined for Croco
         self.unone = np.zeros(self.nx)
         self.xnone = np.zeros(self.nu)
-        # dt (Euler)
+        # dt 
         self.dt = dt
+        self.integrator = integrator
         # Cost ref 
         self.x_tar = np.zeros(self.nx)
         self.x_ref = np.zeros(self.nx)
@@ -40,6 +39,9 @@ class ActionModelPointMass(crocoddyl.ActionModelAbstract):
         # CT dynamics
         self.Ac = np.array([[0,1],[0,0]])
         self.Bc = np.array([[0],[1]])
+        # DT model
+        self.Ad = np.eye(self.nx) + self.dt*self.Ac
+        self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
 
     def f(self, x, u):
         '''
@@ -51,8 +53,24 @@ class ActionModelPointMass(crocoddyl.ActionModelAbstract):
         '''
         Discretized dynamics (Euler) + cost residuals
         '''
+        # Integrate next state
+            # Euler step
+        if(self.integrator=='euler'):
+            xnext = x + self.f(x,u)*self.dt
+            # RK4 step 
+        if(self.integrator=='rk4'):
+            k1 = self.f(x, u) * self.dt
+            k2 = self.f(x + k1 / 2.0, u) * self.dt
+            k3 = self.f(x + k2 / 2.0, u) * self.dt
+            k4 = self.f(x + k3, u) * self.dt
+            xnext = x + (k1 + 2 * (k2 + k3) + k4) / 6
+            # Exact (default)
+        else:
+            xnext = self.Ad.dot(x) + self.Bd.dot(u)
+        data.xnext = xnext #x + self.f(x,u)*self.dt
+
         # Euler integration
-        data.xnext = x + self.f(x,u)*self.dt
+        # data.xnext = x + self.f(x,u)*self.dt
 
         data.r[:self.nx] = self.w_x * ( x - self.x_tar ) 
         data.r[self.nx:2*self.nx] = self.w_xreg * ( x - self.x_ref )
@@ -75,12 +93,10 @@ class ActionModelPointMass(crocoddyl.ActionModelAbstract):
 # Action model for the "augmented state" point mass (spring-damper)
 class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
     '''
-    IAM for point mass using Euler integration
+    IAM for point mass using Euler, rk4 or exactS integration
     Cost is hard-coded in this class
-    dyn_model  : CT model + discretization
-    cost_model : cost model
     '''
-    def __init__(self, dt=0.01, K=0., B=0., p0=0.):
+    def __init__(self, dt=0.01, K=0., B=0., p0=0., integrator='euler'):
         # Initialize abstract model
         crocoddyl.ActionModelAbstract.__init__(self, crocoddyl.StateVector(3), 1, 7) 
         self.nx = 3
@@ -89,6 +105,7 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
         self.xnone = np.zeros(self.nu)
         # dt (Euler)
         self.dt = dt
+        self.integrator = integrator
         # Stiffness, damping and anchor point 
         self.K = K
         self.B = B
@@ -109,6 +126,9 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
         self.Bc = np.array([[0],
                             [1],
                             [-self.B]])
+        # DT model
+        self.Ad = np.eye(self.nx) + self.dt*self.Ac
+        self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
 
     def f(self, x, u):
         '''
@@ -120,8 +140,101 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
         '''
         Discretized dynamics (Euler) + cost residuals
         '''
-        # Euler integration
-        data.xnext = x + self.f(x,u)*self.dt
+        # Integrate next state
+            # Euler step
+        if(self.integrator=='euler'):
+            xnext = x + self.f(x,u)*self.dt
+            # RK4 step 
+        if(self.integrator=='rk4'):
+            k1 = self.f(x, u) * self.dt
+            k2 = self.f(x + k1 / 2.0, u) * self.dt
+            k3 = self.f(x + k2 / 2.0, u) * self.dt
+            k4 = self.f(x + k3, u) * self.dt
+            xnext = x + (k1 + 2 * (k2 + k3) + k4) / 6
+            # Exact (default)
+        else:
+            xnext = self.Ad.dot(x) + self.Bd.dot(u)
+        data.xnext = xnext #x + self.f(x,u)*self.dt
+        data.r[:self.nx] = self.w_x * ( x - self.x_tar ) 
+        data.r[self.nx:2*self.nx] = self.w_xreg * ( x - self.x_ref )
+        data.r[:-1] = self.w_ureg * ( u - self.u_ref )
+        # Cost value
+        data.cost = .5 * sum(data.r**2)
+
+    def calcDiff(self, data, x, u):
+        ''' 
+        Partial derivatives of dynamics and cost (for crocoddyl)
+        '''
+        data.Fx = np.eye(self.nx) + self.dt*self.Ac
+        data.Fu = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
+        data.Lx = ( x - self.x_tar ) * ( [self.w_x**2] * self.nx ) + ( x - self.x_ref ) * ( [self.w_xreg**2] * self.nx ) 
+        data.Lu = ( u - self.u_ref ) * ( [self.w_ureg**2] * self.nx)
+        data.Lxx = self.w_x**2 * np.eye(self.nx)
+        data.Luu = np.array([self.w_ureg**2])
+
+
+# Action model for the "observer" point mass (spring-damper) 
+class ActionModelPointMassObserver(crocoddyl.ActionModelAbstract):
+    '''
+    IAM for point mass using Euler integration
+    Cost is hard-coded in this class
+    '''
+    def __init__(self, dt=0.01, K=0., B=0., integrator='euler'):
+        # Initialize abstract model
+        crocoddyl.ActionModelAbstract.__init__(self, crocoddyl.StateVector(2), 1, 5) 
+        self.nx = 2
+        # Must be defined for Croco
+        self.unone = np.zeros(self.nx)
+        self.xnone = np.zeros(self.nu)
+        # dt 
+        self.dt = dt
+        self.integrator = integrator
+        # Cost ref 
+        self.x_tar = np.zeros(self.nx)
+        self.x_ref = np.zeros(self.nx)
+        self.u_ref = 0.
+        # Cost weights
+        self.w_x = 0.
+        self.w_xreg = 0. 
+        self.w_ureg = 0.
+        # CT dynamics
+        self.Ac = np.array([[0,1],[0,0]])
+        self.Bc = np.array([[0],[1]])
+        # Measurement model
+        self.K = K
+        self.B = B
+        self.Hc = np.array([[1, 0],
+                            [-K, -B]])
+        # DT model
+        self.Ad = np.eye(self.nx) + self.dt*self.Ac
+        self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
+        self.Hd = self.Hc
+        
+    def f(self, x, u):
+        '''
+        CT dynamics
+        '''
+        return self.Ac.dot(x) + self.Bc.dot(u)
+
+    def calc(self, data, x, u):
+        '''
+        Discretized dynamics (Euler) + cost residuals
+        '''
+        # Integrate next state
+            # Euler step
+        if(self.integrator=='euler'):
+            xnext = x + self.f(x,u)*self.dt
+            # RK4 step 
+        if(self.integrator=='rk4'):
+            k1 = self.f(x, u) * self.dt
+            k2 = self.f(x + k1 / 2.0, u) * self.dt
+            k3 = self.f(x + k2 / 2.0, u) * self.dt
+            k4 = self.f(x + k3, u) * self.dt
+            xnext = x + (k1 + 2 * (k2 + k3) + k4) / 6
+            # Exact (default)
+        else:
+            xnext = self.Ad.dot(x) + self.Bd.dot(u)
+        data.xnext = xnext #x + self.f(x,u)*self.dt
 
         data.r[:self.nx] = self.w_x * ( x - self.x_tar ) 
         data.r[self.nx:2*self.nx] = self.w_xreg * ( x - self.x_ref )
@@ -140,6 +253,89 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
         data.Lxx = self.w_x**2 * np.eye(self.nx)
         data.Luu = np.array([self.w_ureg**2])
 
+
+# Action model for the "actuation dynamics" point mass (low-pass filter)
+class ActionModelPointMassActuation(crocoddyl.ActionModelAbstract):
+    '''
+    IAM for point mass using Euler, rk4 or exacts integration
+    Cost is hard-coded in this class
+    '''
+    def __init__(self, dt=0.01, k=0., integrator='euler'):
+        # Initialize abstract model
+        crocoddyl.ActionModelAbstract.__init__(self, crocoddyl.StateVector(3), 1, 7) 
+        self.nx = 3
+        # Must be defined for Croco
+        self.unone = np.zeros(self.nx)
+        self.xnone = np.zeros(self.nu)
+        # dt (Euler)
+        self.dt = dt
+        self.integrator = integrator
+        # Stiffness, damping and anchor point 
+        self.K = K
+        self.B = B
+        self.p0 = p0
+        # Reference state for state reg (origin)
+        # Cost ref 
+        self.x_tar = np.zeros(self.nx)
+        self.x_ref = np.zeros(self.nx)
+        self.u_ref = 0.
+        # Cost weights
+        self.w_x = 0.
+        self.w_xreg = 0. 
+        self.w_ureg = 0.
+        # coef. of 1st order actuation dynamics
+        self.k = k 
+        self.Ac = np.array([[0, 1, 0],
+                            [0, 0, 1/self.m],
+                            [0, 0, -self.k]])
+        self.Bc = np.array([[0],
+                            [0],
+                            [self.k]])
+        # DT model
+        self.Ad = np.eye(self.nx) + self.dt*self.Ac
+        self.Bd = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
+
+    def f(self, x, u):
+        '''
+        CT dynamics
+        '''
+        return self.Ac.dot(x) + self.Bc.dot(u)
+
+    def calc(self, data, x, u):
+        '''
+        Discretized dynamics (Euler) + cost residuals
+        '''
+        # Integrate next state
+            # Euler step
+        if(self.integrator=='euler'):
+            xnext = x + self.f(x,u)*self.dt
+            # RK4 step 
+        if(self.integrator=='rk4'):
+            k1 = self.f(x, u) * self.dt
+            k2 = self.f(x + k1 / 2.0, u) * self.dt
+            k3 = self.f(x + k2 / 2.0, u) * self.dt
+            k4 = self.f(x + k3, u) * self.dt
+            xnext = x + (k1 + 2 * (k2 + k3) + k4) / 6
+            # Exact (default)
+        else:
+            xnext = self.Ad.dot(x) + self.Bd.dot(u)
+        data.xnext = xnext #x + self.f(x,u)*self.dt
+        data.r[:self.nx] = self.w_x * ( x - self.x_tar ) 
+        data.r[self.nx:2*self.nx] = self.w_xreg * ( x - self.x_ref )
+        data.r[:-1] = self.w_ureg * ( u - self.u_ref )
+        # Cost value
+        data.cost = .5 * sum(data.r**2)
+
+    def calcDiff(self, data, x, u):
+        ''' 
+        Partial derivatives of dynamics and cost (for crocoddyl)
+        '''
+        data.Fx = np.eye(self.nx) + self.dt*self.Ac
+        data.Fu = self.dt*self.Bc + .5*self.dt**2*self.Ac.dot(self.Bc)
+        data.Lx = ( x - self.x_tar ) * ( [self.w_x**2] * self.nx ) + ( x - self.x_ref ) * ( [self.w_xreg**2] * self.nx ) 
+        data.Lu = ( u - self.u_ref ) * ( [self.w_ureg**2] * self.nx)
+        data.Lxx = self.w_x**2 * np.eye(self.nx)
+        data.Luu = np.array([self.w_ureg**2])
 
 
 # Could be replace by simple IAMEuler?

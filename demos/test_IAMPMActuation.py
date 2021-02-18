@@ -14,7 +14,7 @@ import crocoddyl
 
 from models.dyn_models import PointMassLPF
 from models.cost_models import *
-from models.croco_IAMs import ActionModelPointMassContact
+from models.croco_IAMs import ActionModelPointMassActuation
 
 from utils import animatePointMass, plotPointMass
 
@@ -30,12 +30,13 @@ N_h = 100
 K = 100.
 B = 2*np.sqrt(K)
 integrator='euler'
-running_model = ActionModelPointMassContact(dt=dt, K=K, B=B, p0=0., integrator=integrator)
+k = 0.
+running_model = ActionModelPointMassActuation(dt=dt, k=k, integrator=integrator)
 # running_model.w_x = 1e-6
 # running_model.w_xreg = 1e-2
 running_model.w_ureg = 1e-4
 
-terminal_model = ActionModelPointMassContact(dt=0.)
+terminal_model = ActionModelPointMassActuation(dt=0.)
 terminal_model.w_x = 1.
 
 # Problem + solver

@@ -360,6 +360,7 @@ class PointMassContact:
             res[i] = X[i,2] + self.K*(X[i,0]-p0) + self.B*X[i,1]
         return res
 
+
 class PointMassLPF:
     '''
     Dynamics model of point mass in visco-elastic contact 

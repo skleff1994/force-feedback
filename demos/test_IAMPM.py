@@ -21,13 +21,13 @@ from utils import animatePointMass, plotPointMass
 
 # Action model for point mass
 dt = 1e-2
-N_h = 100
+N_h = 50
 # running_models = []
 # for i in range(N_h):
 #     md = ActionModelPointMass(dt=dt)
 #     running_models.append(md)
-
-running_model = ActionModelPointMass(dt=dt)
+integrator='euler'
+running_model = ActionModelPointMass(dt=dt, integrator=integrator)
 # running_model.w_x = 1e-6
 # running_model.w_xreg = 1e-2
 running_model.w_ureg = 1e-4

@@ -14,35 +14,29 @@ import crocoddyl
 
 from models.dyn_models import PointMassLPF
 from models.cost_models import *
-from models.croco_IAMs import ActionModelPointMassContact
+from models.croco_IAMs import ActionModelPointMassObserver
 
 from utils import animatePointMass, plotPointMass
 
 
 # Action model for point mass
 dt = 1e-2
-N_h = 100
+N_h = 50
 # running_models = []
 # for i in range(N_h):
 #     md = ActionModelPointMass(dt=dt)
 #     running_models.append(md)
-
-K = 100.
-B = 2*np.sqrt(K)
 integrator='euler'
-running_model = ActionModelPointMassContact(dt=dt, K=K, B=B, p0=0., integrator=integrator)
+running_model = ActionModelPointMassObserver(dt=dt, integrator=integrator)
 # running_model.w_x = 1e-6
 # running_model.w_xreg = 1e-2
 running_model.w_ureg = 1e-4
 
-terminal_model = ActionModelPointMassContact(dt=0.)
+terminal_model = ActionModelPointMassObserver(dt=0.)
 terminal_model.w_x = 1.
 
 # Problem + solver
-p0 = 1.
-v0 = 0.
-lmb0 = -K*(p0 - running_model.p0) - B*v0
-x0 = np.array([p0, v0, lmb0])
+x0 = np.array([1., 0.])
 problem = crocoddyl.ShootingProblem(x0, [running_model]*N_h, terminal_model)
 ddp = crocoddyl.SolverDDP(problem)
 ddp.setCallbacks([ crocoddyl.CallbackVerbose() ])
@@ -53,8 +47,6 @@ X = np.array(ddp.xs)
 U = np.array(ddp.us)
 
 # # PLOT
-# nx = running_model.nx 
-# nu = running_model.nu
 # import matplotlib.pyplot as plt
 # p = X[:,0]
 # v = X[:,1]
@@ -105,7 +97,7 @@ N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the sim
 N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved during the simulation
 T_h = N_h*dt                          # Duration of the MPC horizon (s)
 # Init data
-nx, nq, nv, nu = 3, 1, 1, 1
+nx, nq, nv, nu = 2, 1, 1, 1
 X_mea = np.zeros((N_tot+1, nx))       # Measured states 
 X_des = np.zeros((N_tot+1, nx))       # Desired states
 U_des = np.zeros((N_tot, nu))         # Desired controls 
