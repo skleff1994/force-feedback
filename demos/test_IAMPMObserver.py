@@ -21,7 +21,7 @@ from utils import animatePointMass, plotPointMass
 
 # Action model for point mass
 dt = 1e-2
-N_h = 50
+N_h = 100
 # running_models = []
 # for i in range(N_h):
 #     md = ActionModelPointMass(dt=dt)
@@ -87,54 +87,53 @@ U = np.array(ddp.us)
 
 # TEST FILTERING
 # Create the filter 
-Q_cov = .01*np.eye(2) # Process noise cov
+Q_cov = .01*np.eye(2)   # Process noise cov
 R_cov = 0.01*np.eye(2)  # Measurement noise cov
 kalman = KalmanFilter(running_model, Q_cov, R_cov)
 # Observation model (spring-damper )
-K = 10. 
-B = 0.
+K = 100. 
+B = 2*np.sqrt(K)
 p0 = 0.
 # Add noise on DDP trajectory and filter it to test Kalman filter
-N = U.shape[0]
 nx = running_model.nx
 ny = running_model.ny
-Y_mea = np.zeros((N, ny)) # []   # measurements
-X_hat = np.zeros((N, nx)) # []   # state estimates
-P_cov = np.zeros((N, nx, nx)) # []   # covariance estimates
-K_gain = np.zeros((N, nx, nx))  # optimal Kalman gains
-Y_err = np.zeros((N, ny))
+Y_mea = np.zeros((N_h, ny)) # []   # measurements
+X_hat = np.zeros((N_h+1, nx)) # []   # state estimates
+P_cov = np.zeros((N_h, nx, nx)) # []   # covariance estimates
+K_gain = np.zeros((N_h, nx, nx))  # optimal Kalman gains
+Y_err = np.zeros((N_h, ny))
+# print(Y_mea.shape)
+# print(X_hat.shape)
+# print(P_cov.shape)
+# print(Y_err.shape)
+# print(K_gain.shape)
+# OK
 # Initialize 
 P_cov[0,:,:] = np.eye(nx)
-X_hat[0,:] = X[0]
+X_hat[0,:] = X[0, :]
 # Noise params
 mean = np.zeros(2)
-std = np.array([0.05, 100])
-for i in range(N):
+std = np.array([0.05, N_h])
+for i in range(N_h):
     # Generate noisy force measurement 
       # Ideal visco-elastic force and real position
-    lmb = -K*(X[i][0] - p0) - B*X[i][1]
-    pos = X[i][0]
+    lmb = -K*(X[i,0]- 0.) - B*X[i,1]
+    pos = X[i,0]
       # Noise them out
-    print(Y_mea[i,:])
     Y_mea[i,:] = (np.array([pos, lmb]) + np.random.normal(mean, std) )
     # Filter
-    x, P, K, y = kalman.step(X_hat[i,:], P_cov[i,:,:], U[i,:], Y_mea[i,:])
+    x, P, Kgain, y = kalman.step(X_hat[i,:], P_cov[i,:,:], U[i,:], Y_mea[i,:])
     # Record estimates + gains
     X_hat[i,:] = x
     P_cov[i,:,:] = P
-    K_gain[i,:,:] = K
+    K_gain[i,:,:] = Kgain
     Y_err[i,:] = y
 
-    # X_hat.append(x)
-    # P_cov.append(P)
-    # K_gain.append(K)
-    # Y_err.append(y)
-
 # Display Kalman gains magnitude
-dP_dP = np.vstack(( np.array([[K_gain[i][0,0] for i in range(N)]]).transpose())) 
-dP_dF = np.vstack(( np.array([[K_gain[i][0,1] for i in range(N)]]).transpose())) 
-dV_dP = np.vstack(( np.array([[K_gain[i][1,0] for i in range(N)]]).transpose())) 
-dV_dF = np.vstack(( np.array([[K_gain[i][1,1] for i in range(N)]]).transpose())) 
+dP_dP = np.vstack(( np.array([[K_gain[i][0,0] for i in range(N_h)]]).transpose())) 
+dP_dF = np.vstack(( np.array([[K_gain[i][0,1] for i in range(N_h)]]).transpose())) 
+dV_dP = np.vstack(( np.array([[K_gain[i][1,0] for i in range(N_h)]]).transpose())) 
+dV_dF = np.vstack(( np.array([[K_gain[i][1,1] for i in range(N_h)]]).transpose())) 
 
 # Norms
 print("dP_dP Kalman gain norm : ", np.linalg.norm(dP_dP))
@@ -146,19 +145,16 @@ print("dV_dF Kalman gain norm : ", np.linalg.norm(dV_dF))
 # Plot results 
 import matplotlib.pyplot as plt
 # Extract trajectories and reshape
-T = len(Y_mea)
 print(X_hat)
-ny = 2
-nx = running_model.nx
-tspan = np.linspace(0, T*dt, T+1)
-Y_mea = np.array(Y_mea).reshape((T, ny))
-X_hat = np.array(X_hat).reshape((T+1, nx))
-X = np.array(X).reshape((T+1, nx))
+tspan = np.linspace(0, N_h*dt, N_h+1)
+Y_mea = np.array(Y_mea).reshape((N_h, ny))
+X_hat = np.array(X_hat).reshape((N_h+1, nx))
+X = np.array(X).reshape((N_h+1, nx))
 # Create fig
 fig, ax = plt.subplots(3,1)
 print( X_hat[:,0])
 # Plot position
-ax[0].plot(tspan[:T], Y_mea[:,0], 'b-', linewidth=2, alpha=.5, label='Measured')
+ax[0].plot(tspan[:N_h], Y_mea[:,0], 'b-', linewidth=2, alpha=.5, label='Measured')
 ax[0].plot(tspan, X_hat[:,0], 'r-', linewidth=3, alpha=.8, label='Estimated')
 ax[0].plot(tspan, X[:,0], 'k-.', linewidth=2, label='Ground truth')
 ax[0].set_title('Position p', size=16)
@@ -171,7 +167,7 @@ ax[1].set_title('Velocity p', size=16)
 ax[1].set_ylabel('v (m/s)', fontsize=16)
 ax[1].grid()
 # Plot force
-ax[2].plot(tspan[:T], Y_mea[:,1], 'b-', linewidth=2, alpha=.5, label='Measured')
+ax[2].plot(tspan[:N_h], Y_mea[:,1], 'b-', linewidth=2, alpha=.5, label='Measured')
 ax[2].set_title('Force lmb', size=16)
 ax[2].set_ylabel('lmb (N)', fontsize=16)
 ax[2].grid()
