@@ -20,7 +20,7 @@ from utils import animatePointMass, plotPointMass
 
 
 # Action model for point mass
-dt = 1e-2
+dt = 5e-3
 N_h = 100
 # running_models = []
 # for i in range(N_h):
@@ -87,97 +87,89 @@ U = np.array(ddp.us)
 
 # TEST FILTERING
 # Create the filter 
-Q_cov = .1*np.eye(2)   # Process noise cov
-R_cov = 0.01*np.eye(2)  # Measurement noise cov
+Q_cov = .01*np.eye(2) #.1*np.eye(2)   # Process noise cov
+R_cov = 0.001*np.eye(2) #0.01*np.eye(2)  # Measurement noise cov
 kalman = KalmanFilter(running_model, Q_cov, R_cov)
 # Observation model (spring-damper )
-K = 100. 
+K = 1. 
 B = 2*np.sqrt(K)
 p0 = 0.
 # Add noise on DDP trajectory and filter it to test Kalman filter
 nx = running_model.nx
 ny = running_model.ny
 Y_mea = np.zeros((N_h, ny))      # measurements
-X_hat = np.zeros((N_h+1, nx))    # state estimates
+X_hat = np.zeros((N_h, nx))    # state estimates
 P_cov = np.zeros((N_h, nx, nx))  # covariance estimates
 K_gain = np.zeros((N_h, nx, nx)) # optimal Kalman gains
 Y_err = np.zeros((N_h, ny))
-# OK
-# Initialize 
-P_cov[0,:,:] = np.eye(nx)
-X_hat[0,:] = X[0, :]
+X_real = np.reshape(X[:N_h], Y_mea.shape)
 # Noise params
 mean = np.zeros(2)
 std = np.array([0.05, N_h])
 
-# # ESTIMATION LOOP (offline)
-# for i in range(N_h):
-#     print("Step "+str(i)+"/"+str(N_h))
-#     # Generate noisy force measurement 
-#       # Ideal visco-elastic force and real position
-#     lmb = -K*(X[i,0]- 0.) - B*X[i,1]
-#     pos = X[i,0]
-#       # Noise them out
-#     Y_mea[i,:] = (np.array([pos, lmb]) + np.random.normal(mean, std) )
-#     # Filter
-#     x, P, Kgain, y = kalman.step(X_hat[i,:], P_cov[i,:,:], U[i,:], Y_mea[i,:])
-#     # Record estimates + gains 
-#     X_hat[i,:] = x
-#     P_cov[i,:,:] = P
-#     K_gain[i,:,:] = Kgain
-#     Y_err[i,:] = y
+# ESTIMATION LOOP (offline)
+for i in range(N_h):
+    print("Step "+str(i)+"/"+str(N_h))
+    # Generate noisy force measurement 
+      # Ideal visco-elastic force and real position
+      # Noise them out
+    Y_mea[i,:] = (np.array([X_real[i,0], -K*(X_real[i,0]- 0.) - B*X_real[i,1]]) + np.random.normal(mean, std) )
+    # Filter
+    x, P, Kgain, y = kalman.step(X_hat[i,:], P_cov[i,:,:], U[i,:], Y_mea[i,:])
+    # Record estimates + gains 
+    X_hat[i,:] = x
+    P_cov[i,:,:] = P
+    K_gain[i,:,:] = Kgain
+    Y_err[i,:] = y
 
 # # Display Kalman gains magnitude
 # dP_dP = np.vstack(( np.array([[K_gain[i][0,0] for i in range(N_h)]]).transpose())) 
 # dP_dF = np.vstack(( np.array([[K_gain[i][0,1] for i in range(N_h)]]).transpose())) 
 # dV_dP = np.vstack(( np.array([[K_gain[i][1,0] for i in range(N_h)]]).transpose())) 
 # dV_dF = np.vstack(( np.array([[K_gain[i][1,1] for i in range(N_h)]]).transpose())) 
-# Norms
+# # Norms
 # print("dP_dP Kalman gain norm : ", np.linalg.norm(dP_dP))
 # print("dP_dF Kalman gain norm : ", np.linalg.norm(dP_dF))
 # print("dV_dP Kalman gain norm : ", np.linalg.norm(dV_dP))
 # print("dV_dF Kalman gain norm : ", np.linalg.norm(dV_dF))
 
-# # Plot results 
-# import matplotlib.pyplot as plt
-# # Extract trajectories and reshape
-# tspan = np.linspace(0, N_h*dt, N_h+1)
-# Y_mea = np.array(Y_mea).reshape((N_h, ny))
-# X_hat = np.array(X_hat).reshape((N_h+1, nx))
-# X = np.array(X).reshape((N_h+1, nx))
-# # Create fig
-# fig, ax = plt.subplots(3,1)
-# # Plot position
-# ax[0].plot(tspan[:N_h], Y_mea[:,0], 'b-', linewidth=2, alpha=.5, label='Measured')
-# ax[0].plot(tspan, X_hat[:,0], 'r-', linewidth=3, alpha=.8, label='Estimated')
-# ax[0].plot(tspan, X[:,0], 'k-.', linewidth=2, label='Ground truth')
+# Plot results 
+import matplotlib.pyplot as plt
+# Extract trajectories and reshape
+tspan = np.linspace(0, N_h*dt - dt, N_h)
+# Create fig
+fig, ax = plt.subplots(3,1)
+# Plot position
+ax[0].plot(tspan, Y_mea[:,0], 'b-', linewidth=2, alpha=.5, label='Measured')
+ax[0].plot(tspan, X_hat[:,0], 'r-', linewidth=3, alpha=.8, label='Estimated')
+ax[0].plot(tspan, X_real[:,0], 'k-.', linewidth=2, label='Ground truth')
 # ax[0].set_title('Position p', size=16)
-# ax[0].set_ylabel('p (m)', fontsize=16)
-# ax[0].grid()
-# # Plot velocities
-# ax[1].plot(tspan, X_hat[:,1], 'r-', linewidth=3, alpha=.8, label='Estimated')
-# ax[1].plot(tspan, X[:,1], 'k-.', linewidth=2, label='Ground truth')
+ax[0].set_ylabel('p (m)', fontsize=16)
+ax[0].grid()
+# Plot velocities
+ax[1].plot(tspan, X_hat[:,1], 'r-', linewidth=3, alpha=.8, label='Estimated')
+ax[1].plot(tspan, X_real[:,1], 'k-.', linewidth=2, label='Ground truth')
 # ax[1].set_title('Velocity p', size=16)
-# ax[1].set_ylabel('v (m/s)', fontsize=16)
-# ax[1].grid()
-# # Plot force
-# ax[2].plot(tspan[:N_h], Y_mea[:,1], 'b-', linewidth=2, alpha=.5, label='Measured')
+ax[1].set_ylabel('v (m/s)', fontsize=16)
+ax[1].grid()
+# Plot force
+ax[2].plot(tspan[:N_h], Y_mea[:,1], 'b-', linewidth=2, alpha=.5, label='Measured')
 # ax[2].set_title('Force lmb', size=16)
-# ax[2].set_ylabel('lmb (N)', fontsize=16)
-# ax[2].grid()
-# # Legend
-# ax[-1].set_xlabel('time (s)',fontsize=16)
-# handles, labels = ax[0].get_legend_handles_labels()
-# fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-# fig.suptitle('Kalman-filtered point mass trajectory', size=16)
-# plt.show()
+ax[2].set_ylabel('lmb (N)', fontsize=16)
+ax[2].grid()
+# Legend
+ax[-1].set_xlabel('time (s)',fontsize=16)
+handles, labels = ax[0].get_legend_handles_labels()
+fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+fig.suptitle('Kalman-filtered point mass trajectory', size=16)
+plt.show()
 
 #######
 # MPC #
 #######
 # Parameters
 maxit= 1
-T_tot = 1.
+T_tot = .1
 plan_freq = 1000                      # MPC re-planning frequency (Hz)
 ctrl_freq = 1000                         # Control - simulation - frequency (Hz)
 N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
@@ -185,16 +177,28 @@ N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved dur
 T_h = N_h*dt                          # Duration of the MPC horizon (s)
 # Init data
 nx, nq, nv, nu = 2, 1, 1, 1
+# Control
 X_mea = np.zeros((N_tot+1, nx))       # Measured states 
 X_des = np.zeros((N_tot+1, nx))       # Desired states
 U_des = np.zeros((N_tot, nu))         # Desired controls 
 X_pred = np.zeros((N_p, N_h+1, nx))   # MPC predictions (state)
 U_pred = np.zeros((N_p, N_h, nu))     # MPC predictions (control)
+# Estimation
+Y_mea = np.zeros((N_tot, ny))      # output measurements
+X_hat = np.zeros((N_tot, nx))      # state estimates
+X_real = np.zeros((N_tot+1, nx))     # real (unknown) state (for simulation purpose)
+P_cov = np.zeros((N_tot, nx, nx))  # covariance estimates
+K_gain = np.zeros((N_tot, nx, nx)) # optimal Kalman gains
+Y_err = np.zeros((N_tot, ny))      # error in predicted measurements
+
+# Initialize 
+X_real[0, :] = x0 # Initial true state 
+X_des[0, :] = x0  # Initial desired state 
+# # Initial estimation step from first measurement
+# Y_mea[0,:] = np.array([X_real[0,0], -K*(X_real[0,0]- 0) - B*X_real[0,1]]) # Initial measurement
+
 # Replan counter
 nb_replan = 0
-# Measure initial state from simulation environment
-X_mea[0, :] = x0
-X_des[0, :] = x0
 
 # SIMULATION LOOP
 # Simulation loop (at control rate)
@@ -204,27 +208,28 @@ for i in range(N_tot):
   # ESTIMATE state and SOLVE OCP if we are in a planning cycle
   if(i%int(ctrl_freq/plan_freq) == 0):
 
-    # Generate noisy force measurement 
-      # Ideal visco-elastic force and real position
-    lmb = -K*(X[i,0]- 0.) - B*X[i,1]
-    pos = X[i,0]
-      # Noise them out
-    Y_mea[i,:] = (np.array([pos, lmb]) + np.random.normal(mean, std) )
-    # Filter
-    x, P, Kgain, y = kalman.step(X_hat[i,:], P_cov[i,:,:], U[i,:], Y_mea[i,:])
-    # Record estimates + gains 
+    print("  Replan step "+str(nb_replan)+"/"+str(N_p))
+
+    # ESTIMATION 
+    # Generate (noisy) force measurement 
+      # Ideal measurement of visco-elastic force and real position
+      # Noise it out (for simulation) NO NOISE right now so measurement = real (hidden) state 
+    Y_mea[i,:] = np.array([X_real[i,0], -K*(X_real[i,0]- 0) - B*X_real[i,1]])  #(np.array([pos, lmb]) + np.random.normal(mean, std) )
+    # Filter measurement to reconstruct state
+    x, P, Kgain, y = kalman.step(X_hat[i,:], P_cov[i,:,:], U_des[i,:], Y_mea[i,:])
+    # Record estimates and gains 
     X_hat[i,:] = x
     P_cov[i,:,:] = P
     K_gain[i,:,:] = Kgain
     Y_err[i,:] = y
 
-    print("  Replan step "+str(nb_replan)+"/"+str(N_p))
+    # CONTROL
     # Reset problem to ESTIMATED state
     # Set initial state to measured state
-    ddp.problem.x0 = X_hat[i,:] #X_mea[i, :]
+    ddp.problem.x0 = X_hat[i,:]
     # Warm-start solution
     xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-    xs_init[0] = X_hat[i,:] #X_mea[i, :]
+    xs_init[0] = X_hat[i,:]
     us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
     # Solve OCP
     ddp.solve(xs_init, us_init, maxit, False)
@@ -238,11 +243,12 @@ for i in range(N_tot):
     nb_replan += 1
   # Record and apply the 1st control
   U_des[i, :] = u_des
-  # Measure new state from simulation 
-  X_mea[i+1,:] = X_mea[i,:] + running_model.f(X_mea[i,:], u_des)*dt # (X_mea[i,:] , u_des) 
-  # Record desired state
+  # Record next real (unknown) state 
+  X_real[i+1,:] = X_real[i,:] + running_model.f(X_real[i,:], u_des)*dt 
+  # Record next desired state
   X_des[i+1, :] = x_des
 
+# Final estimation step ? or remove last element of Kalman vars
 
 # GENERATE NICE PLOT OF SIMULATION
 with_predictions = False
@@ -255,28 +261,14 @@ dt_ctrl = float(1./ctrl_freq)
 dt_plan = float(1./plan_freq)
 # Joints & torques
     # State predictions (MPC)
-q_pred = X_pred[:,:,:nq]
-v_pred = X_pred[:,:,nv:]
-u_pred = U_pred[:,:,:]
-    # State measurements (PyBullet)
-q_mea = X_mea[:,:nq]
-v_mea = X_mea[:,nv:]
-    # 'Desired' state = interpolated predictions
-q_des = X_des[:,:nq]
-v_des = X_des[:,nv:]
-    # 'Desired' control = interpolation of DDP ff torques 
-u_des = U_des
+p_pred = X_pred[:,:,0]
+v_pred = X_pred[:,:,1]
+u_pred = U_pred[:,:,0]
 # Create time spans for X and U
 tspan_x = np.linspace(0, T_tot, N_tot+1)
 tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)
 # Create figs and subplots
-fig_x, ax_x = plt.subplots(nq, 2)
-fig_u, ax_u = plt.subplots(nq, 1)
-# Extract state predictions of 0^th joint
-q_pred_i = q_pred[:,:,0]
-v_pred_i = v_pred[:,:,0]
-u_pred_i = u_pred[:,:,0]
-# print(u_pred_i[0,0])
+fig_x, ax_x = plt.subplots(4, 1)
 if(with_predictions):
   # For each planning step in the trajectory
   for j in range(N_p):
@@ -285,60 +277,63 @@ if(with_predictions):
     tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
     tspan_u_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
     # Set up lists of (x,y) points for predicted positions and velocities
-    points_q = np.array([tspan_x_pred, q_pred_i[j,:]]).transpose().reshape(-1,1,2)
-    points_v = np.array([tspan_x_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
-    points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
+    points_p = np.array([tspan_x_pred, p_pred[j,:]]).transpose().reshape(-1,1,2)
+    points_v = np.array([tspan_x_pred, v_pred[j,:]]).transpose().reshape(-1,1,2)
+    points_u = np.array([tspan_u_pred, u_pred[j,:]]).transpose().reshape(-1,1,2)
     # Set up lists of segments
-    segs_q = np.concatenate([points_q[:-1], points_q[1:]], axis=1)
+    segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
     segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
     segs_u = np.concatenate([points_u[:-1], points_u[1:]], axis=1)
     # Make collections segments
     cm = plt.get_cmap('Greys_r') 
-    lc_q = LineCollection(segs_q, cmap=cm, zorder=-1)
+    lc_p = LineCollection(segs_p, cmap=cm, zorder=-1)
     lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
     lc_u = LineCollection(segs_u, cmap=cm, zorder=-1)
-    lc_q.set_array(tspan_x_pred)
+    lc_p.set_array(tspan_x_pred)
     lc_v.set_array(tspan_x_pred) 
     lc_u.set_array(tspan_u_pred)
     # Customize
-    lc_q.set_linestyle('-')
+    lc_p.set_linestyle('-')
     lc_v.set_linestyle('-')
     lc_u.set_linestyle('-')
-    lc_q.set_linewidth(1)
+    lc_p.set_linewidth(1)
     lc_v.set_linewidth(1)
     lc_u.set_linewidth(1)
     # Plot collections
-    ax_x[0].add_collection(lc_q)
+    ax_x[0].add_collection(lc_p)
     ax_x[1].add_collection(lc_v)
-    ax_u.add_collection(lc_u)
+    ax_x[3].add_collection(lc_u)
     # Scatter to highlight points
     colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
     my_colors = cm(colors)
-    ax_x[0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
-    ax_x[1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
-    ax_u.scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
-# Desired joint position (interpolated from prediction)
-ax_x[0].plot(tspan_x, q_des[:,0], 'b-', label='Desired')
-# Measured joint position (PyBullet)
-ax_x[0].plot(tspan_x, q_mea[:,0], 'r-', label='Measured')
-ax_x[0].set(xlabel='t (s)', ylabel='$q_{0}$ (rad)')
+    ax_x[0].scatter(tspan_x_pred, p_pred[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
+    ax_x[1].scatter(tspan_x_pred, v_pred[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
+    ax_x[3].scatter(tspan_u_pred, u_pred[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
+# Positions
+ax_x[0].plot(tspan_u, Y_mea[:,0], 'm-', linewidth=2, alpha=.5, label='Measured')
+ax_x[0].plot(tspan_u, X_hat[:,0], 'b-', linewidth=3, alpha=.8, label='Estimated')
+ax_x[0].plot(tspan_x, X_real[:,0], 'k-.', linewidth=1, label='Ground truth')
+ax_x[0].plot(tspan_x, X_des[:,0], 'y--', alpha=0.3, label='Desired')
+ax_x[0].set_ylabel('p (m)', fontsize=16)
 ax_x[0].grid()
-# Desired joint velocity (interpolated from prediction)
-ax_x[1].plot(tspan_x, v_des[:,0], 'b-', label='Desired')
-# Measured joint velocity (PyBullet)
-ax_x[1].plot(tspan_x, v_mea[:,0], 'r-', label='Measured')
-ax_x[1].set(xlabel='t (s)', ylabel='$v_{0}$ (rad/s)')
+# Velocities
+ax_x[1].plot(tspan_u, X_hat[:,1], 'b-', linewidth=3, alpha=.8, label='Estimated')
+ax_x[1].plot(tspan_x, X_real[:,1], 'k-.', linewidth=1, label='Ground truth')
+ax_x[1].plot(tspan_x, X_des[:,1], 'y--', alpha=0.3, label='Desired')
+ax_x[1].set_ylabel('v (m/s)', fontsize=16)
 ax_x[1].grid()
-# Desired joint torque (interpolated feedforward)
-ax_u.plot(tspan_u, u_des, 'b-', label='Desired (ff)')
-ax_u.set(xlabel='t (s)', ylabel='$u_{0}$ (Nm)')
-ax_u.grid()
+# Forces
+ax_x[2].plot(tspan_u, Y_mea[:,1], 'm-', linewidth=2, alpha=.5, label='Measured')
+ax_x[2].set_ylabel('f (N)', fontsize=16)
+ax_x[2].grid()
+# Controls
+ax_x[3].plot(tspan_u, U_des, 'y--', alpha=0.3, label='Desired')
+ax_x[3].set_ylabel('u (N)', fontsize=16)
+ax_x[3].grid()
+
 # Legend
+ax_x[-1].set_xlabel('time (s)', fontsize=16)
 handles_x, labels_x = ax_x[0].get_legend_handles_labels()
 fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-handles_u, labels_u = ax_u.get_legend_handles_labels()
-fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
-fig_x.suptitle('Joint trajectories: des. vs sim. (DDP-based MPC)', size=16)
-fig_u.suptitle('Joint torques: des. vs sim. (DDP-based MPC)', size=16)
+fig_x.suptitle('State and control trajectories', size=16)
 plt.show() 
-
