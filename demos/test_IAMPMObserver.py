@@ -20,12 +20,8 @@ from utils import animatePointMass, plotPointMass
 
 
 # Action model for point mass
-dt = 5e-3
+dt = 1e-2 #5e-3
 N_h = 100
-# running_models = []
-# for i in range(N_h):
-#     md = ActionModelPointMass(dt=dt)
-#     running_models.append(md)
 integrator='euler'
 running_model = ActionModelPointMassObserver(dt=dt, integrator=integrator)
 # running_model.w_x = 1e-6
@@ -46,52 +42,52 @@ done = ddp.solve([], [], 100)
 X = np.array(ddp.xs)
 U = np.array(ddp.us)
 
-# # PLOT
-# import matplotlib.pyplot as plt
-# p = X[:,0]
-# v = X[:,1]
-# u = U
-# # Create time spans for X and U
-# tspan_x = np.linspace(0, N_h*dt, N_h+1)
-# tspan_u = np.linspace(0, N_h*dt, N_h)
-# # Create figs and subplots
-# fig_x, ax_x = plt.subplots(3, 1)
-# # fig_u, ax_u = plt.subplots(1, 1)
-# # Plot joints
-# ax_x[0].plot(tspan_x, p, 'b-', label='pos')
-# ax_x[0].set(xlabel='t (s)', ylabel='p (m)')
-# ax_x[0].grid()
-# ax_x[1].plot(tspan_x, v, 'g-', label='vel')
-# ax_x[1].set(xlabel='t (s)', ylabel='v (m/s)')
-# ax_x[1].grid()
-# ax_x[2].plot(tspan_u, u, 'r-', label='torque')
-# ax_x[2].set(xlabel='t (s)', ylabel='tau (Nm)')
-# ax_x[2].grid()
-# # # If ref specified
-# # if(ref is not None):
-# #     ax_x[0].plot(tspan_x, [ref[0]]*(N+1), 'k-.', label='ref')
-# #     ax_x[1].plot(tspan_x, [ref[1]]*(N+1), 'k-.')
-# #     ax_x[2].plot(tspan_x, [ref[2]]*(N+1), 'k-.')
-# # ax_u.plot(tspan_u, u, 'k-', label='control') 
-# # ax_u.set(xlabel='t (s)', ylabel='w')
-# # ax_u.grid()
-# # Legend
-# handles_x, labels_x = ax_x[0].get_legend_handles_labels()
-# fig_x.legend(loc='upper right', prop={'size': 16})
-# # handles_u, labels_u = ax_u.get_legend_handles_labels()
-# # fig_u.legend(loc='upper right', prop={'size': 16})
-# # Titles
-# fig_x.suptitle('State - Control trajectories', size=16)
-# # fig_u.suptitle('Control trajectory', size=16)
-# plt.show()
+# PLOT
+import matplotlib.pyplot as plt
+p = X[:,0]
+v = X[:,1]
+u = U
+# Create time spans for X and U
+tspan_x = np.linspace(0, N_h*dt, N_h+1)
+tspan_u = np.linspace(0, N_h*dt, N_h)
+# Create figs and subplots
+fig_x, ax_x = plt.subplots(3, 1)
+# fig_u, ax_u = plt.subplots(1, 1)
+# Plot joints
+ax_x[0].plot(tspan_x, p, 'b-', label='pos')
+ax_x[0].set(xlabel='t (s)', ylabel='p (m)')
+ax_x[0].grid()
+ax_x[1].plot(tspan_x, v, 'g-', label='vel')
+ax_x[1].set(xlabel='t (s)', ylabel='v (m/s)')
+ax_x[1].grid()
+ax_x[2].plot(tspan_u, u, 'r-', label='torque')
+ax_x[2].set(xlabel='t (s)', ylabel='tau (Nm)')
+ax_x[2].grid()
+# # If ref specified
+# if(ref is not None):
+#     ax_x[0].plot(tspan_x, [ref[0]]*(N+1), 'k-.', label='ref')
+#     ax_x[1].plot(tspan_x, [ref[1]]*(N+1), 'k-.')
+#     ax_x[2].plot(tspan_x, [ref[2]]*(N+1), 'k-.')
+# ax_u.plot(tspan_u, u, 'k-', label='control') 
+# ax_u.set(xlabel='t (s)', ylabel='w')
+# ax_u.grid()
+# Legend
+handles_x, labels_x = ax_x[0].get_legend_handles_labels()
+fig_x.legend(loc='upper right', prop={'size': 16})
+# handles_u, labels_u = ax_u.get_legend_handles_labels()
+# fig_u.legend(loc='upper right', prop={'size': 16})
+# Titles
+fig_x.suptitle('State - Control trajectories', size=16)
+# fig_u.suptitle('Control trajectory', size=16)
+plt.show()
 
 # TEST FILTERING
 # Create the filter 
-Q_cov = .01*np.eye(2) #.1*np.eye(2)   # Process noise cov
-R_cov = 0.001*np.eye(2) #0.01*np.eye(2)  # Measurement noise cov
+Q_cov = .01*np.eye(2) # Process noise cov
+R_cov = 0.01*np.eye(2)  # Measurement noise cov
 kalman = KalmanFilter(running_model, Q_cov, R_cov)
 # Observation model (spring-damper )
-K = 1. 
+K = 100. 
 B = 2*np.sqrt(K)
 p0 = 0.
 # Add noise on DDP trajectory and filter it to test Kalman filter
@@ -164,176 +160,176 @@ fig.legend(handles, labels, loc='upper right', prop={'size': 16})
 fig.suptitle('Kalman-filtered point mass trajectory', size=16)
 plt.show()
 
-#######
-# MPC #
-#######
-# Parameters
-maxit= 1
-T_tot = .1
-plan_freq = 1000                      # MPC re-planning frequency (Hz)
-ctrl_freq = 1000                         # Control - simulation - frequency (Hz)
-N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
-N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved during the simulation
-T_h = N_h*dt                          # Duration of the MPC horizon (s)
-# Init data
-nx, nq, nv, nu = 2, 1, 1, 1
-# Control
-X_mea = np.zeros((N_tot+1, nx))       # Measured states 
-X_des = np.zeros((N_tot+1, nx))       # Desired states
-U_des = np.zeros((N_tot, nu))         # Desired controls 
-X_pred = np.zeros((N_p, N_h+1, nx))   # MPC predictions (state)
-U_pred = np.zeros((N_p, N_h, nu))     # MPC predictions (control)
-# Estimation
-Y_mea = np.zeros((N_tot, ny))      # output measurements
-X_hat = np.zeros((N_tot, nx))      # state estimates
-X_real = np.zeros((N_tot+1, nx))     # real (unknown) state (for simulation purpose)
-P_cov = np.zeros((N_tot, nx, nx))  # covariance estimates
-K_gain = np.zeros((N_tot, nx, nx)) # optimal Kalman gains
-Y_err = np.zeros((N_tot, ny))      # error in predicted measurements
+# #######
+# # MPC #
+# #######
+# # Parameters
+# maxit= 1
+# T_tot = .1
+# plan_freq = 1000                      # MPC re-planning frequency (Hz)
+# ctrl_freq = 1000                         # Control - simulation - frequency (Hz)
+# N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
+# N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved during the simulation
+# T_h = N_h*dt                          # Duration of the MPC horizon (s)
+# # Init data
+# nx, nq, nv, nu = 2, 1, 1, 1
+# # Control
+# X_mea = np.zeros((N_tot+1, nx))       # Measured states 
+# X_des = np.zeros((N_tot+1, nx))       # Desired states
+# U_des = np.zeros((N_tot, nu))         # Desired controls 
+# X_pred = np.zeros((N_p, N_h+1, nx))   # MPC predictions (state)
+# U_pred = np.zeros((N_p, N_h, nu))     # MPC predictions (control)
+# # Estimation
+# Y_mea = np.zeros((N_tot, ny))      # output measurements
+# X_hat = np.zeros((N_tot, nx))      # state estimates
+# X_real = np.zeros((N_tot+1, nx))     # real (unknown) state (for simulation purpose)
+# P_cov = np.zeros((N_tot, nx, nx))  # covariance estimates
+# K_gain = np.zeros((N_tot, nx, nx)) # optimal Kalman gains
+# Y_err = np.zeros((N_tot, ny))      # error in predicted measurements
 
-# Initialize 
-X_real[0, :] = x0 # Initial true state 
-X_des[0, :] = x0  # Initial desired state 
-# # Initial estimation step from first measurement
-# Y_mea[0,:] = np.array([X_real[0,0], -K*(X_real[0,0]- 0) - B*X_real[0,1]]) # Initial measurement
+# # Initialize 
+# X_real[0, :] = x0 # Initial true state 
+# X_des[0, :] = x0  # Initial desired state 
+# # # Initial estimation step from first measurement
+# # Y_mea[0,:] = np.array([X_real[0,0], -K*(X_real[0,0]- 0) - B*X_real[0,1]]) # Initial measurement
 
-# Replan counter
-nb_replan = 0
+# # Replan counter
+# nb_replan = 0
 
-# SIMULATION LOOP
-# Simulation loop (at control rate)
-for i in range(N_tot): 
-  print("  ")
-  print("Sim step "+str(i)+"/"+str(N_tot))
-  # ESTIMATE state and SOLVE OCP if we are in a planning cycle
-  if(i%int(ctrl_freq/plan_freq) == 0):
+# # SIMULATION LOOP
+# # Simulation loop (at control rate)
+# for i in range(N_tot): 
+#   print("  ")
+#   print("Sim step "+str(i)+"/"+str(N_tot))
+#   # ESTIMATE state and SOLVE OCP if we are in a planning cycle
+#   if(i%int(ctrl_freq/plan_freq) == 0):
 
-    print("  Replan step "+str(nb_replan)+"/"+str(N_p))
+#     print("  Replan step "+str(nb_replan)+"/"+str(N_p))
 
-    # ESTIMATION 
-    # Generate (noisy) force measurement 
-      # Ideal measurement of visco-elastic force and real position
-      # Noise it out (for simulation) NO NOISE right now so measurement = real (hidden) state 
-    Y_mea[i,:] = np.array([X_real[i,0], -K*(X_real[i,0]- 0) - B*X_real[i,1]])  #(np.array([pos, lmb]) + np.random.normal(mean, std) )
-    # Filter measurement to reconstruct state
-    x, P, Kgain, y = kalman.step(X_hat[i,:], P_cov[i,:,:], U_des[i,:], Y_mea[i,:])
-    # Record estimates and gains 
-    X_hat[i,:] = x
-    P_cov[i,:,:] = P
-    K_gain[i,:,:] = Kgain
-    Y_err[i,:] = y
+#     # ESTIMATION 
+#     # Generate (noisy) force measurement 
+#       # Ideal measurement of visco-elastic force and real position
+#       # Noise it out (for simulation) NO NOISE right now so measurement = real (hidden) state 
+#     Y_mea[i,:] = np.array([X_real[i,0], -K*(X_real[i,0]- 0) - B*X_real[i,1]])  #(np.array([pos, lmb]) + np.random.normal(mean, std) )
+#     # Filter measurement to reconstruct state
+#     x, P, Kgain, y = kalman.step(X_hat[i,:], P_cov[i,:,:], U_des[i,:], Y_mea[i,:])
+#     # Record estimates and gains 
+#     X_hat[i,:] = x
+#     P_cov[i,:,:] = P
+#     K_gain[i,:,:] = Kgain
+#     Y_err[i,:] = y
 
-    # CONTROL
-    # Reset problem to ESTIMATED state
-    # Set initial state to measured state
-    ddp.problem.x0 = X_hat[i,:]
-    # Warm-start solution
-    xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-    xs_init[0] = X_hat[i,:]
-    us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
-    # Solve OCP
-    ddp.solve(xs_init, us_init, maxit, False)
-    # Record trajectories
-    X_pred[nb_replan, :, :] = np.array(ddp.xs)
-    U_pred[nb_replan, :, :] = np.array(ddp.us)
-    # Extract 1st control and 2nd state
-    u_des = U_pred[nb_replan, 0, :] 
-    x_des = X_pred[nb_replan, 1, :]
-    # Increment replan counter
-    nb_replan += 1
-  # Record and apply the 1st control
-  U_des[i, :] = u_des
-  # Record next real (unknown) state 
-  X_real[i+1,:] = X_real[i,:] + running_model.f(X_real[i,:], u_des)*dt 
-  # Record next desired state
-  X_des[i+1, :] = x_des
+#     # CONTROL
+#     # Reset problem to ESTIMATED state
+#     # Set initial state to measured state
+#     ddp.problem.x0 = X_hat[i,:]
+#     # Warm-start solution
+#     xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
+#     xs_init[0] = X_hat[i,:]
+#     us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
+#     # Solve OCP
+#     ddp.solve(xs_init, us_init, maxit, False)
+#     # Record trajectories
+#     X_pred[nb_replan, :, :] = np.array(ddp.xs)
+#     U_pred[nb_replan, :, :] = np.array(ddp.us)
+#     # Extract 1st control and 2nd state
+#     u_des = U_pred[nb_replan, 0, :] 
+#     x_des = X_pred[nb_replan, 1, :]
+#     # Increment replan counter
+#     nb_replan += 1
+#   # Record and apply the 1st control
+#   U_des[i, :] = u_des
+#   # Record next real (unknown) state 
+#   X_real[i+1,:] = X_real[i,:] + running_model.f(X_real[i,:], u_des)*dt 
+#   # Record next desired state
+#   X_des[i+1, :] = x_des
 
-# Final estimation step ? or remove last element of Kalman vars
+# # Final estimation step ? or remove last element of Kalman vars
 
-# GENERATE NICE PLOT OF SIMULATION
-with_predictions = False
-from matplotlib.collections import LineCollection
-import matplotlib.pyplot as plt
-import matplotlib
-# Time step duration of the control loop
-dt_ctrl = float(1./ctrl_freq)
-# Time step duration of planning loop
-dt_plan = float(1./plan_freq)
-# Joints & torques
-    # State predictions (MPC)
-p_pred = X_pred[:,:,0]
-v_pred = X_pred[:,:,1]
-u_pred = U_pred[:,:,0]
-# Create time spans for X and U
-tspan_x = np.linspace(0, T_tot, N_tot+1)
-tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)
-# Create figs and subplots
-fig_x, ax_x = plt.subplots(4, 1)
-if(with_predictions):
-  # For each planning step in the trajectory
-  for j in range(N_p):
-    # Receding horizon = [j,j+N_h]
-    t0_horizon = j*dt_plan
-    tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
-    tspan_u_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
-    # Set up lists of (x,y) points for predicted positions and velocities
-    points_p = np.array([tspan_x_pred, p_pred[j,:]]).transpose().reshape(-1,1,2)
-    points_v = np.array([tspan_x_pred, v_pred[j,:]]).transpose().reshape(-1,1,2)
-    points_u = np.array([tspan_u_pred, u_pred[j,:]]).transpose().reshape(-1,1,2)
-    # Set up lists of segments
-    segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
-    segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
-    segs_u = np.concatenate([points_u[:-1], points_u[1:]], axis=1)
-    # Make collections segments
-    cm = plt.get_cmap('Greys_r') 
-    lc_p = LineCollection(segs_p, cmap=cm, zorder=-1)
-    lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
-    lc_u = LineCollection(segs_u, cmap=cm, zorder=-1)
-    lc_p.set_array(tspan_x_pred)
-    lc_v.set_array(tspan_x_pred) 
-    lc_u.set_array(tspan_u_pred)
-    # Customize
-    lc_p.set_linestyle('-')
-    lc_v.set_linestyle('-')
-    lc_u.set_linestyle('-')
-    lc_p.set_linewidth(1)
-    lc_v.set_linewidth(1)
-    lc_u.set_linewidth(1)
-    # Plot collections
-    ax_x[0].add_collection(lc_p)
-    ax_x[1].add_collection(lc_v)
-    ax_x[3].add_collection(lc_u)
-    # Scatter to highlight points
-    colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
-    my_colors = cm(colors)
-    ax_x[0].scatter(tspan_x_pred, p_pred[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
-    ax_x[1].scatter(tspan_x_pred, v_pred[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
-    ax_x[3].scatter(tspan_u_pred, u_pred[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
-# Positions
-ax_x[0].plot(tspan_u, Y_mea[:,0], 'm-', linewidth=2, alpha=.5, label='Measured')
-ax_x[0].plot(tspan_u, X_hat[:,0], 'b-', linewidth=3, alpha=.8, label='Estimated')
-ax_x[0].plot(tspan_x, X_real[:,0], 'k-.', linewidth=1, label='Ground truth')
-ax_x[0].plot(tspan_x, X_des[:,0], 'y--', alpha=0.3, label='Desired')
-ax_x[0].set_ylabel('p (m)', fontsize=16)
-ax_x[0].grid()
-# Velocities
-ax_x[1].plot(tspan_u, X_hat[:,1], 'b-', linewidth=3, alpha=.8, label='Estimated')
-ax_x[1].plot(tspan_x, X_real[:,1], 'k-.', linewidth=1, label='Ground truth')
-ax_x[1].plot(tspan_x, X_des[:,1], 'y--', alpha=0.3, label='Desired')
-ax_x[1].set_ylabel('v (m/s)', fontsize=16)
-ax_x[1].grid()
-# Forces
-ax_x[2].plot(tspan_u, Y_mea[:,1], 'm-', linewidth=2, alpha=.5, label='Measured')
-ax_x[2].set_ylabel('f (N)', fontsize=16)
-ax_x[2].grid()
-# Controls
-ax_x[3].plot(tspan_u, U_des, 'y--', alpha=0.3, label='Desired')
-ax_x[3].set_ylabel('u (N)', fontsize=16)
-ax_x[3].grid()
+# # GENERATE NICE PLOT OF SIMULATION
+# with_predictions = False
+# from matplotlib.collections import LineCollection
+# import matplotlib.pyplot as plt
+# import matplotlib
+# # Time step duration of the control loop
+# dt_ctrl = float(1./ctrl_freq)
+# # Time step duration of planning loop
+# dt_plan = float(1./plan_freq)
+# # Joints & torques
+#     # State predictions (MPC)
+# p_pred = X_pred[:,:,0]
+# v_pred = X_pred[:,:,1]
+# u_pred = U_pred[:,:,0]
+# # Create time spans for X and U
+# tspan_x = np.linspace(0, T_tot, N_tot+1)
+# tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)
+# # Create figs and subplots
+# fig_x, ax_x = plt.subplots(4, 1)
+# if(with_predictions):
+#   # For each planning step in the trajectory
+#   for j in range(N_p):
+#     # Receding horizon = [j,j+N_h]
+#     t0_horizon = j*dt_plan
+#     tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+#     tspan_u_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
+#     # Set up lists of (x,y) points for predicted positions and velocities
+#     points_p = np.array([tspan_x_pred, p_pred[j,:]]).transpose().reshape(-1,1,2)
+#     points_v = np.array([tspan_x_pred, v_pred[j,:]]).transpose().reshape(-1,1,2)
+#     points_u = np.array([tspan_u_pred, u_pred[j,:]]).transpose().reshape(-1,1,2)
+#     # Set up lists of segments
+#     segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
+#     segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
+#     segs_u = np.concatenate([points_u[:-1], points_u[1:]], axis=1)
+#     # Make collections segments
+#     cm = plt.get_cmap('Greys_r') 
+#     lc_p = LineCollection(segs_p, cmap=cm, zorder=-1)
+#     lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
+#     lc_u = LineCollection(segs_u, cmap=cm, zorder=-1)
+#     lc_p.set_array(tspan_x_pred)
+#     lc_v.set_array(tspan_x_pred) 
+#     lc_u.set_array(tspan_u_pred)
+#     # Customize
+#     lc_p.set_linestyle('-')
+#     lc_v.set_linestyle('-')
+#     lc_u.set_linestyle('-')
+#     lc_p.set_linewidth(1)
+#     lc_v.set_linewidth(1)
+#     lc_u.set_linewidth(1)
+#     # Plot collections
+#     ax_x[0].add_collection(lc_p)
+#     ax_x[1].add_collection(lc_v)
+#     ax_x[3].add_collection(lc_u)
+#     # Scatter to highlight points
+#     colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+#     my_colors = cm(colors)
+#     ax_x[0].scatter(tspan_x_pred, p_pred[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
+#     ax_x[1].scatter(tspan_x_pred, v_pred[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
+#     ax_x[3].scatter(tspan_u_pred, u_pred[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
+# # Positions
+# ax_x[0].plot(tspan_u, Y_mea[:,0], 'm-', linewidth=2, alpha=.5, label='Measured')
+# ax_x[0].plot(tspan_u, X_hat[:,0], 'b-', linewidth=3, alpha=.8, label='Estimated')
+# ax_x[0].plot(tspan_x, X_real[:,0], 'k-.', linewidth=1, label='Ground truth')
+# ax_x[0].plot(tspan_x, X_des[:,0], 'y--', alpha=0.3, label='Desired')
+# ax_x[0].set_ylabel('p (m)', fontsize=16)
+# ax_x[0].grid()
+# # Velocities
+# ax_x[1].plot(tspan_u, X_hat[:,1], 'b-', linewidth=3, alpha=.8, label='Estimated')
+# ax_x[1].plot(tspan_x, X_real[:,1], 'k-.', linewidth=1, label='Ground truth')
+# ax_x[1].plot(tspan_x, X_des[:,1], 'y--', alpha=0.3, label='Desired')
+# ax_x[1].set_ylabel('v (m/s)', fontsize=16)
+# ax_x[1].grid()
+# # Forces
+# ax_x[2].plot(tspan_u, Y_mea[:,1], 'm-', linewidth=2, alpha=.5, label='Measured')
+# ax_x[2].set_ylabel('f (N)', fontsize=16)
+# ax_x[2].grid()
+# # Controls
+# ax_x[3].plot(tspan_u, U_des, 'y--', alpha=0.3, label='Desired')
+# ax_x[3].set_ylabel('u (N)', fontsize=16)
+# ax_x[3].grid()
 
-# Legend
-ax_x[-1].set_xlabel('time (s)', fontsize=16)
-handles_x, labels_x = ax_x[0].get_legend_handles_labels()
-fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-fig_x.suptitle('State and control trajectories', size=16)
-plt.show() 
+# # Legend
+# ax_x[-1].set_xlabel('time (s)', fontsize=16)
+# handles_x, labels_x = ax_x[0].get_legend_handles_labels()
+# fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+# fig_x.suptitle('State and control trajectories', size=16)
+# plt.show() 

@@ -23,8 +23,8 @@ from utils import animatePointMass, plotPointMass
 #########
 # Create dynamics model
 dt = 1e-3
-K = 10.
-B = 2
+K = 1000.
+B = 2*np.sqrt(K)
 model = PointMassContact(K=K, B=B, dt=dt, p0=0., integrator='euler')
 p0 = model.p0 
 # Running and terminal cost models
@@ -97,8 +97,8 @@ U_real = np.array(ddp.us)
 #######
 # Parameters
 maxit=2
-T_tot = 2.
-plan_freq = 500                      # MPC re-planning frequency (Hz)
+T_tot = 1.
+plan_freq = 1000                      # MPC re-planning frequency (Hz)
 ctrl_freq = 1000                         # Control - simulation - frequency (Hz)
 N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
 N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved during the simulation
@@ -147,7 +147,7 @@ for i in range(N_tot):
 
 
 # GENERATE NICE PLOT OF SIMULATION
-with_predictions = True
+with_predictions = False
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
 import matplotlib

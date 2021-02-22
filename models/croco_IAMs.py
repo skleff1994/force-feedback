@@ -67,11 +67,7 @@ class ActionModelPointMass(crocoddyl.ActionModelAbstract):
             # Exact (default)
         else:
             xnext = self.Ad.dot(x) + self.Bd.dot(u)
-        data.xnext = xnext #x + self.f(x,u)*self.dt
-
-        # Euler integration
-        # data.xnext = x + self.f(x,u)*self.dt
-
+        data.xnext = xnext 
         data.r[:self.nx] = self.w_x * ( x - self.x_tar ) 
         data.r[self.nx:2*self.nx] = self.w_xreg * ( x - self.x_ref )
         data.r[:-1] = self.w_ureg * ( u - self.u_ref )
@@ -119,6 +115,7 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
         self.w_x = 0.
         self.w_xreg = 0. 
         self.w_ureg = 0.
+        self.w_xlim = 0.
         # CT dynamics
         self.Ac = np.array([[0, 1, 0],
                             [0, 0, 1],
@@ -154,12 +151,17 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
             # Exact (default)
         else:
             xnext = self.Ad.dot(x) + self.Bd.dot(u)
-        data.xnext = xnext #x + self.f(x,u)*self.dt
+        data.xnext = xnext 
         data.r[:self.nx] = self.w_x * ( x - self.x_tar ) 
         data.r[self.nx:2*self.nx] = self.w_xreg * ( x - self.x_ref )
         data.r[:-1] = self.w_ureg * ( u - self.u_ref )
+        # Inequality cost : quadratic barrier activation on force to ensure F >= 0
+        if(x[2] >= 0.):
+            ar = 0
+        else:
+            ar = .5*(self.w_xlim**2) * x[2]**2
         # Cost value
-        data.cost = .5 * sum(data.r**2)
+        data.cost = .5 * sum(data.r**2) + ar
 
     def calcDiff(self, data, x, u):
         ''' 
@@ -171,6 +173,10 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
         data.Lu = ( u - self.u_ref ) * ( [self.w_ureg**2] * self.nx)
         data.Lxx = self.w_x**2 * np.eye(self.nx)
         data.Luu = np.array([self.w_ureg**2])
+        # Add barrier to partials
+        if(x[2] < 0.):
+            data.Lx[2] += (self.w_xlim**2) * x[2]
+            data.Lxx[2,2] += self.w_xlim**2
 
 
 # Action model for the "observer" point mass (spring-damper) 
@@ -271,10 +277,6 @@ class ActionModelPointMassActuation(crocoddyl.ActionModelAbstract):
         # dt (Euler)
         self.dt = dt
         self.integrator = integrator
-        # Stiffness, damping and anchor point 
-        self.K = K
-        self.B = B
-        self.p0 = p0
         # Reference state for state reg (origin)
         # Cost ref 
         self.x_tar = np.zeros(self.nx)
@@ -287,7 +289,7 @@ class ActionModelPointMassActuation(crocoddyl.ActionModelAbstract):
         # coef. of 1st order actuation dynamics
         self.k = k 
         self.Ac = np.array([[0, 1, 0],
-                            [0, 0, 1/self.m],
+                            [0, 0, 1],
                             [0, 0, -self.k]])
         self.Bc = np.array([[0],
                             [0],

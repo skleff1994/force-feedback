@@ -28,9 +28,9 @@ running_cost = CostSum(model)
 terminal_cost = CostSum(model)
   # Setup cost terms
 x_ref = np.array([0., 0.])
-running_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*np.eye(model.nx)))  
-running_cost.add_cost(QuadCtrlRegCost(model, .1*np.eye(model.nu)))
-terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 100.*np.eye(model.nx)))
+# running_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*np.eye(model.nx)))  
+running_cost.add_cost(QuadCtrlRegCost(model, 1e-4*np.eye(model.nu)))
+terminal_cost.add_cost(QuadTrackingCost(model, x_ref, 1.*np.eye(model.nx)))
   # IAMs for Crocoddyl
 running_IAM = ActionModel(model, running_cost) 
 terminal_IAM = ActionModel(model, terminal_cost) 
