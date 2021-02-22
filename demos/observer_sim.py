@@ -41,7 +41,6 @@ p = 1.                # initial position
 v = 1.                # initial velocity 
 lmb = -K*(p-p0) - B*v # initial contact force
 x0 = np.matrix([p, v]).T
-u0 = np.matrix([0.])
 T = 1000
 problem = crocoddyl.ShootingProblem(x0, [running_IAM]*T, terminal_IAM)
 # Create the DDP solver and setup callbacks
