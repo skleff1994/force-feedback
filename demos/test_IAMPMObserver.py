@@ -21,7 +21,7 @@ from utils import animatePointMass, plotPointMass
 
 # Action model for point mass
 dt = 1e-2 #5e-3
-N_h = 20
+N_h = 100
 integrator='euler'
 running_model = ActionModelPointMassObserver(dt=dt, integrator=integrator)
 # running_model.w_x = 1e-1
@@ -42,38 +42,39 @@ done = ddp.solve([], [], 100)
 X = np.array(ddp.xs)
 U = np.array(ddp.us)
 
-# PLOT
-import matplotlib.pyplot as plt
-p = X[:,0]
-v = X[:,1]
-u = U
-# Create time spans for X and U
-tspan_x = np.linspace(0, N_h*dt, N_h+1)
-tspan_u = np.linspace(0, N_h*dt, N_h)
-# Create figs and subplots
-fig_x, ax_x = plt.subplots(3, 1)
-# fig_u, ax_u = plt.subplots(1, 1)
-# Plot joints
-ax_x[0].plot(tspan_x, p, 'b-', label='pos')
-ax_x[0].set(xlabel='t (s)', ylabel='p (m)')
-ax_x[0].grid()
-ax_x[1].plot(tspan_x, v, 'g-', label='vel')
-ax_x[1].set(xlabel='t (s)', ylabel='v (m/s)')
-ax_x[1].grid()
-ax_x[2].plot(tspan_u, u, 'r-', label='torque')
-ax_x[2].set(xlabel='t (s)', ylabel='tau (Nm)')
-ax_x[2].grid()
-# Legend
-handles_x, labels_x = ax_x[0].get_legend_handles_labels()
-fig_x.legend(loc='upper right', prop={'size': 16})
-# Titles
-fig_x.suptitle('State - Control trajectories', size=16)
-plt.show()
+# # PLOT
+# import matplotlib.pyplot as plt
+# p = X[:,0]
+# v = X[:,1]
+# u = U
+# # Create time spans for X and U
+# tspan_x = np.linspace(0, N_h*dt, N_h+1)
+# tspan_u = np.linspace(0, N_h*dt, N_h)
+# # Create figs and subplots
+# fig_x, ax_x = plt.subplots(3, 1)
+# # fig_u, ax_u = plt.subplots(1, 1)
+# # Plot joints
+# ax_x[0].plot(tspan_x, p, 'b-', label='pos')
+# ax_x[0].set_ylabel('p (m)', fontsize=16)
+# ax_x[0].grid()
+# ax_x[1].plot(tspan_x, v, 'g-', label='vel')
+# ax_x[1].set_ylabel('v (m/s)', fontsize=16)
+# ax_x[1].grid()
+# ax_x[2].plot(tspan_u, u, 'r-', label='torque')
+# ax_x[2].set_ylabel('u (Nm)', fontsize=16)
+# ax_x[2].grid()
+# # Legend
+# ax_x[-1].set_xlabel('time (s)', fontsize=16)
+# handles_x, labels_x = ax_x[0].get_legend_handles_labels()
+# fig_x.legend(loc='upper right', prop={'size': 16})
+# # Titles
+# fig_x.suptitle('State - Control trajectories', size=16)
+# plt.show()
 
 # TEST FILTERING
 # Create the filter 
-Q_cov = np.eye(2)   # Process noise cov
-R_cov = .0001*np.eye(2)        # Measurement noise cov
+Q_cov = 0.01*np.eye(2)   # Process noise cov
+R_cov = np.eye(2)   # Measurement noise cov
 kalman = KalmanFilter(running_model, Q_cov, R_cov)
 # Observation model (spring-damper )
 K = 1000. 
@@ -90,25 +91,25 @@ Y_err = np.zeros((N_h+1, ny))
 X_real = np.reshape(X[:N_h], Y_mea.shape) # Ground truth state trajectory
 # Measurement noise model
 mean = np.zeros(2)
-std_p = 0.01  #np.array([0.005, N_h])
-std_f = 10    #np.array([0.005, N_h])
+std_p = .05 #np.array([0.005, N_h])
+std_f = 2   #np.array([0.005, N_h])
 
-# ESTIMATION LOOP (offline)
-for i in range(N_h):
-    print("Step "+str(i)+"/"+str(N_h))
-    # Generate noisy force measurement 
-      # Ideal visco-elastic force and real position + Noise them out
-    wp,_ = np.random.normal(mean, std_p) 
-    wf,_ = np.random.normal(mean, std_f)
-    Y_mea[i,:] = (np.array([X_real[i,0], -K*(X_real[i,0]- 0.) - B*X_real[i,1]]) + np.array([wp, wf]) )
-    # Filter and record
-    X_hat[i+1,:], P_cov[i+1,:,:], K_gain[i+1,:,:], Y_err[i+1,:] = kalman.step(X_hat[i,:], P_cov[i,:,:], U[i,:], Y_mea[i,:])
+# # ESTIMATION LOOP (offline)
+# for i in range(N_h):
+#     print("Step "+str(i)+"/"+str(N_h))
+#     # Generate noisy force measurement 
+#       # Ideal visco-elastic force and real position + Noise them out
+#     wp,_ = np.random.normal(mean, std_p) 
+#     wf,_ = np.random.normal(mean, std_f)
+#     Y_mea[i,:] = (np.array([X_real[i,0], -K*(X_real[i,0]- 0.) - B*X_real[i,1]]) + np.array([wp, wf]) )
+#     # Filter and record
+#     X_hat[i+1,:], P_cov[i+1,:,:], K_gain[i+1,:,:], Y_err[i+1,:] = kalman.step(X_hat[i,:], P_cov[i,:,:], U[i,:], Y_mea[i,:])
 
 # # Display Kalman gains magnitude
-# dP_dP = np.vstack(( np.array([[K_gain[i][0,0] for i in range(N_h)]]).transpose())) 
-# dP_dF = np.vstack(( np.array([[K_gain[i][0,1] for i in range(N_h)]]).transpose())) 
-# dV_dP = np.vstack(( np.array([[K_gain[i][1,0] for i in range(N_h)]]).transpose())) 
-# dV_dF = np.vstack(( np.array([[K_gain[i][1,1] for i in range(N_h)]]).transpose())) 
+# dP_dP = np.vstack(( np.array([[K_gain[i,0,0] for i in range(N_h)]]).transpose())) 
+# dP_dF = np.vstack(( np.array([[K_gain[i,0,1] for i in range(N_h)]]).transpose())) 
+# dV_dP = np.vstack(( np.array([[K_gain[i,1,0] for i in range(N_h)]]).transpose())) 
+# dV_dF = np.vstack(( np.array([[K_gain[i,1,1] for i in range(N_h)]]).transpose())) 
 # # Norms
 # print("dP_dP Kalman gain norm : ", np.linalg.norm(dP_dP))
 # print("dP_dF Kalman gain norm : ", np.linalg.norm(dP_dF))
@@ -151,7 +152,7 @@ for i in range(N_h):
 #######
 # Parameters
 maxit= 1
-T_tot = .1
+T_tot = 1.
 plan_freq = 1000                      # MPC re-planning frequency (Hz)
 ctrl_freq = 1000                      # Control - simulation - frequency (Hz)
 N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
@@ -189,19 +190,15 @@ for i in range(N_tot):
   
   # Measurement 
     # Ideal measurement of visco-elastic force and real position (measuring at ctrl frequency)
-    # Noise it out (for simulation) NO NOISE right now so measurement = real (hidden) state 
+    # Noise it out (for simulation) NO NOISE right now so measurement = PERFECT MEASUREMENT
   wp,_ = np.random.normal(mean, std_p) 
   wf,_ = np.random.normal(mean, std_f)
-  Y_mea[i,:] = np.array([X_real[i,0], -K*(X_real[i,0]- 0) - B*X_real[i,1]]) + np.array([wp, wf])
+  Y_mea[i,:] = np.array([X_real[i,0], -K*(X_real[i,0]- 0) - B*X_real[i,1]]) + np.array([wp, wf]) 
 
   # ESTIMATE state and SOLVE OCP if we are in a planning cycle
   if(i%int(ctrl_freq/plan_freq) == 0):
 
     print("  Replan step "+str(nb_replan)+"/"+str(N_p))
-
-    # ESTIMATION 
-    # Filter measurement to reconstruct state
-    x_hat, p_cov, k_gain, y_err = kalman.step(X_hat[i,:], P_cov[i,:,:], U_des[i,:], Y_mea[i,:])
 
     # CONTROL
     # Set initial state to measured state
@@ -220,6 +217,11 @@ for i in range(N_tot):
     x_des = X_pred[nb_replan, 1, :]
     # Increment replan counter
     nb_replan += 1
+
+    # ESTIMATION 
+    # Filter measurement to reconstruct state
+    x_hat, p_cov, k_gain, y_err = kalman.step(X_hat[i,:], P_cov[i,:,:], u_des, Y_mea[i,:]) 
+
   # Record and apply the 1st control
   U_des[i, :] = u_des
   # Record next real (unknown) state = integrate dynamics 
@@ -235,7 +237,7 @@ for i in range(N_tot):
 # Final estimation step ? or remove last element of Kalman vars
 
 # GENERATE NICE PLOT OF SIMULATION
-with_predictions = True
+with_predictions = False
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
 import matplotlib

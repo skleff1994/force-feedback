@@ -46,44 +46,34 @@ done = ddp.solve([], [], 100)
 X = np.array(ddp.xs)
 U = np.array(ddp.us)
 
-# PLOT
-import matplotlib.pyplot as plt
-p = X[:,0]
-v = X[:,1]
-u = U
-# Create time spans for X and U
-tspan_x = np.linspace(0, N_h*dt, N_h+1)
-tspan_u = np.linspace(0, N_h*dt, N_h)
-# Create figs and subplots
-fig_x, ax_x = plt.subplots(3, 1)
-# fig_u, ax_u = plt.subplots(1, 1)
-# Plot joints
-ax_x[0].plot(tspan_x, p, 'b-', label='pos')
-ax_x[0].set(xlabel='t (s)', ylabel='p (m)')
-ax_x[0].grid()
-ax_x[1].plot(tspan_x, v, 'g-', label='vel')
-ax_x[1].set(xlabel='t (s)', ylabel='v (m/s)')
-ax_x[1].grid()
-ax_x[2].plot(tspan_u, u, 'r-', label='torque')
-ax_x[2].set(xlabel='t (s)', ylabel='tau (Nm)')
-ax_x[2].grid()
-# # If ref specified
-# if(ref is not None):
-#     ax_x[0].plot(tspan_x, [ref[0]]*(N+1), 'k-.', label='ref')
-#     ax_x[1].plot(tspan_x, [ref[1]]*(N+1), 'k-.')
-#     ax_x[2].plot(tspan_x, [ref[2]]*(N+1), 'k-.')
-# ax_u.plot(tspan_u, u, 'k-', label='control') 
-# ax_u.set(xlabel='t (s)', ylabel='w')
-# ax_u.grid()
-# Legend
-handles_x, labels_x = ax_x[0].get_legend_handles_labels()
-fig_x.legend(loc='upper right', prop={'size': 16})
-# handles_u, labels_u = ax_u.get_legend_handles_labels()
-# fig_u.legend(loc='upper right', prop={'size': 16})
-# Titles
-fig_x.suptitle('State - Control trajectories', size=16)
-# fig_u.suptitle('Control trajectory', size=16)
-plt.show()
+# # PLOT
+# import matplotlib.pyplot as plt
+# p = X[:,0]
+# v = X[:,1]
+# u = U
+# # Create time spans for X and U
+# tspan_x = np.linspace(0, N_h*dt, N_h+1)
+# tspan_u = np.linspace(0, N_h*dt, N_h)
+# # Create figs and subplots
+# fig_x, ax_x = plt.subplots(3, 1)
+# # fig_u, ax_x[2] = plt.subplots(1, 1)
+# # Plot joints
+# ax_x[0].plot(tspan_x, p, 'b-', label='pos')
+# ax_x[0].set_ylabel('p (m)', fontsize=16)
+# ax_x[0].grid()
+# ax_x[1].plot(tspan_x, v, 'g-', label='vel')
+# ax_x[1].set_ylabel('v (m/s)', fontsize=16)
+# ax_x[1].grid()
+# ax_x[2].plot(tspan_u, u, 'r-', label='torque')
+# ax_x[2].set_ylabel('tau (Nm)', fontsize=16)
+# ax_x[2].grid()
+# # Legend
+# ax_x[-1].set_xlabel('time (s)', fontsize=16)
+# handles_x, labels_x = ax_x[0].get_legend_handles_labels()
+# fig_x.legend(loc='upper right', prop={'size': 16})
+# # Titles
+# fig_x.suptitle('State - Control trajectories', size=16)
+# plt.show()
 
 #######
 # MPC #
@@ -168,8 +158,7 @@ u_des = U_des
 tspan_x = np.linspace(0, T_tot, N_tot+1)
 tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)
 # Create figs and subplots
-fig_x, ax_x = plt.subplots(nq, 2)
-fig_u, ax_u = plt.subplots(nq, 1)
+fig_x, ax_x = plt.subplots(3, 1)
 # Extract state predictions of 0^th joint
 q_pred_i = q_pred[:,:,0]
 v_pred_i = v_pred[:,:,0]
@@ -208,36 +197,34 @@ if(with_predictions):
     # Plot collections
     ax_x[0].add_collection(lc_q)
     ax_x[1].add_collection(lc_v)
-    ax_u.add_collection(lc_u)
+    ax_x[2].add_collection(lc_u)
     # Scatter to highlight points
     colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
     my_colors = cm(colors)
     ax_x[0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
     ax_x[1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
-    ax_u.scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
+    ax_x[2].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
 # Desired joint position (interpolated from prediction)
 ax_x[0].plot(tspan_x, q_des[:,0], 'b-', label='Desired')
 # Measured joint position (PyBullet)
 ax_x[0].plot(tspan_x, q_mea[:,0], 'r-', label='Measured')
-ax_x[0].set(xlabel='t (s)', ylabel='$q_{0}$ (rad)')
+ax_x[0].set_ylabel('p (m)', fontsize=16)
 ax_x[0].grid()
 # Desired joint velocity (interpolated from prediction)
 ax_x[1].plot(tspan_x, v_des[:,0], 'b-', label='Desired')
 # Measured joint velocity (PyBullet)
 ax_x[1].plot(tspan_x, v_mea[:,0], 'r-', label='Measured')
-ax_x[1].set(xlabel='t (s)', ylabel='$v_{0}$ (rad/s)')
+ax_x[1].set_ylabel('v (m/s)', fontsize=16)
 ax_x[1].grid()
 # Desired joint torque (interpolated feedforward)
-ax_u.plot(tspan_u, u_des, 'b-', label='Desired (ff)')
-ax_u.set(xlabel='t (s)', ylabel='$u_{0}$ (Nm)')
-ax_u.grid()
+ax_x[2].plot(tspan_u, u_des, 'b-', label='Desired (ff)')
+ax_x[2].set_ylabel('tau (Nm)', fontsize=16)
+ax_x[2].grid()
 # Legend
+ax_x[-1].set_xlabel('time (s)', fontsize=16)
 handles_x, labels_x = ax_x[0].get_legend_handles_labels()
 fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-handles_u, labels_u = ax_u.get_legend_handles_labels()
-fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
-fig_x.suptitle('Joint trajectories: des. vs sim. (DDP-based MPC)', size=16)
-fig_u.suptitle('Joint torques: des. vs sim. (DDP-based MPC)', size=16)
+fig_x.suptitle('State and position trajectories', size=16)
 plt.show() 
 
 
