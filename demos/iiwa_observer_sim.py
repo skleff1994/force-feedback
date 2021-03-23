@@ -1,9 +1,17 @@
+# Title : iiwa_observer_sim.py
+# Author: Sebastien Kleff
+# Date : 17.03.2020 
+# Copyright LAAS-CNRS, NYU
+
+# DDP-based MPC with force feedback using the 'observer' approach on the KUKA arm
+
 import numpy as np  
 import pinocchio as pin
 from py_robot_properties_iiwa.robot import IiwaRobot
 from py_ddp_iiwa.mpc_controller import MPCController
 from py_ddp_iiwa.ddp_planner import DDPPlanner
 
+# DDP-based MPC on the iiwa
 
 ############################################
 ### ROBOT MODEL & SIMULATION ENVIRONMENT ###

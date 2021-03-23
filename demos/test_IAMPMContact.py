@@ -1,9 +1,9 @@
-# Title : test_IAMPM.py
+# Title : test_IAMPMContact.py
 # Author: Sebastien Kleff
 # Date : 18.11.2020 
 # Copyright LAAS-CNRS, NYU
 
-# Test of the "augmented state" approach for force feedback on the point mass system 
+# DDP-based MPC with force feedback using 'augmented state' approach for point mass 
 
 import os.path
 import sys
@@ -12,23 +12,18 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
 import numpy as np
 import crocoddyl
 
-from models.dyn_models import PointMassLPF
-from models.cost_models import *
 from models.croco_IAMs import ActionModelPointMassContact
 
-from utils import animatePointMass, plotPointMass
-
-
 # Action model for point mass
-dt = 5e-3
+dt = 1e-2
 N_h = 100
 
 # Spring damper
-K = 100.
+K = 1000.
 B = 2*np.sqrt(K)
 integrator='euler'
 running_model = ActionModelPointMassContact(dt=dt, K=K, B=B, p0=0., integrator=integrator)
-# running_model.w_x = 1e-2
+# running_model.w_x = 1.
 # running_model.w_xreg = 1e-2
 running_model.w_ureg = 1e-4
 # running_model.w_xlim = 1e-2 # to enforce positive force?
@@ -38,8 +33,9 @@ terminal_model.w_x = 1
 
 # Problem + solver
 p0 = 1.
-v0 = 0.
-lmb0 = -K*(p0 - running_model.p0) - B*v0
+v0 = 1.
+lmb0 = -K*(p0 - running_model.p0) - B*v0 #max(0.,-K*(p0 - running_model.p0) - B*v0)
+# print(lmb0)
 x0 = np.array([p0, v0, lmb0])
 problem = crocoddyl.ShootingProblem(x0, [running_model]*N_h, terminal_model)
 ddp = crocoddyl.SolverDDP(problem)
@@ -50,45 +46,55 @@ done = ddp.solve([], [], 100)
 X = np.array(ddp.xs)
 U = np.array(ddp.us)
 
-# PLOT
-nx = running_model.nx 
-nu = running_model.nu
-import matplotlib.pyplot as plt
-p = X[:,0]
-v = X[:,1]
-f = X[:,2]
-u = U
-# Create time spans for X and U
-tspan_x = np.linspace(0, N_h*dt, N_h+1)
-tspan_u = np.linspace(0, N_h*dt, N_h)
-# Create figs and subplots
-fig_x, ax_x = plt.subplots(4, 1)
-# Plot joints
-ax_x[0].plot(tspan_x, p, 'b-', label='pos')
-ax_x[0].set_ylabel('p (m)', fontsize=16)
-ax_x[0].grid()
-ax_x[1].plot(tspan_x, v, 'g-', label='vel')
-ax_x[1].set_ylabel('v (m/s)', fontsize=16)
-ax_x[1].grid()
-ax_x[2].plot(tspan_x, f, 'm-', label='force')
-ax_x[2].set_ylabel('f (N)', fontsize=16)
-ax_x[2].grid()
-ax_x[3].plot(tspan_u, u, 'r-', label='ctrl')
-ax_x[3].set_ylabel('u (Nm)', fontsize=16)
-ax_x[3].grid()
-# If ref specified
-ref = running_model.x_tar
-if(ref is not None):
-    ax_x[0].plot(tspan_x, [ref[0]]*(N_h+1), 'k-.', label='ref')
-    ax_x[1].plot(tspan_x, [ref[1]]*(N_h+1), 'k-.')
-    ax_x[2].plot(tspan_x, [ref[2]]*(N_h+1), 'k-.')
-# Legend
-ax_x[-1].set_xlabel('time (s)', fontsize=16)
-handles_x, labels_x = ax_x[0].get_legend_handles_labels()
-fig_x.legend(loc='upper right', prop={'size': 16})
-# Titles
-fig_x.suptitle('State - Control trajectories', size=16)
-plt.show()
+# # PLOT
+# nx = running_model.nx 
+# nu = running_model.nu
+# import matplotlib.pyplot as plt
+# p = X[:,0]
+# v = X[:,1]
+# f = X[:,2]
+# u = U
+# # Create time spans for X and U
+# tspan_x = np.linspace(0, N_h*dt, N_h+1)
+# tspan_u = np.linspace(0, N_h*dt, N_h)
+# # Create figs and subplots
+# fig_x, ax_x = plt.subplots(4, 1)
+# # Plot joints
+# ax_x[0].plot(tspan_x, p, 'b-', label='pos')
+# ax_x[0].set_ylabel('p (m)', fontsize=16)
+# ax_x[0].grid()
+# ax_x[1].plot(tspan_x, v, 'g-', label='vel')
+# ax_x[1].set_ylabel('v (m/s)', fontsize=16)
+# ax_x[1].grid()
+# ax_x[2].plot(tspan_x, f, 'm-', label='force')
+# ax_x[2].set_ylabel('f (N)', fontsize=16)
+# ax_x[2].grid()
+# ax_x[3].plot(tspan_u, u, 'r-', label='ctrl')
+# ax_x[3].set_ylabel('u (Nm)', fontsize=16)
+# ax_x[3].grid()
+# # If ref specified
+# ref = running_model.x_tar
+# if(ref is not None):
+#     ax_x[0].plot(tspan_x, [ref[0]]*(N_h+1), 'k-.', label='ref')
+#     ax_x[1].plot(tspan_x, [ref[1]]*(N_h+1), 'k-.')
+#     ax_x[2].plot(tspan_x, [ref[2]]*(N_h+1), 'k-.')
+# # Legend
+# ax_x[-1].set_xlabel('time (s)', fontsize=16)
+# handles_x, labels_x = ax_x[0].get_legend_handles_labels()
+# fig_x.legend(loc='upper right', prop={'size': 16})
+# # Titles
+# fig_x.suptitle('State - Control trajectories', size=16)
+# plt.show()
+
+# # Display magnitude of Riccati gains*
+# K = ddp.K.tolist()
+# Kp = np.vstack(( np.array([[K[i][0] for i in range(N_h)]]).transpose())) 
+# Kv = np.vstack(( np.array([[K[i][1] for i in range(N_h)]]).transpose())) 
+# Kf = np.vstack(( np.array([[K[i][2] for i in range(N_h)]]).transpose())) 
+# # Norms
+# print("Kp gain norm : ", np.linalg.norm(Kp))
+# print("Kv gain norm : ", np.linalg.norm(Kv))
+# print("Kf gain norm : ", np.linalg.norm(Kf))
 
 #######
 # MPC #
@@ -96,7 +102,7 @@ plt.show()
 # Parameters
 maxit= 1
 T_tot = .5
-plan_freq = 250                      # MPC re-planning frequency (Hz)
+plan_freq = 1000                      # MPC re-planning frequency (Hz)
 ctrl_freq = 1000                      # Control - simulation - frequency (Hz)
 N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
 N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved during the simulation
@@ -108,6 +114,7 @@ X_des = np.zeros((N_tot+1, nx))       # Desired states
 U_des = np.zeros((N_tot, nu))         # Desired controls 
 X_pred = np.zeros((N_p, N_h+1, nx))   # MPC predictions (state)
 U_pred = np.zeros((N_p, N_h, nu))     # MPC predictions (control)
+K_gains = np.zeros((N_p, N_h, nx))    # Riccati feedback gains
 # Replan counter
 nb_replan = 0
 # Measure initial state from simulation environment
@@ -137,18 +144,34 @@ for i in range(N_tot):
     # Extract 1st control and 2nd state
     u_des = U_pred[nb_replan, 0, :] 
     x_des = X_pred[nb_replan, 1, :]
+    # Record riccati feedback gains
+    K_gains[nb_replan, :, :] = np.array(ddp.K.tolist())
+    # print(ddp.K.tolist()[-3][0])
     # Increment replan counter
     nb_replan += 1
   # Record and apply the 1st control
   U_des[i, :] = u_des
   # Measure new state from simulation (integrate)
-  X_mea[i+1,:] = X_mea[i,:] + running_model.f(X_mea[i,:], u_des)*dt #+ 0.01*np.random.rand(3)# (X_mea[i,:] , u_des) 
+  X_mea[i+1,:] = X_mea[i,:] + running_model.f(X_mea[i,:], u_des)*1e-3#+ 0.01*np.random.rand(3)# (X_mea[i,:] , u_des) 
   # Record desired state
   X_des[i+1, :] = x_des
 
 
+# # Display magnitude of Riccati gains
+# Kp, Kv, Kf = [], [], []
+# for i in range(N_p):
+#   K = K_gains[i, 0, :]
+#   Kp.append(np.sum(K_gains[i, :, 0], axis=0))
+#   # Kv.append(K_gains[i, 0, 1])
+#   # Kf.append(K_gains[i, 0, 2])
+# print(Kp)
+# # plt.plot(np.linspace(0,T_tot-0.001, N_p), Kp, 'r')
+# # plt.plot(np.linspace(0,T_tot-0.001, N_p), Kv, 'b')
+# # plt.plot(np.linspace(0,T_tot-0.001, N_p), Kf, 'g')
+# # plt.show()
+
 # GENERATE NICE PLOT OF SIMULATION
-with_predictions = True
+with_predictions = False
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
 import matplotlib

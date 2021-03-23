@@ -10,6 +10,13 @@ import numpy as np
 from matplotlib import animation
 from matplotlib import pyplot as plt
 
+import time
+
+import pinocchio as pin
+
+import pybullet as p
+import pybullet_data
+
 def animatePointMass(xs, sleep=1):
     '''
     Animate the point mass system with state trajectory xs
@@ -159,6 +166,91 @@ def plotFiltered(Y_mea, X_hat, X_real, dt=1e-2):
     fig.suptitle('Kalman-filtered point mass trajectory', size=16)
     plt.show()
 
+
+def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=False):
+    '''
+    Create contact surface object in pybullet and display it
+      M       : contact placement
+      robotId : id of the robot 
+
+    '''
+
+    quat = pin.SE3ToXYZQUAT(M)
+    visualShapeId = p.createVisualShape(shapeType=p.GEOM_CYLINDER,
+                                        radius=radius,
+                                        length=length,
+                                        rgbaColor=[.8, .1, .1, .7],
+                                        visualFramePosition=quat[:3],
+                                        visualFrameOrientation=quat[3:])
+    # With collision
+    if(with_collision):
+      collisionShapeId = p.createCollisionShape(shapeType=p.GEOM_CYLINDER,
+                                                radius=radius,
+                                                height=length,
+                                                collisionFramePosition=quat[:3],
+                                                collisionFrameOrientation=quat[3:])
+      contactId = p.createMultiBody(baseMass=0.,
+                                        baseInertialFramePosition=[0.,0.,0.],
+                                        baseCollisionShapeIndex=collisionShapeId,
+                                        baseVisualShapeIndex=visualShapeId,
+                                        basePosition=[0.,0.,0.],
+                                        useMaximalCoordinates=True)
+                    
+      # Desactivate collisions for all links except end-effector of robot
+      # print("  Filter collisions...")
+      for i in range(p.getNumJoints(robotId)):
+        p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
+      p.setCollisionFilterPair(contactId, robotId, -1, 8, 1)
+
+      return contactId
+    # Without collisions
+    else:
+      # print("  No collisions.")
+      p.createMultiBody(baseMass=0.,
+                        baseInertialFramePosition=[0.,0.,0.],
+                        baseVisualShapeIndex=visualShapeId,
+                        basePosition=[0.,0.,0.],
+                        useMaximalCoordinates=True)
+      return visualShapeId
+
+
+def get_p(q, pin_robot, id_endeff):
+    '''
+    Returns end-effector trajectory for given q trajectory 
+        q : joint positions
+        robot : pinocchio wrapper
+    '''
+    N = np.shape(q)[0]
+    p = np.empty((N,3))
+    # print(q)
+    for i in range(N):
+        pin.forwardKinematics(pin_robot.model, pin_robot.data, q[i])
+        pin.updateFramePlacements(pin_robot.model, pin_robot.data)
+        p[i,:] = pin_robot.data.oMf[id_endeff].translation.T
+    # print(p)
+    return p
+
+def get_v(q, dq, pin_robot, id_endeff):
+    '''
+    Returns end-effector trajectory for given q trajectory 
+        q         : joint positions
+        dq        : joint velocities
+        pin_robot : pinocchio wrapper
+        id_endeff : id of frame
+    '''
+    N = np.shape(q)[0]
+    v = np.empty((N,3))
+    jac = np.zeros((6,pin_robot.model.nv))
+    for i in range(N):
+        # Get jacobian
+        pin.computeJointJacobians(pin_robot.model, pin_robot.data, q[i,:])
+        jac = pin.getFrameJacobian(pin_robot.model, pin_robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
+        # Get EE velocity
+        print("Jac : ", jac)
+        print("dq : ", dq[i])
+        v[i,:] = jac.dot(dq[i])[:3]
+    return v
+    
 # def animateCartpole(xs, sleep=50):
 #     print("processing the animation ... ")
 #     cart_size = 1.

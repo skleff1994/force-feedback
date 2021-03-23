@@ -146,45 +146,6 @@ class DDPSolver:
         self.us = U_new 
         self.cost = new_cost
 
-    # def forward_pass(self, tol=0.):
-    #     '''
-    #     Rollout from x0 using gains computed in the backward pass
-    #     '''
-    #     N = self.problem.N
-    #     # line search parameter
-    #     alpha = 1.
-    #     beta = .5
-    #     # ls count
-    #     ls_count = 0.
-    #     while(ls_count<50):
-    #         # Expected cost reduction
-    #         dJ_est = 0
-    #         # Store trajs
-    #         X_new = []
-    #         U_new = []
-    #         X_new.append(self.xs[0])
-    #         for t in range(N):
-    #             # Rollout
-    #             U_new.append(self.us[t] + alpha*self.k[t] + self.K[t].dot(X_new[t] - self.xs[t]))
-    #             X_new.append(self.problem.dynamics.calc(X_new[t], U_new[t]))
-    #             # Add up estimate of expected cost reduction 
-    #             dJ_est = dJ_est + alpha*self.k[t].T.dot(self.Q_u[t]) + .5*alpha**2*self.k[t].T.dot(self.Q_uu[t]).dot(self.k[t])
-    #         # Get actual cost reduction
-    #         dJ_real = np.sum(self.problem.calc(self.xs, self.us)) + np.sum(self.problem.calc(X_new, U_new))
-    #         print("  Estimated cost reduction : ", dJ_est)
-    #         print("  Actual cost reduction : ", dJ_real)
-    #         # Compare actual and expected cost reduction
-    #         z = dJ_real / dJ_est
-    #         # # print("  z= ", z)
-    #         if(z>tol):
-    #             # print("  z= ", z)
-    #             break
-    #         else:
-    #             alpha = alpha*beta
-    #             ls_count += 1
-    #     self.xs = X_new
-    #     self.us = U_new 
-
     def plot(self):
         '''
         Pot state and control trajectories

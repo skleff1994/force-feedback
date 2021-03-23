@@ -68,9 +68,9 @@ class ActionModelPointMass(crocoddyl.ActionModelAbstract):
         else:
             xnext = self.Ad.dot(x) + self.Bd.dot(u)
         data.xnext = xnext 
-        data.r[:self.nx] = self.w_x * ( x - self.x_tar ) 
-        data.r[self.nx:2*self.nx] = self.w_xreg * ( x - self.x_ref )
-        data.r[:-1] = self.w_ureg * ( u - self.u_ref )
+        data.r[:self.nx] = self.w_x * ( x - self.x_tar )              # State goal
+        data.r[self.nx:2*self.nx] = self.w_xreg * ( x - self.x_ref )  # State reg
+        data.r[:-1] = self.w_ureg * ( u - self.u_ref )                # Ctrl reg
         # Cost value
         data.cost = .5 * sum(data.r**2)
 
@@ -161,7 +161,7 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
         else:
             ar = .5*(self.w_xlim**2) * x[2]**2
         # Cost value
-        data.cost = .5 * sum(data.r**2) + ar
+        data.cost = .5 * sum(data.r**2) #+ ar
 
     def calcDiff(self, data, x, u):
         ''' 
@@ -174,9 +174,9 @@ class ActionModelPointMassContact(crocoddyl.ActionModelAbstract):
         data.Lxx = self.w_x**2 * np.eye(self.nx)
         data.Luu = np.array([self.w_ureg**2])
         # Add barrier to partials
-        if(x[2] < 0.):
-            data.Lx[2] += (self.w_xlim**2) * x[2]
-            data.Lxx[2,2] += self.w_xlim**2
+        # if(x[2] < 0.):
+        #     data.Lx[2] += (self.w_xlim**2) * x[2]
+        #     data.Lxx[2,2] += self.w_xlim**2
 
 
 # Action model for the "observer" point mass (spring-damper) 

@@ -1,9 +1,9 @@
-# Title : test_IAMPM.py
+# Title : test_IAMPMObserver.py
 # Author: Sebastien Kleff
 # Date : 18.11.2020 
 # Copyright LAAS-CNRS, NYU
 
-# Test of the "augmented state" approach for force feedback on the point mass system 
+# DDP-based MPC with force feedback using 'observer' approach for point mass 
 
 import os.path
 import sys
@@ -12,12 +12,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
 import numpy as np
 import crocoddyl
 
-from models.dyn_models import PointMassLPF
-from models.cost_models import *
 from models.croco_IAMs import ActionModelPointMassObserver
 from core.kalman_filter import KalmanFilter
-from utils import animatePointMass, plotPointMass
-
 
 # Action model for point mass
 dt = 1e-2 #5e-3
@@ -92,60 +88,60 @@ X_real = np.reshape(X[:N_h], Y_mea.shape) # Ground truth state trajectory
 # Measurement noise model
 mean = np.zeros(2)
 std_p = .05 #np.array([0.005, N_h])
-std_f = 2   #np.array([0.005, N_h])
+std_f = 50   #np.array([0.005, N_h])
 
-# # ESTIMATION LOOP (offline)
-# for i in range(N_h):
-#     print("Step "+str(i)+"/"+str(N_h))
-#     # Generate noisy force measurement 
-#       # Ideal visco-elastic force and real position + Noise them out
-#     wp,_ = np.random.normal(mean, std_p) 
-#     wf,_ = np.random.normal(mean, std_f)
-#     Y_mea[i,:] = (np.array([X_real[i,0], -K*(X_real[i,0]- 0.) - B*X_real[i,1]]) + np.array([wp, wf]) )
-#     # Filter and record
-#     X_hat[i+1,:], P_cov[i+1,:,:], K_gain[i+1,:,:], Y_err[i+1,:] = kalman.step(X_hat[i,:], P_cov[i,:,:], U[i,:], Y_mea[i,:])
+# ESTIMATION LOOP (offline)
+for i in range(N_h):
+    print("Step "+str(i)+"/"+str(N_h))
+    # Generate noisy force measurement 
+      # Ideal visco-elastic force and real position + Noise them out
+    wp,_ = np.random.normal(mean, std_p) 
+    wf,_ = np.random.normal(mean, std_f)
+    Y_mea[i,:] = (np.array([X_real[i,0], -K*(X_real[i,0]- 0.) - B*X_real[i,1]]) + np.array([wp, wf]) )
+    # Filter and record
+    X_hat[i+1,:], P_cov[i+1,:,:], K_gain[i+1,:,:], Y_err[i+1,:] = kalman.step(X_hat[i,:], P_cov[i,:,:], U[i,:], Y_mea[i,:])
 
-# # Display Kalman gains magnitude
-# dP_dP = np.vstack(( np.array([[K_gain[i,0,0] for i in range(N_h)]]).transpose())) 
-# dP_dF = np.vstack(( np.array([[K_gain[i,0,1] for i in range(N_h)]]).transpose())) 
-# dV_dP = np.vstack(( np.array([[K_gain[i,1,0] for i in range(N_h)]]).transpose())) 
-# dV_dF = np.vstack(( np.array([[K_gain[i,1,1] for i in range(N_h)]]).transpose())) 
-# # Norms
-# print("dP_dP Kalman gain norm : ", np.linalg.norm(dP_dP))
-# print("dP_dF Kalman gain norm : ", np.linalg.norm(dP_dF))
-# print("dV_dP Kalman gain norm : ", np.linalg.norm(dV_dP))
-# print("dV_dF Kalman gain norm : ", np.linalg.norm(dV_dF))
+# Display Kalman gains magnitude
+dP_dP = np.vstack(( np.array([[K_gain[i,0,0] for i in range(N_h)]]).transpose())) 
+dP_dF = np.vstack(( np.array([[K_gain[i,0,1] for i in range(N_h)]]).transpose())) 
+dV_dP = np.vstack(( np.array([[K_gain[i,1,0] for i in range(N_h)]]).transpose())) 
+dV_dF = np.vstack(( np.array([[K_gain[i,1,1] for i in range(N_h)]]).transpose())) 
+# Norms
+print("dP_dP Kalman gain norm : ", np.linalg.norm(dP_dP))
+print("dP_dF Kalman gain norm : ", np.linalg.norm(dP_dF))
+print("dV_dP Kalman gain norm : ", np.linalg.norm(dV_dP))
+print("dV_dF Kalman gain norm : ", np.linalg.norm(dV_dF))
 
-# # Plot results 
-# import matplotlib.pyplot as plt
-# # Extract trajectories and reshape
-# tspan = np.linspace(0, N_h*dt - dt, N_h+1)
-# # Create fig
-# fig, ax = plt.subplots(3,1)
-# # Plot position
-# ax[0].plot(tspan[:N_h], Y_mea[:,0], 'b-', linewidth=2, alpha=.5, label='Measured')
-# ax[0].plot(tspan, X_hat[:,0], 'r-', linewidth=3, alpha=.8, label='Estimated')
-# ax[0].plot(tspan[:N_h], X_real[:,0], 'k-.', linewidth=2, label='Ground truth')
-# # ax[0].set_title('Position p', size=16)
-# ax[0].set_ylabel('p (m)', fontsize=16)
-# ax[0].grid()
-# # Plot velocities
-# ax[1].plot(tspan, X_hat[:,1], 'r-', linewidth=3, alpha=.8, label='Estimated')
-# ax[1].plot(tspan[:N_h], X_real[:,1], 'k-.', linewidth=2, label='Ground truth')
-# # ax[1].set_title('Velocity p', size=16)
-# ax[1].set_ylabel('v (m/s)', fontsize=16)
-# ax[1].grid()
-# # Plot force
-# ax[2].plot(tspan[:N_h], Y_mea[:,1], 'b-', linewidth=2, alpha=.5, label='Measured')
-# # ax[2].set_title('Force lmb', size=16)
-# ax[2].set_ylabel('lmb (N)', fontsize=16)
-# ax[2].grid()
-# # Legend
-# ax[-1].set_xlabel('time (s)',fontsize=16)
-# handles, labels = ax[0].get_legend_handles_labels()
-# fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-# fig.suptitle('Kalman-filtered point mass trajectory', size=16)
-# plt.show()
+# Plot results 
+import matplotlib.pyplot as plt
+# Extract trajectories and reshape
+tspan = np.linspace(0, N_h*dt - dt, N_h+1)
+# Create fig
+fig, ax = plt.subplots(3,1)
+# Plot position
+ax[0].plot(tspan[:N_h], Y_mea[:,0], 'b-', linewidth=2, alpha=.5, label='Measured')
+ax[0].plot(tspan, X_hat[:,0], 'r-', linewidth=3, alpha=.8, label='Estimated')
+ax[0].plot(tspan[:N_h], X_real[:,0], 'k-.', linewidth=2, label='Ground truth')
+# ax[0].set_title('Position p', size=16)
+ax[0].set_ylabel('p (m)', fontsize=16)
+ax[0].grid()
+# Plot velocities
+ax[1].plot(tspan, X_hat[:,1], 'r-', linewidth=3, alpha=.8, label='Estimated')
+ax[1].plot(tspan[:N_h], X_real[:,1], 'k-.', linewidth=2, label='Ground truth')
+# ax[1].set_title('Velocity p', size=16)
+ax[1].set_ylabel('v (m/s)', fontsize=16)
+ax[1].grid()
+# Plot force
+ax[2].plot(tspan[:N_h], Y_mea[:,1], 'b-', linewidth=2, alpha=.5, label='Measured')
+# ax[2].set_title('Force lmb', size=16)
+ax[2].set_ylabel('lmb (N)', fontsize=16)
+ax[2].grid()
+# Legend
+ax[-1].set_xlabel('time (s)',fontsize=16)
+handles, labels = ax[0].get_legend_handles_labels()
+fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+fig.suptitle('Kalman-filtered point mass trajectory', size=16)
+plt.show()
 
 #######
 # MPC #

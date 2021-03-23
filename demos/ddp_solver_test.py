@@ -2,6 +2,7 @@
 # Author: Sebastien Kleff
 # Date : 18.11.2020 
 # Copyright LAAS-CNRS, NYU
+
 # Test custom DDP solver on point mass : offline trajectory generation + plots and animation
 
 import os.path

@@ -3,7 +3,7 @@
 # Date : 18.11.2020 
 # Copyright LAAS-CNRS, NYU
 
-# Test of the "augmented state" approach for force feedback on the point mass system 
+# DDP-based MPC on the point mass 
 
 import os.path
 import sys
@@ -12,12 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
 import numpy as np
 import crocoddyl
 
-from models.dyn_models import PointMassLPF
-from models.cost_models import *
 from models.croco_IAMs import ActionModelPointMass
-
-from utils import animatePointMass, plotPointMass
-
 
 # Action model for point mass
 dt = 1e-2
@@ -126,8 +121,8 @@ for i in range(N_tot):
     nb_replan += 1
   # Record and apply the 1st control
   U_des[i, :] = u_des
-  # Measure new state from simulation 
-  X_mea[i+1,:] = X_mea[i,:] + running_model.f(X_mea[i,:], u_des)*dt # (X_mea[i,:] , u_des) 
+  # Measure new state from simulation : integrate current control over 1 control step (1 ms) 
+  X_mea[i+1,:] = X_mea[i,:] + running_model.f(X_mea[i,:], u_des)*1e-3 #dt # (X_mea[i,:] , u_des) 
   # Record desired state
   X_des[i+1, :] = x_des
 
@@ -226,32 +221,3 @@ handles_x, labels_x = ax_x[0].get_legend_handles_labels()
 fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
 fig_x.suptitle('State and position trajectories', size=16)
 plt.show() 
-
-
-# What about force ?
-
-# contactPhase = IntegratedActionModelLPF(contactDifferentialModel, dt)
-# contactPhase.set_alpha(f_c)
-# contactPhase.u_lb = - robot_model.effortLimit
-# contactPhase.u_ub = robot_model.effortLimit
-
-# and then as usual you could create the problem with the IAM
-
-# problem_with_contact = crocoddyl.ShootingProblem(x0,
-#                                                 [contactPhase] * contactNodes + [runningModel] * flyingNodes,
-#                                                 terminalModel)
-
-# In the code the state in the IAM is the augmented one, so u is the unfiltered torque (which is only bounded inside the actuation limits either with a barrier cost or with the projection of the BoxFDDP), while the last part of the state is the torque with the filtering
-
-# To work more confortably with this change of notation I was using another class to just select the "real" torque that goes to the system
-
-# class extractDDPLPF():
-#         def __init__(self, ddp, nu):
-#                 self.xs = np.array(ddp.xs)[:,:-nu]
-#                 self.us = np.array(ddp.xs)[1:,-nu:]
-#                 self.w = ddp.us
-#                 self.robot_model = ddp.robot_model
-#                 self.problem = ddp.problem
-
-# ddpLPF = extractDDPLPF(ddp, actuation.nu)
-

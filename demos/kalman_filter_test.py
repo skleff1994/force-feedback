@@ -1,9 +1,10 @@
-# Title : observer_sim.py
+# Title : kalman_filter_test.py
 # Author: Sebastien Kleff
 # Date : 18.11.2020 
 # Copyright LAAS-CNRS, NYU
 
-# Test of the "observer" approach for force feedback on the point mass system 
+# Testing script for Kalman filter (using point mass)
+
 import os.path
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
