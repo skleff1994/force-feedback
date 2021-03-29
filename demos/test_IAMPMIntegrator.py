@@ -18,7 +18,7 @@ from models.croco_IAMs import ActionModelPointMassActuation
 dt = 1e-2
 N_h = 100
 integrator='euler'
-k = .8 # coef for LPF
+k = 0.9 # coef for LPF
 
 running_model = ActionModelPointMassActuation(dt=dt, k=k, integrator=integrator)
 running_model.w_x = 1e-1
@@ -312,8 +312,7 @@ plt.show()
 # # with a barrier cost or with the projection of the BoxFDDP), 
 # # while the last part of the state is the torque with the filtering
 
-# # To work more confortably with this change of notation 
-# I was using another class to just select the "real" torque that goes to the system
+# # To work more confortably with this change of notation I was using another class to just select the "real" torque that goes to the system
 
 # # class extractDDPLPF():
 # #         def __init__(self, ddp, nu):

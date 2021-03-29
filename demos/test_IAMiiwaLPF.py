@@ -31,11 +31,14 @@ robot = env.add_robot(IiwaRobot)
 id_endeff = robot.pin_robot.model.getFrameId('contact')
 nq = robot.pin_robot.model.nq 
 nv = robot.pin_robot.model.nv
+nu = robot.pin_robot.model.nq
     # Reset robot to initial state in PyBullet and update pinocchio data accordingly 
 q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]) 
 dq0 = pin.utils.zero(nv)
 robot.reset_state(q0, dq0)
 robot.forward_robot(q0, dq0)
+    # Get gravity torque for convenience
+u_grav = pin.rnea(robot.pin_robot.model, robot.pin_robot.data, q0, np.zeros((nv,1)), np.zeros((nq,1)))
     # Get initial frame placement
 M_ee = robot.pin_robot.data.oMf[id_endeff]
 print("[PyBullet] Created robot (id = "+str(robot.robotId)+")")
@@ -62,6 +65,30 @@ for k,i in enumerate(contact_points):
   print("      Contact point n°"+str(k)+" : distance = "+str(i[8])+" (m) | force = "+str(i[9])+" (N)")
 # time.sleep(100)
 
+# # Get measured torques w.r.t. sent torques
+# for jointId in range(p.getNumJoints(robot.robotId)):
+#   print("Joint n°"+str(jointId)+" : ")
+#   p.enableJointForceTorqueSensor(robot.robotId, jointId)
+#   print(p.getJointState(robot.robotId, jointId))
+
+# robot.send_joint_command(np.ones(nu))
+# p.stepSimulation()
+
+
+# # Get measured torques w.r.t. sent torques
+# for jointId in range(p.getNumJoints(robot.robotId)):
+#   print("Joint n°"+str(jointId)+" : ")
+#   # p.enableJointForceTorqueSensor(robot.robotId, jointId, True)
+#   print(p.getJointState(robot.robotId, jointId))
+
+# robot.send_joint_command(np.ones(nu))
+# p.stepSimulation()
+
+# # Get measured torques w.r.t. sent torques
+# for jointId in range(p.getNumJoints(robot.robotId)):
+#   print("Joint n°"+str(jointId)+" : ")
+#   # p.enableJointForceTorqueSensor(robot.robotId, jointId, True)
+#   print(p.getJointState(robot.robotId, jointId))
 
 #################
 ### OCP SETUP ###
@@ -69,8 +96,8 @@ for k,i in enumerate(contact_points):
   # OCP parameters 
 dt = 2e-2                       # OCP integration step (s)               
 N_h = 50                        # Number of knots in the horizon 
-# u0 = pin.rnea(robot.pin_robot.model, robot.pin_robot.data, q0, np.zeros((nv,1)), np.zeros((nq,1)))
-x0 = np.concatenate([q0, dq0]) #, u0])  # Initial state
+x0 = np.concatenate([q0, dq0, u_grav])  # Initial state
+# pin.rnea(pin_robot.model, pin_robot.data, x0[:nq], np.zeros((nv,1)), np.zeros((nq,1)))
 print("Initial state : ", x0.T)
   # Construct cost function terms
    # State and actuation models
@@ -78,7 +105,7 @@ state = crocoddyl.StateMultibody(robot.pin_robot.model)
 actuation = crocoddyl.ActuationModelFull(state)
    # State regularization
 stateRegWeights = np.array([1.]*nq + [2.]*nv)  
-x_reg_ref = x0
+x_reg_ref = x0[:-nu]
 xRegCost = crocoddyl.CostModelState(state, 
                                     crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                     x_reg_ref, 
@@ -86,7 +113,7 @@ xRegCost = crocoddyl.CostModelState(state,
 print("Created state reg cost.")
    # Control regularization
 ctrlRegWeights = np.ones(nq)
-u_reg_ref = np.zeros(nq)
+u_reg_ref = np.zeros(nq) # u_grav
 uRegCost = crocoddyl.CostModelControl(state, 
                                       crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                       u_reg_ref)
@@ -133,7 +160,14 @@ print("Created frame placement cost.")
 # Contact model
 ref_placement = crocoddyl.FramePlacement(id_endeff, M_ct) #robot.pin_robot.data.oMf[id_endeff]) #pin.SE3.Identity()) #pin_robot.data.oMf[id_endeff])
 contact6d = crocoddyl.ContactModel6D(state, ref_placement, gains=np.array([50.,10.]))
-
+# LPF (CT) param
+# k_LPF = 0.001 /dt
+alpha = .99 #1 - k_LPF*dt                        # Smoothing factor : close to 1 means f_c decrease, close to 0 means f_c very large 
+f_c = ( (1-alpha)/alpha ) * ( 1/(2*np.pi*dt) ) 
+print("LOW-PASS FILTER : ")
+# print("k     = ", k_LPF)
+print("alpha = ", alpha)
+print("f_c   = ", f_c)
 # Create IAMs
 runningModels = []
 for i in range(N_h):
@@ -156,6 +190,9 @@ for i in range(N_h):
   runningModels[i].differential.armature = np.array([.1]*7)
   # Add contact models
   runningModels[i].differential.contacts.addContact("contact", contact6d, active=False)
+  # Set LPF parameter
+  # runningModels[i].set_alpha(1-k_LPF*dt)
+  runningModels[i].set_alpha(alpha)
 # Terminal IAM + set armature
 terminalModel = IntegratedActionModelLPF(
     crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
@@ -173,24 +210,27 @@ terminalModel.differential.costs.addCost("stateLim", xLimitCost, 10)
 terminalModel.differential.armature = np.array([.1]*7)
 # Add contact model
 terminalModel.differential.contacts.addContact("contact", contact6d, active=False)
+# Set LPF parameter
+# terminalModel.set_alpha(1-k_LPF*dt)
+terminalModel.set_alpha(alpha)
 
 print("Initialized IAMs.")
 print("Running IAM cost.active  = ", runningModels[0].differential.costs.active.tolist())
 print("Terminal IAM cost.active = ", terminalModel.differential.costs.active.tolist())
 
   # Create the shooting problem
-y0 = np.concatenate([x0, u_reg_ref])
-problem = crocoddyl.ShootingProblem(y0, runningModels, terminalModel)
+# y0 = np.concatenate([x0, u_reg_ref])
+problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
   # Creating the DDP solver 
 ddp = crocoddyl.SolverFDDP(problem)
 print("OCP is ready to be solved.")
 # Solve and extract solution trajectories
-xs = [y0] * (N_h+1)
-us = [ddp.problem.runningModels[0].quasiStatic(ddp.problem.runningDatas[0], y0)] * N_h
+# xs = [y0] * (N_h+1)
+xs = [x0] * (N_h+1)
+us = [ddp.problem.runningModels[0].quasiStatic(ddp.problem.runningDatas[0], x0)] * N_h
 ddp.solve(xs, us, maxiter=100)
-xs = np.array(ddp.xs)
-us = np.array(ddp.us)
-
+xs = np.array(ddp.xs) # optimal (q,v,u) traj
+us = np.array(ddp.us) # optimal   (w)   traj
 
 # #################################
 # ### EXTRACT SOLUTION AND PLOT ###
@@ -311,22 +351,20 @@ us = np.array(ddp.us)
 ##################
 # MPC & simulation parameters
 maxit = 1
-T_tot = 2.
+T_tot = .2
 plan_freq = 1000                      # MPC re-planning frequency (Hz)
 ctrl_freq = 1000                      # Control - simulation - frequency (Hz)
 N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
 N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved during the simulation
 T_h = N_h*dt                          # Duration of the MPC horizon (s)
-# Initialize data
-nx = nq+nv+nq
-nw = nq
-X_mea = np.zeros((N_tot+1, nx))       # Measured states 
-X_des = np.zeros((N_tot+1, nx))       # Desired states
-U_des = np.zeros((N_tot, nw))         # Desired controls 
-X_pred = np.zeros((N_p, N_h+1, nx))   # MPC predictions (state)
-U_pred = np.zeros((N_p, N_h, nw))     # MPC predictions (control)
-U_des = np.zeros((N_tot, nq))         # Feedforward torques planned by MPC (DDP) 
-U_mea = np.zeros((N_tot, nq))         # Torques sent to PyBullet
+# Initialize data : in simulation, x=(q,v) u=tau !!!
+nx = nq+nv+nu
+nu = nq
+X_mea = np.zeros((N_tot+1, nx))       # Measured states x=(q,v,tau) 
+X_des = np.zeros((N_tot+1, nx))       # Desired states x=(q,v,tau)
+X_pred = np.zeros((N_p, N_h+1, nx))   # MPC predictions (state) (t,q,v,tau)
+U_pred = np.zeros((N_p, N_h, nu))     # MPC predictions (control) (t,w)
+U_des = np.zeros((N_tot, nq))         # Unfiltered torques planned by MPC u=w
 contact_des = [False]*X_des.shape[0]                # Contact record for contact force
 contact_mea = [False]*X_mea.shape[0]                # Contact record for contact force
 contact_pred = np.zeros((N_p, N_h+1), dtype=bool)   # Contact record for contact force
@@ -353,7 +391,8 @@ time.sleep(1)
 # Measure initial state from simulation environment &init data
 q_mea, v_mea = robot.get_state()
 robot.forward_robot(q_mea, v_mea)
-x0 = np.concatenate([q_mea, v_mea, u_reg_ref]).T
+u_mea = pin.rnea(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea, np.zeros((nq,1)))
+x0 = np.concatenate([q_mea, v_mea, u_mea]).T
 print("Initial state ", str(x0))
 X_mea[0, :] = x0
 X_des[0, :] = x0
@@ -366,13 +405,14 @@ switch=False
 for i in range(N_tot): 
     print("  ")
     print("Sim step "+str(i)+"/"+str(N_tot))
+
     # Solve OCP if we are in a planning cycle
     if(i%int(ctrl_freq/plan_freq) == 0):
         print("  Replan step "+str(nb_replan)+"/"+str(N_p))
         # Reset x0 to measured state + warm-start solution
-        ddp.problem.x0 = X_mea[i, :]
+        ddp.problem.x0 = X_mea[i, :].T 
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-        xs_init[0] = X_mea[i, :]
+        xs_init[0] = X_mea[i, :].T
         us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
 
         ### HERE UPDATE OCP AS NEEDED ####
@@ -398,33 +438,40 @@ for i in range(N_tot):
 
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=maxit, isFeasible=False)
-        X_pred[nb_replan, :, :] = np.array(ddp.xs)
-        U_pred[nb_replan, :, :] = np.array(ddp.us)
+        X_pred[nb_replan, :, :] = np.array(ddp.xs)# [:,:-nu] # (t,q,v)
+        U_pred[nb_replan, :, :] = np.array(ddp.us)# [1:,-nu:] # (t,u)
         for j in range(N_h):
             F_pred[nb_replan, j, :] = ddp.problem.runningDatas[j].differential.multibody.contacts.contacts['contact'].f.vector
         # F_pred[nb_replan, -1, :] = ddp.problem.terminalData.differential.multibody.contacts.contacts['contact'].f.vector
         # Extract 1st control and 2nd state
-        u_des = U_pred[nb_replan, 0, :] 
+        u_des = U_pred[nb_replan, 1, :] 
         x_des = X_pred[nb_replan, 1, :]
         f_des = F_pred[nb_replan, 0, :]
         # Increment replan counter
         nb_replan += 1
 
-    # Record and apply the 1st control
+    # Record the 1st control : desired torque = unfiltered torque output by DDP
     U_des[i, :] = u_des
-    U_mea[i, :] = u_des
-    # Send control to simulation & step simulator
+    # Select filtered torque = integration of LPF(u_des) = x_des ? Or integration over a control step only ?
+    k_LPF = (1-alpha)/dt
+    new_alpha = 1-k_LPF*1e-3
+    tau_des = alpha*X_mea[i, -nu:] + (1-alpha)*u_des # [x_des[-nu:]
+    # Send control to simulation & step u
     # robot.send_joint_command(u_des + ddp.K[0].dot(X_mea[i, :] - x_des)) # with Ricatti gain
-    robot.send_joint_command(u_des)
+    robot.send_joint_command(tau_des)
     p.stepSimulation()
     # Measure new state from simulation and record data
     q_mea, v_mea = robot.get_state()
     robot.forward_robot(q_mea, v_mea)
-    x_mea = np.concatenate([q_mea, v_mea]).T 
+      # Simulate torque measurement : here add LPF or elastic elements
+      # temporarily : measured = same as commanded torque 
+    tau_mea = tau_des #alpha*X_mea[i, -nu:] + (1-alpha)*u_des
+    x_mea = np.concatenate([q_mea, v_mea, tau_mea]).T 
     X_mea[i+1, :] = x_mea                    # Measured state
     X_des[i+1, :] = x_des                    # Desired state
     F_des[i, :] = f_des                      # Desired force
     F_pin[i, :] = ddp.problem.runningDatas[0].differential.costs.costs["force"].contact.f.vector
+    # F_mea[i, :] = ddp.problem.runningDatas[0].differential.costs.costs["force"].contact.f.vector
 
 # GENERATE NICE PLOT OF SIMULATION
 with_predictions = False
@@ -437,17 +484,20 @@ dt_ctrl = float(1./ctrl_freq)
 dt_plan = float(1./plan_freq)
 # Reshape trajs if necessary 
 q_pred = X_pred[:,:,:nq]
-v_pred = X_pred[:,:,nv:]
+v_pred = X_pred[:,:,nq:-nu]
+tau_pred = X_pred[:,:,-nu:]
 q_mea = X_mea[:,:nq]
-v_mea = X_mea[:,nv:]
+v_mea = X_mea[:,nq:-nu]
+tau_mea  = X_mea[:,-nu:]
 q_des = X_des[:,:nq]
-v_des = X_des[:,nv:]
+v_des = X_des[:,nq:-nu]
+tau_des = X_des[:,-nu:]
 p_mea = utils.get_p(q_mea, robot.pin_robot, id_endeff)
 p_des = utils.get_p(q_des, robot.pin_robot, id_endeff) 
 # Create time spans for X and U + Create figs and subplots
 tspan_x = np.linspace(0, T_tot, N_tot+1)
 tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)
-fig_x, ax_x = plt.subplots(nq, 2)
+fig_x, ax_x = plt.subplots(nq, 3)
 fig_u, ax_u = plt.subplots(nq, 1)
 fig_p, ax_p = plt.subplots(3,1)
 # For each joint
@@ -455,6 +505,7 @@ for i in range(nq):
     # Extract state predictions of i^th joint
     q_pred_i = q_pred[:,:,i]
     v_pred_i = v_pred[:,:,i]
+    tau_pred_i = tau_pred[:,:,i]
     u_pred_i = U_pred[:,:,i]
     # print(u_pred_i[0,0])
     if(with_predictions):
@@ -467,56 +518,70 @@ for i in range(nq):
             # Set up lists of (x,y) points for predicted positions and velocities
             points_q = np.array([tspan_x_pred, q_pred_i[j,:]]).transpose().reshape(-1,1,2)
             points_v = np.array([tspan_x_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
+            points_tau = np.array([tspan_x_pred, tau_pred_i[j,:]]).transpose().reshape(-1,1,2)
             points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
             # Set up lists of segments
             segs_q = np.concatenate([points_q[:-1], points_q[1:]], axis=1)
             segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
+            segs_tau = np.concatenate([points_tau[:-1], points_tau[1:]], axis=1)
             segs_u = np.concatenate([points_u[:-1], points_u[1:]], axis=1)
             # Make collections segments
             cm = plt.get_cmap('Greys_r') 
             lc_q = LineCollection(segs_q, cmap=cm, zorder=-1)
             lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
+            lc_tau = LineCollection(segs_tau, cmap=cm, zorder=-1)
             lc_u = LineCollection(segs_u, cmap=cm, zorder=-1)
             lc_q.set_array(tspan_x_pred)
             lc_v.set_array(tspan_x_pred) 
+            lc_tau.set_array(tspan_x_pred) 
             lc_u.set_array(tspan_u_pred)
             # Customize
             lc_q.set_linestyle('-')
             lc_v.set_linestyle('-')
+            lc_tau.set_linestyle('-')
             lc_u.set_linestyle('-')
             lc_q.set_linewidth(1)
             lc_v.set_linewidth(1)
+            lc_tau.set_linewidth(1)
             lc_u.set_linewidth(1)
             # Plot collections
             ax_x[i,0].add_collection(lc_q)
             ax_x[i,1].add_collection(lc_v)
+            ax_x[i,2].add_collection(lc_tau)
             ax_u[i].add_collection(lc_u)
             # Scatter to highlight points
             colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
             my_colors = cm(colors)
             ax_x[i,0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
             ax_x[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
+            ax_x[i,2].scatter(tspan_x_pred, tau_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
             ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
     
 
-    # Desired joint position (interpolated from prediction)
+    # Joint positions
     ax_x[i,0].plot(tspan_x, q_des[:,i], 'b-', label='Desired')
     # Measured joint position (PyBullet)
     ax_x[i,0].plot(tspan_x, q_mea[:,i], 'r-', label='Measured')
     ax_x[i,0].set(xlabel='t (s)', ylabel='$q_{i}$ (rad)')
     ax_x[i,0].grid()
 
-    # Desired joint velocity (interpolated from prediction)
+    # Joint velocities
     ax_x[i,1].plot(tspan_x, v_des[:,i], 'b-', label='Desired')
     # Measured joint velocity (PyBullet)
     ax_x[i,1].plot(tspan_x, v_mea[:,i], 'r-', label='Measured')
     ax_x[i,1].set(xlabel='t (s)', ylabel='$v_{i}$ (rad/s)')
     ax_x[i,1].grid()
 
-    # Desired joint torque (interpolated feedforward)
-    ax_u[i].plot(tspan_u, U_des[:,i], 'b-', label='Desired (ff)')
+    # Joint torques (filtered) = part of the state
+    ax_x[i,2].plot(tspan_x, tau_des[:,i], 'b-', label='Desired')
+    # Measured joint velocity (PyBullet)
+    ax_x[i,2].plot(tspan_x, tau_mea[:,i], 'r-', label='Measured')
+    ax_x[i,2].set(xlabel='t (s)', ylabel='$tau_{i}$ (Nm)')
+    ax_x[i,2].grid()
+
+    # Joint torques (unfiltered) = control input
+    ax_u[i].plot(tspan_u, U_des[:,i], 'b-', label='Desired')
     # Total
-    ax_u[i].plot(tspan_u, U_mea[:,i], 'r-', label='Measured (ff+fb)') 
     # ax_u[i].plot(tspan_u[0], u_mea[0,i], 'co', label='Initial')
     # print(" U0 mea plotted = "+str(u_mea[0,i]))
     # ax_u[i].plot(tspan_u, u_mea[:,i]-u_des[:,i], 'g-', label='Riccati (fb)')
@@ -605,9 +670,9 @@ handles_p, labels_p = ax_p[0].get_legend_handles_labels()
 fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
 
 # Titles
-fig_x.suptitle('Joint trajectories: des. vs sim. (DDP-based MPC)', size=16)
-fig_u.suptitle('Joint torques: des. vs sim. (DDP-based MPC)', size=16)
-fig_p.suptitle('End-effector: ref. vs des. vs sim. (DDP-based MPC)', size=16)
+fig_x.suptitle('Joint positions, velocities and (filtered) torques ', size=16)
+fig_u.suptitle('Joint command (unfiltered) torques ', size=16)
+fig_p.suptitle('End-effector position ', size=16)
 fig_f.suptitle('End-effector force', size=16)
 
 plt.show() 
