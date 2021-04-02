@@ -94,7 +94,7 @@ for k,i in enumerate(contact_points):
 ### OCP SETUP ###
 #################
   # OCP parameters 
-dt = 2e-2                               # OCP integration step (s)               
+dt = 2e-2                              # OCP integration step (s)               
 N_h = 50                                # Number of knots in the horizon 
 x0 = np.concatenate([q0, dq0, u_grav])  # Initial state
 print("Initial state : ", x0.T)
@@ -103,7 +103,7 @@ print("Initial state : ", x0.T)
 state = crocoddyl.StateMultibody(robot.pin_robot.model)
 actuation = crocoddyl.ActuationModelFull(state)
    # State regularization
-stateRegWeights = np.array([1.]*nq + [2.]*nv)  
+stateRegWeights = np.array([1.]*nq + [1.]*nv)  
 x_reg_ref = x0[:-nu]
 xRegCost = crocoddyl.CostModelState(state, 
                                     crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
@@ -112,6 +112,7 @@ xRegCost = crocoddyl.CostModelState(state,
 print("Created state reg cost.")
    # Control regularization
 ctrlRegWeights = np.ones(nu)
+ctrlRegWeights[-1] = 100
 u_reg_ref = u_grav 
 uRegCost = crocoddyl.CostModelControl(state, 
                                       crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
@@ -133,7 +134,7 @@ uLimitCost = crocoddyl.CostModelControl(state,
                                         u_lim_ref)
 print("Created ctrl lim cost.")
    # End-effector contact force
-desiredFrameForce = pin.Force(np.array([0., 0., -10., 0., 0., 0.]))
+desiredFrameForce = pin.Force(np.array([0., 0., -20., 0., 0., 0.]))
 frameForceWeights = np.array([1.]*3 + [1.]*3)  
 frameForceCost = crocoddyl.CostModelContactForce(state, 
                                                  crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
@@ -158,11 +159,11 @@ framePlacementCost = crocoddyl.CostModelFramePlacement(state,
 print("Created frame placement cost.")
 # Contact model
 ref_placement = crocoddyl.FramePlacement(id_endeff, M_ct) #robot.pin_robot.data.oMf[id_endeff]) #pin.SE3.Identity()) #pin_robot.data.oMf[id_endeff])
-contact6d = crocoddyl.ContactModel6D(state, ref_placement, gains=np.array([50.,10.]))
+contact6d = crocoddyl.ContactModel6D(state, ref_placement, gains=np.array([100.,20.]))
 # LPF (CT) param
 # k_LPF = 0.001 /dt
 # alpha = .01 #1 - k_LPF*dt                        
-f_c = 50 #( (1-alpha)/alpha ) * ( 1/(2*np.pi*dt) ) 
+f_c = 100 #( (1-alpha)/alpha ) * ( 1/(2*np.pi*dt) ) 
 alpha =  1 / (1 + 2*np.pi*dt*f_c) # Smoothing factor : close to 1 means f_c decrease, close to 0 means f_c very large 
 print("LOW-PASS FILTER : ")
 print("f_c   = ", f_c)
@@ -180,13 +181,14 @@ for i in range(N_h):
                                                           enable_force=True), dt=dt, f_c=f_c) )
   # Add cost models
   runningModels[i].differential.costs.addCost("placement", framePlacementCost, 10.) 
-  runningModels[i].differential.costs.addCost("force", frameForceCost, 1., active=False) 
-  runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-3) 
-  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-2)
-  runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 10) 
+  # runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, 1e3, active=False) 
+  runningModels[i].differential.costs.addCost("force", frameForceCost, 1e-3, active=False) 
+  runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-2) 
+  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-3)
+  runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 10.) 
   runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, 1e-1) 
   # Set up cost on unfiltered control input (same as unfiltered?)
-  runningModels[i].set_w_reg_lim_costs(0, u_reg_ref, 0, u_lim_ref)
+  runningModels[i].set_w_reg_lim_costs(1e-3, u_reg_ref, 1e2, u_lim_ref)
   # Add armature
   runningModels[i].differential.armature = np.array([.1]*7)
   # Add contact models
@@ -201,8 +203,8 @@ terminalModel = IntegratedActionModelLPF(
                                                         inv_damping=0., 
                                                         enable_force=True), dt=0, f_c=f_c )
 # Add cost models
-terminalModel.differential.costs.addCost("placement", framePlacementCost, 1e6) 
-terminalModel.differential.costs.addCost("force", frameForceCost, 1., active=False)
+# terminalModel.differential.costs.addCost("placement", framePlacementCost, 10) 
+# terminalModel.differential.costs.addCost("force", frameForceCost, 1e-1, active=False)
 terminalModel.differential.costs.addCost("stateReg", xRegCost, 1e-3) 
 terminalModel.differential.costs.addCost("stateLim", xLimitCost, 10) 
 # Add armature
@@ -344,8 +346,8 @@ us = np.array(ddp.us) # optimal   (w)   traj
 # MPC SIMULATION #
 ##################
 # MPC & simulation parameters
-maxit = 5
-T_tot = 3.
+maxit = 1
+T_tot = 1.
 plan_freq = 1000                      # MPC re-planning frequency (Hz)
 ctrl_freq = 1000                      # Control - simulation - frequency (Hz)
 N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
@@ -399,7 +401,8 @@ switch=False
 for i in range(N_tot): 
     print("  ")
     print("Sim step "+str(i)+"/"+str(N_tot))
-
+    
+    print("  COST = ", ddp.cost)
     # Solve OCP if we are in a planning cycle
     if(i%int(ctrl_freq/plan_freq) == 0):
         print("  Replan step "+str(nb_replan)+"/"+str(N_p))
@@ -413,25 +416,33 @@ for i in range(N_tot):
         ### HERE UPDATE OCP AS NEEDED ####
         # STATE-based switch
         if(len(p.getContactPoints(1, 2))>0 and switch==False):
+            print("      !!! CONTACT !!!")
             switch=True
             ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.Mref.placement = robot.pin_robot.data.oMf[id_endeff]
             ddp.problem.terminalModel.differential.contacts.changeContactStatus("contact", True)
-            ddp.problem.terminalModel.differential.costs.changeCostStatus("force", True)
+            # ddp.problem.terminalModel.differential.costs.changeCostStatus("force", True)
+            # ddp.problem.terminalModel.differential.costs.costs["placement"].reference = robot.pin_robot.data.oMf[id_endeff]
             for k,m in enumerate(ddp.problem.runningModels[:]):
                 # Activate contact and force cost
                 m.differential.contacts.contacts["contact"].contact.Mref.placement = robot.pin_robot.data.oMf[id_endeff]
                 m.differential.contacts.changeContactStatus("contact", True)
                 m.differential.costs.changeCostStatus("force", True)
-                m.set_w_reg_lim_costs(1e-2, us_init[0], 1e3, np.zeros(nu))
-                # m.differential.costs.costs["force"].weight = 1.
-                # m.differential.costs.costs["placement"].weight = 1e-1
-                # # Update state reg cost
-                # m.differential.costs.costs["stateReg"].reference = xs_init[0]
-                # m.differential.costs.costs["stateReg"].weight = 1.
-                # # Update control reg cost
-                # m.differential.costs.costs["ctrlReg"].reference = us_init[0]
+                m.differential.costs.costs["placement"].reference = robot.pin_robot.data.oMf[id_endeff]
+                # m.differential.costs.changeCostStatus("velocity", True)
+                m.differential.costs.costs["placement"].weight = 1e-3
+                # m.differential.costs.costs["velocity"].weight = 1e3
+                # # # Update state reg cost
+                m.differential.costs.costs["stateReg"].reference = xs_init[0][:nq+nv]
+                m.differential.costs.costs["stateReg"].weight = 0.
+                # m.differential.costs.costs["stateLim"].weight = 1.
+                # # # Update control reg cost
+                # ureg = pin.rnea(robot.pin_robot.model, robot.pin_robot.data, xs_init[0][:nq], np.zeros((nv,1)), np.zeros((nq,1)))
+                # m.differential.costs.costs["ctrlReg"].reference = ureg
                 # m.differential.costs.costs["ctrlReg"].weight = 1.
-
+                # m.set_w_reg_lim_costs(0, ureg, 0, np.zergos(nu))
+                # m.w_reg_ref = ureg
+                # m.differential.costs.costs["ctrlLim"].weight = 0.
+                # m.differential.costs.costs["stateLim"].weight = 1e3
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=maxit, isFeasible=False)
         X_pred[nb_replan, :, :] = np.array(ddp.xs)# [:,:-nu] # (t,q,v)
@@ -440,9 +451,8 @@ for i in range(N_tot):
             F_pred[nb_replan, j, :] = ddp.problem.runningDatas[j].differential.multibody.contacts.contacts['contact'].f.vector
         # F_pred[nb_replan, -1, :] = ddp.problem.terminalData.differential.multibody.contacts.contacts['contact'].f.vector
         # Extract 1st control and 2nd state
-        u_des = U_pred[nb_replan, 0, :] 
+        u_des = U_pred[nb_replan, 1, :] 
         x_des = X_pred[nb_replan, 1, :]
-        x0 = X_pred[nb_replan, 0, :]
         f_des = F_pred[nb_replan, 0, :]
         # Increment replan counter
         nb_replan += 1
@@ -451,9 +461,6 @@ for i in range(N_tot):
     U_des[i, :] = u_des
     # Select filtered torque = integration of LPF(u_des) = x_des ? Or integration over a control step only ?
     tau_des = x_des[-nu:] # same as : alpha*x0[-nu:] + (1-alpha)*u_des 
-        # # Should be the same : apply w_{i} to x_{i}=(q,v,tau)_{i} for dt --> gives next tau_{i+1}
-        # print("tau_des  : ", tau_des)
-        # print("x_des[1] : ", x_des[-nu:])
     # Send control to simulation & step u
     # robot.send_joint_command(u_des + ddp.K[0].dot(X_mea[i, :] - x_des)) # with Ricatti gain
     robot.send_joint_command(tau_des)
@@ -463,9 +470,8 @@ for i in range(N_tot):
     robot.forward_robot(q_mea, v_mea)
       # Simulate torque measurement : here add LPF or elastic elements
       # temporarily : measured = same as commanded torque 
-    k_LPF = (1-alpha)/dt
-    new_alpha = 1-k_LPF*1e-3
-    tau_mea = new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des
+    new_alpha =  np.sin(i*1e-3) / (1 + 2*np.pi*1e-3*20)
+    tau_mea = tau_des #new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des
     x_mea = np.concatenate([q_mea, v_mea, tau_mea]).T 
     X_mea[i+1, :] = x_mea                    # Measured state
     X_des[i+1, :] = x_des                    # Desired state
