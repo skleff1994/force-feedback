@@ -104,6 +104,8 @@ state = crocoddyl.StateMultibody(robot.pin_robot.model)
 actuation = crocoddyl.ActuationModelFull(state)
    # State regularization
 stateRegWeights = np.array([1.]*nq + [1.]*nv)  
+# stateRegWeights[-2] = 100
+# stateRegWeights[-3] = 100
 x_reg_ref = x0[:nq+nv]
 xRegCost = crocoddyl.CostModelState(state, 
                                     crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
@@ -134,7 +136,7 @@ uLimitCost = crocoddyl.CostModelControl(state,
                                         u_lim_ref)
 print("Created ctrl lim cost.")
    # End-effector contact force
-desiredFrameForce = pin.Force(np.array([0., 0., -20., 0., 0., 0.]))
+desiredFrameForce = pin.Force(np.array([0., 0., -1., 0., 0., 0.]))
 # desiredFrameForce = pin.Force( M_ee.act( np.array([0., 0., offset]) ) np.array([0., 0., 50., 0., 0., 0.]))
 frameForceWeights = np.array([1.]*3 + [1.]*3)  
 frameForceCost = crocoddyl.CostModelContactForce(state, 
@@ -159,12 +161,12 @@ framePlacementCost = crocoddyl.CostModelFramePlacement(state,
                                                        actuation.nu) 
 print("Created frame placement cost.")
 # Contact model
-ref_placement = crocoddyl.FramePlacement(id_endeff, M_ct) #robot.pin_robot.data.oMf[id_endeff]) #pin.SE3.Identity()) #pin_robot.data.oMf[id_endeff])
-contact6d = crocoddyl.ContactModel6D(state, ref_placement, gains=np.array([50.,10.]))
+ref_placement = crocoddyl.FramePlacement(id_endeff, robot.pin_robot.data.oMf[id_endeff]) # M_ct #robot.pin_robot.data.oMf[id_endeff]) #pin.SE3.Identity()) #pin_robot.data.oMf[id_endeff])
+contact6d = crocoddyl.ContactModel6D(state, ref_placement, gains=np.array([100.,50.]))
 # LPF (CT) param
 # k_LPF = 0.001 /dt
 # alpha = .01 #1 - k_LPF*dt                        
-f_c = 5000 #( 1-alpha)/alpha ) * ( 1/(2*np.pi*dt) ) 
+f_c = 5000000 #( 1-alpha)/alpha ) * ( 1/(2*np.pi*dt) ) 
 alpha =  1 / (1 + 2*np.pi*dt*f_c) # Smoothing factor : close to 1 means f_c decrease, close to 0 means f_c very large 
 print("LOW-PASS FILTER : ")
 print("f_c   = ", f_c)
@@ -181,15 +183,15 @@ for i in range(N_h):
                                                           inv_damping=0., 
                                                           enable_force=True), dt=dt, f_c=f_c) )
   # Add cost models
-  # runningModels[i].differential.costs.addCost("placement", framePlacementCost, 10) 
+  runningModels[i].differential.costs.addCost("placement", framePlacementCost, 1e-1) 
   # runningModels[i].differential.costs.addCost("velocity", frameVelocityCost,  10) #, active=False) 
-  runningModels[i].differential.costs.addCost("force", frameForceCost, 1e-3, active=True) 
+  runningModels[i].differential.costs.addCost("force", frameForceCost, 1e-1, active=True) 
   runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-4) 
-  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-4)
+  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-2)
   # runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 1e-3) 
   # runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, 1e-2) 
   # Set up cost on unfiltered control input (same as unfiltered?)
-  runningModels[i].set_w_reg_lim_costs(1e-2, u_reg_ref, 1e3, u_lim_ref)
+  runningModels[i].set_w_reg_lim_costs(1e-6, u_reg_ref, 0, u_lim_ref)
   # Add armature
   runningModels[i].differential.armature = np.array([.1]*7)
   # Add contact models
@@ -205,8 +207,8 @@ terminalModel = IntegratedActionModelLPF(
                                                         enable_force=True), dt=0, f_c=f_c )
 # Add cost models
 # terminalModel.differential.costs.addCost("placement", framePlacementCost, 1e3) 
-# terminalModel.differential.costs.addCost("force", frameForceCost, 1) #, active=False)
-# terminalModel.differential.costs.addCost("stateReg", xRegCost, 1e-3) 
+# terminalModel.differential.costs.addCost("force", frameForceCost, 1e-6) #, active=False)
+# terminalModel.differential.costs.addCost("stateReg", xRegCost, 1e-2) 
 # terminalModel.differential.costs.addCost("stateLim", xLimitCost, 10) 
 # Add armature
 terminalModel.differential.armature = np.array([.1]*7)
@@ -413,6 +415,12 @@ for i in range(N_tot):
         xs_init[0] = X_mea[i, :].T
         us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
         
+        # print("dL/dq   = ",  ddp.problem.runningDatas[0].Lx[:nq])
+        # print("dL/dv   = ",  ddp.problem.runningDatas[0].Lx[nq:nq+nv])
+        # print("dL/dtau = ",  ddp.problem.runningDatas[0].Lx[nq+nv:])
+        # print("dL/du   = ",  ddp.problem.runningDatas[0].Lu)
+        # print("data.Lx = ",  ddp.problem.runningDatas[0].Lx)
+        
         # ### HERE UPDATE OCP AS NEEDED ####
         # # STATE-based switch
         # if(len(p.getContactPoints(1, 2))>0 and switch==False):
@@ -473,8 +481,8 @@ for i in range(N_tot):
     robot.forward_robot(q_mea, v_mea)
       # Simulate torque measurement : here add LPF or elastic elements
       # temporarily : measured = same as commanded torque 
-    # new_alpha =  np.sin(i*1e-3) / (1 + 2*np.pi*1e-3*20)
-    tau_mea = tau_des #new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des
+    new_alpha =  np.sin(i*1e-3) / (1 + 2*np.pi*1e-3*500)
+    tau_mea = new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des
     x_mea = np.concatenate([q_mea, v_mea, tau_mea]).T 
     X_mea[i+1, :] = x_mea                    # Measured state
     X_des[i+1, :] = x_des                    # Desired state
