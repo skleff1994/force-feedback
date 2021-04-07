@@ -153,7 +153,7 @@ frameVelocityCost = crocoddyl.CostModelFrameVelocity(state,
                                                      actuation.nu) 
 print("Created frame velocity cost.")
    # End-effector placement 
-desiredFramePlacement = M_ct #robot.pin_robot.data.oMf[id_endeff] #M_ct
+desiredFramePlacement = robot.pin_robot.data.oMf[id_endeff]  #M_ct
 framePlacementWeights = np.ones(6)
 framePlacementCost = crocoddyl.CostModelFramePlacement(state, 
                                                        crocoddyl.ActivationModelWeightedQuad(framePlacementWeights**2), 
@@ -161,12 +161,12 @@ framePlacementCost = crocoddyl.CostModelFramePlacement(state,
                                                        actuation.nu) 
 print("Created frame placement cost.")
 # Contact model
-ref_placement = crocoddyl.FramePlacement(id_endeff, robot.pin_robot.data.oMf[id_endeff]) # M_ct #robot.pin_robot.data.oMf[id_endeff]) #pin.SE3.Identity()) #pin_robot.data.oMf[id_endeff])
-contact6d = crocoddyl.ContactModel6D(state, ref_placement, gains=np.array([100.,50.]))
+ref_placement = crocoddyl.FramePlacement(id_endeff, robot.pin_robot.data.oMf[id_endeff]) # M_ct 
+contact6d = crocoddyl.ContactModel6D(state, ref_placement, gains=np.array([1.,5.])) #100.,50.
 # LPF (CT) param
 # k_LPF = 0.001 /dt
 # alpha = .01 #1 - k_LPF*dt                        
-f_c = 5000000 #( 1-alpha)/alpha ) * ( 1/(2*np.pi*dt) ) 
+f_c = 50 #( 1-alpha)/alpha ) * ( 1/(2*np.pi*dt) ) 
 alpha =  1 / (1 + 2*np.pi*dt*f_c) # Smoothing factor : close to 1 means f_c decrease, close to 0 means f_c very large 
 print("LOW-PASS FILTER : ")
 print("f_c   = ", f_c)
@@ -183,15 +183,15 @@ for i in range(N_h):
                                                           inv_damping=0., 
                                                           enable_force=True), dt=dt, f_c=f_c) )
   # Add cost models
-  runningModels[i].differential.costs.addCost("placement", framePlacementCost, 1e-1) 
+  # runningModels[i].differential.costs.addCost("placement", framePlacementCost, 1) 
   # runningModels[i].differential.costs.addCost("velocity", frameVelocityCost,  10) #, active=False) 
-  runningModels[i].differential.costs.addCost("force", frameForceCost, 1e-1, active=True) 
-  runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-4) 
-  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-2)
-  # runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 1e-3) 
+  runningModels[i].differential.costs.addCost("force", frameForceCost, 1e-2, active=True) 
+  runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-5)
+  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-3)
+  runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 1e-3) 
   # runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, 1e-2) 
   # Set up cost on unfiltered control input (same as unfiltered?)
-  runningModels[i].set_w_reg_lim_costs(1e-6, u_reg_ref, 0, u_lim_ref)
+  runningModels[i].set_w_reg_lim_costs(1e-6, u_reg_ref, 10, u_lim_ref)
   # Add armature
   runningModels[i].differential.armature = np.array([.1]*7)
   # Add contact models
@@ -208,8 +208,8 @@ terminalModel = IntegratedActionModelLPF(
 # Add cost models
 # terminalModel.differential.costs.addCost("placement", framePlacementCost, 1e3) 
 # terminalModel.differential.costs.addCost("force", frameForceCost, 1e-6) #, active=False)
-# terminalModel.differential.costs.addCost("stateReg", xRegCost, 1e-2) 
-# terminalModel.differential.costs.addCost("stateLim", xLimitCost, 10) 
+terminalModel.differential.costs.addCost("stateReg", xRegCost, 1e-5) 
+terminalModel.differential.costs.addCost("stateLim", xLimitCost, 1e-3) 
 # Add armature
 terminalModel.differential.armature = np.array([.1]*7)
 # Add contact model
