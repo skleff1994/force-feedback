@@ -163,10 +163,10 @@ framePlacementCost = crocoddyl.CostModelFramePlacement(state,
 print("Created frame placement cost.")
 # Contact model
 ref_placement = crocoddyl.FramePlacement(id_endeff, robot.pin_robot.data.oMf[id_endeff]) # M_ct 
-contact6d = crocoddyl.ContactModel6D(state, ref_placement, actuation.nu, np.array([0, 2])) #.5, 3#1.,5.#100.,50.
+contact6d = crocoddyl.ContactModel6D(state, ref_placement, actuation.nu, np.array([1, 3])) #.5, 3#1.,5.#100.,50.
 # Friction cone 
 nsurf, mu = np.array([0.,0.,1.]), 0.7
-frictionCone = crocoddyl.FrictionCone(nsurf, mu) # 4, True) #, 0., 10.)
+frictionCone = crocoddyl.FrictionCone(nsurf, mu, 4, True) #, 0., 10.)
 frictionConeCost = crocoddyl.CostModelContactFrictionCone(state,
                                                           crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
                                                           crocoddyl.FrameFrictionCone(id_endeff, frictionCone),
@@ -193,8 +193,8 @@ for i in range(N_h):
   # Add cost models
   # runningModels[i].differential.costs.addCost("placement", framePlacementCost, 10) 
   # runningModels[i].differential.costs.addCost("velocity", frameVelocityCost,  1e-3) #, active=False) 
-  runningModels[i].differential.costs.addCost("force", frameForceCost, 1e-3, active=False) 
-  runningModels[i].differential.costs.addCost("frictionCone", frictionConeCost, 1000) 
+  runningModels[i].differential.costs.addCost("force", frameForceCost, 1e-1, active=True) 
+  runningModels[i].differential.costs.addCost("frictionCone", frictionConeCost, 1e4) 
   runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-3)
   runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-3)
   runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 1) 
@@ -420,9 +420,9 @@ for i in range(N_tot):
 
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = X_mea[i, :].T 
-        xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
+        xs_init = ddp.xs #[X_mea[i, :].T] + list(ddp.xs[1:])# + [ddp.xs[-1]]
         xs_init[0] = X_mea[i, :].T
-        us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
+        us_init = ddp.us # list(ddp.us[1:]) + [ddp.us[-1]] 
         
         # print("dL/dq   = ",  ddp.problem.runningDatas[0].Lx[:nq])
         # print("dL/dv   = ",  ddp.problem.runningDatas[0].Lx[nq:nq+nv])
@@ -463,6 +463,7 @@ for i in range(N_tot):
 
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=maxit, isFeasible=False)
+        # ddp.solve(ddp.xs, ddp.us, maxiter=maxit, isFeasible=False)
         # print("DDP.XS[1] = ", ddp.xs[1])
         X_pred[nb_replan, :, :] = np.array(ddp.xs)# [:,:-nu] # (t,q,v)
         U_pred[nb_replan, :, :] = np.array(ddp.us)# [1:,-nu:] # (t,u)
@@ -490,8 +491,8 @@ for i in range(N_tot):
     robot.forward_robot(q_mea, v_mea)
       # Simulate torque measurement : here add LPF or elastic elements
       # temporarily : measured = same as commanded torque 
-    new_alpha =  np.sin(i*1e-3) / (1 + 2*np.pi*1e-3*500)
-    tau_mea = new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des
+    # new_alpha =  np.sin(i*1e-3) / (1 + 2*np.pi*1e-3*500)
+    tau_mea = tau_des # new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des
     x_mea = np.concatenate([q_mea, v_mea, tau_mea]).T 
     X_mea[i+1, :] = x_mea                    # Measured state
     X_des[i+1, :] = x_des                    # Desired state
