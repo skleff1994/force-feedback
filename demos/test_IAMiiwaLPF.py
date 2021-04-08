@@ -138,7 +138,6 @@ uLimitCost = crocoddyl.CostModelControl(state,
 print("Created ctrl lim cost.")
    # End-effector contact force
 desiredFrameForce = pin.Force(np.array([0., 0., -20., 0., 0., 0.]))
-# desiredFrameForce = pin.Force( M_ee.act( np.array([0., 0., offset]) ) np.array([0., 0., 50., 0., 0., 0.]))
 frameForceWeights = np.array([1.]*3 + [1.]*3)  
 frameForceCost = crocoddyl.CostModelContactForce(state, 
                                                  crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
@@ -167,7 +166,7 @@ contact6d = crocoddyl.ContactModel6D(state, ref_placement, actuation.nu, np.arra
 # Friction cone 
 cone_rotation = robot.pin_robot.data.oMf[id_endeff].rotation.T
 nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
-mu = 0.3
+mu = 0.7
 # nsurf, mu = np.array([0.,0.,1.]), 0.7
 frictionCone = crocoddyl.FrictionCone(nsurf, mu, 4, True) #, 0, 2000)#, 0., 100.)
 frictionConeCost = crocoddyl.CostModelContactFrictionCone(state,
@@ -197,10 +196,11 @@ for i in range(N_h):
   # runningModels[i].differential.costs.addCost("placement", framePlacementCost, 10) 
   # runningModels[i].differential.costs.addCost("velocity", frameVelocityCost,  1e-3) #, active=False) 
   runningModels[i].differential.costs.addCost("force", frameForceCost, 5, active=True) 
-  runningModels[i].differential.costs.addCost("frictionCone", frictionConeCost, .1) #, active=True) 
+  runningModels[i].differential.costs.addCost("frictionCone", frictionConeCost, 5e-2) #, active=True) 
   runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-4)
   runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-3)
-  # runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 1) #np.array([0, 0, 1])
+  runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 1) 
+  runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, 1) 
   runningModels[i].set_w_reg_lim_costs(1e-3, u_reg_ref, 0, u_lim_ref)
   # Add armature
   runningModels[i].differential.armature = np.array([.1]*7)
@@ -217,10 +217,10 @@ terminalModel = IntegratedActionModelLPF(
                                                         enable_force=True), dt=0, f_c=f_c )
 # Add cost models
 # terminalModel.differential.costs.addCost("placement", framePlacementCost, 1e3) 
-terminalModel.differential.costs.addCost("frictionCone", frictionConeCost, .1) #, active=False)
+terminalModel.differential.costs.addCost("frictionCone", frictionConeCost, 1e-1) #, active=False)
 # terminalModel.differential.costs.addCost("force", frameForceCost, 1) #, active=False)
 terminalModel.differential.costs.addCost("stateReg", xRegCost, 1e-3) 
-# terminalModel.differential.costs.addCost("stateLim", xLimitCost, 1.) 
+terminalModel.differential.costs.addCost("stateLim", xLimitCost, 1.) 
 # Add armature
 terminalModel.differential.armature = np.array([.1]*7)
 # Add contact model
