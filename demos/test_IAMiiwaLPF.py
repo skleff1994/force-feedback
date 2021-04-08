@@ -104,7 +104,8 @@ state = crocoddyl.StateMultibody(robot.pin_robot.model)
 actuation = crocoddyl.ActuationModelFull(state)
    # State regularization
 stateRegWeights = np.array([1.]*nq + [1.]*nv)  
-# stateRegWeights[-2] = 100
+# stateRegWeights[-1] = 10000
+# stateRegWeights[-2] = 100000
 # stateRegWeights[-3] = 100
 x_reg_ref = x0[:nq+nv]
 xRegCost = crocoddyl.CostModelState(state, 
@@ -114,7 +115,7 @@ xRegCost = crocoddyl.CostModelState(state,
 print("Created state reg cost.")
    # Control regularization
 ctrlRegWeights = np.ones(nu)
-ctrlRegWeights[-1] = 100
+# ctrlRegWeights[-1] = 100
 u_reg_ref = u_grav 
 uRegCost = crocoddyl.CostModelControl(state, 
                                       crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
@@ -136,7 +137,7 @@ uLimitCost = crocoddyl.CostModelControl(state,
                                         u_lim_ref)
 print("Created ctrl lim cost.")
    # End-effector contact force
-desiredFrameForce = pin.Force(np.array([0., 0., -1., 0., 0., 0.]))
+desiredFrameForce = pin.Force(np.array([0., 0., -20., 0., 0., 0.]))
 # desiredFrameForce = pin.Force( M_ee.act( np.array([0., 0., offset]) ) np.array([0., 0., 50., 0., 0., 0.]))
 frameForceWeights = np.array([1.]*3 + [1.]*3)  
 frameForceCost = crocoddyl.CostModelContactForce(state, 
@@ -162,7 +163,14 @@ framePlacementCost = crocoddyl.CostModelFramePlacement(state,
 print("Created frame placement cost.")
 # Contact model
 ref_placement = crocoddyl.FramePlacement(id_endeff, robot.pin_robot.data.oMf[id_endeff]) # M_ct 
-contact6d = crocoddyl.ContactModel6D(state, ref_placement, gains=np.array([1.,5.])) #100.,50.
+contact6d = crocoddyl.ContactModel6D(state, ref_placement, actuation.nu, np.array([0, 2])) #.5, 3#1.,5.#100.,50.
+# Friction cone 
+nsurf, mu = np.array([0.,0.,1.]), 0.7
+frictionCone = crocoddyl.FrictionCone(nsurf, mu) # 4, True) #, 0., 10.)
+frictionConeCost = crocoddyl.CostModelContactFrictionCone(state,
+                                                          crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
+                                                          crocoddyl.FrameFrictionCone(id_endeff, frictionCone),
+                                                          actuation.nu)
 # LPF (CT) param
 # k_LPF = 0.001 /dt
 # alpha = .01 #1 - k_LPF*dt                        
@@ -183,19 +191,20 @@ for i in range(N_h):
                                                           inv_damping=0., 
                                                           enable_force=True), dt=dt, f_c=f_c) )
   # Add cost models
-  # runningModels[i].differential.costs.addCost("placement", framePlacementCost, 1) 
-  # runningModels[i].differential.costs.addCost("velocity", frameVelocityCost,  10) #, active=False) 
-  runningModels[i].differential.costs.addCost("force", frameForceCost, 1e-2, active=True) 
-  runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-5)
+  # runningModels[i].differential.costs.addCost("placement", framePlacementCost, 10) 
+  # runningModels[i].differential.costs.addCost("velocity", frameVelocityCost,  1e-3) #, active=False) 
+  runningModels[i].differential.costs.addCost("force", frameForceCost, 1e-3, active=False) 
+  runningModels[i].differential.costs.addCost("frictionCone", frictionConeCost, 1000) 
+  runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-3)
   runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-3)
-  runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 1e-3) 
-  # runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, 1e-2) 
+  runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 1) 
+  # runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, 1e3) 
   # Set up cost on unfiltered control input (same as unfiltered?)
-  runningModels[i].set_w_reg_lim_costs(1e-6, u_reg_ref, 10, u_lim_ref)
+  runningModels[i].set_w_reg_lim_costs(1e-2, u_reg_ref, 0, u_lim_ref)
   # Add armature
   runningModels[i].differential.armature = np.array([.1]*7)
   # Add contact models
-  runningModels[i].differential.contacts.addContact("contact", contact6d, active=True)
+  runningModels[i].differential.contacts.addContact("contact", contact6d) #, active=False)
 
 # Terminal IAM + set armature
 terminalModel = IntegratedActionModelLPF(
@@ -207,13 +216,13 @@ terminalModel = IntegratedActionModelLPF(
                                                         enable_force=True), dt=0, f_c=f_c )
 # Add cost models
 # terminalModel.differential.costs.addCost("placement", framePlacementCost, 1e3) 
-# terminalModel.differential.costs.addCost("force", frameForceCost, 1e-6) #, active=False)
-terminalModel.differential.costs.addCost("stateReg", xRegCost, 1e-5) 
-terminalModel.differential.costs.addCost("stateLim", xLimitCost, 1e-3) 
+# terminalModel.differential.costs.addCost("force", frameForceCost, 1) #, active=False)
+# terminalModel.differential.costs.addCost("stateReg", xRegCost, 1e-5) 
+# terminalModel.differential.costs.addCost("stateLim", xLimitCost, 1.) 
 # Add armature
 terminalModel.differential.armature = np.array([.1]*7)
 # Add contact model
-terminalModel.differential.contacts.addContact("contact", contact6d, active=True)
+terminalModel.differential.contacts.addContact("contact", contact6d) #, active=False)
 
 print("Initialized IAMs.")
 print("Running IAM cost.active  = ", runningModels[0].differential.costs.active.tolist())
@@ -349,7 +358,7 @@ us = np.array(ddp.us) # optimal   (w)   traj
 # MPC SIMULATION #
 ##################
 # MPC & simulation parameters
-maxit = 1
+maxit = 2
 T_tot = 1.
 plan_freq = 1000                      # MPC re-planning frequency (Hz)
 ctrl_freq = 1000                      # Control - simulation - frequency (Hz)
