@@ -216,27 +216,27 @@ def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=
 
 def get_p(q, pin_robot, id_endeff):
     '''
-    Returns end-effector trajectory for given q trajectory 
-        q : joint positions
-        robot : pinocchio wrapper
+    Returns end-effector positions given q trajectory 
+        q         : joint positions
+        robot     : pinocchio wrapper
+        id_endeff : id of EE frame
     '''
     N = np.shape(q)[0]
     p = np.empty((N,3))
-    # print(q)
     for i in range(N):
         pin.forwardKinematics(pin_robot.model, pin_robot.data, q[i])
         pin.updateFramePlacements(pin_robot.model, pin_robot.data)
         p[i,:] = pin_robot.data.oMf[id_endeff].translation.T
-    # print(p)
     return p
+
 
 def get_v(q, dq, pin_robot, id_endeff):
     '''
-    Returns end-effector trajectory for given q trajectory 
+    Returns end-effector velocities given q,dq trajectory 
         q         : joint positions
         dq        : joint velocities
         pin_robot : pinocchio wrapper
-        id_endeff : id of frame
+        id_endeff : id of EE frame
     '''
     N = np.shape(q)[0]
     v = np.empty((N,3))
@@ -246,11 +246,81 @@ def get_v(q, dq, pin_robot, id_endeff):
         pin.computeJointJacobians(pin_robot.model, pin_robot.data, q[i,:])
         jac = pin.getFrameJacobian(pin_robot.model, pin_robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
         # Get EE velocity
-        print("Jac : ", jac)
-        print("dq : ", dq[i])
         v[i,:] = jac.dot(dq[i])[:3]
     return v
-    
+
+
+def get_f(q, v, tau, pin_robot, id_endeff, dt=1e-2):
+    '''
+    Returns contact force in LOCAL frame based on FD estimate of joint acc
+        q         : joint positions
+        v         : joint velocities
+        a         : joint acceleration
+        tau       : joint torques
+        pin_robot : Pinocchio wrapper
+        id_endeff : id of EE frame
+        dt        : step size for FD estimate of joint acceleration
+    '''
+    # Estimate joint accelerations with finite differences on v
+    a = np.zeros(q.shape)
+    for i in range(q.shape[0]):
+        if i>0:
+            a[i,:] = (v[i,:] - v[i-1,:])/dt
+    # Calculate contact force from (q, v, a, tau)
+    f = np.empty((tau.shape[0]-1, 6))
+    for i in range(f.shape[0]):
+        # Jacobian (in LOCAL coord)
+        pin.computeJointJacobians(pin_robot.model, pin_robot.data, q[i,:])
+        jac = pin.getFrameJacobian(pin_robot.model, pin_robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
+        # Joint space inertia and its inverse + NL terms
+        pin.crba(pin_robot.model, pin_robot.data, q[i,:])
+        pin.computeMinverse(pin_robot.model, pin_robot.data, q[i,:])
+        M = pin_robot.data.M
+        Minv = pin_robot.data.Minv
+        h = pin.nonLinearEffects(pin_robot.model, pin_robot.data, q[i,:], v[i,:])
+        # Contact force
+        f[i,:] = np.linalg.inv( jac.dot(Minv).dot(jac.T) ).dot( jac.dot(Minv).dot( h - tau[i,:] + M.dot(a[i,:]) ) )
+    return f
+
+
+    # contact_points = p.getContactPoints(1, 2)
+    # for id_pt, pt in enumerate(contact_points):
+    #   F_mea_pyb[i, :] += pt[9]
+    #   print("      Contact point n°"+str(id_pt)+" : ")
+    #   print("             - normal vec   = "+str(pt[7]))
+    #   # print("             - m_ct.trans   = "+str(M_ct.actInv(np.array(pt[7]))))
+    #   # print("             - distance     = "+str(pt[8])+" (m)")
+    #   # print("             - normal force = "+str(pt[9])  +" (N)")
+    #   # print("             - lat1 force   = "+str(pt[10]) +" (N)")
+    #   # print("             - lat2 force   = "+str(pt[12]) +" (N)")
+
+# def get_f(self, q, v, a, tau, pin_robot, id_endeff):
+#     '''
+#     Returns contact force in LOCAL frame based on FD estimate of joint acc
+#         q         : joint positions
+#         v         : joint velocities
+#         a         : joint acceleration
+#         tau       : joint torques
+#         pin_robot : Pinocchio wrapper
+#         id_endeff : id of EE frame
+#     '''
+#     # Calculate contact force from (q, v, a, tau)
+#     f = np.empty((u.shape[0], 6))
+#     for i in range(u.shape[0]):
+#         # Jacobian (in LOCAL coord)
+#         pin.computeJointJacobians(pin_robot.model, pin_robot.data, q[i,:])
+#         jac = pin.getFrameJacobian(pin_robot.model, pin_robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
+#         # Joint space inertia and its inverse + NL terms
+#         pin.crba(pin_robot.model, pin_robot.data, q[i,:])
+#         pin.computeMinverse(pin_robot.model, pin_robot.data, q[i,:])
+#         M = pin_robot.data.M
+#         Minv = pin_robot.data.Minv
+#         h = pin.nonLinearEffects(pin_robot.model, pin_robot.data, q[i,:], v[i,:])
+#         # Contact force
+#         f[i,:] = np.linalg.inv( jac.dot(Minv).dot(jac.T) ).dot( jac.dot(Minv).dot( h - u[i,:] + M.dot(a[i,:]) ) )
+#     return f
+
+
 # def animateCartpole(xs, sleep=50):
 #     print("processing the animation ... ")
 #     cart_size = 1.
