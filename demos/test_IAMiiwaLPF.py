@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
 
 import numpy as np
 import pinocchio as pin
+from pinocchio import StdVec_Force
 import crocoddyl
 from bullet_utils.env import BulletEnvWithGround
 from robot_properties_kuka.iiwaWrapper import IiwaRobot, IiwaConfig
@@ -498,40 +499,41 @@ for i in range(N_tot):
     q_mea, v_mea = robot.get_state()
     robot.forward_robot(q_mea, v_mea)
 
-    # Simulate torque measurement : 
-      # Use another LPF
-      # Add elastic element in the robot
-      # Use PyBullet measured forces  
+    # Simulate torque measurement : 3 options
+      # 1. Integrate LPF (no torque feedback = open-loop)
+      # 2. Add elastic element in the robot
+      # 3. Use PyBullet measured forces  
 
-    # Measure contact force in PyBullet    
-    ids, forces = robot.get_force()
-    # Express in local EE frame (minus because force env-->robot)
-    F_mea_pyb[i,:] = -robot.pin_robot.data.oMf[id_endeff].actionInverse.dot(forces[0]) 
-
-    # # From PyBullet Contact Forces
-    #   # Jacobian
-    # pin.computeJointJacobians(robot.pin_robot.model, robot.pin_robot.data, q_mea)
-    # jac = pin.getFrameJacobian(robot.pin_robot.model, robot.pin_robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
-    #   # Inertia + NL terms
-    # pin.crba(robot.pin_robot.model, robot.pin_robot.data, q_mea)
-    # M = robot.pin_robot.data.M
-    # h = pin.nonLinearEffects(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea)
-    #   # Torque computation
-    # if(i==0):
-    #   a_mea = np.zeros(nq)
-    # else:
-    #   a_mea = (v_mea - X_mea[i,nq:nq+nv])/1e-3
-    # tau_mea =  M.dot(a_mea) + h - jac.T.dot(F_mea_pyb[i,:])
-
-    # Offline (desired)
+    # 1. Integrate LPF
     tau_mea = tau_des # new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des # new_alpha =  np.sin(i*1e-3) / (1 + 2*np.pi*1e-3*500)
     
+    # 2. Elastic element
+    # TODO: implement elastic model  
+
+    # 3. Measure contact force in PyBullet    
+    ids, forces = robot.get_force()
+    # Express in local EE frame (minus because force env-->robot)
+    F_mea_pyb[i,:] = -robot.pin_robot.data.oMf[id_endeff].actionInverse.dot(forces[0])
+    print(F_mea_pyb[i,:])
+    # FD estimate of joint accelerations
+    if(i==0):
+      a_mea = np.zeros(nq)
+    else:
+      a_mea = (v_mea - X_mea[i,nq:nq+nv])/1e-3
+    # ID
+    f = StdVec_Force()
+    for j in range(robot.pin_robot.model.njoints):
+      f.append(pin.Force.Zero())
+    f[-1].linear = F_mea_pyb[i,:3]
+    f[-1].angular = F_mea_pyb[i,3:]
+    print(f.tolist())
+    tau_mea = pin.rnea(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea, a_mea, f)
+
     # Record measurements
     x_mea = np.concatenate([q_mea, v_mea, tau_mea]).T 
     X_mea[i+1, :] = x_mea                    # Measured state
     X_des[i+1, :] = x_des                    # Desired state
     F_des[i, :] = f_des                      # Desired force
-    # time.sleep(1)
 
 # GENERATE NICE PLOT OF SIMULATION
 with_predictions = False
