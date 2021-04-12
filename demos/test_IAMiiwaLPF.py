@@ -498,35 +498,33 @@ for i in range(N_tot):
     q_mea, v_mea = robot.get_state()
     robot.forward_robot(q_mea, v_mea)
 
+    # Simulate torque measurement : 
+      # Use another LPF
+      # Add elastic element in the robot
+      # Use PyBullet measured forces  
+
+    # Measure contact force in PyBullet    
     ids, forces = robot.get_force()
-    # print("      Active ids :", ids)
-    # print("      Forces     :", forces)
-    # In pyBullet frame !
-    F_mea_pyb[i,:] = forces[0]
+    # Express in local EE frame (minus because force env-->robot)
+    F_mea_pyb[i,:] = -robot.pin_robot.data.oMf[id_endeff].actionInverse.dot(forces[0]) 
 
-    print("Original force in PyB   : ", forces[0])
-    print("Transformed to EE frame : ", robot.pin_robot.data.oMf[id_endeff].act(pin.Force(forces[0])))
-    print("Transformed to EE frame : ", robot.pin_robot.data.oMf[id_endeff].actInv(pin.Force(forces[0])))
-      # Simulate torque measurement : here add LPF or elastic elements
-      # temporarily : measured = same as commanded torque 
-
-    # From PyBullet Contact Forces
-      # Jacobian
-    pin.computeJointJacobians(robot.pin_robot.model, robot.pin_robot.data, q_mea)
-    jac = pin.getFrameJacobian(robot.pin_robot.model, robot.pin_robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
-      # Inertia + NL terms
-    pin.crba(robot.pin_robot.model, robot.pin_robot.data, q_mea)
-    M = robot.pin_robot.data.M
-    h = pin.nonLinearEffects(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea)
-      # Torque computation
-    if(i==0):
-      a_mea = np.zeros(nq)
-    else:
-      a_mea = (v_mea - X_mea[i,nq:nq+nv])/1e-3
-    tau_mea =  M.dot(a_mea) + h - jac.T.dot(F_mea_pyb[i,:])
+    # # From PyBullet Contact Forces
+    #   # Jacobian
+    # pin.computeJointJacobians(robot.pin_robot.model, robot.pin_robot.data, q_mea)
+    # jac = pin.getFrameJacobian(robot.pin_robot.model, robot.pin_robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
+    #   # Inertia + NL terms
+    # pin.crba(robot.pin_robot.model, robot.pin_robot.data, q_mea)
+    # M = robot.pin_robot.data.M
+    # h = pin.nonLinearEffects(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea)
+    #   # Torque computation
+    # if(i==0):
+    #   a_mea = np.zeros(nq)
+    # else:
+    #   a_mea = (v_mea - X_mea[i,nq:nq+nv])/1e-3
+    # tau_mea =  M.dot(a_mea) + h - jac.T.dot(F_mea_pyb[i,:])
 
     # Offline (desired)
-    # tau_mea = tau_des # new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des # new_alpha =  np.sin(i*1e-3) / (1 + 2*np.pi*1e-3*500)
+    tau_mea = tau_des # new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des # new_alpha =  np.sin(i*1e-3) / (1 + 2*np.pi*1e-3*500)
     
     # Record measurements
     x_mea = np.concatenate([q_mea, v_mea, tau_mea]).T 
@@ -556,7 +554,8 @@ v_des = X_des[:,nq:nq+nv]
 tau_des = X_des[:,nq+nv:]
 p_mea = utils.get_p(q_mea, robot.pin_robot, id_endeff)
 p_des = utils.get_p(q_des, robot.pin_robot, id_endeff) 
-f_mea = utils.get_f(q_mea, v_mea, tau_mea, robot.pin_robot, id_endeff, dt=1e-3)
+# Compute with Pinocchio from measured q,v in order to compare with PyBullet solution
+f_mea = utils.get_f(q_mea, v_mea, tau_mea, robot.pin_robot, id_endeff, dt=1e-3) 
 # Create time spans for X and U + Create figs and subplots
 tspan_x = np.linspace(0, T_tot, N_tot+1)
 tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)
@@ -663,18 +662,11 @@ for i in range(nq):
 f_ref = desiredFrameForce.vector
 fig_f, ax_f = plt.subplots(6,1)
 # Plot contact force
-  # Measurement in PyBullet wrong frame?
-ax_f[0].plot(tspan_u, F_mea_pyb[:,2], 'r-', label='Measured', alpha=0.3)
-ax_f[1].plot(tspan_u, -F_mea_pyb[:,1], 'r-', label='Measured', alpha=0.3)
-ax_f[2].plot(tspan_u, -F_mea_pyb[:,0], 'r-', label='Measured', alpha=0.3)
-ax_f[3].plot(tspan_u, F_mea_pyb[:,3], 'r-', label='Measured', alpha=0.3)
-ax_f[4].plot(tspan_u, F_mea_pyb[:,4], 'r-', label='Measured', alpha=0.3)
-ax_f[5].plot(tspan_u, F_mea_pyb[:,5], 'r-', label='Measured', alpha=0.3)
 for i in range(6):
-    ax_f[i].plot(tspan_u, F_des[:,i], 'b-', label='Desired')
-    ax_f[i].plot(tspan_u, f_mea[:,i], 'g-.', label='Measured', alpha=0.5)
-    # ax_f[i].plot(tspan_u, F_mea_pyb[:,i], 'r-', label='Measured', alpha=0.3)
-    ax_f[i].plot(tspan_u, [f_ref[i]]*N_tot, 'k.', label='ref_contact', alpha=0.5)
+    ax_f[i].plot(tspan_u, F_des[:,i], 'b-', label='Desired (Crocoddyl)')
+    ax_f[i].plot(tspan_u, f_mea[:,i], 'g-.', label='Measured (Pinocchio)', alpha=0.3)
+    ax_f[i].plot(tspan_u, F_mea_pyb[:,i], 'r-', label='Measured (PyBullet)', alpha=0.5)
+    ax_f[i].plot(tspan_u, [f_ref[i]]*N_tot, 'k--', label='reference', alpha=0.5)
     ax_f[i].set(xlabel='t (s)', ylabel='$f_{i}$ (N)')
     ax_f[i].grid()
     # Legend
