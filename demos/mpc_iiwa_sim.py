@@ -8,12 +8,22 @@
 @brief Closed-loop MPC for force task with the KUKA iiwa 
 """
 
+'''
+The robot is tasked with creating contact between its end-effector and a wall and apply a constant normal force
+Trajectory optimization using Crocoddyl in closed-loop MPC (feedback from state x=(q,v))
+This demo file is used to compare several contact models for simulation, namely:
+    - PyBullet contact model
+    - Crocoddyl contact (rigid, i.e. no model --> only desired force based on predictions + KKT dynamics integration)
+    - Visco-elastic contact model (spring damper) integrated using Bilal's exponential integrator
+'''
+
 import os.path
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
 
 import numpy as np  
 import pinocchio as pin
+from pinocchio import StdVec_Force
 import crocoddyl
 from bullet_utils.env import BulletEnvWithGround
 from robot_properties_kuka.iiwaWrapper import IiwaRobot, IiwaConfig
@@ -66,7 +76,6 @@ contact_points = p.getContactPoints(1, 2)
 for k,i in enumerate(contact_points):
   print("      Contact point n°"+str(k)+" : distance = "+str(i[8])+" (m) | force = "+str(i[9])+" (N)")
 # time.sleep(100)
-
 
 
 #################
@@ -152,10 +161,10 @@ for i in range(N_h):
                                                           inv_damping=0., 
                                                           enable_force=True), dt) )
   # Add cost models
-  runningModels[i].differential.costs.addCost("placement", framePlacementCost, 10.) 
+  runningModels[i].differential.costs.addCost("placement", framePlacementCost, 1.) 
   runningModels[i].differential.costs.addCost("force", frameForceCost, 1., active=False) 
-  runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-3) 
-  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-2)
+  runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-4) 
+  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-3)
   runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 10) 
   runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, 1e-1) 
   # Add armature
@@ -196,6 +205,330 @@ us = [ddp.problem.runningModels[0].quasiStatic(ddp.problem.runningDatas[0], x0)]
 ddp.solve(xs, us, maxiter=100)
 xs = np.array(ddp.xs)
 us = np.array(ddp.us)
+
+
+##################
+# MPC SIMULATION #
+##################
+# MPC & simulation parameters
+maxit = 1
+T_tot = 2.
+plan_freq = 1000                      # MPC re-planning frequency (Hz)
+ctrl_freq = 1000                      # Control - simulation - frequency (Hz)
+N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
+N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved during the simulation
+T_h = N_h*dt                          # Duration of the MPC horizon (s)
+# Initialize data
+nx = nq+nv
+nu = nq
+X_mea = np.zeros((N_tot+1, nx))       # Measured states 
+X_des = np.zeros((N_tot+1, nx))       # Desired states
+U_des = np.zeros((N_tot, nu))         # Desired controls 
+X_pred = np.zeros((N_p, N_h+1, nx))   # MPC predictions (state)
+U_pred = np.zeros((N_p, N_h, nu))     # MPC predictions (control)
+U_des = np.zeros((N_tot, nq))         # Feedforward torques planned by MPC (DDP) 
+U_mea = np.zeros((N_tot, nq))         # Torques sent to PyBullet
+contact_des = [False]*X_des.shape[0]                # Contact record for contact force
+contact_mea = [False]*X_mea.shape[0]                # Contact record for contact force
+contact_pred = np.zeros((N_p, N_h+1), dtype=bool)   # Contact record for contact force
+F_des = np.zeros((N_tot, 6))        # Contact force computed with pinocchio (should be the same as desired)
+F_mea_pyb = np.zeros((N_tot, 6))    # PyBullet measurement of contact force (? at which contact point ?)
+F_mea = np.zeros((N_tot, 6))        # Contact force calculated with Pinocchio from PyBullet joint measurements
+F_pred = np.zeros((N_p, N_h, 6))    # MPC prediction of contact force (same as desired)
+# Logs
+print('                  ************************')
+print('                  * MPC controller ready *') 
+print('                  ************************')        
+print('---------------------------------------------------------')
+print('- Total simulation duration            : T_tot  = '+str(T_tot)+' s')
+print('- Control frequency                    : f_ctrl = '+str(ctrl_freq)+' Hz')
+print('- Replanning frequency                 : f_plan = '+str(plan_freq)+' Hz')
+print('- Total # of control steps             : N_tot  = '+str(N_tot))
+print('- Duration of MPC horizon              : T_ocp  = '+str(T_h)+' s')
+print('- Total # of replanning knots          : N_p    = '+str(N_p))
+print('- OCP integration step                 : dt     = '+str(dt)+' s')
+print('---------------------------------------------------------')
+print("Simulation will start...")
+time.sleep(1)
+
+# Measure initial state from simulation environment &init data
+q_mea, v_mea = robot.get_state()
+robot.forward_robot(q_mea, v_mea)
+x0 = np.concatenate([q_mea, v_mea]).T
+print("Initial state ", str(x0))
+X_mea[0, :] = x0
+X_des[0, :] = x0
+# F_mea[0, :] = ddp.problem.runningDatas[0].differential.costs.costs["force"].contact.f.vector
+# F_des[0, :] = F_mea[0, :]
+# Replan counter
+nb_replan = 0
+# SIMULATION LOOP
+switch=False
+for i in range(N_tot): 
+    print("  ")
+    print("Sim step "+str(i)+"/"+str(N_tot))
+    # Solve OCP if we are in a planning cycle
+    if(i%int(ctrl_freq/plan_freq) == 0):
+        print("  Replan step "+str(nb_replan)+"/"+str(N_p))
+        # Reset x0 to measured state + warm-start solution
+        ddp.problem.x0 = X_mea[i, :]
+        xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
+        xs_init[0] = X_mea[i, :]
+        us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
+
+        ### HERE UPDATE OCP AS NEEDED ####
+        # STATE-based switch
+        if(len(p.getContactPoints(1, 2))>0 and switch==False):
+            switch=True
+            ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.Mref.placement =  robot.pin_robot.data.oMf[id_endeff]
+            ddp.problem.terminalModel.differential.contacts.changeContactStatus("contact", True)
+            ddp.problem.terminalModel.differential.costs.changeCostStatus("force", True)
+            for k,m in enumerate(ddp.problem.runningModels[:]):
+                # Activate contact and force cost
+                m.differential.contacts.contacts["contact"].contact.Mref.placement =  robot.pin_robot.data.oMf[id_endeff]
+                m.differential.contacts.changeContactStatus("contact", True)
+                m.differential.costs.changeCostStatus("force", True)
+                m.differential.costs.costs["force"].weight = 10.
+                # m.differential.costs.costs["placement"].weight = 1e-1
+                # Update state reg cost
+                m.differential.costs.costs["stateReg"].reference = xs_init[0]
+                m.differential.costs.costs["stateReg"].weight = 0
+                # Update control reg cost
+                m.differential.costs.costs["ctrlReg"].reference = us_init[0]
+                m.differential.costs.costs["ctrlReg"].weight = 1.
+
+        # Solve OCP & record MPC predictions
+        ddp.solve(xs_init, us_init, maxiter=maxit, isFeasible=False)
+        X_pred[nb_replan, :, :] = np.array(ddp.xs)
+        U_pred[nb_replan, :, :] = np.array(ddp.us)
+        for j in range(N_h):
+            F_pred[nb_replan, j, :] = ddp.problem.runningDatas[j].differential.multibody.contacts.contacts['contact'].f.vector
+        # Extract 1st control and 2nd state
+        u_des = U_pred[nb_replan, 0, :] 
+        x_des = X_pred[nb_replan, 1, :]
+        f_des = F_pred[nb_replan, 0, :]
+        # Increment replan counter
+        nb_replan += 1
+
+    # Record and apply the 1st control
+    U_des[i, :] = u_des
+    # Send control to simulation & step simulator
+    robot.send_joint_command(u_des)
+    p.stepSimulation()
+    # Measure new state from simulation and record data
+    q_mea, v_mea = robot.get_state()
+    robot.forward_robot(q_mea, v_mea)
+    x_mea = np.concatenate([q_mea, v_mea]).T 
+    # Measure contact force in PyBullet    
+    ids, forces = robot.get_force()
+    # Express in local EE frame (minus because force env-->robot)
+    if(switch==True):
+        F_mea_pyb[i,:] = -robot.pin_robot.data.oMf[id_endeff].actionInverse.dot(forces[0])
+    else:
+        F_mea_pyb[i,:] = np.zeros(6)
+    print(F_mea_pyb[i,:])
+    # FD estimate of joint accelerations
+    if(i==0):
+      a_mea = np.zeros(nq)
+    else:
+      a_mea = (v_mea - X_mea[i,nq:nq+nv])/1e-3
+    # ID
+    f = StdVec_Force()
+    for j in range(robot.pin_robot.model.njoints):
+      f.append(pin.Force.Zero())
+    f[-1].linear = F_mea_pyb[i,:3]
+    f[-1].angular = F_mea_pyb[i,3:]
+    tau_mea = pin.rnea(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea, a_mea, f)
+
+    X_mea[i+1, :] = x_mea                    # Measured state
+    X_des[i+1, :] = x_des                    # Desired state
+    F_des[i, :] = f_des                      # Desired force
+    U_mea[i, :] = tau_mea
+    
+# GENERATE NICE PLOT OF SIMULATION
+with_predictions = False
+from matplotlib.collections import LineCollection
+import matplotlib.pyplot as plt
+import matplotlib
+# Time step duration of the control loop
+dt_ctrl = float(1./ctrl_freq)
+# Time step duration of planning loop
+dt_plan = float(1./plan_freq)
+# Reshape trajs if necessary 
+q_pred = X_pred[:,:,:nq]
+v_pred = X_pred[:,:,nv:]
+q_mea = X_mea[:,:nq]
+v_mea = X_mea[:,nv:]
+q_des = X_des[:,:nq]
+v_des = X_des[:,nv:]
+p_mea = utils.get_p(q_mea, robot.pin_robot, id_endeff)
+p_des = utils.get_p(q_des, robot.pin_robot, id_endeff) 
+# Compute with Pinocchio from measured q,v in order to compare with PyBullet solution
+f_mea = utils.get_f(q_mea, v_mea, U_mea, robot.pin_robot, id_endeff, dt=1e-3) 
+# Create time spans for X and U + Create figs and subplots
+tspan_x = np.linspace(0, T_tot, N_tot+1)
+tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)
+fig_x, ax_x = plt.subplots(nq, 2)
+fig_u, ax_u = plt.subplots(nq, 1)
+fig_p, ax_p = plt.subplots(3,1)
+# For each joint
+for i in range(nq):
+    # Extract state predictions of i^th joint
+    q_pred_i = q_pred[:,:,i]
+    v_pred_i = v_pred[:,:,i]
+    u_pred_i = U_pred[:,:,i]
+    # print(u_pred_i[0,0])
+    if(with_predictions):
+        # For each planning step in the trajectory
+        for j in range(N_p):
+            # Receding horizon = [j,j+N_h]
+            t0_horizon = j*dt_plan
+            tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+            tspan_u_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
+            # Set up lists of (x,y) points for predicted positions and velocities
+            points_q = np.array([tspan_x_pred, q_pred_i[j,:]]).transpose().reshape(-1,1,2)
+            points_v = np.array([tspan_x_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
+            points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
+            # Set up lists of segments
+            segs_q = np.concatenate([points_q[:-1], points_q[1:]], axis=1)
+            segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
+            segs_u = np.concatenate([points_u[:-1], points_u[1:]], axis=1)
+            # Make collections segments
+            cm = plt.get_cmap('Greys_r') 
+            lc_q = LineCollection(segs_q, cmap=cm, zorder=-1)
+            lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
+            lc_u = LineCollection(segs_u, cmap=cm, zorder=-1)
+            lc_q.set_array(tspan_x_pred)
+            lc_v.set_array(tspan_x_pred) 
+            lc_u.set_array(tspan_u_pred)
+            # Customize
+            lc_q.set_linestyle('-')
+            lc_v.set_linestyle('-')
+            lc_u.set_linestyle('-')
+            lc_q.set_linewidth(1)
+            lc_v.set_linewidth(1)
+            lc_u.set_linewidth(1)
+            # Plot collections
+            ax_x[i,0].add_collection(lc_q)
+            ax_x[i,1].add_collection(lc_v)
+            ax_u[i].add_collection(lc_u)
+            # Scatter to highlight points
+            colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+            my_colors = cm(colors)
+            ax_x[i,0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
+            ax_x[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
+            ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
+    
+
+    # Desired joint position (interpolated from prediction)
+    ax_x[i,0].plot(tspan_x, q_des[:,i], 'b-', label='Desired')
+    # Measured joint position (PyBullet)
+    ax_x[i,0].plot(tspan_x, q_mea[:,i], 'r-', label='Measured')
+    ax_x[i,0].set(xlabel='t (s)', ylabel='$q_{i}$ (rad)')
+    ax_x[i,0].grid()
+
+    # Desired joint velocity (interpolated from prediction)
+    ax_x[i,1].plot(tspan_x, v_des[:,i], 'b-', label='Desired')
+    # Measured joint velocity (PyBullet)
+    ax_x[i,1].plot(tspan_x, v_mea[:,i], 'r-', label='Measured')
+    ax_x[i,1].set(xlabel='t (s)', ylabel='$v_{i}$ (rad/s)')
+    ax_x[i,1].grid()
+
+    # Desired joint torque (interpolated feedforward)
+    ax_u[i].plot(tspan_u, U_des[:,i], 'b-', label='Desired (ff)')
+    # Total
+    ax_u[i].plot(tspan_u, U_mea[:,i], 'r-', label='Measured (ff+fb)') 
+    ax_u[i].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
+    ax_u[i].grid()
+
+    # Legend
+    handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
+    fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+
+    handles_u, labels_u = ax_u[i].get_legend_handles_labels()
+    fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
+
+# Get desired and measured contact forces
+f_ref = desiredFrameForce.vector
+fig_f, ax_f = plt.subplots(6,1)
+# Plot contact force
+for i in range(6):
+    ax_f[i].plot(tspan_u, F_des[:,i], 'b-', label='Desired (Crocoddyl)')
+    ax_f[i].plot(tspan_u, f_mea[:,i], 'g-.', label='Measured (Pinocchio)', alpha=0.3)
+    ax_f[i].plot(tspan_u, F_mea_pyb[:,i], 'r-', label='Measured (PyBullet)', alpha=0.5)
+    ax_f[i].plot(tspan_u, [f_ref[i]]*N_tot, 'k--', label='reference', alpha=0.5)
+    ax_f[i].set(xlabel='t (s)', ylabel='$f_{i}$ (N)')
+    ax_f[i].grid()
+    # Legend
+    handles_f, labels_f = ax_f[i].get_legend_handles_labels()
+    fig_f.legend(handles_f, labels_f, loc='upper right', prop={'size': 16})
+
+# Compute predicted force using predicted trajs
+if(with_predictions):
+    # For dim
+    for i in range(6):
+        # Extract state predictions of i^th dim
+        f_pred_i = F_pred[:, :, i]
+        # For each planning step in the trajectory
+        for j in range(N_p):
+            # Receding horizon = [j,j+N_h]
+            # Receding horizon = [j,j+N_h]
+            t0_horizon = j*dt_plan
+            tspan_f_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h) #np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+            # Set up lists of (x,y) points for predicted positions and velocities
+            points_f = np.array([tspan_f_pred, f_pred_i[j,:]]).transpose().reshape(-1,1,2)
+            # Set up lists of segments
+            segs_f = np.concatenate([points_f[:-1], points_f[1:]], axis=1)
+            # Make collections segments
+            cm = plt.get_cmap('Greys_r') 
+            lc_f = LineCollection(segs_f, cmap=cm, zorder=-1)
+            lc_f.set_array(tspan_f_pred)
+            # Customize
+            lc_f.set_linestyle('-')
+            lc_f.set_linewidth(1)
+            # Plot collections
+            ax_f[i].add_collection(lc_f)
+            # Scatter to highlight points
+            colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+            my_colors = cm(colors)
+            # ax_f[i].scatter(tspan_f_pred, f_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black' 
+            ax_f[i].scatter(tspan_f_pred, f_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
+    
+
+# Plot endeff
+# x
+ax_p[0].plot(tspan_x, p_des[:,0], 'b-', label='x_des')
+ax_p[0].plot(tspan_x, p_mea[:,0], 'r-.', label='x_mea')
+ax_p[0].set_title('x-position')
+ax_p[0].set(xlabel='t (s)', ylabel='x (m)')
+ax_p[0].grid()
+# y
+ax_p[1].plot(tspan_x, p_des[:,1], 'b-', label='y_des')
+ax_p[1].plot(tspan_x, p_mea[:,1], 'r-.', label='y_mea')
+ax_p[1].set_title('y-position')
+ax_p[1].set(xlabel='t (s)', ylabel='y (m)')
+ax_p[1].grid()
+# z
+ax_p[2].plot(tspan_x, p_des[:,2], 'b-', label='z_des')
+ax_p[2].plot(tspan_x, p_mea[:,2], 'r-.', label='z_mea')
+ax_p[2].set_title('z-position')
+ax_p[2].set(xlabel='t (s)', ylabel='z (m)')
+ax_p[2].grid()
+# Add frame ref if any
+p_ref = desiredFramePlacement.translation
+ax_p[0].plot(tspan_x, [p_ref[0]]*(N_tot+1), 'ko', label='ref_contact', alpha=0.5)
+ax_p[1].plot(tspan_x, [p_ref[1]]*(N_tot+1), 'ko', label='ref_contact', alpha=0.5)
+ax_p[2].plot(tspan_x, [p_ref[2]]*(N_tot+1), 'ko', label='ref_contact', alpha=0.5)
+handles_p, labels_p = ax_p[0].get_legend_handles_labels()
+fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
+
+# Titles
+fig_x.suptitle('Joint trajectories: des. vs sim. (DDP-based MPC)', size=16)
+fig_u.suptitle('Joint torques: des. vs sim. (DDP-based MPC)', size=16)
+fig_p.suptitle('End-effector: ref. vs des. vs sim. (DDP-based MPC)', size=16)
+fig_f.suptitle('End-effector force', size=16)
+
+plt.show() 
 
 
 # #################################
@@ -303,311 +636,3 @@ us = np.array(ddp.us)
 # fig_f.suptitle('End-effector force', size=16)
 # fig_p.suptitle('End-effector trajectory', size=16)
 # plt.show()
-
-
-##################
-# MPC SIMULATION #
-##################
-# MPC & simulation parameters
-maxit = 1
-T_tot = 2.
-plan_freq = 1000                      # MPC re-planning frequency (Hz)
-ctrl_freq = 1000                      # Control - simulation - frequency (Hz)
-N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
-N_p = int(T_tot*plan_freq)            # Total number of OCPs (replan) solved during the simulation
-T_h = N_h*dt                          # Duration of the MPC horizon (s)
-# Initialize data
-nx = nq+nv
-nu = nq
-X_mea = np.zeros((N_tot+1, nx))       # Measured states 
-X_des = np.zeros((N_tot+1, nx))       # Desired states
-U_des = np.zeros((N_tot, nu))         # Desired controls 
-X_pred = np.zeros((N_p, N_h+1, nx))   # MPC predictions (state)
-U_pred = np.zeros((N_p, N_h, nu))     # MPC predictions (control)
-U_des = np.zeros((N_tot, nq))         # Feedforward torques planned by MPC (DDP) 
-U_mea = np.zeros((N_tot, nq))         # Torques sent to PyBullet
-contact_des = [False]*X_des.shape[0]                # Contact record for contact force
-contact_mea = [False]*X_mea.shape[0]                # Contact record for contact force
-contact_pred = np.zeros((N_p, N_h+1), dtype=bool)   # Contact record for contact force
-F_des = np.zeros((N_tot, 6))        # Desired contact force
-F_pin = np.zeros((N_tot, 6))        # Contact force computed with pinocchio (should be the same as desired)
-F_pred = np.zeros((N_p, N_h, 6))    # MPC prediction of contact force (same as pin on desired trajs)
-F_mea = np.zeros((N_tot, 6))        # PyBullet measurement of contact force (? at which contact point ?)
-# Logs
-print('                  ************************')
-print('                  * MPC controller ready *') 
-print('                  ************************')        
-print('---------------------------------------------------------')
-print('- Total simulation duration            : T_tot  = '+str(T_tot)+' s')
-print('- Control frequency                    : f_ctrl = '+str(ctrl_freq)+' Hz')
-print('- Replanning frequency                 : f_plan = '+str(plan_freq)+' Hz')
-print('- Total # of control steps             : N_tot  = '+str(N_tot))
-print('- Duration of MPC horizon              : T_ocp  = '+str(T_h)+' s')
-print('- Total # of replanning knots          : N_p    = '+str(N_p))
-print('- OCP integration step                 : dt     = '+str(dt)+' s')
-print('---------------------------------------------------------')
-print("Simulation will start...")
-time.sleep(1)
-
-# Measure initial state from simulation environment &init data
-q_mea, v_mea = robot.get_state()
-robot.forward_robot(q_mea, v_mea)
-x0 = np.concatenate([q_mea, v_mea]).T
-print("Initial state ", str(x0))
-X_mea[0, :] = x0
-X_des[0, :] = x0
-# F_mea[0, :] = ddp.problem.runningDatas[0].differential.costs.costs["force"].contact.f.vector
-# F_des[0, :] = F_mea[0, :]
-# Replan counter
-nb_replan = 0
-# SIMULATION LOOP
-switch=False
-for i in range(N_tot): 
-    print("  ")
-    print("Sim step "+str(i)+"/"+str(N_tot))
-    # Solve OCP if we are in a planning cycle
-    if(i%int(ctrl_freq/plan_freq) == 0):
-        print("  Replan step "+str(nb_replan)+"/"+str(N_p))
-        # Reset x0 to measured state + warm-start solution
-        ddp.problem.x0 = X_mea[i, :]
-        xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-        xs_init[0] = X_mea[i, :]
-        us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
-
-        ### HERE UPDATE OCP AS NEEDED ####
-        # STATE-based switch
-        if(len(p.getContactPoints(1, 2))>0 and switch==False):
-            switch=True
-            ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.Mref.placement =  robot.pin_robot.data.oMf[id_endeff]
-            ddp.problem.terminalModel.differential.contacts.changeContactStatus("contact", True)
-            ddp.problem.terminalModel.differential.costs.changeCostStatus("force", True)
-            for k,m in enumerate(ddp.problem.runningModels[:]):
-                # Activate contact and force cost
-                m.differential.contacts.contacts["contact"].contact.Mref.placement =  robot.pin_robot.data.oMf[id_endeff]
-                m.differential.contacts.changeContactStatus("contact", True)
-                m.differential.costs.changeCostStatus("force", True)
-                m.differential.costs.costs["force"].weight = 10.
-                # m.differential.costs.costs["placement"].weight = 1e-1
-                # Update state reg cost
-                m.differential.costs.costs["stateReg"].reference = xs_init[0]
-                m.differential.costs.costs["stateReg"].weight = 0
-                # Update control reg cost
-                m.differential.costs.costs["ctrlReg"].reference = us_init[0]
-                m.differential.costs.costs["ctrlReg"].weight = 1.
-
-        # Solve OCP & record MPC predictions
-        ddp.solve(xs_init, us_init, maxiter=maxit, isFeasible=False)
-        X_pred[nb_replan, :, :] = np.array(ddp.xs)
-        U_pred[nb_replan, :, :] = np.array(ddp.us)
-        for j in range(N_h):
-            F_pred[nb_replan, j, :] = ddp.problem.runningDatas[j].differential.multibody.contacts.contacts['contact'].f.vector
-        # F_pred[nb_replan, -1, :] = ddp.problem.terminalData.differential.multibody.contacts.contacts['contact'].f.vector
-        # Extract 1st control and 2nd state
-        u_des = U_pred[nb_replan, 0, :] 
-        x_des = X_pred[nb_replan, 1, :]
-        f_des = F_pred[nb_replan, 0, :]
-        # Increment replan counter
-        nb_replan += 1
-
-    # Record and apply the 1st control
-    U_des[i, :] = u_des
-    U_mea[i, :] = u_des
-    # Send control to simulation & step simulator
-    # robot.send_joint_command(u_des + ddp.K[0].dot(X_mea[i, :] - x_des)) # with Ricatti gain
-    robot.send_joint_command(u_des)
-    p.stepSimulation()
-    # Measure new state from simulation and record data
-    q_mea, v_mea = robot.get_state()
-    robot.forward_robot(q_mea, v_mea)
-    x_mea = np.concatenate([q_mea, v_mea]).T 
-    X_mea[i+1, :] = x_mea                    # Measured state
-    X_des[i+1, :] = x_des                    # Desired state
-    F_des[i, :] = f_des                      # Desired force
-    F_pin[i, :] = ddp.problem.runningDatas[0].differential.costs.costs["force"].contact.f.vector
-
-# GENERATE NICE PLOT OF SIMULATION
-with_predictions = False
-from matplotlib.collections import LineCollection
-import matplotlib.pyplot as plt
-import matplotlib
-# Time step duration of the control loop
-dt_ctrl = float(1./ctrl_freq)
-# Time step duration of planning loop
-dt_plan = float(1./plan_freq)
-# Reshape trajs if necessary 
-q_pred = X_pred[:,:,:nq]
-v_pred = X_pred[:,:,nv:]
-q_mea = X_mea[:,:nq]
-v_mea = X_mea[:,nv:]
-q_des = X_des[:,:nq]
-v_des = X_des[:,nv:]
-p_mea = utils.get_p(q_mea, robot.pin_robot, id_endeff)
-p_des = utils.get_p(q_des, robot.pin_robot, id_endeff) 
-# Create time spans for X and U + Create figs and subplots
-tspan_x = np.linspace(0, T_tot, N_tot+1)
-tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)
-fig_x, ax_x = plt.subplots(nq, 2)
-fig_u, ax_u = plt.subplots(nq, 1)
-fig_p, ax_p = plt.subplots(3,1)
-# For each joint
-for i in range(nq):
-    # Extract state predictions of i^th joint
-    q_pred_i = q_pred[:,:,i]
-    v_pred_i = v_pred[:,:,i]
-    u_pred_i = U_pred[:,:,i]
-    # print(u_pred_i[0,0])
-    if(with_predictions):
-        # For each planning step in the trajectory
-        for j in range(N_p):
-            # Receding horizon = [j,j+N_h]
-            t0_horizon = j*dt_plan
-            tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
-            tspan_u_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
-            # Set up lists of (x,y) points for predicted positions and velocities
-            points_q = np.array([tspan_x_pred, q_pred_i[j,:]]).transpose().reshape(-1,1,2)
-            points_v = np.array([tspan_x_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
-            points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
-            # Set up lists of segments
-            segs_q = np.concatenate([points_q[:-1], points_q[1:]], axis=1)
-            segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
-            segs_u = np.concatenate([points_u[:-1], points_u[1:]], axis=1)
-            # Make collections segments
-            cm = plt.get_cmap('Greys_r') 
-            lc_q = LineCollection(segs_q, cmap=cm, zorder=-1)
-            lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
-            lc_u = LineCollection(segs_u, cmap=cm, zorder=-1)
-            lc_q.set_array(tspan_x_pred)
-            lc_v.set_array(tspan_x_pred) 
-            lc_u.set_array(tspan_u_pred)
-            # Customize
-            lc_q.set_linestyle('-')
-            lc_v.set_linestyle('-')
-            lc_u.set_linestyle('-')
-            lc_q.set_linewidth(1)
-            lc_v.set_linewidth(1)
-            lc_u.set_linewidth(1)
-            # Plot collections
-            ax_x[i,0].add_collection(lc_q)
-            ax_x[i,1].add_collection(lc_v)
-            ax_u[i].add_collection(lc_u)
-            # Scatter to highlight points
-            colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
-            my_colors = cm(colors)
-            ax_x[i,0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
-            ax_x[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
-            ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
-    
-
-    # Desired joint position (interpolated from prediction)
-    ax_x[i,0].plot(tspan_x, q_des[:,i], 'b-', label='Desired')
-    # Measured joint position (PyBullet)
-    ax_x[i,0].plot(tspan_x, q_mea[:,i], 'r-', label='Measured')
-    ax_x[i,0].set(xlabel='t (s)', ylabel='$q_{i}$ (rad)')
-    ax_x[i,0].grid()
-
-    # Desired joint velocity (interpolated from prediction)
-    ax_x[i,1].plot(tspan_x, v_des[:,i], 'b-', label='Desired')
-    # Measured joint velocity (PyBullet)
-    ax_x[i,1].plot(tspan_x, v_mea[:,i], 'r-', label='Measured')
-    ax_x[i,1].set(xlabel='t (s)', ylabel='$v_{i}$ (rad/s)')
-    ax_x[i,1].grid()
-
-    # Desired joint torque (interpolated feedforward)
-    ax_u[i].plot(tspan_u, U_des[:,i], 'b-', label='Desired (ff)')
-    # Total
-    ax_u[i].plot(tspan_u, U_mea[:,i], 'r-', label='Measured (ff+fb)') 
-    # ax_u[i].plot(tspan_u[0], u_mea[0,i], 'co', label='Initial')
-    # print(" U0 mea plotted = "+str(u_mea[0,i]))
-    # ax_u[i].plot(tspan_u, u_mea[:,i]-u_des[:,i], 'g-', label='Riccati (fb)')
-    # Total torque applied
-    ax_u[i].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
-    ax_u[i].grid()
-
-    # Legend
-    handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
-    fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-
-    handles_u, labels_u = ax_u[i].get_legend_handles_labels()
-    fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
-
-# Get desired and measured contact forces
-f_ref = desiredFrameForce.vector
-fig_f, ax_f = plt.subplots(6,1)
-# Plot contact force
-for i in range(6):
-    ax_f[i].plot(tspan_u, F_des[:,i], 'bo', label='f_des_NEW', alpha=0.3)
-    ax_f[i].plot(tspan_u, F_mea[:,i], 'ro', label='f_mea_NEW', alpha=0.3)
-    ax_f[i].plot(tspan_u, [f_ref[i]]*N_tot, 'k.', label='ref_contact', alpha=0.5)
-    ax_f[i].set(xlabel='t (s)', ylabel='$f_{i}$ (N)')
-    ax_f[i].grid()
-    # Legend
-    handles_f, labels_f = ax_f[i].get_legend_handles_labels()
-    fig_f.legend(handles_f, labels_f, loc='upper right', prop={'size': 16})
-
-# Compute predicted force using predicted trajs
-if(with_predictions):
-    # For dim
-    for i in range(6):
-        # Extract state predictions of i^th dim
-        f_pred_i = F_pred[:, :, i]
-        # For each planning step in the trajectory
-        for j in range(N_p):
-            # Receding horizon = [j,j+N_h]
-            # Receding horizon = [j,j+N_h]
-            t0_horizon = j*dt_plan
-            tspan_f_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h) #np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
-            # Set up lists of (x,y) points for predicted positions and velocities
-            points_f = np.array([tspan_f_pred, f_pred_i[j,:]]).transpose().reshape(-1,1,2)
-            # Set up lists of segments
-            segs_f = np.concatenate([points_f[:-1], points_f[1:]], axis=1)
-            # Make collections segments
-            cm = plt.get_cmap('Greys_r') 
-            lc_f = LineCollection(segs_f, cmap=cm, zorder=-1)
-            lc_f.set_array(tspan_f_pred)
-            # Customize
-            lc_f.set_linestyle('-')
-            lc_f.set_linewidth(1)
-            # Plot collections
-            ax_f[i].add_collection(lc_f)
-            # Scatter to highlight points
-            colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
-            my_colors = cm(colors)
-            # ax_f[i].scatter(tspan_f_pred, f_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black' 
-            ax_f[i].scatter(tspan_f_pred, f_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
-    
-
-# Plot endeff
-# x
-ax_p[0].plot(tspan_x, p_des[:,0], 'b-', label='x_des')
-ax_p[0].plot(tspan_x, p_mea[:,0], 'r-.', label='x_mea')
-ax_p[0].set_title('x-position')
-ax_p[0].set(xlabel='t (s)', ylabel='x (m)')
-ax_p[0].grid()
-# y
-ax_p[1].plot(tspan_x, p_des[:,1], 'b-', label='y_des')
-ax_p[1].plot(tspan_x, p_mea[:,1], 'r-.', label='y_mea')
-ax_p[1].set_title('y-position')
-ax_p[1].set(xlabel='t (s)', ylabel='y (m)')
-ax_p[1].grid()
-# z
-ax_p[2].plot(tspan_x, p_des[:,2], 'b-', label='z_des')
-ax_p[2].plot(tspan_x, p_mea[:,2], 'r-.', label='z_mea')
-ax_p[2].set_title('z-position')
-ax_p[2].set(xlabel='t (s)', ylabel='z (m)')
-ax_p[2].grid()
-# Add frame ref if any
-p_ref = desiredFramePlacement.translation
-ax_p[0].plot(tspan_x, [p_ref[0]]*(N_tot+1), 'ko', label='ref_contact', alpha=0.5)
-ax_p[1].plot(tspan_x, [p_ref[1]]*(N_tot+1), 'ko', label='ref_contact', alpha=0.5)
-ax_p[2].plot(tspan_x, [p_ref[2]]*(N_tot+1), 'ko', label='ref_contact', alpha=0.5)
-handles_p, labels_p = ax_p[0].get_legend_handles_labels()
-fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
-
-# Titles
-fig_x.suptitle('Joint trajectories: des. vs sim. (DDP-based MPC)', size=16)
-fig_u.suptitle('Joint torques: des. vs sim. (DDP-based MPC)', size=16)
-fig_p.suptitle('End-effector: ref. vs des. vs sim. (DDP-based MPC)', size=16)
-fig_f.suptitle('End-effector force', size=16)
-
-plt.show() 
-
