@@ -11,10 +11,10 @@
 '''
 The robot is tasked with creating contact between its end-effector and a wall and apply a constant normal force
 Trajectory optimization using Crocoddyl in closed-loop MPC (feedback from state x=(q,v))
-This demo file is used to compare several contact models for simulation, namely:
-    - PyBullet contact model
-    - Crocoddyl contact (rigid, i.e. no model --> only desired force based on predictions + KKT dynamics integration)
-    - Visco-elastic contact model (spring damper) integrated using Bilal's exponential integrator
+Using 'consim_py' pkg for simulation with visco-elastic contacts (Bilal, Andrea) :
+    - Pinocchio + Euler for rigid-body dynamics
+    - Exponential integrator for soft forces
+Using gepetto-viewer for vizualisation
 '''
 
 import os.path
@@ -319,6 +319,7 @@ for i in range(N_tot):
     q_mea, v_mea = robot.get_state()
     robot.forward_robot(q_mea, v_mea)
     x_mea = np.concatenate([q_mea, v_mea]).T 
+    
     # Measure contact force in PyBullet    
     ids, forces = robot.get_force()
     # Express in local EE frame (minus because force env-->robot)
@@ -338,7 +339,11 @@ for i in range(N_tot):
       f.append(pin.Force.Zero())
     f[-1].linear = F_mea_pyb[i,:3]
     f[-1].angular = F_mea_pyb[i,3:]
+    # Get corresponding measured torque 
     tau_mea = pin.rnea(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea, a_mea, f)
+
+    # Inegrate using EI of visco-elastic contact model
+    # Get measured force 
 
     X_mea[i+1, :] = x_mea                    # Measured state
     X_des[i+1, :] = x_des                    # Desired state
