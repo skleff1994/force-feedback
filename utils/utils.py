@@ -267,7 +267,7 @@ def get_f(q, v, tau, pin_robot, id_endeff, dt=1e-2):
         if i>0:
             a[i,:] = (v[i,:] - v[i-1,:])/dt
     # Calculate contact force from (q, v, a, tau)
-    f = np.empty((tau.shape[0]-1, 6))
+    f = np.empty((q.shape[0]-1, 6))
     for i in range(f.shape[0]):
         # Jacobian (in LOCAL coord)
         pin.computeJointJacobians(pin_robot.model, pin_robot.data, q[i,:])
