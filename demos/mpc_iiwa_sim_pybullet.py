@@ -41,12 +41,13 @@ import time
 ############################################
 ### ROBOT MODEL & SIMULATION ENVIRONMENT ###
 ############################################
-  # ROBOT 
-robot = IiwaConfig.buildRobotWrapper()
+#   # ROBOT 
+# robot = IiwaConfig.buildRobotWrapper()
     # Create a Pybullet simulation environment
 env = BulletEnvWithGround()
     # Create a robot instance. This initializes the simulator as well.
 pybullet_simulator = env.add_robot(IiwaRobot)
+robot = pybullet_simulator.pin_robot
 id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv
     # Initial state 
@@ -59,27 +60,29 @@ pybullet_simulator.forward_robot(q0, dq0)
     # Get initial frame placement
 M_ee = robot.data.oMf[id_endeff]
 print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
-print("Initial placement in WORLD frame : ")
-print(M_ee)
+# print("Initial placement in WORLD frame : ")
+# print(M_ee)
   # CONTACT
     # Set contact placement = M_ee with offset (cf. below)
 M_ct = pin.SE3.Identity()
 M_ct.rotation = M_ee.rotation 
-offset = 0.1 + 0.003499998807875214 
+offset = 0.04 #1 + 0.003499998807875214 
 M_ct.translation = M_ee.act(np.array([0., 0., offset])) 
-print("Contact placement in WORLD frame : ")
-print(M_ct)
+# print("Contact placement in WORLD frame : ")
+# print(M_ct)
 
 # Measure distance EE to contact surface using p.getContactPoints() 
 # in order to avoid PyB repulsion due to penetration 
 # Result = 0.03 + 0.003499998807875214. Problem : smaller than ball radius (changed urdf?) . 
 contactId = utils.display_contact_surface(M_ct, pybullet_simulator.robotId, with_collision=True)
 print("[PyBullet] Created contact plane (id = "+str(contactId)+")")
-print("[PyBullet]   >> Detect contact points : ")
-p.stepSimulation()
-contact_points = p.getContactPoints(pybullet_simulator.robotId, contactId)
-for k,i in enumerate(contact_points):
-  print("      Contact point n°"+str(k)+" between robot (link n°"+str(i[3])+") and plane (link n°"+str(i[4])+") : distance = "+str(i[8])+" (m) | force = "+str(i[9])+" (N)")
+print("[PyBullet] Contact placement in WORLD frame : ")
+print(M_ct)
+# print("[PyBullet]   >> Detect contact points : ")
+# p.stepSimulation()
+# contact_points = p.getContactPoints(pybullet_simulator.robotId, contactId)
+# for k,i in enumerate(contact_points):
+#   print("      Contact point n°"+str(k)+" between robot (link n°"+str(i[3])+") and plane (link n°"+str(i[4])+") : distance = "+str(i[8])+" (m) | force = "+str(i[9])+" (N)")
 # for i in range(p.getNumJoints(pybullet_simulator.robotId)):
 #   print("Link World Position "+str(i)+" : ", p.getLinkState(pybullet_simulator.robotId, i))
 # print("Contact World Position : ", M_ee.translation)
@@ -87,14 +90,59 @@ for k,i in enumerate(contact_points):
 # time.sleep(100)
 
 
-# CONSIM ENVIRONMENT
+# CONSIM ENVIRONMENT + OBSTACLE
 from consim_py.simulator import RobotSimulator
+from consim_py.utils.visualize import Visualizer
 import mpc_iiwa_config as conf
 # Load robot model as RobotWrapper 
 consim = RobotSimulator(conf, robot)
-consim.add_contact('contact', M_ct.act(np.array([0., 0., -1])), conf.K, conf.B, conf.mu)
+print("[ConSim] Created robot")
+consim.add_contact('contact', conf.contact_normal, conf.K, conf.B, conf.mu, M_ct)
+consim.init(q0, dq0)
+print("[ConSim] Created contact ("+str(consim.contacts[0].active)+")")
+print("[ConSim] Contact normal in LOCAL frame : ")
+print(consim.contacts[0].normal)
+print(consim.contacts[0].p, consim.contacts[0].p0)
 
-time.sleep(100)
+# import hppfcl
+# collision_model = robot.collision_model
+# collision_data = robot.collision_data
+# # Create a half-plane 
+# contact_plane = hppfcl.Plane(M_ee.act(np.array([0., 0., 1.])), 1.)
+
+# visualizer = Visualizer(showFloor=True) 
+# # visualizer.
+# # Display in PyBullet or in Gepetto visualizer
+
+# # Check if collision
+
+# # ig_arm = geomModel.addGeometryObject(pin.GeometryObject("simple_arm",
+# #                                                         7,
+# #                                                         rmodel.frames[rmodel.getFrameId("contact")].parent,
+# #                                                         hppfcl.Capsule(0, .1),
+# #                                                         pin.SE3(np.eye(3), capsule_pos)),rmodel)
+
+# # # Add obstacle in the world
+# # ig_obs_list = []
+# # for i in range(num_obs):
+# #     ig_obs = geomModel.addGeometryObject(pin.GeometryObject("simple_obs"+str(i),
+# #                                                          rmodel.getFrameId("universe"),
+# #                                                          rmodel.frames[rmodel.getFrameId("universe")].parent,
+# #                                                          #hppfcl.Capsule(.09,.3),
+# #                                                          hppfcl.Box(2*box_sizes[i]),
+# #                                                          pin.SE3(np.eye(3),box_poses[i])),rmodel)
+# # #     ig_obs_list += [ig_obs]
+
+# # for i in range(num_obs):
+# #     geomModel.addCollisionPair(pin.CollisionPair(ig_arm,ig_obs_list[i]))
+# # geomData  = geomModel.createData()
+
+# time.sleep(20)
+
+
+
+# time.sleep(100)
+
 #################
 ### OCP SETUP ###
 #################
@@ -165,6 +213,17 @@ print("Created frame placement cost.")
 ref_placement = crocoddyl.FramePlacement(id_endeff, M_ct) #robot.data.oMf[id_endeff]) #pin.SE3.Identity()) #pin_robot.data.oMf[id_endeff])
 contact6d = crocoddyl.ContactModel6D(state, ref_placement, gains=np.array([50.,10.]))
 
+# Friction cone 
+cone_rotation = robot.data.oMf[id_endeff].rotation.T
+nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
+mu = 0.7
+# nsurf, mu = np.array([0.,0.,1.]), 0.7
+frictionCone = crocoddyl.FrictionCone(nsurf, mu, 4, True, 0, 1000) #2000 ?
+frictionConeCost = crocoddyl.CostModelContactFrictionCone(state,
+                                                          crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
+                                                          crocoddyl.FrameFrictionCone(id_endeff, frictionCone),
+                                                          actuation.nu)
+
 # Create IAMs
 runningModels = []
 for i in range(N_h):
@@ -180,6 +239,7 @@ for i in range(N_h):
   # Add cost models
   runningModels[i].differential.costs.addCost("placement", framePlacementCost, 1.) 
   runningModels[i].differential.costs.addCost("force", frameForceCost, 1., active=False) 
+  runningModels[i].differential.costs.addCost("frictionCone", frictionConeCost, 5e-2, active=False) 
   runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-4) 
   runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-3)
   runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 10) 
@@ -249,9 +309,12 @@ contact_des = [False]*X_des.shape[0]                # Contact record for contac
 contact_mea = [False]*X_mea.shape[0]                # Contact record for contact force
 contact_pred = np.zeros((N_p, N_h+1), dtype=bool)   # Contact record for contact force
 F_des = np.zeros((N_tot, 6))        # Contact force computed with pinocchio (should be the same as desired)
-F_mea_pyb = np.zeros((N_tot, 6))    # PyBullet measurement of contact force (? at which contact point ?)
+F_mea_pyb = np.zeros((N_tot, 6))    # PyBullet measurement of contact force 
 F_mea = np.zeros((N_tot, 6))        # Contact force calculated with Pinocchio from PyBullet joint measurements
 F_pred = np.zeros((N_p, N_h, 6))    # MPC prediction of contact force (same as desired)
+# Consim stuff
+F_mea_consim = np.zeros((N_tot, 6)) # Contact force measured in ConSim (exponential integrator)
+X_mea_consim = np.zeros((N_tot+1, nx)) # Measured state from ConSim 
 # Logs
 print('                  ************************')
 print('                  * MPC controller ready *') 
@@ -292,7 +355,6 @@ for i in range(N_tot):
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
         xs_init[0] = X_mea[i, :]
         us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
-
         ### HERE UPDATE OCP AS NEEDED ####
         # STATE-based switch
         if(len(p.getContactPoints(pybullet_simulator.robotId, contactId))>0 and switch==False):
@@ -306,6 +368,11 @@ for i in range(N_tot):
                 m.differential.contacts.changeContactStatus("contact", True)
                 m.differential.costs.changeCostStatus("force", True)
                 m.differential.costs.costs["force"].weight = 10.
+                m.differential.costs.costs["force"].reference = 10. 
+
+                m.differential.costs.changeCostStatus("frictionCone", True)
+                m.differential.costs.costs["frictionCone"].weight = 1.
+                
                 # m.differential.costs.costs["placement"].weight = 1e-1
                 # Update state reg cost
                 m.differential.costs.costs["stateReg"].reference = xs_init[0]
@@ -343,8 +410,8 @@ for i in range(N_tot):
     if(switch==True):
         F_mea_pyb[i,:] = -robot.data.oMf[id_endeff].actionInverse.dot(forces[0])
     else:
-        F_mea_pyb[i,:] = np.zeros(6)
-    print(F_mea_pyb[i,:])
+        pass
+    print("    [PyBullet] = ", F_mea_pyb[i,:])
     # FD estimate of joint accelerations
     if(i==0):
       a_mea = np.zeros(nq)
@@ -360,9 +427,15 @@ for i in range(N_tot):
     tau_mea = pin.rnea(robot.model, robot.data, q_mea, v_mea, a_mea, f)
 
     # Inegrate using EI of visco-elastic contact model
-      # Instantiate Bilal"s simulator : need a contact class + simulator class
-      # Take step and measure q,v,f to compare with PyBullet simulation
-    # Get measured force 
+    q_mea_consim, v_mea_consim, f_mea_consim = consim.simulate(u_des, dt=1e-3, ndt=1, use_exponential_integrator=True)
+    x_mea_consim = np.concatenate([q_mea_consim, v_mea_consim]).T 
+    if(consim.contacts[0].active):
+        F_mea_consim[i,:3] = f_mea_consim
+    else:
+        pass
+        # F_mea_consim[i,:3] = np.zeros(6)
+    print("    [ConSim]   = ", F_mea_consim[i,:])
+    X_mea_consim[i+1, :] = x_mea_consim
 
     X_mea[i+1, :] = x_mea                    # Measured state
     X_des[i+1, :] = x_des                    # Desired state
@@ -389,6 +462,10 @@ p_mea = utils.get_p(q_mea, robot, id_endeff)
 p_des = utils.get_p(q_des, robot, id_endeff) 
 # Compute with Pinocchio from measured q,v in order to compare with PyBullet solution
 f_mea = utils.get_f(q_mea, v_mea, U_mea, robot, id_endeff, dt=1e-3) 
+# COnSim
+q_mea_consim = X_mea_consim[:,:nq]
+v_mea_consim = X_mea_consim[:,nv:]
+p_mea_consim = utils.get_p(q_mea_consim, robot, id_endeff)
 # Create time spans for X and U + Create figs and subplots
 tspan_x = np.linspace(0, T_tot, N_tot+1)
 tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)
@@ -448,6 +525,7 @@ for i in range(nq):
     ax_x[i,0].plot(tspan_x, q_des[:,i], 'b-', label='Desired')
     # Measured joint position (PyBullet)
     ax_x[i,0].plot(tspan_x, q_mea[:,i], 'r-', label='Measured')
+    ax_x[i,0].plot(tspan_x, q_mea_consim[:,i], 'g-.', label='Measured (EI)')
     ax_x[i,0].set(xlabel='t (s)', ylabel='$q_{i}$ (rad)')
     ax_x[i,0].grid()
 
@@ -455,6 +533,7 @@ for i in range(nq):
     ax_x[i,1].plot(tspan_x, v_des[:,i], 'b-', label='Desired')
     # Measured joint velocity (PyBullet)
     ax_x[i,1].plot(tspan_x, v_mea[:,i], 'r-', label='Measured')
+    ax_x[i,1].plot(tspan_x, v_mea_consim[:,i], 'g-.', label='Measured (EI)')
     ax_x[i,1].set(xlabel='t (s)', ylabel='$v_{i}$ (rad/s)')
     ax_x[i,1].grid()
 
@@ -478,8 +557,9 @@ fig_f, ax_f = plt.subplots(6,1)
 # Plot contact force
 for i in range(6):
     ax_f[i].plot(tspan_u, F_des[:,i], 'b-', label='Desired (Crocoddyl)')
-    ax_f[i].plot(tspan_u, f_mea[:,i], 'g-.', label='Measured (Pinocchio)', alpha=0.3)
+    # ax_f[i].plot(tspan_u, f_mea[:,i], 'g-.', label='Measured (Pinocchio)', alpha=0.3)
     ax_f[i].plot(tspan_u, F_mea_pyb[:,i], 'r-', label='Measured (PyBullet)', alpha=0.5)
+    ax_f[i].plot(tspan_u, F_mea_consim[:,i], 'g-.', label='Measured (EI)', alpha=0.3)
     ax_f[i].plot(tspan_u, [f_ref[i]]*N_tot, 'k--', label='reference', alpha=0.5)
     ax_f[i].set(xlabel='t (s)', ylabel='$f_{i}$ (N)')
     ax_f[i].grid()

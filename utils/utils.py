@@ -197,7 +197,6 @@ def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=
                                         useMaximalCoordinates=True)
                     
       # Desactivate collisions for all links except end-effector of robot
-      # print("  Filter collisions...")
       for i in range(p.getNumJoints(robotId)):
         p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
       p.setCollisionFilterPair(contactId, robotId, -1, 8, 1)
@@ -205,13 +204,12 @@ def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=
       return contactId
     # Without collisions
     else:
-      # print("  No collisions.")
-      p.createMultiBody(baseMass=0.,
+      contactId = p.createMultiBody(baseMass=0.,
                         baseInertialFramePosition=[0.,0.,0.],
                         baseVisualShapeIndex=visualShapeId,
                         basePosition=[0.,0.,0.],
                         useMaximalCoordinates=True)
-      return visualShapeId
+      return contactId
 
 
 def get_p(q, pin_robot, id_endeff):

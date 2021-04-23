@@ -425,7 +425,9 @@ class ActionModel(crocoddyl.ActionModelAbstract):
         self.dyn_model.plot_traj(X, U)
 
 
-# From Gabriele
+
+
+# From Gabriele
 class IntegratedActionModelLPF(crocoddyl.ActionModelAbstract):
     '''
         Add a low pass effect on the torque dynamics
@@ -444,16 +446,16 @@ class IntegratedActionModelLPF(crocoddyl.ActionModelAbstract):
             self.differential = diffModel
             self.dt = dt
             self.withCostResiduals = withCostResiduals
-            # Set LPF cut-off frequency
+            # Set LPF cut-off frequency
             self.set_alpha(f_c)
             self.nx = diffModel.state.nx
             self.ny = self.nu + self.nx
-            # Integrate or not?
+            # Integrate or not?
             if self.dt == 0:
                 self.enable_integration_ = False
             else:
                 self.enable_integration_ = True
-            # Default unfiltered control cost (reg + lim)
+            # Default unfiltered control cost (reg + lim)
             self.set_w_reg_lim_costs(1e-2, 
                                      np.zeros(self.differential.nu), 
                                      1e-1,
@@ -493,7 +495,7 @@ class IntegratedActionModelLPF(crocoddyl.ActionModelAbstract):
         '''
         Euler integration (or no integration depending on dt)
         '''
-        # what if w is none?
+        # what if w is none?
         x = y[:self.differential.state.nx]
         # filtering the torque with the previous state : get tau_q+ from w 
         data.tau_plus[:] = self.alpha * y[-self.differential.nu:] + (1 - self.alpha) * w
@@ -502,7 +504,7 @@ class IntegratedActionModelLPF(crocoddyl.ActionModelAbstract):
         self.differential.calc(data.differential, x, data.tau_plus)
         if self.withCostResiduals:
             data.r = data.differential.r
-        # Euler integration step of dt : get v_q+, q+
+        # Euler integration step of dt : get v_q+, q+
         if self.enable_integration_:
             data.cost = self.dt * data.differential.cost
             # adding the cost on the unfiltered torque
@@ -525,17 +527,17 @@ class IntegratedActionModelLPF(crocoddyl.ActionModelAbstract):
         '''
         Compute derivatives 
         '''
-        # First call calc
+        # First call calc
         self.calc(data, y, w)
         x = y[:-self.differential.nu]
-        # Get derivatives of DAM under LP-Filtered input 
+        # Get derivatives of DAM under LP-Filtered input 
         self.differential.calcDiff(data.differential, x, data.tau_plus)
-        # Get d(IAM)/dx =  [d(q+)/dx, d(v_q+)/dx] 
+        # Get d(IAM)/dx =  [d(q+)/dx, d(v_q+)/dx] 
         dxnext_dx, dxnext_ddx = self.differential.state.Jintegrate(x, data.dx)
-        # Get d(DAM)/dx , d(DAM)/du (why resize?)
+        # Get d(DAM)/dx , d(DAM)/du (why resize?)
         da_dx, da_du = data.differential.Fx, np.resize(data.differential.Fu, (self.differential.state.nv, self.differential.nu))
         ddx_dx = np.vstack([da_dx * self.dt, da_dx])
-        # ??? ugly way of coding identity matrix ?
+        # ??? ugly way of coding identity matrix ?
         ddx_dx[range(self.differential.state.nv), range(self.differential.state.nv, 2 * self.differential.state.nv)] += 1
         ddx_du = np.vstack([da_du * self.dt, da_du])
 
@@ -620,7 +622,6 @@ class IntegratedActionDataLPF(crocoddyl.ActionDataAbstract):
         self.Lxx = np.zeros((am.ny, am.ny))
         self.Lxu = np.zeros((am.ny, am.nu))
         self.Luu = np.zeros((am.nu,am.nu))
-
 
 
 class DAMPointMass(crocoddyl.DifferentialActionModelAbstract):

@@ -26,12 +26,6 @@ def load_simulator(config, simulator='PYBULLET'):
         simu = RobotSimulator(config, robot)
     return robot, simu
 
-# def add_contact(frame_id, contact_placement, mu=0.7, K=10e6, B=2*np.sqrt(10e6), simulator='PYBULLET'):
-
-#     if simulator=='PYBULLET':
-#         # display contact surface
-#         pass
-#     if simulator==''
 
 ############################################
 ### ROBOT MODEL & SIMULATION ENVIRONMENT ###
