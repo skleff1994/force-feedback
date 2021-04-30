@@ -44,9 +44,11 @@ import time
 #   # ROBOT 
 # robot = IiwaConfig.buildRobotWrapper()
     # Create a Pybullet simulation environment
-env = BulletEnvWithGround()
+env = BulletEnvWithGround(p.GUI)
+pybullet_simulator = IiwaRobot()
+env.add_robot(pybullet_simulator)
     # Create a robot instance. This initializes the simulator as well.
-pybullet_simulator = env.add_robot(IiwaRobot)
+# pybullet_simulator = env.add_robot(IiwaRobot)
 robot = pybullet_simulator.pin_robot
 id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv

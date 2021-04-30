@@ -27,8 +27,9 @@ import time
 ############################################
   # ROBOT 
     # Create a Pybullet simulation environment + create robot instance
-env = BulletEnvWithGround()
-robot = env.add_robot(IiwaRobot)
+env = BulletEnvWithGround(p.GUI)
+robot = IiwaRobot()
+env.add_robot(robot)
 id_endeff = robot.pin_robot.model.getFrameId('contact')
 nq = robot.pin_robot.model.nq 
 nv = robot.pin_robot.model.nv
@@ -163,22 +164,22 @@ print("alpha = ", alpha)
 runningModels = []
 for i in range(N_h):
   # Create IAM 
-    # Using pure python
-  # runningModels.append(IntegratedActionModelLPF( 
-  #     crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
-  #                                                         actuation, 
-  #                                                         crocoddyl.ContactModelMultiple(state, actuation.nu), 
-  #                                                         crocoddyl.CostModelSum(state, nu=actuation.nu), 
-  #                                                         inv_damping=0., 
-  #                                                         enable_force=True), dt=dt, f_c=f_c) )
-    # Using bindings
-  runningModels.append(crocoddyl.IntegratedActionModelLPF( 
+    #  Using pure python
+  runningModels.append(IntegratedActionModelLPF( 
       crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
                                                           actuation, 
                                                           crocoddyl.ContactModelMultiple(state, actuation.nu), 
                                                           crocoddyl.CostModelSum(state, nu=actuation.nu), 
                                                           inv_damping=0., 
-                                                          enable_force=True))) #, nu=actuation.nu, dt=dt, alpha=alpha ))
+                                                          enable_force=True), dt=dt, f_c=f_c) )
+    # Using bindings
+  # runningModels.append(crocoddyl.IntegratedActionModelLPF( 
+  #     crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+  #                                                         actuation, 
+  #                                                         crocoddyl.ContactModelMultiple(state, actuation.nu), 
+  #                                                         crocoddyl.CostModelSum(state, nu=actuation.nu), 
+  #                                                         inv_damping=0., 
+  #                                                         enable_force=True))) #, nu=actuation.nu, dt=dt, alpha=alpha ))
 
   # Add cost models
   # runningModels[i].differential.costs.addCost("placement", framePlacementCost, 10) 
@@ -197,21 +198,21 @@ for i in range(N_h):
 
 # Terminal IAM + set armature
   # Using pure python
-# terminalModel = IntegratedActionModelLPF(
-#     crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
-#                                                         actuation, 
-#                                                         crocoddyl.ContactModelMultiple(state, actuation.nu), 
-#                                                         crocoddyl.CostModelSum(state, nu=actuation.nu), 
-#                                                         inv_damping=0., 
-#                                                         enable_force=True), dt=0, f_c=f_c )
-  # Using bindings
-terminalModel = crocoddyl.IntegratedActionModelLPF(
+terminalModel = IntegratedActionModelLPF(
     crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
                                                         actuation, 
                                                         crocoddyl.ContactModelMultiple(state, actuation.nu), 
                                                         crocoddyl.CostModelSum(state, nu=actuation.nu), 
                                                         inv_damping=0., 
-                                                        enable_force=True)) #, nu=actuation.nu, dt=0, alpha=alpha )
+                                                        enable_force=True), dt=0, f_c=f_c )
+  # Using bindings
+# terminalModel = crocoddyl.IntegratedActionModelLPF(
+#     crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+#                                                         actuation, 
+#                                                         crocoddyl.ContactModelMultiple(state, actuation.nu), 
+#                                                         crocoddyl.CostModelSum(state, nu=actuation.nu), 
+#                                                         inv_damping=0., 
+#                                                         enable_force=True)) #, nu=actuation.nu, dt=0, alpha=alpha )
 
 # Add cost models
 # terminalModel.differential.costs.addCost("placement", framePlacementCost, 1e3) 

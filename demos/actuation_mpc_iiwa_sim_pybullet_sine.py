@@ -27,8 +27,9 @@ import time
 ############################################
   # ROBOT 
     # Create a Pybullet simulation environment + create robot instance
-env = BulletEnvWithGround()
-robot = env.add_robot(IiwaRobot)
+env = BulletEnvWithGround(p.GUI)
+robot = IiwaRobot()
+env.add_robot(robot)
 id_endeff = robot.pin_robot.model.getFrameId('contact')
 nq = robot.pin_robot.model.nq 
 nv = robot.pin_robot.model.nv
@@ -139,7 +140,6 @@ contact6d = crocoddyl.ContactModel6D(state, ref_placement, actuation.nu, np.arra
 cone_rotation = robot.pin_robot.data.oMf[id_endeff].rotation.T
 nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
 mu = 0.7
-# nsurf, mu = np.array([0.,0.,1.]), 0.7
 frictionCone = crocoddyl.FrictionCone(nsurf, mu, 4, True, 0, 200) #2000 ?
 frictionConeCost = crocoddyl.CostModelContactFrictionCone(state,
                                                           crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
@@ -165,29 +165,20 @@ for i in range(N_h):
                                                           crocoddyl.CostModelSum(state, nu=actuation.nu), 
                                                           inv_damping=0., 
                                                           enable_force=True), dt=dt, f_c=f_c) )
-    # Using bindings
-#   runningModels.append(crocoddyl.IntegratedActionModelLPF( 
-#       crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
-#                                                           actuation, 
-#                                                           crocoddyl.ContactModelMultiple(state, actuation.nu), 
-#                                                           crocoddyl.CostModelSum(state, nu=actuation.nu), 
-#                                                           inv_damping=0., 
-#                                                           enable_force=True))) #, nu=actuation.nu, dt=dt, alpha=alpha ))
 
   # Add cost models
-  # runningModels[i].differential.costs.addCost("placement", framePlacementCost, 10) 
-  # runningModels[i].differential.costs.addCost("velocity", frameVelocityCost,  1e-3) #, active=False) 
-  runningModels[i].differential.costs.addCost("force", frameForceCost, 5, active=True) 
-  runningModels[i].differential.costs.addCost("frictionCone", frictionConeCost, 5e-2) #, active=True) 
+  # runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, 1.) 
+  runningModels[i].differential.costs.addCost("force", frameForceCost, 1, active=True) 
+  runningModels[i].differential.costs.addCost("frictionCone", frictionConeCost, 5e-2, active=True) 
   runningModels[i].differential.costs.addCost("stateReg", xRegCost, 1e-4)
-  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 2e-3)
+  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, 1e-3)
   runningModels[i].differential.costs.addCost("stateLim", xLimitCost, 1) 
   runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, 1) 
   # runningModels[i].set_w_reg_lim_costs(1e-3, u_reg_ref, 0, u_lim_ref)
   # Add armature
   runningModels[i].differential.armature = np.array([.1]*7)
   # Add contact models
-  runningModels[i].differential.contacts.addContact("contact", contact6d) #, active=False)
+  runningModels[i].differential.contacts.addContact("contact", contact6d)#, active=False)
 
 # Terminal IAM + set armature
   # Using pure python
@@ -198,25 +189,16 @@ terminalModel = IntegratedActionModelLPF(
                                                         crocoddyl.CostModelSum(state, nu=actuation.nu), 
                                                         inv_damping=0., 
                                                         enable_force=True), dt=0, f_c=f_c )
-#   # Using bindings
-# terminalModel = crocoddyl.IntegratedActionModelLPF(
-#     crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
-#                                                         actuation, 
-#                                                         crocoddyl.ContactModelMultiple(state, actuation.nu), 
-#                                                         crocoddyl.CostModelSum(state, nu=actuation.nu), 
-#                                                         inv_damping=0., 
-#                                                         enable_force=True)) #, nu=actuation.nu, dt=0, alpha=alpha )
-
 # Add cost models
-# terminalModel.differential.costs.addCost("placement", framePlacementCost, 1e3) 
-terminalModel.differential.costs.addCost("frictionCone", frictionConeCost, 1e-1) #, active=False)
-# terminalModel.differential.costs.addCost("force", frameForceCost, 1) #, active=False)
+terminalModel.differential.costs.addCost("placement", framePlacementCost, 0) 
+terminalModel.differential.costs.addCost("force", frameForceCost, 0., active=False)
+terminalModel.differential.costs.addCost("frictionCone", frictionConeCost, 1e-1, active=True)
 terminalModel.differential.costs.addCost("stateReg", xRegCost, 1e-3) 
 terminalModel.differential.costs.addCost("stateLim", xLimitCost, 1.) 
 # Add armature
 terminalModel.differential.armature = np.array([.1]*7)
 # Add contact model
-terminalModel.differential.contacts.addContact("contact", contact6d) #, active=False)
+terminalModel.differential.contacts.addContact("contact", contact6d)#, active=False)
 
 print("Initialized IAMs.")
 print("Running IAM cost.active  = ", runningModels[0].differential.costs.active.tolist())
@@ -239,7 +221,7 @@ us = np.array(ddp.us) # optimal   (w)   traj
 ##################
 # MPC & simulation parameters
 maxit = 2
-T_tot = .5
+T_tot = 1.
 plan_freq = 1000                      # MPC re-planning frequency (Hz)
 ctrl_freq = 1000                      # Control - simulation - frequency (Hz)
 N_tot = int(T_tot*ctrl_freq)          # Total number of control steps in the simulation (s)
@@ -259,6 +241,8 @@ F_des = np.zeros((N_tot, 6))        # Contact force computed with pinocchio (sh
 F_mea_pyb = np.zeros((N_tot, 6))    # PyBullet measurement of contact force (? at which contact point ?)
 F_mea = np.zeros((N_tot, 6))        # Contact force calculated with Pinocchio from PyBullet joint measurements
 F_pred = np.zeros((N_p, N_h, 6))    # MPC prediction of contact force (same as desired)
+F_ref = np.zeros((N_tot, 6))        # Reference contact force
+
 # Logs
 print('                  ************************')
 print('                  * MPC controller ready *') 
@@ -285,15 +269,15 @@ X_mea[0, :] = x0
 X_des[0, :] = x0
 
 # For desired sine force
-min_force = -10
-max_force = -5
+min_force = -25
+max_force = -15
 offset = (min_force + max_force)/2
 amplitude = offset - min_force
-freq = 1. 
+freq = 5. 
 print("max / min    = ", max_force, min_force)
 print("offset / amp = ", offset, amplitude)
 print("frequency = ", freq)
-
+# timeg.sleep(2.)
 # Replan counter
 nb_replan = 0
 # SIMULATION LOOP
@@ -303,20 +287,47 @@ for i in range(N_tot):
     print("Sim step "+str(i)+"/"+str(N_tot))
     
     print("  COST = ", ddp.cost)
-    # Solve OCP if we are in a planning cycle
+    # Solve OCP if we are in a planning cycle   
     if(i%int(ctrl_freq/plan_freq) == 0):
         print("  Replan step "+str(nb_replan)+"/"+str(N_p))
-
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = X_mea[i, :].T 
         # Warm-start 
         xs_init = ddp.xs 
         xs_init[0] = X_mea[i, :].T
         us_init = ddp.us 
-
         print("Contact force     = ", ddp.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].f.vector)
-        print("Friction cost     = ", ddp.problem.runningDatas[0].differential.costs.costs['frictionCone'].cost)
+        # print("Friction cost     = ", ddp.problem.runningDatas[0].differential.costs.costs['frictionCone'].cost)
 
+        ### HERE UPDATE OCP AS NEEDED ####
+        normal_force = offset + (offset - min_force)*np.sin(2*np.pi*freq*i*1e-3)
+        if(len(p.getContactPoints(robot.robotId, contactId))>0): # and switch==False):
+            switch=True
+            ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.Mref.placement =  robot.pin_robot.data.oMf[id_endeff]
+            ddp.problem.terminalModel.differential.contacts.changeContactStatus("contact", True)
+            ddp.problem.terminalModel.differential.costs.changeCostStatus("force", True)
+            normal_force_t = offset + (offset - min_force)*np.sin(2*np.pi*freq*(i*1e-3 + N_h*dt))
+            ddp.problem.terminalModel.differential.costs.costs["force"].cost.reference = crocoddyl.FrameForce(id_endeff, pin.Force(np.array([0., 0., normal_force_t, 0., 0., 0.])))
+            ddp.problem.terminalModel.differential.costs.changeCostStatus("frictionCone", True)
+            for k,m in enumerate(ddp.problem.runningModels[:]):
+                m.differential.contacts.contacts["contact"].contact.Mref.placement =  robot.pin_robot.data.oMf[id_endeff]
+                m.differential.contacts.changeContactStatus("contact", True)
+                m.differential.costs.changeCostStatus("force", True)
+                # m.differential.costs.costs["force"].weight = 5.
+                  # Reference force trajectory  = sine signal between [-10,-5] at 0.5 Hz
+                normal_force_k = offset + (offset - min_force)*np.sin(2*np.pi*freq*(i*1e-3+k*dt))
+                new_ref_force = crocoddyl.FrameForce(id_endeff, pin.Force(np.array([0., 0., normal_force_k, 0., 0., 0.])))
+                m.differential.costs.costs["force"].cost.reference = new_ref_force
+                # Activate friction cost
+                m.differential.costs.changeCostStatus("frictionCone", True)
+                # Update state reg cost
+                # m.differential.costs.costs["stateReg"].cost.reference = xs_init[0][:-nu]
+                # m.differential.costs.costs["stateReg"].weight = 0
+                # Update control reg cost
+                # m.differential.costs.costs["ctrlReg"].cost.reference = us_init[0]
+                # m.differential.costs.costs["ctrlReg"].weight = 1.
+        else:
+          switch==False
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=maxit, isFeasible=False)
         # ddp.solve(ddp.xs, ddp.us, maxiter=maxit, isFeasible=False)
@@ -329,6 +340,7 @@ for i in range(N_tot):
         u_des = U_pred[nb_replan, 0, :] 
         x_des = X_pred[nb_replan, 1, :]
         f_des = F_pred[nb_replan, 0, :]
+        f_ref = np.array([0., 0., normal_force, 0., 0., 0.])
         # Increment replan counter
         nb_replan += 1
 
@@ -351,7 +363,7 @@ for i in range(N_tot):
       # 3. Use PyBullet measured forces  
 
     # 1. Integrate LPF
-    tau_mea = tau_des # new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des # new_alpha =  np.sin(i*1e-3) / (1 + 2*np.pi*1e-3*500)
+    # tau_mea = tau_des # new_alpha*X_mea[i, -nu:] + (1-new_alpha)*u_des   # tau_des # new_alpha =  np.sin(i*1e-3) / (1 + 2*np.pi*1e-3*500)
     
     # 2. Elastic element
     # TODO: implement elastic model  
@@ -359,8 +371,12 @@ for i in range(N_tot):
     # 3. Measure contact force in PyBullet    
     ids, forces = robot.get_force()
     # Express in local EE frame (minus because force env-->robot)
-    F_mea_pyb[i,:] = -robot.pin_robot.data.oMf[id_endeff].actionInverse.dot(forces[0])
-    # print(F_mea_pyb[i,:])
+    # Express in local EE frame (minus because force env-->robot)
+    if(len(p.getContactPoints(robot.robotId, contactId))>0):
+        F_mea_pyb[i,:] = -robot.pin_robot.data.oMf[id_endeff].actionInverse.dot(forces[0])
+    else:
+        pass
+    print("    [PyBullet] = ", F_mea_pyb[i,:])
     # FD estimate of joint accelerations
     if(i==0):
       a_mea = np.zeros(nq)
@@ -373,13 +389,14 @@ for i in range(N_tot):
     f[-1].linear = F_mea_pyb[i,:3]
     f[-1].angular = F_mea_pyb[i,3:]
     # print(f.tolist())
-    tau_mea = pin.rnea(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea, a_mea, f)
+    tau_mea = tau_des #pin.rnea(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea, a_mea, f)
 
     # Record measurements
     x_mea = np.concatenate([q_mea, v_mea, tau_mea]).T 
     X_mea[i+1, :] = x_mea                    # Measured state
     X_des[i+1, :] = x_des                    # Desired state
     F_des[i, :] = f_des                      # Desired force
+    F_ref[i, :] = f_ref
 
 # GENERATE NICE PLOT OF SIMULATION
 with_predictions = False
@@ -507,14 +524,14 @@ for i in range(nq):
     fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
 
 # Get desired and measured contact forces
-f_ref = desiredFrameForce.vector
-fig_f, ax_f = plt.subplots(6,1)
+# f_ref = desiredFrameForce.vector
+fig_f, ax_f = plt.subplots(3,1)
 # Plot contact force
-for i in range(6):
+for i in range(3):
     ax_f[i].plot(tspan_u, F_des[:,i], 'b-', label='Desired (Crocoddyl)')
     ax_f[i].plot(tspan_u, f_mea[:,i], 'g-.', label='Measured (Pinocchio)', alpha=0.3)
     ax_f[i].plot(tspan_u, F_mea_pyb[:,i], 'r-', label='Measured (PyBullet)', alpha=0.5)
-    ax_f[i].plot(tspan_u, [f_ref[i]]*N_tot, 'k--', label='reference', alpha=0.5)
+    ax_f[i].plot(tspan_u, F_ref[:,i], 'k--', label='reference', alpha=0.5)
     ax_f[i].set(xlabel='t (s)', ylabel='$f_{i}$ (N)')
     ax_f[i].grid()
     # Legend
