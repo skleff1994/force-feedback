@@ -165,21 +165,21 @@ runningModels = []
 for i in range(N_h):
   # Create IAM 
     #  Using pure python
-  runningModels.append(IntegratedActionModelLPF( 
-      crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
-                                                          actuation, 
-                                                          crocoddyl.ContactModelMultiple(state, actuation.nu), 
-                                                          crocoddyl.CostModelSum(state, nu=actuation.nu), 
-                                                          inv_damping=0., 
-                                                          enable_force=True), dt=dt, f_c=f_c) )
-    # Using bindings
-  # runningModels.append(crocoddyl.IntegratedActionModelLPF( 
+  # runningModels.append(IntegratedActionModelLPF( 
   #     crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
   #                                                         actuation, 
   #                                                         crocoddyl.ContactModelMultiple(state, actuation.nu), 
   #                                                         crocoddyl.CostModelSum(state, nu=actuation.nu), 
   #                                                         inv_damping=0., 
-  #                                                         enable_force=True))) #, nu=actuation.nu, dt=dt, alpha=alpha ))
+  #                                                         enable_force=True), dt=dt, f_c=f_c) )
+    # Using bindings
+  runningModels.append(crocoddyl.IntegratedActionModelLPF( 
+      crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+                                                          actuation, 
+                                                          crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                          crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                          inv_damping=0., 
+                                                          enable_force=True))) #, nu=actuation.nu, dt=dt, alpha=alpha ))
 
   # Add cost models
   # runningModels[i].differential.costs.addCost("placement", framePlacementCost, 10) 
@@ -198,21 +198,21 @@ for i in range(N_h):
 
 # Terminal IAM + set armature
   # Using pure python
-terminalModel = IntegratedActionModelLPF(
-    crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
-                                                        actuation, 
-                                                        crocoddyl.ContactModelMultiple(state, actuation.nu), 
-                                                        crocoddyl.CostModelSum(state, nu=actuation.nu), 
-                                                        inv_damping=0., 
-                                                        enable_force=True), dt=0, f_c=f_c )
-  # Using bindings
-# terminalModel = crocoddyl.IntegratedActionModelLPF(
+# terminalModel = IntegratedActionModelLPF(
 #     crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
 #                                                         actuation, 
 #                                                         crocoddyl.ContactModelMultiple(state, actuation.nu), 
 #                                                         crocoddyl.CostModelSum(state, nu=actuation.nu), 
 #                                                         inv_damping=0., 
-#                                                         enable_force=True)) #, nu=actuation.nu, dt=0, alpha=alpha )
+#                                                         enable_force=True), dt=0, f_c=f_c )
+  # Using bindings
+terminalModel = crocoddyl.IntegratedActionModelLPF(
+    crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+                                                        actuation, 
+                                                        crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                        crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                        inv_damping=0., 
+                                                        enable_force=True)) #, nu=actuation.nu, dt=0, alpha=alpha )
 
 # Add cost models
 # terminalModel.differential.costs.addCost("placement", framePlacementCost, 1e3) 
@@ -230,13 +230,13 @@ print("Running IAM cost.active  = ", runningModels[0].differential.costs.active.
 print("Terminal IAM cost.active = ", terminalModel.differential.costs.active.tolist())
 
   # Create the shooting problem
-problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
+problem = crocoddyl.ShootingProblem(x0[nq:], runningModels, terminalModel)
   # Creating the DDP solver 
 ddp = crocoddyl.SolverFDDP(problem)
 print("OCP is ready to be solved.")
 # Solve and extract solution trajectories
-xs = [x0] * (N_h+1)
-us = [ddp.problem.runningModels[0].quasiStatic(ddp.problem.runningDatas[0], x0)] * N_h
+xs = [x0[nq:]] * (N_h+1)
+us = [ddp.problem.runningModels[0].quasiStatic(ddp.problem.runningDatas[0], x0[nq:])] * N_h
 ddp.solve(xs, us, maxiter=100)
 xs = np.array(ddp.xs) # optimal (q,v,u) traj
 us = np.array(ddp.us) # optimal   (w)   traj
@@ -468,22 +468,21 @@ for i in range(N_tot):
 
     # 3. Measure contact force in PyBullet    
     ids, forces = robot.get_force()
-    # Express in local EE frame (minus because force env-->robot)
+      # Express in local EE frame (minus because force env-->robot)
     F_mea_pyb[i,:] = -robot.pin_robot.data.oMf[id_endeff].actionInverse.dot(forces[0])
-    # print(F_mea_pyb[i,:])
-    # FD estimate of joint accelerations
+      # FD estimate of joint accelerations
     if(i==0):
       a_mea = np.zeros(nq)
     else:
       a_mea = (v_mea - X_mea[i,nq:nq+nv])/1e-3
-    # ID
+      # ID
     f = StdVec_Force()
     for j in range(robot.pin_robot.model.njoints):
       f.append(pin.Force.Zero())
     f[-1].linear = F_mea_pyb[i,:3]
     f[-1].angular = F_mea_pyb[i,3:]
-    # print(f.tolist())
-    tau_mea = pin.rnea(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea, a_mea, f)
+      # Project EE force in joint space through J.T
+    tau_mea = pin.rnea(robot.pin_robot.model, robot.pin_robot.data, q_mea, v_mea, a_mea, f) 
 
     # Record measurements
     x_mea = np.concatenate([q_mea, v_mea, tau_mea]).T 

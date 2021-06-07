@@ -281,6 +281,24 @@ def get_f(q, v, tau, pin_robot, id_endeff, dt=1e-2):
     return f
 
 
+import importlib_resources
+import yaml
+# Load config file
+def load_config_file(config_file):
+    '''
+    Load config file (yaml)
+    '''
+    with open(config_file) as f:
+        data = yaml.load(f)
+    return data 
+
+def get_urdf_path(robot_name, robot_family='kuka'):
+    # Get config file
+    with importlib_resources.path("robot_properties_"+robot_family, "config.py") as p:
+        pkg_dir = p.parent.absolute()
+    urdf_path = pkg_dir/"robot_properties_kuka"/(robot_name + ".urdf")
+    return str(urdf_path)
+    
     # contact_points = p.getContactPoints(1, 2)
     # for id_pt, pt in enumerate(contact_points):
     #   F_mea_pyb[i, :] += pt[9]
