@@ -224,20 +224,20 @@ x0 = np.concatenate([q_mea, v_mea]).T
 print("Initial state ", str(x0))
 X_mea[0, :] = x0
 X_des[0, :] = x0
-  # Initial measurement ot torque
+  # Initial measurement of torque
 U_mea[0, :] = alpha*u_grav + beta
   # Replan counter
 nb_plan = 0
   # Control counter
 nb_ctrl = 0
   # Sim options
-TORQUE_TRACKING = False
+TORQUE_TRACKING = True
 DELAY_TORQUES = False
 NOISE_TORQUES = False
 SCALE_TORQUES = True
 FILTER_TORQUES = False
 NOISE_STATE = False
-INTERPOLATE_TORQUE = False
+INTERPOLATE_TORQUE = True
 vel_U_des = np.zeros((N_ctrl, nu))           # Desired torques (current ff output by DDP)
 vel_U_mea = np.zeros((N_simu+1, nu))         # Actuation torques (sent to PyBullet)
 vel_U_mea[0,:] = np.zeros(nq)
@@ -278,7 +278,7 @@ for i in range(N_simu):
           u_des_prev = u_des
         # Estimate torque vel with FD # point rule
         if(nb_ctrl>=1):
-          vel_u_des = ( U_des[nb_ctrl, :] - U_des[nb_ctrl-1, :] ) / dt_ctrl
+          vel_u_des = ( u_des - u_des_prev ) / dt_ctrl
           # vel_u_des = (U_des[nb_ctrl-4, :] - 8*U_des[nb_ctrl-3, :] + U_des[nb_ctrl-1, :] - U_des[nb_ctrl, :]) / (12*dt_ctrl)
         else:
           vel_u_des = np.zeros(nq)
@@ -295,16 +295,16 @@ for i in range(N_simu):
     
     # Simulate actuation with PI torque tracking controller (low-level control frequency)
     if(INTERPOLATE_TORQUE):
-      coef = float(i%20.)/19.
+      coef = float(i%20.)/20.
       u_des_interp = (1-coef)*u_des_prev + coef*u_des    # Initialize torque measurement to desired torque (perfect actuation) 
     else:
       u_des_interp = u_des
     # PI control law
     if(TORQUE_TRACKING):
       u_mea = U_mea[i, :] - u_des_interp                 # Initialize torque measurement to last measured torque (HF closed-loop)
-      err_u = u_mea #U_mea[i, :] - u_des
-      int_err_u += err_u
-      vel_err_u = vel_u_mea - vel_u_des
+      err_u = u_mea #U_mea[i, :] - u_des      # ISSUE HERE WITH TORQUE ERROR: TAKEN AT (i+1,i) for vel but (i,i-1) for pos / int ?
+      int_err_u += err_u                      # INTERPOLATION WORKS FINE WITHOUT TORQUE TRACKING
+      vel_err_u = vel_u_mea - vel_u_des       # MAY HAVE TO RE-WRITE CLEAN INITIALIZATION OF EVERYTHING / MODIFY SIMU LOOP
       # print("DES : ", u_des)
       # print("MEA : ", U_mea[i, :])
       u_mea = u_des_interp - Kp.dot(err_u) - Ki.dot(int_err_u) - Kd.dot(vel_err_u)
@@ -332,10 +332,10 @@ for i in range(N_simu):
     # Record measured control
     U_mea[i+1, :] = u_mea
     # Estimate torque vel with 5 point rule
-    if(i==0):
-      vel_u_mea = (u_mea - U_mea[i, :]) / (dt_simu)
-    else:
-      vel_u_mea = (U_mea[i+1, :] - U_mea[i, :]) / (dt_simu)
+    # if(i==0):
+    #   vel_u_mea = (u_mea - U_mea[i, :]) / (dt_simu)
+    # else:
+    vel_u_mea = (U_mea[i+1, :] - U_mea[i, :]) / (dt_simu)
       # vel_u_mea = (U_mea[i-4, :] - 8*U_mea[i-3, :] + U_mea[i-1, :] - U_mea[i, :]) / (12*dt_simu)
     # else:
     #   vel_u_mea = np.zeros(nq)

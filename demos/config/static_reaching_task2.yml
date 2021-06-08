@@ -7,7 +7,7 @@ ctrl_freq: 1000  # Control frequency
 plan_freq: 1000  # Planning frequency
 
 # Simu duration (s)
-T_tot: 1.
+T_tot: .5
 # MPC
 dt: 0.03      # OCP integration step 
 N_h: 30       # Horizon length in nodes
@@ -57,7 +57,7 @@ var_v: 0.001
   # Buffer for torque delay
 delay_ms: 1 # in ms
   # Proportional-integral torque control gains
-Kp: [.1, .1, .1, .1, .1, .1, .1]
-Ki: [.01, .01, .01, .01, .01, .01, .01]
+Kp: [.1, .0, .0, .0, .0, .0, .0]
+Ki: [.0, .0, .0, .0, .0, .0, .0]
 Kd: [.0000, .0000, .0000, 0., 0., 0., 0.]
 avg_length: 20 #8
