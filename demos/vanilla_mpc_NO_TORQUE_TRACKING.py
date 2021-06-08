@@ -31,8 +31,7 @@ import pinocchio as pin
 import crocoddyl
 from bullet_utils.env import BulletEnvWithGround
 from robot_properties_kuka.iiwaWrapper import IiwaRobot, IiwaConfig
-from utils import utils #get_p, load_config_file, get_urdf_path
-from ddp_mpc.utils import interpolate
+from utils import utils 
 import pybullet as p
 import time 
 
@@ -113,7 +112,7 @@ print("Created ctrl lim cost.")
    # End-effector placement 
 p_target = np.asarray(config['p_des']) 
 M_target = pin.SE3(M_ee.rotation.T, p_target)
-desiredFramePlacement = M_target
+desiredFramePlacement = M_ee #M_target
 framePlacementWeights = np.asarray(config['framePlacementWeights'])
 framePlacementCost = crocoddyl.CostModelFramePlacement(state, 
                                                        crocoddyl.ActivationModelWeightedQuad(framePlacementWeights**2), 
@@ -227,15 +226,17 @@ nb_plan = 0
   # Control counter
 nb_ctrl = 0
   # Sim options
-DELAY_TORQUES = True
+DELAY_TORQUES = False
 NOISE_TORQUES = False
-SCALE_TORQUES = False
+SCALE_TORQUES = True
 FILTER_TORQUES = False
+NOISE_STATE = True
   # Log
 print("DELAY_TORQUES   = ", DELAY_TORQUES, " (", delay_cycle, ") ")
-print("NOISE_TORQUES = ", NOISE_TORQUES)
-print("SCALE_TORQUES = ", SCALE_TORQUES)
+print("NOISE_TORQUES   = ", NOISE_TORQUES)
+print("SCALE_TORQUES   = ", SCALE_TORQUES)
 print("FILTER_TORQUES  = ", FILTER_TORQUES)
+print("NOISE_STATE     = ", NOISE_STATE)
 time.sleep(2)
 # SIMULATION LOOP
 for i in range(N_simu): 
@@ -296,11 +297,13 @@ for i in range(N_simu):
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea, v_mea)
     # Record data
-    wq = np.random.normal(0., var_q, nq)
-    wv = np.random.normal(0., var_v, nv)
-    x_mea = np.concatenate([q_mea, v_mea]).T #+ np.concatenate([wq, wv]).T
-    X_mea[i+1, :] = x_mea                    
-    
+    x_mea = np.concatenate([q_mea, v_mea]).T
+      # Optional noise
+    if(NOISE_STATE):
+      wq = np.random.normal(0., var_q, nq)
+      wv = np.random.normal(0., var_v, nv)
+      x_mea += np.concatenate([wq, wv]).T    
+    X_mea[i+1, :] = x_mea
 
 ####################################    
 # GENERATE NICE PLOT OF SIMULATION #
