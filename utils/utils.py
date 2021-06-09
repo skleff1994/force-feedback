@@ -298,7 +298,78 @@ def get_urdf_path(robot_name, robot_family='kuka'):
         pkg_dir = p.parent.absolute()
     urdf_path = pkg_dir/"robot_properties_kuka"/(robot_name + ".urdf")
     return str(urdf_path)
-    
+
+
+
+# def weighted_moving_average(series, lookback = None):
+#     if not lookback:
+#         lookback = series.shape[0]
+#     if series.shape[0] == 0:
+#         return 0
+#     assert 0 < lookback <= series.shape[0]
+#     wma = np.zeros(series.shape[1])
+#     # print("lookback = ", lookback)
+#     # print("series = ", series)
+#     lookback_offset = series.shape[0] - lookback
+#     for index in range(lookback + lookback_offset - 1, lookback_offset - 1, -1):
+#         weight = index - lookback_offset + 1
+#         wma += series[index, :] * weight
+#     return wma / ((lookback ** 2 + lookback) / 2)
+
+
+# def hull_moving_average(series, lookback):
+#     # assert lookback > 0
+#     n = int(lookback ** 0.5)
+#     hma_series = np.zeros((n, series.shape[1]))
+
+#     for k in range(n, -1, -1):
+#         s = series[:-k, :]
+#         wma_half = weighted_moving_average(s, min(lookback // 2, s.shape[0]))
+#         wma_full = weighted_moving_average(s, min(lookback, s.shape[0]))
+#         hma_series[n-1-k,:] = wma_half*2 - wma_full
+#     return weighted_moving_average(hma_series)
+
+def weighted_moving_average(series, lookback = None):
+    if not lookback:
+        lookback = len(series)
+    if len(series) == 0:
+        return 0
+    assert 0 < lookback <= len(series)
+
+    wma = 0
+    lookback_offset = len(series) - lookback
+    for index in range(lookback + lookback_offset - 1, lookback_offset - 1, -1):
+        weight = index - lookback_offset + 1
+        wma += series[index] * weight
+    return wma / ((lookback ** 2 + lookback) / 2)
+
+
+def hull_moving_average(series, lookback):
+    assert lookback > 0
+    hma_series = []
+    for k in range(int(lookback ** 0.5), -1, -1):
+        s = series[:-k or None]
+        wma_half = weighted_moving_average(s, min(lookback // 2, len(s)))
+        wma_full = weighted_moving_average(s, min(lookback, len(s)))
+        hma_series.append(wma_half * 2 - wma_full)
+    return weighted_moving_average(hma_series)
+
+N = 500
+X = np.linspace(-10,10,N)
+Y = np.sin(X)
+W = Y + np.random.normal(0., .1, N)
+Z = Y.copy()
+lookback=50
+for i in range(N):
+    if(i==0):
+        pass
+    else:
+        Z[i] = hull_moving_average(W[:i], min(lookback,i))
+plt.plot(X, Y, 'b-', label='ground truth')
+plt.plot(X, W, 'g.', label='noised data')
+plt.plot(X, Z, 'r-', label='HMA') 
+plt.legend()
+plt.show()
     # contact_points = p.getContactPoints(1, 2)
     # for id_pt, pt in enumerate(contact_points):
     #   F_mea_pyb[i, :] += pt[9]
