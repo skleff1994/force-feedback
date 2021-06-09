@@ -7,7 +7,7 @@ ctrl_freq: 1000  # Control frequency
 plan_freq: 1000  # Planning frequency
 
 # Simu duration (s)
-T_tot: 1.
+T_tot: .05
 # MPC
 dt: 0.03      # OCP integration step 
 N_h: 30       # Horizon length in nodes
@@ -46,19 +46,20 @@ armature: [.1, .1, .1, .1, .1, .1, .1]
 
 # Low-level simulation (actuation model)
   # Scaling of desired torque
-alpha_min: 0.95
-alpha_max: 1.05
-beta_min: 0.
-beta_max: 0.
+alpha_min: 0.90
+alpha_max: 1.10
+beta_min: -0.5
+beta_max: 0.5
   # White noise on desired torque and measured state
-var_u: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1, 0.1]
-var_q: 0.005
-var_v: 0.001
+# var_u: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1, 0.1]
+var_q: 0.0028
+var_v: 0.0028
   # Buffer for torque delay
 delay_OCP_ms: 1 # in ms
-delay_sim_cycle: 2 # in HF cycles
+delay_sim_cycle: 1 # in HF cycles
   # Proportional-integral torque control gains
-Kp: [.1, .2, .2, .1, .1, .2, .1]
-Ki: [.001, .001, .001, .001, .001, .001, .001]
-Kd: [.00001, .00001, .00001, 0., 0., 0., 0.]
-avg_length: 20 #8
+Kp: [.1, .2, .2, .1, .1, .2, .01  ]
+Ki: [.001, .001, .001, .001, .001, .001, .000]
+Kd: [.00001, .00001, .00001, .00001, .00001, .00001, .000001]
+u_avg_filter_length: 20 #8 # in HF cycles
+x_avg_filter_length: 20 #8 # in HF cycles
