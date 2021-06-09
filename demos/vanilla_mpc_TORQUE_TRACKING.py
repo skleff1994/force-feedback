@@ -189,10 +189,12 @@ beta = np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(
 var_u = 0.01*np.asarray(config['var_u'])
 var_q = 0.01*np.asarray(config['var_q'])
 var_v = 0.01*np.asarray(config['var_v'])
-  # Buffer for torque delay
-delay_ms = config['delay_ms'] # in ms
-delay_cycle = 3 #int(delay_ms * 1e-3 * simu_freq)
-buffer = []
+  # Buffers for delays
+delay_OCP_ms = config['delay_OCP_ms']                   # in ms
+delay_OCP_cycle = int(delay_OCP_ms * 1e-3 * plan_freq)  # in planning cycles
+delay_sim_cycle = int(config['delay_sim_cycle'])        # in simu cycles
+buffer_OCP = []                                         # buffer for desired torques
+buffer_sim = []                                         # buffer for measured torque
   # Proportional-integral torque control gains
 Kp = config['Kp']*np.eye(nq)
 Ki = config['Ki']*np.eye(nq)
@@ -226,29 +228,31 @@ X_mea[0, :] = x0
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-TORQUE_TRACKING = True                # Activate low-level reference torque tracking (PID) 
-DELAY_TORQUES = False                 # Add delay in reference torques (low-level)
-NOISE_TORQUES = False                 # Add Gaussian noise on reference torques
+TORQUE_TRACKING = False               # Activate low-level reference torque tracking (PID) 
+
+DELAY_SIM = True                      # Add delay in reference torques (low-level)
+DELAY_OCP = True                      # Add delay in OCP solution (i.e. ~1ms resolution time)
+
 SCALE_TORQUES = True                  # Affine scaling of reference torque
-FILTER_TORQUES = True                # Moving average smoothing of reference torques
-NOISE_STATE = True                   # Add Gaussian noise on the measured state 
-INTERPOLATE_PLAN = False               # Interpolate DDP desired feedforward torque to control frequency
+
+NOISE_TORQUES = False                 # Add Gaussian noise on reference torques
+FILTER_TORQUES = False                # Moving average smoothing of reference torques
+
+NOISE_STATE = True                    # Add Gaussian noise on the measured state 
+FILTER_STATE = True                   # Moving average smoothing of reference torques
+
+INTERPOLATE_PLAN = False              # Interpolate DDP desired feedforward torque to control frequency
 INTERPOLATE_CTRL = True               # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
 
 vel_U_ref = np.zeros((N_ctrl, nu))           # Desired torques (current ff output by DDP)
 vel_U_mea = np.zeros((N_simu, nu))         # Actuation torques (sent to PyBullet)
 vel_U_ref_HF = np.zeros((N_simu, nu))         # Actuation torques (sent to PyBullet)
 vel_U_mea[0,:] = np.zeros(nq)
-  # Log
-# print("TORQUE_TRACKING = ", TORQUE_TRACKING)
-# print("DELAY_TORQUES   = ", DELAY_TORQUES, " (", delay_cycle, ") ")
-# print("NOISE_TORQUES = ", NOISE_TORQUES)
-# print("SCALE_TORQUES = ", SCALE_TORQUES)
-# print("FILTER_TORQUES  = ", FILTER_TORQUES)
-# time.sleep()
+# Initialize PID errors
 err_u = np.zeros(nq)
 vel_err_u = np.zeros(nq)
 int_err_u = np.zeros(nq)
+
 # SIMULATION LOOP
 for i in range(N_simu): 
     print("  ")
@@ -268,6 +272,13 @@ for i in range(N_simu):
         U_pred[nb_plan, :, :] = np.array(ddp.us)
         # Extract desired control torque + prepare interpolation to control frequency
         u_pred_0 = U_pred[nb_plan, 0, :]
+        # Delay due to OCP resolution time 
+        if(DELAY_OCP):
+          buffer_OCP.append(u_pred_0)
+          if(len(buffer_OCP)<delay_OCP_cycle): 
+            pass
+          else:                            
+            u_pred_0 = buffer_OCP.pop(-delay_OCP_cycle)
         # Optionally interpolate to control frequency
         if(nb_plan >= 1 and INTERPOLATE_PLAN==True):
           u_pred_0_prev = U_pred[nb_plan-1, 0, :]
@@ -281,6 +292,7 @@ for i in range(N_simu):
         
 # If we are in a control cycle select reference torque to send to motors
     if(i%int(simu_freq/ctrl_freq) == 0):
+        print("  CTRL ("+str(nb_ctrl)+"/"+str(N_ctrl)+")")
         # Optionally interpolate desired torque to control frequency
         if(INTERPOLATE_PLAN):
           coef = float(i%int(ctrl_freq/plan_freq)) / float(ctrl_freq/plan_freq)
@@ -300,8 +312,6 @@ for i in range(N_simu):
         vel_u_ref = ( u_ref - u_ref_prev ) / dt_ctrl
         vel_U_ref[nb_ctrl, :] = vel_u_ref
         # vel_u_des = (U_des[nb_ctrl-4, :] - 8*U_des[nb_ctrl-3, :] + U_des[nb_ctrl-1, :] - U_des[nb_ctrl, :]) / (12*dt_ctrl)
-        # Reset errors for low-level PID 
-        # int_err_u = np.zeros(nq)
         # Increment control counter
         nb_ctrl += 1
         
@@ -333,12 +343,12 @@ for i in range(N_simu):
       for k in range(n_sum):
         u_mea += U_mea[i-k-1, :]
       u_mea = u_mea / (n_sum + 1)
-    if(DELAY_TORQUES):
-      buffer.append(u_mea)            # Add current desired torque to buffer
-      if(len(buffer)<delay_cycle):    # If buffer too small use u_grav
+    if(DELAY_SIM):
+      buffer_sim.append(u_mea)            
+      if(len(buffer_sim)<delay_sim_cycle):    
         pass
-      else:                           # Else pick an old desired control 
-        u_mea = buffer.pop(-delay_cycle)
+      else:                          
+        u_mea = buffer_sim.pop(-delay_sim_cycle)
     # Record measured torque & step simulator
     U_mea[i, :] = u_mea
     pybullet_simulator.send_joint_command(U_mea[i, :])

@@ -55,9 +55,10 @@ var_u: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1, 0.1]
 var_q: 0.005
 var_v: 0.001
   # Buffer for torque delay
-delay_ms: 1 # in ms
+delay_OCP_ms: 1 # in ms
+delay_sim_cycle: 2 # in HF cycles
   # Proportional-integral torque control gains
 Kp: [.1, .2, .2, .1, .1, .2, .1]
 Ki: [.001, .001, .001, .001, .001, .001, .001]
 Kd: [.00001, .00001, .00001, 0., 0., 0., 0.]
-avg_length: 3 #8
+avg_length: 20 #8
