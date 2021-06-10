@@ -7,7 +7,7 @@ ctrl_freq: 1000  # Control frequency
 plan_freq: 1000  # Planning frequency
 
 # Simu duration (s)
-T_tot: .05
+T_tot: 3.
 # MPC
 dt: 0.03      # OCP integration step 
 N_h: 30       # Horizon length in nodes

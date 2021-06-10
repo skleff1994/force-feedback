@@ -190,6 +190,8 @@ vel_U_mea[0,:] = np.zeros(nq)
 err_u = np.zeros(nq)
 vel_err_u = np.zeros(nq)
 int_err_u = np.zeros(nq)
+  # Initialize average acceleration tracking error
+A_err = np.zeros((N_ctrl, nx))
   # Measure initial state from simulation environment &init data
 q_mea, v_mea = pybullet_simulator.get_state()
 pybullet_simulator.forward_robot(q_mea, v_mea)
@@ -238,7 +240,7 @@ print('- OCP integration step                 : dt     = '+str(dt)+' s')
 print('---------------------------------------------------------')
 print("Simulation will start...")
 # Sim options
-TORQUE_TRACKING = False               # Activate low-level reference torque tracking (PID) 
+TORQUE_TRACKING = True               # Activate low-level reference torque tracking (PID) 
 
 DELAY_SIM = True                      # Add delay in reference torques (low-level)
 DELAY_OCP = True                      # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -272,6 +274,7 @@ for i in range(N_simu):
         X_pred[nb_plan, :, :] = np.array(ddp.xs)
         U_pred[nb_plan, :, :] = np.array(ddp.us)
         # Extract desired control torque + prepare interpolation to control frequency
+        x_pred_1 = X_pred[nb_plan, 1, :]
         u_pred_0 = U_pred[nb_plan, 0, :]
         # Delay due to OCP resolution time 
         if(DELAY_OCP):
@@ -361,7 +364,7 @@ for i in range(N_simu):
     # Record data
     x_mea = np.concatenate([q_mea, v_mea]).T 
     X_noise[i, :] = x_mea
-    print("Before average : ", x_mea)
+    # print("Before average : ", x_mea)
     # Optional noise + filtering
     if(NOISE_STATE):
       wq = np.random.normal(0., var_q, nq)
@@ -369,21 +372,12 @@ for i in range(N_simu):
       x_mea += np.concatenate([wq, wv]).T
     if(FILTER_STATE):
       n_sum = min(i, x_avg_filter_length)
-      
-      # n_sum = min(i, x_avg_filter_length)
-      if(i<=x_avg_filter_length):
-        pass
-      else:
-        x_mea = utils.hull_moving_average( X_mea[:i+1, :], n_sum )
-      # else:
-      #   for k in range(n_sum):
-      #     weight = n_sum - k  
-      #     x_mea += X_mea[i-k, :]
-      #     print("n_sum = ", n_sum, " index ", i-k, " weight = ", weight)
-      #   x_mea = x_mea / ( (n_sum*(n_sum+1)) /2 )
-      # x_mea = x_mea / (n_sum + 1)
+      for k in range(n_sum):
+        x_mea += X_mea[i-k-1, :]
+      x_mea = x_mea / (n_sum + 1)
     X_mea[i+1, :] = x_mea 
-    print("After average : ", x_mea)    
+    A_err[nb_ctrl-1,:] += (np.abs(x_mea - x_pred_1))/float(simu_freq/ctrl_freq)
+    # print("After average : ", x_mea)    
     # time.sleep(.1)               
     # Estimate torque time-derivative
     if(i>=1):
@@ -424,6 +418,7 @@ t_span_ctrl_u = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
 fig_x, ax_x = plt.subplots(nq, 2)
 fig_u, ax_u = plt.subplots(nq, 1)
 fig_p, ax_p = plt.subplots(3,1)
+fig_a, ax_a = plt.subplots(nq,2)
 # For each joint
 for i in range(nq):
     # Extract state predictions of i^th joint
@@ -489,21 +484,23 @@ for i in range(nq):
 
     # Desired joint torque (interpolated feedforward)
     ax_u[i].plot(t_span_ctrl_u, u_des[:,i], 'b-', label='Desired')
-    # ax_u[i, 0].plot(t_span_ctrl_u, [u_min[i]]*N_ctrl, 'k--', label='u_min', alpha=0.5)
-    # ax_u[i, 0].plot(t_span_ctrl_u, [u_max[i]]*N_ctrl, 'K--', label='u_max', alpha=0.5)
     # Total
     ax_u[i].plot(t_span_simu_u, U_mea[:,i], 'r-', label='Measured') 
     ax_u[i].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
     ax_u[i].grid()
 
-    # # Desired joint torque (interpolated feedforward)
-    # ax_u[i, 1].plot(t_span_ctrl_u, vel_U_ref[:,i], 'b-', label='Desired')
-    # # ax_u[i, 1].plot(t_span_simu_u, vel_U_ref_HF[:,i], 'g-', label='Desired')
-    # ax_u[i, 1].plot(t_span_ctrl_u, [0]*len(t_span_ctrl_u), 'k--', label='0')
-    # # Total
-    # ax_u[i, 1].plot(t_span_simu_u, vel_U_mea[:,i], 'r-', label='Measured') 
-    # ax_u[i, 1].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
-    # ax_u[i, 1].grid()
+
+    # Desired joint torque (interpolated feedforward)
+    ax_a[i,0].plot(t_span_ctrl_u, A_err[:,i], 'b-', label='Velocity error (average)')
+    # Total
+    ax_a[i,0].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
+    ax_a[i,0].grid()
+
+    # Desired joint torque (interpolated feedforward)
+    ax_a[i,1].plot(t_span_ctrl_u, A_err[:,nq+i], 'b-', label='Acceleration error (average)')
+    # Total
+    ax_a[i,1].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
+    ax_a[i,1].grid()
 
     # Legend
     handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
