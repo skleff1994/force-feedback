@@ -39,7 +39,7 @@ import time
 ### ROBOT MODEL & SIMULATION ENVIRONMENT ###
 ############################################
 config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'config/'))
-config_file = config_path+"/static_reaching_task2"+".yml"
+config_file = config_path+"/static_reaching_task3"+".yml"
 config = utils.load_config_file(config_file)
     # Create a Pybullet simulation environment
 simu_freq = config['simu_freq']         # simulation > control frequency 
@@ -195,13 +195,14 @@ vel_U_mea[0,:] = np.zeros(nq)
 err_u = np.zeros(nq)
 vel_err_u = np.zeros(nq)
 int_err_u = np.zeros(nq)
-  # Initialize average acceleration tracking error
+  # Initialize average acceleration tracking error (avg over 1ms)
 A_err = np.zeros((N_ctrl, nx))
   # Measure initial state from simulation environment &init data
 q_mea, v_mea = pybullet_simulator.get_state()
 pybullet_simulator.forward_robot(q_mea, v_mea)
 x0 = np.concatenate([q_mea, v_mea]).T
 X_mea[0, :] = x0
+X_mea_no_noise[0, :] = x0
   # Replan & control counters
 nb_plan = 0
 nb_ctrl = 0
@@ -245,9 +246,9 @@ print('- OCP integration step                 : dt     = '+str(dt)+' s')
 print('---------------------------------------------------------')
 print("Simulation will start...")
 # Sim options
-TORQUE_TRACKING = False               # Activate low-level reference torque tracking (PID) 
+TORQUE_TRACKING = True               # Activate low-level reference torque tracking (PID) 
 
-DELAY_SIM = True                      # Add delay in reference torques (low-level)
+DELAY_SIM = False                      # Add delay in reference torques (low-level)
 DELAY_OCP = True                      # Add delay in OCP solution (i.e. ~1ms resolution time)
 
 SCALE_TORQUES = True                  # Affine scaling of reference torque
@@ -368,7 +369,9 @@ for i in range(N_simu):
     pybullet_simulator.forward_robot(q_mea, v_mea)
     # Record data (unnoised)
     x_mea = np.concatenate([q_mea, v_mea]).T 
-    X_mea_no_noise[i, :] = x_mea
+    X_mea_no_noise[i+1, :] = x_mea
+    # Accumulate acceleration error over the control cycle
+    A_err[nb_ctrl-1,:] += (np.abs(x_mea - x_pred_1))/float(simu_freq/ctrl_freq)
     # Optional noise + filtering
     if(NOISE_STATE):
       wq = np.random.normal(0., var_q, nq)
@@ -381,8 +384,6 @@ for i in range(N_simu):
       x_mea = x_mea / (n_sum + 1)
     # Record noised data
     X_mea[i+1, :] = x_mea 
-    # Accumulate acceleration error over the control cycle
-    A_err[nb_ctrl-1,:] += (np.abs(x_mea - x_pred_1))/float(simu_freq/ctrl_freq)
     # Estimate torque time-derivative
     if(i>=1):
       vel_U_mea[i, :] = (u_mea - U_mea[i-1, :]) / (dt_simu)
@@ -400,21 +401,25 @@ print("ALPHA, BETA = ", alpha, beta)
 ####################################    
 # GENERATE NICE PLOT OF SIMULATION #
 ####################################
-PLOT_PREDICTIONS = False
+PLOT_PREDICTIONS = True
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
 import matplotlib
-# Reshape trajs if necessary 
+# state predictions
 q_pred = X_pred[:,:,:nq]
 v_pred = X_pred[:,:,nv:]
+# measured state
 q_mea = X_mea[:,:nq]
 v_mea = X_mea[:,nv:]
 q_mea_no_noise = X_mea_no_noise[:,:nq]
 v_mea_no_noise = X_mea_no_noise[:,nv:]
+# desired state
 q_des = np.vstack([x0[:nq], X_pred[:,1,:nq]])
 v_des = np.vstack([x0[nv:], X_pred[:,1,nv:]])
-p_mea = utils.get_p(q_mea, robot, id_endeff)
+# end-eff position
+p_mea = utils.get_p(q_mea_no_noise, robot, id_endeff)
 p_des = utils.get_p(q_des, robot, id_endeff) 
+# desired control
 u_des = U_pred[:,0,:]
 # Create time spans for X and U + Create figs and subplots
 t_span_simu_x = np.linspace(0, T_tot, N_simu+1)
@@ -423,18 +428,22 @@ t_span_ctrl_x = np.linspace(0, T_tot, N_ctrl+1)
 t_span_ctrl_u = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
 fig_x, ax_x = plt.subplots(nq, 2)
 fig_u, ax_u = plt.subplots(nq, 1)
-fig_p, ax_p = plt.subplots(3,1)
+fig_p, ax_p = plt.subplots(3,1)  #2
 fig_a, ax_a = plt.subplots(nq,2)
+
 # For each joint
 for i in range(nq):
     # Extract state predictions of i^th joint
     q_pred_i = q_pred[:,:,i]
     v_pred_i = v_pred[:,:,i]
     u_pred_i = U_pred[:,:,i]
+
     # print(u_pred_i[0,0])
     if(PLOT_PREDICTIONS):
+        # Plot every sampling_step prediction to avoid huge amount of plotted data ("1" = plot all)
+        sampling_step = 50 
         # For each planning step in the trajectory
-        for j in range(N_plan):
+        for j in range(0, N_plan, sampling_step):
             # Receding horizon = [j,j+N_h]
             t0_horizon = j*dt_plan
             tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
@@ -442,6 +451,7 @@ for i in range(nq):
             # Set up lists of (x,y) points for predicted positions and velocities
             points_q = np.array([tspan_x_pred, q_pred_i[j,:]]).transpose().reshape(-1,1,2)
             points_v = np.array([tspan_x_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
+            points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
             points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
             # Set up lists of segments
             segs_q = np.concatenate([points_q[:-1], points_q[1:]], axis=1)
@@ -472,13 +482,13 @@ for i in range(nq):
             ax_x[i,0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
             ax_x[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
             ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
-    
+
 
     # Desired joint position (interpolated from prediction)
     ax_x[i,0].plot(t_span_ctrl_x, q_des[:,i], 'b-', label='Desired')
     # Measured joint position (PyBullet)
-    # ax_x[i,0].plot(t_span_simu_x, q_mea[:,i], 'r-', label='Measured')
-    ax_x[i,0].plot(t_span_simu_x, q_mea_no_noise[:,i], 'r-', label='Measured (no noise)')
+    ax_x[i,0].plot(t_span_simu_x, q_mea[:,i], 'r-', label='Measured', linewidth=1, alpha=0.3)
+    ax_x[i,0].plot(t_span_simu_x, q_mea_no_noise[:,i], 'r-', label='Measured (no noise)', linewidth=2)
     ax_x[i,0].set(xlabel='t (s)', ylabel='$q_{i}$ (rad)')
     ax_x[i,0].grid()
     # ax_x[i,0].set_ylim(x0[i]-0.1, x0[i]+0.1)
@@ -486,7 +496,7 @@ for i in range(nq):
     # Desired joint velocity (interpolated from prediction)
     ax_x[i,1].plot(t_span_ctrl_x, v_des[:,i], 'b-', label='Desired')
     # Measured joint velocity (PyBullet)
-    # ax_x[i,1].plot(t_span_simu_x, v_mea[:,i], 'r-', label='Measured')
+    ax_x[i,1].plot(t_span_simu_x, v_mea[:,i], 'r-', label='Measured', linewidth=1, alpha=0.3)
     ax_x[i,1].plot(t_span_simu_x, v_mea_no_noise[:,i], 'r-', label='Measured (no noise)')
     ax_x[i,1].set(xlabel='t (s)', ylabel='$v_{i}$ (rad/s)')
     ax_x[i,1].grid()
@@ -520,45 +530,91 @@ for i in range(nq):
     fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
 
 
+# # Plot endeff
+# # x
+# ax_p[0,0].plot(t_span_ctrl_x, p_des[:,0], 'b-', label='x_des', alpha=0.5)
+# ax_p[0,0].plot(t_span_simu_x, p_mea[:,0], 'r-', label='x_mea')
+# ax_p[0,0].set_title('x-position')
+# ax_p[0,0].set(xlabel='t (s)', ylabel='x (m)')
+# ax_p[0,0].grid()
+# # y
+# ax_p[1,0].plot(t_span_ctrl_x, p_des[:,1], 'b-', label='y_des', alpha=0.5)
+# ax_p[1,0].plot(t_span_simu_x, p_mea[:,1], 'r-', label='y_mea')
+# ax_p[1,0].set_title('y-position')
+# ax_p[1,0].set(xlabel='t (s)', ylabel='y (m)')
+# ax_p[1,0].grid()
+# # z
+# ax_p[2,0].plot(t_span_ctrl_x, p_des[:,2], 'b-', label='z_des', alpha=0.5)
+# ax_p[2,0].plot(t_span_simu_x, p_mea[:,2], 'r-', label='z_mea')
+# ax_p[2,0].set_title('z-position')
+# ax_p[2,0].set(xlabel='t (s)', ylabel='z (m)')
+# ax_p[2,0].grid()
+# # Add frame ref if any
+# ax_p[0,0].plot(t_span_ctrl_x, [p_ref[0]]*(N_ctrl+1), 'ko', label='ref', alpha=0.5)
+# ax_p[1,0].plot(t_span_ctrl_x, [p_ref[1]]*(N_ctrl+1), 'ko', label='ref', alpha=0.5)
+# ax_p[2,0].plot(t_span_ctrl_x, [p_ref[2]]*(N_ctrl+1), 'ko', label='ref', alpha=0.5)
+
 # Plot endeff
 # x
-ax_p[0].plot(t_span_ctrl_x, p_des[:,0], 'b-', label='x_des')
-ax_p[0].plot(t_span_simu_x, p_mea[:,0], 'r-.', label='x_mea')
-ax_p[0].set_title('x-position')
+ax_p[0].plot(t_span_ctrl_x, p_des[:,0]-[p_ref[0]]*(N_ctrl+1), 'b-', label='ERR_x_des', alpha=0.5)
+ax_p[0].plot(t_span_simu_x, p_mea[:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='ERR_x_mea')
+ax_p[0].set_title('x-position-ERROR')
 ax_p[0].set(xlabel='t (s)', ylabel='x (m)')
 ax_p[0].grid()
 # y
-ax_p[1].plot(t_span_ctrl_x, p_des[:,1], 'b-', label='y_des')
-ax_p[1].plot(t_span_simu_x, p_mea[:,1], 'r-.', label='y_mea')
-ax_p[1].set_title('y-position')
+ax_p[1].plot(t_span_ctrl_x, p_des[:,1]-[p_ref[1]]*(N_ctrl+1), 'b-', label='ERR_y_des', alpha=0.5)
+ax_p[1].plot(t_span_simu_x, p_mea[:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='ERR_y_mea')
+ax_p[1].set_title('y-position-ERROR')
 ax_p[1].set(xlabel='t (s)', ylabel='y (m)')
 ax_p[1].grid()
 # z
-ax_p[2].plot(t_span_ctrl_x, p_des[:,2], 'b-', label='z_des')
-ax_p[2].plot(t_span_simu_x, p_mea[:,2], 'r-.', label='z_mea')
-ax_p[2].set_title('z-position')
+ax_p[2].plot(t_span_ctrl_x, p_des[:,2]-[p_ref[2]]*(N_ctrl+1), 'b-', label='ERR_z_des', alpha=0.5)
+ax_p[2].plot(t_span_simu_x, p_mea[:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='ERR_z_mea')
+ax_p[2].set_title('z-position-ERROR')
 ax_p[2].set(xlabel='t (s)', ylabel='z (m)')
 ax_p[2].grid()
 # Add frame ref if any
-ax_p[0].plot(t_span_ctrl_x, [p_ref[0]]*(N_ctrl+1), 'ko', label='ref_pl', alpha=0.5)
-ax_p[1].plot(t_span_ctrl_x, [p_ref[1]]*(N_ctrl+1), 'ko', label='ref_pl', alpha=0.5)
-ax_p[2].plot(t_span_ctrl_x, [p_ref[2]]*(N_ctrl+1), 'ko', label='ref_pl', alpha=0.5)
+ax_p[0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.3)
+ax_p[1].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.3)
+ax_p[2].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.3)
 
+# delta_px = 0.03
+# delta_py = 0.03
+# delta_pz = 0.01
+ax_p[0].set_ylim(-0.04, 0.01) #delta_px, p_ref[0]+delta_px)
+ax_p[1].set_ylim(-0.02, 0.01) #p_ref[1]-delta_py, p_ref[1]+delta_py)
+ax_p[2].set_ylim(-0.01, 0.04) #p_ref[2]-delta_pz, p_ref[2]+delta_pz)
 
-delta_px = 0.03
-delta_py = 0.03
-delta_pz = 0.01
-ax_p[0].set_ylim(p_ref[0]-delta_px, p_ref[0]+delta_px)
-ax_p[1].set_ylim(p_ref[1]-delta_py, p_ref[1]+delta_py)
-ax_p[2].set_ylim(p_ref[2]-delta_pz, p_ref[2]+delta_pz)
-
-# ax_p[0].plot(0., p_mea[0,0], 'go')
-# ax_p[1].plot(0., p_mea[0,1], 'go')
-# ax_p[2].plot(0., p_mea[0,2], 'go')
-
-# ax_p[0].plot(0., p_des[0,0], 'yo')
-# ax_p[1].plot(0., p_des[0,1], 'yo')
-# ax_p[2].plot(0., p_des[0, 2], 'yo')
+if(PLOT_PREDICTIONS):
+  # Get predicted EE traj
+  p_pred = np.zeros((N_plan, N_h+1, 3))
+  for node_id in range(N_h+1):
+    p_pred[:, node_id, :] = utils.get_p(q_pred[:, node_id], robot, id_endeff) - np.array([p_ref]*N_plan)
+  # For each component (x,y,z)
+  for i in range(3):
+    p_pred_i = p_pred[:, :, i]
+    # For each planning step in the trajectory
+    for j in range(0, N_plan, sampling_step):
+        # Receding horizon = [j,j+N_h]
+        t0_horizon = j*dt_plan
+        tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+        # Set up lists of (x,y) points for predicted positions
+        points_p = np.array([tspan_x_pred, p_pred_i[j,:]]).transpose().reshape(-1,1,2)
+        # Set up lists of segments
+        segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
+        # Make collections segments
+        cm = plt.get_cmap('Greys_r') 
+        lc_p = LineCollection(segs_p, cmap=cm, zorder=-1)
+        lc_p.set_array(tspan_x_pred)
+        # Customize
+        lc_p.set_linestyle('-')
+        lc_p.set_linewidth(1)
+        # Plot collections
+        ax_p[i].add_collection(lc_p)
+        # Scatter to highlight points
+        colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+        my_colors = cm(colors)
+        ax_p[i].scatter(tspan_x_pred, p_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
 
 
 handles_p, labels_p = ax_p[0].get_legend_handles_labels()
@@ -567,6 +623,6 @@ fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
 # Titles
 fig_x.suptitle('State = joint positions, velocities', size=16)
 fig_u.suptitle('Control = joint torques', size=16)
-fig_p.suptitle('End-effector trajectories', size=16)
+fig_p.suptitle('End-effector trajectories errors', size=16)
 fig_a.suptitle('Average tracking errors over control cycles (1ms)', size=16)
 plt.show() 
