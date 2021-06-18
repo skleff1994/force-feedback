@@ -11,6 +11,8 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 
 import time
+from numpy import random
+from numpy.core.numeric import normalize_axis_tuple
 
 import pinocchio as pin
 
@@ -299,6 +301,23 @@ def get_urdf_path(robot_name, robot_family='kuka'):
     urdf_path = pkg_dir/"robot_properties_kuka"/(robot_name + ".urdf")
     return str(urdf_path)
 
+class Data:
+    ''' Sim data class '''
+
+    def __init__(self, X_pred, ):
+        pass
+
+def save_data_to_yaml(data):
+    '''Saves data to a yaml file'''
+    pass
+
+def load_data_from_yaml(file):
+    '''Loads data from yaml file'''
+    pass
+
+def plot_sim_data(data):
+    '''Plot sim data'''
+    pass
 
 
 # def weighted_moving_average(series, lookback = None):
@@ -354,22 +373,28 @@ def hull_moving_average(series, lookback):
         hma_series.append(wma_half * 2 - wma_full)
     return weighted_moving_average(hma_series)
 
-N = 500
-X = np.linspace(-10,10,N)
-Y = np.sin(X)
-W = Y + np.random.normal(0., .1, N)
-Z = Y.copy()
-lookback=50
-for i in range(N):
-    if(i==0):
-        pass
-    else:
-        Z[i] = hull_moving_average(W[:i], min(lookback,i))
-plt.plot(X, Y, 'b-', label='ground truth')
-plt.plot(X, W, 'g.', label='noised data')
-plt.plot(X, Z, 'r-', label='HMA') 
-plt.legend()
-plt.show()
+# N = 500
+# X = np.linspace(-10,10,N)
+# Y = np.vstack([np.sin(X), np.cos(X)]).T
+# W = Y + np.vstack([np.random.normal(0., .2, N), np.random.normal(0, .2, N)]).T
+# Z = Y.copy()
+# lookback=50
+# for i in range(N):
+#     if(i==0):
+#         pass
+#     else:
+#         Z[i,:] = hull_moving_average(W[:i,:], min(lookback,i))
+# fig, ax = plt.subplots(1,2)
+# ax[0].plot(X, Y[:,0], 'b-', label='ground truth')
+# ax[0].plot(X, W[:,0], 'g-', label='noised data')
+# ax[0].plot(X, Z[:,0], 'r-', label='HMA') 
+# ax[1].plot(X, Y[:,1], 'b-', label='ground truth')
+# ax[1].plot(X, W[:,1], 'g-', label='noised data')
+# ax[1].plot(X, Z[:,1], 'r-', label='HMA') 
+# ax[0].legend()
+# plt.show()
+
+
     # contact_points = p.getContactPoints(1, 2)
     # for id_pt, pt in enumerate(contact_points):
     #   F_mea_pyb[i, :] += pt[9]

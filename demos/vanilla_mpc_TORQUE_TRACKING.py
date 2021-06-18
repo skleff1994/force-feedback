@@ -246,9 +246,9 @@ print('- OCP integration step                 : dt     = '+str(dt)+' s')
 print('---------------------------------------------------------')
 print("Simulation will start...")
 # Sim options
-TORQUE_TRACKING = True               # Activate low-level reference torque tracking (PID) 
+TORQUE_TRACKING = False               # Activate low-level reference torque tracking (PID) 
 
-DELAY_SIM = False                      # Add delay in reference torques (low-level)
+DELAY_SIM = False                     # Add delay in reference torques (low-level)
 DELAY_OCP = True                      # Add delay in OCP solution (i.e. ~1ms resolution time)
 
 SCALE_TORQUES = True                  # Affine scaling of reference torque
@@ -260,7 +260,7 @@ NOISE_STATE = True                    # Add Gaussian noise on the measured state
 FILTER_STATE = True                   # Moving average smoothing of reference torques
 
 INTERPOLATE_PLAN = False              # Interpolate DDP desired feedforward torque to control frequency
-INTERPOLATE_CTRL = False               # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
+INTERPOLATE_CTRL = False              # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
 
 # SIMULATION LOOP
 for i in range(N_simu): 
@@ -338,9 +338,6 @@ for i in range(N_simu):
     # Initialize measured torque to reference torque
     if(TORQUE_TRACKING):
       u_mea = u_ref_HF - Kp.dot(err_u) - Ki.dot(int_err_u) - Kd.dot(vel_err_u)
-      # print("  P = ", np.linalg.norm(err_u), " --> Kp --> ", np.linalg.norm(Kp.dot(err_u)))
-      # print("  I = ", np.linalg.norm(int_err_u), " --> Ki --> ", np.linalg.norm(Kp.dot(int_err_u)))
-      # print("  D = ", np.linalg.norm(vel_err_u), " --> Kd --> ", np.linalg.norm(Kp.dot(vel_err_u)))
     else:
       u_mea = u_ref_HF 
     # Actuation = scaling + noise + filtering + delay
@@ -401,7 +398,7 @@ print("ALPHA, BETA = ", alpha, beta)
 ####################################    
 # GENERATE NICE PLOT OF SIMULATION #
 ####################################
-PLOT_PREDICTIONS = True
+PLOT_PREDICTIONS = False
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
 import matplotlib
@@ -441,7 +438,7 @@ for i in range(nq):
     # print(u_pred_i[0,0])
     if(PLOT_PREDICTIONS):
         # Plot every sampling_step prediction to avoid huge amount of plotted data ("1" = plot all)
-        sampling_step = 50 
+        sampling_step = 200 
         # For each planning step in the trajectory
         for j in range(0, N_plan, sampling_step):
             # Receding horizon = [j,j+N_h]
@@ -530,6 +527,25 @@ for i in range(nq):
     fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
 
 
+# Dump date into yaml 
+dir_path = os.path.dirname(os.path.abspath(__file__))
+yaml_save_path = dir_path+'/config/sim_data_'+time.time()+'.yaml'
+data = {"N" : N,
+        "dt" : dt,
+        "maxiter" : maxiter,
+        "x0" : x0.tolist(),
+        "R_des" : R_des.tolist(),
+        "p_des" : p_des.tolist(),
+        "running_costs" : running_costs,
+        "terminal_costs" : terminal_costs,
+        "state_weights"  : state_weights.tolist(),
+        "state_weights_term" : state_weights_term.tolist(),
+        "frame_weights" : frame_weights.tolist(),
+        "X_pred" : X_pred.tolist(),
+        "U_des" : U_des.tolist()}
+with open(yaml_save_path, 'w') as f:
+    yaml.dump(data, f)
+
 # # Plot endeff
 # # x
 # ax_p[0,0].plot(t_span_ctrl_x, p_des[:,0], 'b-', label='x_des', alpha=0.5)
@@ -581,9 +597,9 @@ ax_p[2].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.3)
 # delta_px = 0.03
 # delta_py = 0.03
 # delta_pz = 0.01
-ax_p[0].set_ylim(-0.04, 0.01) #delta_px, p_ref[0]+delta_px)
-ax_p[1].set_ylim(-0.02, 0.01) #p_ref[1]-delta_py, p_ref[1]+delta_py)
-ax_p[2].set_ylim(-0.01, 0.04) #p_ref[2]-delta_pz, p_ref[2]+delta_pz)
+ax_p[0].set_ylim(-0.1, 0.1) #delta_px, p_ref[0]+delta_px)
+ax_p[1].set_ylim(-0.1, 0.1) #p_ref[1]-delta_py, p_ref[1]+delta_py)
+ax_p[2].set_ylim(-0.1, 0.1) #p_ref[2]-delta_pz, p_ref[2]+delta_pz)
 
 if(PLOT_PREDICTIONS):
   # Get predicted EE traj
