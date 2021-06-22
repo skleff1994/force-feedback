@@ -20,7 +20,6 @@ still recover the performance of closed-loop MPC (ICRA 2021) because
 the KUKA had a low-level torque control
 '''
 
-
 import os.path
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
@@ -35,12 +34,13 @@ import pybullet as p
 import time 
 
 
-############################################
-### ROBOT MODEL & SIMULATION ENVIRONMENT ###
-############################################
+# # # # # # # # # # # # # # # # # # #
+### LOAD ROBOT MODEL and SIMU ENV ### 
+# # # # # # # # # # # # # # # # # # # 
 config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'config/'))
-config_file = config_path+"/static_reaching_task3"+".yml"
-config = utils.load_config_file(config_file)
+config_name = 'static_reaching_task3'
+config_file = config_path+"/"+config_name+".yml"
+config = utils.load_yaml_file(config_file)
     # Create a Pybullet simulation environment
 simu_freq = config['simu_freq']         # simulation > control frequency 
 dt_simu = 1./simu_freq
@@ -51,6 +51,8 @@ env.add_robot(pybullet_simulator)
 robot = pybullet_simulator.pin_robot
 id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv
+nx = nq+nv
+nu = nq
     # Initial state 
 q0 = np.asarray(config['q0'])
 dq0 = np.asarray(config['dq0']) 
@@ -62,12 +64,12 @@ pybullet_simulator.forward_robot(q0, dq0)
     # Get initial frame placement
 M_ee = robot.data.oMf[id_endeff]
 print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
-
 time.sleep(1)
 
-#################
-### OCP SETUP ###
-#################
+
+# # # # # # # # #
+### SETUP OCP ### 
+# # # # # # # # #
   # OCP parameters 
 dt = config['dt']                   # OCP integration step (s)               
 N_h = config['N_h']                 # Number of knots in the horizon 
@@ -100,8 +102,6 @@ xLimitCost = crocoddyl.CostModelState(state,
                                       x_lim_ref, 
                                       actuation.nu)
 print("Created state lim cost.")
-# print(state.lb, state.ub)
-# time.sleep(100)
    # Control limits penalization
 u_min = -np.asarray(config['u_lim']) 
 u_max = +np.asarray(config['u_lim']) 
@@ -162,9 +162,9 @@ print("OCP is ready to be solved.")
 # us = np.array(ddp.us)
 
 
-##################
-# MPC SIMULATION #
-##################
+# # # # # # # # # # #
+### INIT MPC SIMU ###
+# # # # # # # # # # #
 # MPC & simulation parameters
 maxit = config['maxiter']
 T_tot = config['T_tot']
@@ -177,21 +177,28 @@ T_h = N_h*dt                          # Duration of the MPC horizon (s)
 dt_ctrl = float(1./ctrl_freq)         # Time step duration of the control loop
 dt_plan = float(1./plan_freq)         # Time step duration of planning loop
 # Initialize data
-nx = nq+nv
-nu = nq
-
-# sim data
 sim_data = {}
-sim_data['X_pred'] = np.zeros((N_plan, N_h+1, nx))   # Predicted states (output of DDP, i.e. ddp.xs)
-sim_data['U_pred'] = np.zeros((N_plan, N_h, nu))     # Predicted torques (output of DDP, i.e. ddp.us)
-sim_data['U_ref'] = np.zeros((N_ctrl, nu))           # Reference torque for motor drivers (i.e. ddp.us[0] interpolated to control frequency)
-sim_data['U_mea'] = np.zeros((N_simu, nu))           # Actuation torques (i.e. disturbed reference sent to PyBullet at simu/HF)
-sim_data['X_mea'] = np.zeros((N_simu+1, nx))         # Measured states (i.e. measured from PyBullet at simu/HF)
+sim_data['T_tot'] = T_tot
+sim_data['N_simu'] = N_simu
+sim_data['N_ctrl'] = N_ctrl
+sim_data['N_plan'] = N_plan
+sim_data['dt_plan'] = dt_plan
+sim_data['dt_ctrl'] = dt_ctrl
+sim_data['dt_simu'] = dt_simu
+sim_data['nq'] = nq
+sim_data['nv'] = nv
+sim_data['T_h'] = T_h
+sim_data['N_h'] = N_h
+sim_data['p_ref'] = p_ref
+sim_data['X_pred'] = np.zeros((N_plan, N_h+1, nx))     # Predicted states (output of DDP, i.e. ddp.xs)
+sim_data['U_pred'] = np.zeros((N_plan, N_h, nu))       # Predicted torques (output of DDP, i.e. ddp.us)
+sim_data['U_ref'] = np.zeros((N_ctrl, nu))             # Reference torque for motor drivers (i.e. ddp.us[0] interpolated to control frequency)
+sim_data['U_mea'] = np.zeros((N_simu, nu))             # Actuation torques (i.e. disturbed reference sent to PyBullet at simu/HF)
+sim_data['X_mea'] = np.zeros((N_simu+1, nx))           # Measured states (i.e. measured from PyBullet at simu/HF)
 sim_data['X_mea_no_noise'] = np.zeros((N_simu+1, nx))  # Measured states (i.e measured from PyBullet at simu/HF) without noise
-  # Initialize torque derivatives estimates
-sim_data['vel_U_ref'] = np.zeros((N_ctrl, nu))           # Desired torques (current ff output by DDP)
-sim_data['vel_U_mea'] = np.zeros((N_simu, nu))           # Actuation torques (sent to PyBullet)
-sim_data['vel_U_ref_HF'] = np.zeros((N_simu, nu))        # Actuation torques (sent to PyBullet)
+sim_data['vel_U_ref'] = np.zeros((N_ctrl, nu))         # Desired torques (current ff output by DDP)
+sim_data['vel_U_mea'] = np.zeros((N_simu, nu))         # Actuation torques (sent to PyBullet)
+sim_data['vel_U_ref_HF'] = np.zeros((N_simu, nu))      # Actuation torques (sent to PyBullet)
 sim_data['vel_U_mea'][0,:] = np.zeros(nq)
   # Initialize PID errors
 err_u = np.zeros(nq)
@@ -205,6 +212,7 @@ pybullet_simulator.forward_robot(q_mea, v_mea)
 x0 = np.concatenate([q_mea, v_mea]).T
 sim_data['X_mea'][0, :] = x0
 sim_data['X_mea_no_noise'][0, :] = x0
+p0 = robot.data.oMf[id_endeff].translation.T
   # Replan & control counters
 nb_plan = 0
 nb_ctrl = 0
@@ -231,40 +239,58 @@ Kd = config['Kd']*np.eye(nq)
   # Moving avg filter
 u_avg_filter_length = config['u_avg_filter_length']    # in HF cycles
 x_avg_filter_length = config['x_avg_filter_length']    # in HF cycles
-# LOGS
-print('                  ************************')
-print('                  * MPC controller ready *') 
-print('                  ************************')        
-print('---------------------------------------------------------')
-print('- Total simulation duration            : T_tot  = '+str(T_tot)+' s')
-print('- Simulation frequency                 : f_simu = '+str(simu_freq)+' s')
-print('- Control frequency                    : f_ctrl = '+str(ctrl_freq)+' Hz')
-print('- Replanning frequency                 : f_plan = '+str(plan_freq)+' Hz')
-print('- Total # of simulation steps          : N_ctrl = '+str(N_simu))
-print('- Total # of control steps             : N_ctrl = '+str(N_ctrl))
-print('- Total # of planning steps            : N_plan = '+str(N_plan))
-print('- Duration of MPC horizon              : T_ocp  = '+str(T_h)+' s')
-print('- OCP integration step                 : dt     = '+str(dt)+' s')
-print('---------------------------------------------------------')
-print("Simulation will start...")
 # Sim options
-TORQUE_TRACKING = False               # Activate low-level reference torque tracking (PID) 
+TORQUE_TRACKING = config['TORQUE_TRACKING']       # Activate low-level reference torque tracking (PID) 
+DELAY_SIM = config['DELAY_SIM']                   # Add delay in reference torques (low-level)
+DELAY_OCP = config['DELAY_OCP']                   # Add delay in OCP solution (i.e. ~1ms resolution time)
+SCALE_TORQUES = config['SCALE_TORQUES']           # Affine scaling of reference torque
+NOISE_TORQUES = config['NOISE_TORQUES']           # Add Gaussian noise on reference torques
+FILTER_TORQUES = config['FILTER_TORQUES']         # Moving average smoothing of reference torques
+NOISE_STATE = config['NOISE_STATE']               # Add Gaussian noise on the measured state 
+FILTER_STATE = config['FILTER_STATE']             # Moving average smoothing of reference torques
+INTERPOLATE_PLAN = config['INTERPOLATE_PLAN']     # Interpolate DDP desired feedforward torque to control frequency
+INTERPOLATE_CTRL = config['INTERPOLATE_CTRL']     # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
 
-DELAY_SIM = False                     # Add delay in reference torques (low-level)
-DELAY_OCP = True                      # Add delay in OCP solution (i.e. ~1ms resolution time)
+# # # # # # # # # # # #
+### SIMULATION LOOP ###
+# # # # # # # # # # # #
+if(config['INIT_LOGS']):
+  print('                  ***********************')
+  print('                  * Simulation is ready *') 
+  print('                  ***********************')        
+  print('---------------------------------------------------------')
+  print('- Total simulation duration            : T_tot  = '+str(T_tot)+' s')
+  print('- Simulation frequency                 : f_simu = '+str(float(simu_freq/1000.))+' kHz')
+  print('- Control frequency                    : f_ctrl = '+str(float(ctrl_freq/1000.))+' kHz')
+  print('- Replanning frequency                 : f_plan = '+str(float(plan_freq/1000.))+' kHz')
+  print('- Total # of simulation steps          : N_ctrl = '+str(N_simu))
+  print('- Total # of control steps             : N_ctrl = '+str(N_ctrl))
+  print('- Total # of planning steps            : N_plan = '+str(N_plan))
+  print('- Duration of MPC horizon              : T_ocp  = '+str(T_h)+' s')
+  print('- OCP integration step                 : dt     = '+str(dt)+' s')
+  print('---------------------------------------------------------')
+  print('- Simulate low-level torque control?   : TORQUE_TRACKING  = '+str(TORQUE_TRACKING))
+  if(TORQUE_TRACKING):
+    print('    - PID gains = \n'
+         +'      Kp ='+str(Kp)+'\n'
+         +'      Ki ='+str(Ki)+'\n'
+         +'      Kd ='+str(Kd)+'\n')
+  print('- Simulate delay in low-level torque?  : DELAY_SIM        = '+str(DELAY_SIM)+' ('+str(delay_sim_cycle)+' cycles)')
+  print('- Simulate delay in OCP solution?      : DELAY_OCP        = '+str(DELAY_OCP)+' ('+str(delay_OCP_ms)+' ms)')
+  print('- Affine scaling of ref. ctrl torque?  : SCALE_TORQUES    = '+str(SCALE_TORQUES))
+  if(SCALE_TORQUES):
+    print('    a='+str(alpha)+'\n')
+    print('    b='+str(beta)+')')
+  print('- Noise on torques?                    : NOISE_TORQUES    = '+str(NOISE_TORQUES))
+  print('- Filter torques?                      : FILTER_TORQUES   = '+str(FILTER_TORQUES))
+  print('- Noise on state?                      : NOISE_STATE      = '+str(NOISE_STATE))
+  print('- Filter state?                        : FILTER_STATE     = '+str(FILTER_STATE))
+  print('- Interpolate planned torque?          : INTERPOLATE_PLAN = '+str(INTERPOLATE_PLAN))
+  print('- Interpolate control torque?          : INTERPOLATE_CTRL = '+str(INTERPOLATE_CTRL))
+  print('---------------------------------------------------------')
+  print("Simulation will start...")
+  time.sleep(config['log_display_time'])
 
-SCALE_TORQUES = True                  # Affine scaling of reference torque
-
-NOISE_TORQUES = False                 # Add Gaussian noise on reference torques
-FILTER_TORQUES = False                # Moving average smoothing of reference torques
-
-NOISE_STATE = True                    # Add Gaussian noise on the measured state 
-FILTER_STATE = True                   # Moving average smoothing of reference torques
-
-INTERPOLATE_PLAN = False              # Interpolate DDP desired feedforward torque to control frequency
-INTERPOLATE_CTRL = False              # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
-
-# SIMULATION LOOP
 for i in range(N_simu): 
     print("  ")
     print("SIMU step "+str(i)+"/"+str(N_simu))
@@ -396,251 +422,23 @@ for i in range(N_simu):
       vel_err_u = sim_data['vel_U_mea'][i, :] #- vel_u_ref_HF #vel_u_ref_HF # vs vel_u_ref  
 
 
-print("ALPHA, BETA = ", alpha, beta)
-####################################    
-# GENERATE NICE PLOT OF SIMULATION #
-####################################
-PLOT_PREDICTIONS = False
-from matplotlib.collections import LineCollection
-import matplotlib.pyplot as plt
-import matplotlib
-# state predictions
-q_pred = X_pred[:,:,:nq]
-v_pred = X_pred[:,:,nv:]
-# measured state
-q_mea = X_mea[:,:nq]
-v_mea = X_mea[:,nv:]
-q_mea_no_noise = X_mea_no_noise[:,:nq]
-v_mea_no_noise = X_mea_no_noise[:,nv:]
-# desired state
-q_des = np.vstack([x0[:nq], X_pred[:,1,:nq]])
-v_des = np.vstack([x0[nv:], X_pred[:,1,nv:]])
-# end-eff position
-p_mea = utils.get_p(q_mea_no_noise, robot, id_endeff)
-p_des = utils.get_p(q_des, robot, id_endeff) 
-# desired control
-u_des = U_pred[:,0,:]
-# Create time spans for X and U + Create figs and subplots
-t_span_simu_x = np.linspace(0, T_tot, N_simu+1)
-t_span_simu_u = np.linspace(0, T_tot-dt_simu, N_simu)
-t_span_ctrl_x = np.linspace(0, T_tot, N_ctrl+1)
-t_span_ctrl_u = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
-fig_x, ax_x = plt.subplots(nq, 2)
-fig_u, ax_u = plt.subplots(nq, 1)
-fig_p, ax_p = plt.subplots(3,1)  #2
-fig_a, ax_a = plt.subplots(nq,2)
+# # # # # # # # # # # #
+# PROCESS SIM RESULTS #
+# # # # # # # # # # # #
+# Post-process EE trajectories and record in sim data
+sim_data['P_pred'] = np.zeros((N_plan, N_h+1, 3))
+for node_id in range(N_h+1):
+  sim_data['P_pred'][:, node_id, :] = utils.get_p(sim_data['X_pred'][:, node_id, :nq], robot, id_endeff) - np.array([p_ref]*N_plan)
+sim_data['P_mea'] = utils.get_p(sim_data['X_mea'][:,:nq], robot, id_endeff)
+sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
+# Save sim data to yaml file
+utils.save_data_to_yaml(sim_data)
+# Extract plot data from sim data
+plot_data = utils.extract_plot_data_from_sim_data(sim_data)
+# Add parameters to customize plots
+plot_data['ax_p_ylim'] = 0.2
 
-# For each joint
-for i in range(nq):
-    # Extract state predictions of i^th joint
-    q_pred_i = q_pred[:,:,i]
-    v_pred_i = v_pred[:,:,i]
-    u_pred_i = U_pred[:,:,i]
-
-    # print(u_pred_i[0,0])
-    if(PLOT_PREDICTIONS):
-        # Plot every sampling_step prediction to avoid huge amount of plotted data ("1" = plot all)
-        sampling_step = 200 
-        # For each planning step in the trajectory
-        for j in range(0, N_plan, sampling_step):
-            # Receding horizon = [j,j+N_h]
-            t0_horizon = j*dt_plan
-            tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
-            tspan_u_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
-            # Set up lists of (x,y) points for predicted positions and velocities
-            points_q = np.array([tspan_x_pred, q_pred_i[j,:]]).transpose().reshape(-1,1,2)
-            points_v = np.array([tspan_x_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
-            points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
-            points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
-            # Set up lists of segments
-            segs_q = np.concatenate([points_q[:-1], points_q[1:]], axis=1)
-            segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
-            segs_u = np.concatenate([points_u[:-1], points_u[1:]], axis=1)
-            # Make collections segments
-            cm = plt.get_cmap('Greys_r') 
-            lc_q = LineCollection(segs_q, cmap=cm, zorder=-1)
-            lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
-            lc_u = LineCollection(segs_u, cmap=cm, zorder=-1)
-            lc_q.set_array(tspan_x_pred)
-            lc_v.set_array(tspan_x_pred) 
-            lc_u.set_array(tspan_u_pred)
-            # Customize
-            lc_q.set_linestyle('-')
-            lc_v.set_linestyle('-')
-            lc_u.set_linestyle('-')
-            lc_q.set_linewidth(1)
-            lc_v.set_linewidth(1)
-            lc_u.set_linewidth(1)
-            # Plot collections
-            ax_x[i,0].add_collection(lc_q)
-            ax_x[i,1].add_collection(lc_v)
-            ax_u[i].add_collection(lc_u)
-            # Scatter to highlight points
-            colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
-            my_colors = cm(colors)
-            ax_x[i,0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
-            ax_x[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
-            ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
-
-
-    # Desired joint position (interpolated from prediction)
-    ax_x[i,0].plot(t_span_ctrl_x, q_des[:,i], 'b-', label='Desired')
-    # Measured joint position (PyBullet)
-    ax_x[i,0].plot(t_span_simu_x, q_mea[:,i], 'r-', label='Measured', linewidth=1, alpha=0.3)
-    ax_x[i,0].plot(t_span_simu_x, q_mea_no_noise[:,i], 'r-', label='Measured (no noise)', linewidth=2)
-    ax_x[i,0].set(xlabel='t (s)', ylabel='$q_{i}$ (rad)')
-    ax_x[i,0].grid()
-    # ax_x[i,0].set_ylim(x0[i]-0.1, x0[i]+0.1)
-
-    # Desired joint velocity (interpolated from prediction)
-    ax_x[i,1].plot(t_span_ctrl_x, v_des[:,i], 'b-', label='Desired')
-    # Measured joint velocity (PyBullet)
-    ax_x[i,1].plot(t_span_simu_x, v_mea[:,i], 'r-', label='Measured', linewidth=1, alpha=0.3)
-    ax_x[i,1].plot(t_span_simu_x, v_mea_no_noise[:,i], 'r-', label='Measured (no noise)')
-    ax_x[i,1].set(xlabel='t (s)', ylabel='$v_{i}$ (rad/s)')
-    ax_x[i,1].grid()
-    # ax_x[i,1].set_ylim(x0[nq+i]-0.1, x0[nq+i]+0.1)
-
-    # Desired joint torque (interpolated feedforward)
-    ax_u[i].plot(t_span_ctrl_u, u_des[:,i], 'b-', label='Desired')
-    # Total
-    ax_u[i].plot(t_span_simu_u, U_mea[:,i], 'r-', label='Measured') 
-    ax_u[i].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
-    ax_u[i].grid()
-    # ax_u[i].set_ylim(u_min[i], u_max[i])
-
-    # Desired joint torque (interpolated feedforward)
-    ax_a[i,0].plot(t_span_ctrl_u, A_err[:,i], 'b-', label='Velocity error (average)')
-    # Total
-    ax_a[i,0].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
-    ax_a[i,0].grid()
-
-    # Desired joint torque (interpolated feedforward)
-    ax_a[i,1].plot(t_span_ctrl_u, A_err[:,nq+i], 'b-', label='Acceleration error (average)')
-    # Total
-    ax_a[i,1].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
-    ax_a[i,1].grid()
-
-    # Legend
-    handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
-    fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-
-    handles_u, labels_u = ax_u[i].get_legend_handles_labels()
-    fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
-
-
-# Dump date into yaml 
-dir_path = os.path.dirname(os.path.abspath(__file__))
-yaml_save_path = dir_path+'/config/sim_data_'+time.time()+'.yaml'
-data = {"N" : N,
-        "dt" : dt,
-        "maxiter" : maxiter,
-        "x0" : x0.tolist(),
-        "R_des" : R_des.tolist(),
-        "p_des" : p_des.tolist(),
-        "running_costs" : running_costs,
-        "terminal_costs" : terminal_costs,
-        "state_weights"  : state_weights.tolist(),
-        "state_weights_term" : state_weights_term.tolist(),
-        "frame_weights" : frame_weights.tolist(),
-        "X_pred" : X_pred.tolist(),
-        "U_des" : U_des.tolist()}
-with open(yaml_save_path, 'w') as f:
-    yaml.dump(data, f)
-
-# # Plot endeff
-# # x
-# ax_p[0,0].plot(t_span_ctrl_x, p_des[:,0], 'b-', label='x_des', alpha=0.5)
-# ax_p[0,0].plot(t_span_simu_x, p_mea[:,0], 'r-', label='x_mea')
-# ax_p[0,0].set_title('x-position')
-# ax_p[0,0].set(xlabel='t (s)', ylabel='x (m)')
-# ax_p[0,0].grid()
-# # y
-# ax_p[1,0].plot(t_span_ctrl_x, p_des[:,1], 'b-', label='y_des', alpha=0.5)
-# ax_p[1,0].plot(t_span_simu_x, p_mea[:,1], 'r-', label='y_mea')
-# ax_p[1,0].set_title('y-position')
-# ax_p[1,0].set(xlabel='t (s)', ylabel='y (m)')
-# ax_p[1,0].grid()
-# # z
-# ax_p[2,0].plot(t_span_ctrl_x, p_des[:,2], 'b-', label='z_des', alpha=0.5)
-# ax_p[2,0].plot(t_span_simu_x, p_mea[:,2], 'r-', label='z_mea')
-# ax_p[2,0].set_title('z-position')
-# ax_p[2,0].set(xlabel='t (s)', ylabel='z (m)')
-# ax_p[2,0].grid()
-# # Add frame ref if any
-# ax_p[0,0].plot(t_span_ctrl_x, [p_ref[0]]*(N_ctrl+1), 'ko', label='ref', alpha=0.5)
-# ax_p[1,0].plot(t_span_ctrl_x, [p_ref[1]]*(N_ctrl+1), 'ko', label='ref', alpha=0.5)
-# ax_p[2,0].plot(t_span_ctrl_x, [p_ref[2]]*(N_ctrl+1), 'ko', label='ref', alpha=0.5)
-
-# Plot endeff
-# x
-ax_p[0].plot(t_span_ctrl_x, p_des[:,0]-[p_ref[0]]*(N_ctrl+1), 'b-', label='ERR_x_des', alpha=0.5)
-ax_p[0].plot(t_span_simu_x, p_mea[:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='ERR_x_mea')
-ax_p[0].set_title('x-position-ERROR')
-ax_p[0].set(xlabel='t (s)', ylabel='x (m)')
-ax_p[0].grid()
-# y
-ax_p[1].plot(t_span_ctrl_x, p_des[:,1]-[p_ref[1]]*(N_ctrl+1), 'b-', label='ERR_y_des', alpha=0.5)
-ax_p[1].plot(t_span_simu_x, p_mea[:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='ERR_y_mea')
-ax_p[1].set_title('y-position-ERROR')
-ax_p[1].set(xlabel='t (s)', ylabel='y (m)')
-ax_p[1].grid()
-# z
-ax_p[2].plot(t_span_ctrl_x, p_des[:,2]-[p_ref[2]]*(N_ctrl+1), 'b-', label='ERR_z_des', alpha=0.5)
-ax_p[2].plot(t_span_simu_x, p_mea[:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='ERR_z_mea')
-ax_p[2].set_title('z-position-ERROR')
-ax_p[2].set(xlabel='t (s)', ylabel='z (m)')
-ax_p[2].grid()
-# Add frame ref if any
-ax_p[0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.3)
-ax_p[1].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.3)
-ax_p[2].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.3)
-
-# delta_px = 0.03
-# delta_py = 0.03
-# delta_pz = 0.01
-ax_p[0].set_ylim(-0.1, 0.1) #delta_px, p_ref[0]+delta_px)
-ax_p[1].set_ylim(-0.1, 0.1) #p_ref[1]-delta_py, p_ref[1]+delta_py)
-ax_p[2].set_ylim(-0.1, 0.1) #p_ref[2]-delta_pz, p_ref[2]+delta_pz)
-
-if(PLOT_PREDICTIONS):
-  # Get predicted EE traj
-  p_pred = np.zeros((N_plan, N_h+1, 3))
-  for node_id in range(N_h+1):
-    p_pred[:, node_id, :] = utils.get_p(q_pred[:, node_id], robot, id_endeff) - np.array([p_ref]*N_plan)
-  # For each component (x,y,z)
-  for i in range(3):
-    p_pred_i = p_pred[:, :, i]
-    # For each planning step in the trajectory
-    for j in range(0, N_plan, sampling_step):
-        # Receding horizon = [j,j+N_h]
-        t0_horizon = j*dt_plan
-        tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
-        # Set up lists of (x,y) points for predicted positions
-        points_p = np.array([tspan_x_pred, p_pred_i[j,:]]).transpose().reshape(-1,1,2)
-        # Set up lists of segments
-        segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
-        # Make collections segments
-        cm = plt.get_cmap('Greys_r') 
-        lc_p = LineCollection(segs_p, cmap=cm, zorder=-1)
-        lc_p.set_array(tspan_x_pred)
-        # Customize
-        lc_p.set_linestyle('-')
-        lc_p.set_linewidth(1)
-        # Plot collections
-        ax_p[i].add_collection(lc_p)
-        # Scatter to highlight points
-        colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
-        my_colors = cm(colors)
-        ax_p[i].scatter(tspan_x_pred, p_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
-
-
-handles_p, labels_p = ax_p[0].get_legend_handles_labels()
-fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
-
-# Titles
-fig_x.suptitle('State = joint positions, velocities', size=16)
-fig_u.suptitle('Control = joint torques', size=16)
-fig_p.suptitle('End-effector trajectories errors', size=16)
-fig_a.suptitle('Average tracking errors over control cycles (1ms)', size=16)
-plt.show() 
+# # # # # # # # # # #
+# PLOT SIM RESULTS  #
+# # # # # # # # # # #
+utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=True, pred_plot_sampling=200)
