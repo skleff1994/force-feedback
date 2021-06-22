@@ -283,16 +283,20 @@ def get_f(q, v, tau, pin_robot, id_endeff, dt=1e-2):
     return f
 
 
+
 import importlib_resources
 import yaml
-# Load config file
-def load_config_file(config_file):
+
+import os
+
+def load_yaml_file(yaml_file):
     '''
     Load config file (yaml)
     '''
-    with open(config_file) as f:
+    with open(yaml_file) as f:
         data = yaml.load(f)
     return data 
+
 
 def get_urdf_path(robot_name, robot_family='kuka'):
     # Get config file
@@ -301,52 +305,294 @@ def get_urdf_path(robot_name, robot_family='kuka'):
     urdf_path = pkg_dir/"robot_properties_kuka"/(robot_name + ".urdf")
     return str(urdf_path)
 
-class Data:
-    ''' Sim data class '''
 
-    def __init__(self, X_pred, ):
-        pass
-
-def save_data_to_yaml(data):
-    '''Saves data to a yaml file'''
-    pass
-
-def load_data_from_yaml(file):
-    '''Loads data from yaml file'''
-    pass
-
-def plot_sim_data(data):
-    '''Plot sim data'''
-    pass
+def save_data_to_yaml(sim_data, save_name=None, save_dir=None):
+    '''
+    Saves data to a yaml file
+    '''
+    if(save_name is None):
+        save_name = 'NO_NAME'+str(time.time())+'.yml'
+    if(save_dir is None):
+        save_dir = os.path.abspath(os.path.join(os.path.dirname(__file__),'../data'))
+    yaml_save_path = save_dir+'/sim_data_'+save_name
+    with open(yaml_save_path, 'w') as f:
+        yaml.dump(sim_data, f)
+    print("Saved data to "+str(yaml_save_path)+" !")
 
 
-# def weighted_moving_average(series, lookback = None):
-#     if not lookback:
-#         lookback = series.shape[0]
-#     if series.shape[0] == 0:
-#         return 0
-#     assert 0 < lookback <= series.shape[0]
-#     wma = np.zeros(series.shape[1])
-#     # print("lookback = ", lookback)
-#     # print("series = ", series)
-#     lookback_offset = series.shape[0] - lookback
-#     for index in range(lookback + lookback_offset - 1, lookback_offset - 1, -1):
-#         weight = index - lookback_offset + 1
-#         wma += series[index, :] * weight
-#     return wma / ((lookback ** 2 + lookback) / 2)
+def extract_plot_data_from_sim_data(sim_data):
+    '''
+    Extract plot data from simu data
+    '''
+    plot_data = {}
+    nx = sim_data['X_mea'].shape[1]
+    nq = nx//2
+    nv = nx-nq
+    # state predictions
+    plot_data['q_pred'] = sim_data['X_pred'][:,:,:nq]
+    plot_data['v_pred'] = sim_data['X_pred'][:,:,nv:]
+    # measured state
+    plot_data['q_mea'] = sim_data['X_mea'][:,:nq]
+    plot_data['v_mea'] = sim_data['X_mea'][:,nv:]
+    plot_data['q_mea_no_noise'] = sim_data['X_mea_no_noise'][:,:nq]
+    plot_data['v_mea_no_noise'] = sim_data['X_mea_no_noise'][:,nv:]
+    # desired state (append 1st state at start)
+    plot_data['q_des'] = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
+    plot_data['v_des'] = np.vstack([sim_data['X_mea'][0,nv:], sim_data['X_pred'][:,1,nv:]])
+    # end-eff position
+    plot_data['p_mea'] = sim_data['P_mea']
+    plot_data['p_mea_no_noise'] = sim_data['P_mea_no_noise']
+    plot_data['p_pred'] = sim_data['P_pred']
+    plot_data['p_des'] = np.vstack([sim_data['P_mea'][0,:], sim_data['P_pred'][:,1,:]])
+    # control
+    plot_data['u_pred'] = sim_data['U_pred']
+    plot_data['u_des'] = sim_data['U_pred'][:,0,:]
+    plot_data['u_mea'] = sim_data['U_mea']
+    # acc error
+    plot_data['a_err'] = sim_data['A_err']
+    # Misc. params
+    plot_data['T_tot'] = sim_data['T_tot']
+    plot_data['N_simu'] = sim_data['N_simu']
+    plot_data['N_ctrl'] = sim_data['N_ctrl']
+    plot_data['N_plan'] = sim_data['N_plan']
+    plot_data['dt_plan'] = sim_data['dt_plan']
+    plot_data['dt_ctrl'] = sim_data['dt_ctrl']
+    plot_data['dt_simu'] = sim_data['dt_simu']
+    plot_data['nq'] = sim_data['nq']
+    plot_data['nv'] = sim_data['nv']
+    plot_data['T_h'] = sim_data['T_h']
+    plot_data['N_h'] = sim_data['N_h']
+    plot_data['p_ref'] = sim_data['p_ref']
+    return plot_data
 
 
-# def hull_moving_average(series, lookback):
-#     # assert lookback > 0
-#     n = int(lookback ** 0.5)
-#     hma_series = np.zeros((n, series.shape[1]))
+def extract_plot_data_from_yaml(sim_yaml_file):
+    '''
+    Extract plot data from yaml file (in which simu data was dumped)
+    '''
+    sim_data = load_yaml_file(sim_yaml_file)
+    plot_data = extract_plot_data_from_sim_data(sim_data)
+    return plot_data
 
-#     for k in range(n, -1, -1):
-#         s = series[:-k, :]
-#         wma_half = weighted_moving_average(s, min(lookback // 2, s.shape[0]))
-#         wma_full = weighted_moving_average(s, min(lookback, s.shape[0]))
-#         hma_series[n-1-k,:] = wma_half*2 - wma_full
-#     return weighted_moving_average(hma_series)
+
+from matplotlib.collections import LineCollection
+import matplotlib.pyplot as plt
+import matplotlib
+
+def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sampling=100):
+    '''
+    Plot sim data
+     Input:
+      plot_data          : plotting data
+      PLOT_PREDICTIONS   : True or False
+      pred_plot_sampling : plot every pred_plot_sampling prediction 
+                           to avoid huge amount of plotted data 
+                           ("1" = plot all)
+    '''
+
+    T_tot = plot_data['T_tot']
+    N_simu = plot_data['N_simu']
+    N_ctrl = plot_data['N_ctrl']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    dt_ctrl = plot_data['dt_ctrl']
+    dt_simu = plot_data['dt_simu']
+    nq = plot_data['nq']
+    T_h = plot_data['T_h']
+    N_h = plot_data['N_h']
+    p_ref = plot_data['p_ref']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_simu_x = np.linspace(0, T_tot, N_simu+1)
+    t_span_simu_u = np.linspace(0, T_tot-dt_simu, N_simu)
+    t_span_ctrl_x = np.linspace(0, T_tot, N_ctrl+1)
+    t_span_ctrl_u = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
+    fig_x, ax_x = plt.subplots(nq, 2)
+    fig_u, ax_u = plt.subplots(nq, 1)
+    fig_p, ax_p = plt.subplots(3,1) 
+    fig_a, ax_a = plt.subplots(nq,2)
+
+    # For each joint
+    for i in range(nq):
+
+        if(PLOT_PREDICTIONS):
+
+            # Extract state predictions of i^th joint
+            q_pred_i = plot_data['q_pred'][:,:,i]
+            v_pred_i = plot_data['v_pred'][:,:,i]
+            u_pred_i = plot_data['u_pred'][:,:,i]
+
+            # For each planning step in the trajectory
+            for j in range(0, N_plan, pred_plot_sampling):
+                # Receding horizon = [j,j+N_h]
+                t0_horizon = j*dt_plan
+                tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+                tspan_u_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
+                # Set up lists of (x,y) points for predicted positions and velocities
+                points_q = np.array([tspan_x_pred, q_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                points_v = np.array([tspan_x_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                # Set up lists of segments
+                segs_q = np.concatenate([points_q[:-1], points_q[1:]], axis=1)
+                segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
+                segs_u = np.concatenate([points_u[:-1], points_u[1:]], axis=1)
+                # Make collections segments
+                cm = plt.get_cmap('Greys_r') 
+                lc_q = LineCollection(segs_q, cmap=cm, zorder=-1)
+                lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
+                lc_u = LineCollection(segs_u, cmap=cm, zorder=-1)
+                lc_q.set_array(tspan_x_pred)
+                lc_v.set_array(tspan_x_pred) 
+                lc_u.set_array(tspan_u_pred)
+                # Customize
+                lc_q.set_linestyle('-')
+                lc_v.set_linestyle('-')
+                lc_u.set_linestyle('-')
+                lc_q.set_linewidth(1)
+                lc_v.set_linewidth(1)
+                lc_u.set_linewidth(1)
+                # Plot collections
+                ax_x[i,0].add_collection(lc_q)
+                ax_x[i,1].add_collection(lc_v)
+                ax_u[i].add_collection(lc_u)
+                # Scatter to highlight points
+                colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+                my_colors = cm(colors)
+                ax_x[i,0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
+                ax_x[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
+                ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
+
+        # Joint position
+          # Desired
+        ax_x[i,0].plot(t_span_ctrl_x, plot_data['q_des'][:,i], 'b-', label='Desired')
+          # Measured
+        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)', linewidth=2)
+        ax_x[i,0].set(xlabel='t (s)', ylabel='$q_{i}$ (rad)')
+        ax_x[i,0].grid()
+        # ax_x[i,0].set_ylim(x0[i]-0.1, x0[i]+0.1)
+        
+        # Joint velocity 
+          # Desired 
+        ax_x[i,1].plot(t_span_ctrl_x, plot_data['v_des'][:,i], 'b-', label='Desired')
+          # Measured 
+        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)')
+        ax_x[i,1].set(xlabel='t (s)', ylabel='$v_{i}$ (rad/s)')
+        ax_x[i,1].grid()
+        # ax_x[i,1].set_ylim(x0[nq+i]-0.1, x0[nq+i]+0.1)
+        
+        # Joint torques
+          # Desired  
+        ax_u[i].plot(t_span_ctrl_u, plot_data['u_des'][:,i], 'b-', label='Desired')
+          # Measured
+        ax_u[i].plot(t_span_simu_u, plot_data['u_mea'][:,i], 'r-', label='Measured') 
+        ax_u[i].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
+        ax_u[i].grid()
+        # ax_u[i].set_ylim(u_min[i], u_max[i])
+
+        # Desired joint torque (interpolated feedforward)
+        ax_a[i,0].plot(t_span_ctrl_u, plot_data['a_err'][:,i], 'b-', label='Velocity error (average)')
+        # Total
+        ax_a[i,0].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
+        ax_a[i,0].grid()
+
+        # Desired joint torque (interpolated feedforward)
+        ax_a[i,1].plot(t_span_ctrl_u, plot_data['a_err'][:,nq+i], 'b-', label='Acceleration error (average)')
+        # Total
+        ax_a[i,1].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
+        ax_a[i,1].grid()
+
+        # Legend
+        handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
+        fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+
+        handles_u, labels_u = ax_u[i].get_legend_handles_labels()
+        fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
+
+    # Plot endeff
+    if 'ax_p_ylim' in plot_data:
+        ax_p_ylim = plot_data['ax_p_ylim']
+    else:
+        ax_p_ylim = 0.2
+    # x
+    ax_p[0].plot(t_span_ctrl_x, plot_data['p_des'][:,0]-[p_ref[0]]*(N_ctrl+1), 'b-', label='px_des - px_ref', alpha=0.5)
+    ax_p[0].plot(t_span_simu_x, plot_data['p_mea'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='px_mea - px_ref (WITH noise)', linewidth=1, alpha=0.3)
+    ax_p[0].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='px_mea - px_ref (NO noise)', linewidth=2)
+    ax_p[0].set_title('x-position-ERROR')
+    ax_p[0].set(xlabel='t (s)', ylabel='x (m)')
+    ax_p[0].set_ylim(-ax_p_ylim, ax_p_ylim) #delta_px, p_ref[0]+delta_px)
+    ax_p[0].grid()
+    # y
+    ax_p[1].plot(t_span_ctrl_x, plot_data['p_des'][:,1]-[p_ref[1]]*(N_ctrl+1), 'b-', label='py_des - py_ref', alpha=0.5)
+    ax_p[1].plot(t_span_simu_x, plot_data['p_mea'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (WITH noise)', linewidth=1, alpha=0.3)
+    ax_p[1].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (NO noise)', linewidth=2)
+    ax_p[1].set_title('y-position-ERROR')
+    ax_p[1].set(xlabel='t (s)', ylabel='y (m)')
+    ax_p[1].set_ylim(-ax_p_ylim, ax_p_ylim) #p_ref[1]-delta_py, p_ref[1]+delta_py)
+    ax_p[1].grid()
+    # z
+    ax_p[2].plot(t_span_ctrl_x, plot_data['p_des'][:,2]-[p_ref[2]]*(N_ctrl+1), 'b-', label='pz_des - pz_ref', alpha=0.5)
+    ax_p[2].plot(t_span_simu_x, plot_data['p_mea'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (WITH noise)', linewidth=1, alpha=0.3)
+    ax_p[2].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (NO noise)', linewidth=2)
+    ax_p[2].set_title('z-position-ERROR')
+    ax_p[2].set(xlabel='t (s)', ylabel='z (m)')
+    ax_p[2].set_ylim(-ax_p_ylim, ax_p_ylim) #p_ref[2]-delta_pz, p_ref[2]+delta_pz)
+    ax_p[2].grid()
+    # Add frame ref if any
+    ax_p[0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.4)
+    ax_p[1].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.4)
+    ax_p[2].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.4)
+
+
+    if(PLOT_PREDICTIONS):
+        # For each component (x,y,z)
+        for i in range(3):
+            p_pred_i = plot_data['p_pred'][:, :, i]
+            # For each planning step in the trajectory
+            for j in range(0, N_plan, pred_plot_sampling):
+                # Receding horizon = [j,j+N_h]
+                t0_horizon = j*dt_plan
+                tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+                # Set up lists of (x,y) points for predicted positions
+                points_p = np.array([tspan_x_pred, p_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                # Set up lists of segments
+                segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
+                # Make collections segments
+                cm = plt.get_cmap('Greys_r') 
+                lc_p = LineCollection(segs_p, cmap=cm, zorder=-1)
+                lc_p.set_array(tspan_x_pred)
+                # Customize
+                lc_p.set_linestyle('-')
+                lc_p.set_linewidth(1)
+                # Plot collections
+                ax_p[i].add_collection(lc_p)
+                # Scatter to highlight points
+                colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+                my_colors = cm(colors)
+                ax_p[i].scatter(tspan_x_pred, p_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+
+    handles_p, labels_p = ax_p[0].get_legend_handles_labels()
+    fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
+
+    # Titles
+    fig_x.suptitle('State = joint positions, velocities', size=16)
+    fig_u.suptitle('Control = joint torques', size=16)
+    fig_p.suptitle('End-effector trajectories errors', size=16)
+    fig_a.suptitle('Average tracking errors over control cycles (1ms)', size=16)
+    plt.show() 
+
+
+def plot_results_from_sim_data(sim_data):
+    plot_data = extract_plot_data_from_sim_data(sim_data)
+    plot_results_from_plot_data(plot_data)
+
+
+def plot_results_from_yaml(yaml_file):
+    plot_data = extract_plot_data_from_yaml(yaml_file)
+    plot_results_from_plot_data(plot_data)
+
 
 def weighted_moving_average(series, lookback = None):
     if not lookback:
@@ -405,33 +651,6 @@ def hull_moving_average(series, lookback):
     #   # print("             - normal force = "+str(pt[9])  +" (N)")
     #   # print("             - lat1 force   = "+str(pt[10]) +" (N)")
     #   # print("             - lat2 force   = "+str(pt[12]) +" (N)")
-
-# def get_f(self, q, v, a, tau, pin_robot, id_endeff):
-#     '''
-#     Returns contact force in LOCAL frame based on FD estimate of joint acc
-#         q         : joint positions
-#         v         : joint velocities
-#         a         : joint acceleration
-#         tau       : joint torques
-#         pin_robot : Pinocchio wrapper
-#         id_endeff : id of EE frame
-#     '''
-#     # Calculate contact force from (q, v, a, tau)
-#     f = np.empty((u.shape[0], 6))
-#     for i in range(u.shape[0]):
-#         # Jacobian (in LOCAL coord)
-#         pin.computeJointJacobians(pin_robot.model, pin_robot.data, q[i,:])
-#         jac = pin.getFrameJacobian(pin_robot.model, pin_robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
-#         # Joint space inertia and its inverse + NL terms
-#         pin.crba(pin_robot.model, pin_robot.data, q[i,:])
-#         pin.computeMinverse(pin_robot.model, pin_robot.data, q[i,:])
-#         M = pin_robot.data.M
-#         Minv = pin_robot.data.Minv
-#         h = pin.nonLinearEffects(pin_robot.model, pin_robot.data, q[i,:], v[i,:])
-#         # Contact force
-#         f[i,:] = np.linalg.inv( jac.dot(Minv).dot(jac.T) ).dot( jac.dot(Minv).dot( h - u[i,:] + M.dot(a[i,:]) ) )
-#     return f
-
 
 # def animateCartpole(xs, sleep=50):
 #     print("processing the animation ... ")
