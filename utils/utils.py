@@ -310,6 +310,7 @@ def save_data_to_yaml(sim_data, save_name=None, save_dir=None):
     '''
     Saves data to a yaml file
     '''
+    print('Saving data...')
     if(save_name is None):
         save_name = 'NO_NAME'+str(time.time())+'.yml'
     if(save_dir is None):
@@ -324,6 +325,7 @@ def extract_plot_data_from_sim_data(sim_data):
     '''
     Extract plot data from simu data
     '''
+    print('Extracting plotting data from simulation data...')
     plot_data = {}
     nx = sim_data['X_mea'].shape[1]
     nq = nx//2
@@ -343,7 +345,7 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['p_mea'] = sim_data['P_mea']
     plot_data['p_mea_no_noise'] = sim_data['P_mea_no_noise']
     plot_data['p_pred'] = sim_data['P_pred']
-    plot_data['p_des'] = np.vstack([sim_data['P_mea'][0,:], sim_data['P_pred'][:,1,:]])
+    plot_data['p_des'] = np.vstack([sim_data['p0'], sim_data['P_pred'][:,10,:]])
     # control
     plot_data['u_pred'] = sim_data['U_pred']
     plot_data['u_des'] = sim_data['U_pred'][:,0,:]
@@ -389,7 +391,7 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
                            to avoid huge amount of plotted data 
                            ("1" = plot all)
     '''
-
+    print('Plotting data...')
     T_tot = plot_data['T_tot']
     N_simu = plot_data['N_simu']
     N_ctrl = plot_data['N_ctrl']
@@ -517,28 +519,28 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
     else:
         ax_p_ylim = 0.2
     # x
-    ax_p[0].plot(t_span_ctrl_x, plot_data['p_des'][:,0]-[p_ref[0]]*(N_ctrl+1), 'b-', label='px_des - px_ref', alpha=0.5)
-    ax_p[0].plot(t_span_simu_x, plot_data['p_mea'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='px_mea - px_ref (WITH noise)', linewidth=1, alpha=0.3)
-    ax_p[0].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='px_mea - px_ref (NO noise)', linewidth=2)
+    ax_p[0].plot(t_span_ctrl_x, plot_data['p_des'][:,0]-p_ref[0], 'b-', label='p_des - p_ref', alpha=0.5)
+    ax_p[0].plot(t_span_simu_x, plot_data['p_mea'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref (WITH noise)', linewidth=1, alpha=0.3)
+    ax_p[0].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref (NO noise)', linewidth=2)
     ax_p[0].set_title('x-position-ERROR')
     ax_p[0].set(xlabel='t (s)', ylabel='x (m)')
-    ax_p[0].set_ylim(-ax_p_ylim, ax_p_ylim) #delta_px, p_ref[0]+delta_px)
+    # ax_p[0].set_ylim(-ax_p_ylim, ax_p_ylim) #delta_px, p_ref[0]+delta_px)
     ax_p[0].grid()
     # y
-    ax_p[1].plot(t_span_ctrl_x, plot_data['p_des'][:,1]-[p_ref[1]]*(N_ctrl+1), 'b-', label='py_des - py_ref', alpha=0.5)
+    ax_p[1].plot(t_span_ctrl_x, plot_data['p_des'][:,1]-p_ref[1], 'b-', label='py_des - py_ref', alpha=0.5)
     ax_p[1].plot(t_span_simu_x, plot_data['p_mea'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (WITH noise)', linewidth=1, alpha=0.3)
     ax_p[1].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (NO noise)', linewidth=2)
     ax_p[1].set_title('y-position-ERROR')
     ax_p[1].set(xlabel='t (s)', ylabel='y (m)')
-    ax_p[1].set_ylim(-ax_p_ylim, ax_p_ylim) #p_ref[1]-delta_py, p_ref[1]+delta_py)
+    # ax_p[1].set_ylim(-ax_p_ylim, ax_p_ylim) #p_ref[1]-delta_py, p_ref[1]+delta_py)
     ax_p[1].grid()
     # z
-    ax_p[2].plot(t_span_ctrl_x, plot_data['p_des'][:,2]-[p_ref[2]]*(N_ctrl+1), 'b-', label='pz_des - pz_ref', alpha=0.5)
+    ax_p[2].plot(t_span_ctrl_x, plot_data['p_des'][:,2]-p_ref[2], 'b-', label='pz_des - pz_ref', alpha=0.5)
     ax_p[2].plot(t_span_simu_x, plot_data['p_mea'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (WITH noise)', linewidth=1, alpha=0.3)
     ax_p[2].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (NO noise)', linewidth=2)
     ax_p[2].set_title('z-position-ERROR')
     ax_p[2].set(xlabel='t (s)', ylabel='z (m)')
-    ax_p[2].set_ylim(-ax_p_ylim, ax_p_ylim) #p_ref[2]-delta_pz, p_ref[2]+delta_pz)
+    # ax_p[2].set_ylim(-ax_p_ylim, ax_p_ylim) #p_ref[2]-delta_pz, p_ref[2]+delta_pz)
     ax_p[2].grid()
     # Add frame ref if any
     ax_p[0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'k-.', label='err=0', alpha=0.4)
