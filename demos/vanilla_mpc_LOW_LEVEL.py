@@ -86,7 +86,6 @@ xRegCost = crocoddyl.CostModelState(state,
 print("[OCP] Created state reg cost.")
    # Control regularization
 ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
-# ctrlRegWeights[-1] = 2
 u_grav = pin.rnea(robot.model, robot.data, x0[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
 uRegCost = crocoddyl.CostModelControl(state, 
                                       crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
@@ -292,6 +291,9 @@ for i in range(N_simu):
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(simu_freq/plan_freq) == 0):
         print("  PLAN ("+str(nb_plan)+"/"+str(N_plan)+")")
+        # Updtate OCP if necessary
+        for k,m in enumerate(ddp.problem.runningModels[:]):
+            m.differential.costs.costs["placement"].weight += (i/N_simu)*2e-2 #1e-1 
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -316,9 +318,9 @@ for i in range(N_simu):
           u_pred_0_prev = sim_data['U_pred'][nb_plan-1, 0, :]
         else:
           u_pred_0_prev = u_pred_0 
-        # Updtate OCP if necessary
-        for k,m in enumerate(ddp.problem.runningModels[:]):
-            m.differential.costs.costs["placement"].weight += (i/N_simu)*1e-2 #1e-1
+        # # Updtate OCP if necessary
+        # for k,m in enumerate(ddp.problem.runningModels[:]):
+        #     m.differential.costs.costs["placement"].weight += (i/N_simu)*1e-2 #1e-1
         # Increment planning counter
         nb_plan += 1
         
@@ -413,7 +415,7 @@ for i in range(N_simu):
     if(TORQUE_TRACKING):
       err_u = sim_data['U_mea'][i, :] - u_ref_HF              
       int_err_u += err_u                             
-      vel_err_u = sim_data['vel_U_mea'][i, :] - vel_u_ref_HF #vel_u_ref_HF # vs vel_u_ref  
+      vel_err_u = sim_data['vel_U_mea'][i, :] #- vel_u_ref_HF #vel_u_ref_HF # vs vel_u_ref  
 
 print('--------------------------------')
 print('Simulation exited successfully !')
@@ -427,11 +429,19 @@ sim_data['P_pred'] = np.zeros((N_plan, N_h+1, 3))
 for node_id in range(N_h+1):
   sim_data['P_pred'][:, node_id, :] = utils.get_p(sim_data['X_pred'][:, node_id, :nq], robot, id_endeff) - np.array([p_ref]*N_plan)
 sim_data['P_mea'] = utils.get_p(sim_data['X_mea'][:,:nq], robot, id_endeff)
+q_des = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
+sim_data['P_des'] = utils.get_p(q_des, robot, id_endeff)
 sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
-sim_data['p0'] = p0
+# sim_data['p0'] = p0
 # Save sim data to yaml file (optional)
 if(config['SAVE_SIM_DATA_TO_YAML']):
-  utils.save_data_to_yaml(sim_data)
+  # save_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
+  # save_name = 'TEST'+str(time.time())
+  # save_path = save_dir+save_name
+  # file = open(save_path,"w")
+  # file.write(sim_data)
+  # file.close()
+  utils.save_data_to_yaml(sim_data, save_name='no_tracking_filter_state_2kHz')
 # Extract plot data from sim data
 plot_data = utils.extract_plot_data_from_sim_data(sim_data)
 # Add parameters to customize plots
@@ -440,4 +450,4 @@ plot_data = utils.extract_plot_data_from_sim_data(sim_data)
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
-utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=True, pred_plot_sampling=250)
+utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sampling=250)
