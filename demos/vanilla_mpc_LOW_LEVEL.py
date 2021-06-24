@@ -315,12 +315,9 @@ for i in range(N_simu):
             u_pred_0 = buffer_OCP.pop(-delay_OCP_cycle)
         # Optionally interpolate to control frequency
         if(nb_plan >= 1 and INTERPOLATE_PLAN==True):
-          u_pred_0_prev = sim_data['U_pred'][nb_plan-1, 0, :]
+          u_pred_0_next = sim_data['U_pred'][nb_plan, 1, :]
         else:
-          u_pred_0_prev = u_pred_0 
-        # # Updtate OCP if necessary
-        # for k,m in enumerate(ddp.problem.runningModels[:]):
-        #     m.differential.costs.costs["placement"].weight += (i/N_simu)*1e-2 #1e-1
+          u_pred_0_next = u_pred_0 
         # Increment planning counter
         nb_plan += 1
         
@@ -329,8 +326,9 @@ for i in range(N_simu):
         print("  CTRL ("+str(nb_ctrl)+"/"+str(N_ctrl)+")")
         # Optionally interpolate desired torque to control frequency
         if(INTERPOLATE_PLAN):
-          coef = float(i%int(ctrl_freq/plan_freq)) / float(ctrl_freq/plan_freq)
-          u_ref = (1-coef)*u_pred_0_prev + coef*u_pred_0   
+          coef = float(i % int(ctrl_freq/plan_freq)) / (float(ctrl_freq/plan_freq))
+          print("coef = ", coef)
+          u_ref = (1-coef)*u_pred_0 + coef*u_pred_0_next   
         else:
           u_ref = u_pred_0
         # Record reference torque
@@ -435,13 +433,8 @@ sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robo
 # sim_data['p0'] = p0
 # Save sim data to yaml file (optional)
 if(config['SAVE_SIM_DATA_TO_YAML']):
-  # save_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
-  # save_name = 'TEST'+str(time.time())
-  # save_path = save_dir+save_name
-  # file = open(save_path,"w")
-  # file.write(sim_data)
-  # file.close()
-  utils.save_data_to_yaml(sim_data, save_name='no_tracking_filter_state_2kHz')
+  save_name = 'no_tracking_filter_state_'+str(plan_freq/1000.)+'kHz'
+  utils.save_data_to_yaml(sim_data, save_name=save_name)
 # Extract plot data from sim data
 plot_data = utils.extract_plot_data_from_sim_data(sim_data)
 # Add parameters to customize plots
@@ -450,4 +443,4 @@ plot_data = utils.extract_plot_data_from_sim_data(sim_data)
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
-utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sampling=250)
+utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sampling=100)

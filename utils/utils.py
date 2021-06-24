@@ -372,7 +372,9 @@ def extract_plot_data_from_yaml(sim_yaml_file):
     '''
     Extract plot data from yaml file (in which simu data was dumped)
     '''
+    print("  [1] Loading sim data from YAML file...")
     sim_data = load_yaml_file(sim_yaml_file)
+    print("  [2] Extracting plot data...")
     plot_data = extract_plot_data_from_sim_data(sim_data)
     return plot_data
 
@@ -409,6 +411,8 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
     t_span_simu_u = np.linspace(0, T_tot-dt_simu, N_simu)
     t_span_ctrl_x = np.linspace(0, T_tot, N_ctrl+1)
     t_span_ctrl_u = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
+    t_span_plan_x = np.linspace(0, T_tot, N_plan+1)
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
     fig_x, ax_x = plt.subplots(nq, 2)
     fig_u, ax_u = plt.subplots(nq, 1)
     fig_p, ax_p = plt.subplots(3,1) 
@@ -467,7 +471,7 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
 
         # Joint position
           # Desired
-        ax_x[i,0].plot(t_span_ctrl_x, plot_data['q_des'][:,i], 'b-', label='Desired')
+        ax_x[i,0].plot(t_span_plan_x, plot_data['q_des'][:,i], 'b-', label='Desired')
           # Measured
         ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)', linewidth=2)
@@ -477,7 +481,7 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
         
         # Joint velocity 
           # Desired 
-        ax_x[i,1].plot(t_span_ctrl_x, plot_data['v_des'][:,i], 'b-', label='Desired')
+        ax_x[i,1].plot(t_span_plan_x, plot_data['v_des'][:,i], 'b-', label='Desired')
           # Measured 
         ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)')
@@ -487,7 +491,7 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
         
         # Joint torques
           # Desired  
-        ax_u[i].plot(t_span_ctrl_u, plot_data['u_des'][:,i], 'b-', label='Desired')
+        ax_u[i].plot(t_span_plan_u, plot_data['u_des'][:,i], 'b-', label='Desired')
           # Measured
         ax_u[i].plot(t_span_simu_u, plot_data['u_mea'][:,i], 'r-', label='Measured') 
         ax_u[i].set(xlabel='t (s)', ylabel='$u_{i}$ (Nm)')
@@ -515,7 +519,7 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
 
     # Plot endeff
     # x
-    ax_p[0].plot(t_span_ctrl_x, plot_data['p_des'][:,0]-p_ref[0], 'b-', label='p_des - p_ref', alpha=0.5)
+    ax_p[0].plot(t_span_plan_x, plot_data['p_des'][:,0]-p_ref[0], 'b-', label='p_des - p_ref', alpha=0.5)
     ax_p[0].plot(t_span_simu_x, plot_data['p_mea'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref (WITH noise)', linewidth=1, alpha=0.3)
     ax_p[0].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref (NO noise)', linewidth=2)
     ax_p[0].set_title('x-position-ERROR')
@@ -524,7 +528,7 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
     # 
     ax_p[0].grid()
     # y
-    ax_p[1].plot(t_span_ctrl_x, plot_data['p_des'][:,1]-p_ref[1], 'b-', label='py_des - py_ref', alpha=0.5)
+    ax_p[1].plot(t_span_plan_x, plot_data['p_des'][:,1]-p_ref[1], 'b-', label='py_des - py_ref', alpha=0.5)
     ax_p[1].plot(t_span_simu_x, plot_data['p_mea'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (WITH noise)', linewidth=1, alpha=0.3)
     ax_p[1].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (NO noise)', linewidth=2)
     ax_p[1].set_title('y-position-ERROR')
@@ -532,7 +536,7 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
     ax_p[1].set(xlabel='t (s)', ylabel='y (m)')
     ax_p[1].grid()
     # z
-    ax_p[2].plot(t_span_ctrl_x, plot_data['p_des'][:,2]-p_ref[2], 'b-', label='pz_des - pz_ref', alpha=0.5)
+    ax_p[2].plot(t_span_plan_x, plot_data['p_des'][:,2]-p_ref[2], 'b-', label='pz_des - pz_ref', alpha=0.5)
     ax_p[2].plot(t_span_simu_x, plot_data['p_mea'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (WITH noise)', linewidth=1, alpha=0.3)
     ax_p[2].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (NO noise)', linewidth=2)
     ax_p[2].set_title('z-position-ERROR')

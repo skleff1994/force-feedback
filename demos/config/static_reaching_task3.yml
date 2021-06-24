@@ -6,8 +6,8 @@
 # # # # # # # # 
 # Frequencies
 simu_freq: 20000  # Simulation frequency in Hz
-ctrl_freq: 5000   # Control frequency
-plan_freq: 5000   # Planning frequency
+ctrl_freq: 1000   # Control frequency
+plan_freq: 1000   # Planning frequency
 # MPC
 T_tot: 5.     # Simu duration (s)
 dt: 0.03      # OCP integration step 
@@ -31,7 +31,7 @@ INTERPOLATE_CTRL: False       # Interpolate motor driver reference torque and t
 INIT_LOGS: False
 log_display_time: 10
 # Save results to YAML ?
-SAVE_SIM_DATA_TO_YAML: True
+SAVE_SIM_DATA_TO_YAML: False
 
 # # # # # 
 # TASK  # 
