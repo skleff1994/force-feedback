@@ -109,7 +109,7 @@ print("[OCP] Created ctrl lim cost.")
    # End-effector placement 
 p_target = np.asarray(config['p_des']) 
 M_target = pin.SE3(M_ee.rotation.T, p_target)
-desiredFramePlacement = M_ee # M_target
+desiredFramePlacement = M_target #M_ee # M_target
 p_ref = desiredFramePlacement.translation.copy()
 framePlacementWeights = np.asarray(config['framePlacementWeights'])
 framePlacementCost = crocoddyl.CostModelFramePlacement(state, 
@@ -293,7 +293,9 @@ for i in range(N_simu):
         print("  PLAN ("+str(nb_plan)+"/"+str(N_plan)+")")
         # Updtate OCP if necessary
         for k,m in enumerate(ddp.problem.runningModels[:]):
-            m.differential.costs.costs["placement"].weight += (i/N_simu)*2e-2 #1e-1 
+            # m.differential.costs.costs["placement"].weight += (i/N_simu)*config['frameWeight']   
+            # print(m.differential.costs.costs["placement"].weight)
+            m.differential.costs.costs["placement"].weight = utils.cost_weight_tanh(i, N_simu, max_weight=100, alpha=10, alpha_cut=0.2)
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -433,8 +435,8 @@ sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robo
 # sim_data['p0'] = p0
 # Save sim data to yaml file (optional)
 if(config['SAVE_SIM_DATA_TO_YAML']):
-  save_name = 'no_tracking_filter_state_'+str(plan_freq/1000.)+'kHz'
-  utils.save_data_to_yaml(sim_data, save_name=save_name)
+  # save_name = 'with_tracking_'+str(plan_freq/1000.)+'kHz'
+  utils.save_data_to_yaml(sim_data, save_name=save_name, save_dir='/home/skleff/force-feedback/data/DATASET2')
 # Extract plot data from sim data
 plot_data = utils.extract_plot_data_from_sim_data(sim_data)
 # Add parameters to customize plots
@@ -443,4 +445,4 @@ plot_data = utils.extract_plot_data_from_sim_data(sim_data)
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
-utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sampling=100)
+utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=True, pred_plot_sampling=50)
