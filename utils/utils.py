@@ -413,7 +413,10 @@ from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
 import matplotlib
 
-def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sampling=100):
+def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, 
+                                           pred_plot_sampling=100, 
+                                           SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                                           SHOW=True):
     '''
     Plot sim data
      Input:
@@ -443,10 +446,10 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
     t_span_ctrl_u = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
     t_span_plan_x = np.linspace(0, T_tot, N_plan+1)
     t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
-    fig_x, ax_x = plt.subplots(nq, 2)
-    fig_u, ax_u = plt.subplots(nq, 1)
-    fig_p, ax_p = plt.subplots(3,1) 
-    fig_a, ax_a = plt.subplots(nq,2)
+    fig_x, ax_x = plt.subplots(nq, 2, figsize=(19.2,10.8))
+    fig_u, ax_u = plt.subplots(nq, 1, figsize=(19.2,10.8))
+    fig_p, ax_p = plt.subplots(3,1, figsize=(19.2,10.8)) 
+    fig_a, ax_a = plt.subplots(nq,2, figsize=(19.2,10.8))
 
     # For each joint
     for i in range(nq):
@@ -619,7 +622,24 @@ def plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=False, pred_plot_sam
     fig_u.suptitle('Control = joint torques', size=16)
     fig_p.suptitle('End-effector trajectories errors', size=16)
     fig_a.suptitle('Average tracking errors over control cycles (1ms)', size=16)
-    plt.show() 
+    
+    # Save figs
+    if(SAVE):
+        figs = {'x': fig_x, 
+                'u': fig_u,
+                'a': fig_a,
+                'p': fig_p}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    plt.close('all')
+
 
 
 def plot_results_from_sim_data(sim_data, PLOT_PREDICTIONS=False, pred_plot_sampling=100):

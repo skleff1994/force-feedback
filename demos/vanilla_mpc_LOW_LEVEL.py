@@ -1,3 +1,4 @@
+# Number of runs
 """
 @package force_feedback
 @file mpc_iiwa_sim.py
@@ -109,7 +110,7 @@ print("[OCP] Created ctrl lim cost.")
    # End-effector placement 
 p_target = np.asarray(config['p_des']) 
 M_target = pin.SE3(M_ee.rotation.T, p_target)
-desiredFramePlacement = M_target #M_ee # M_target
+desiredFramePlacement = M_ee # M_target
 p_ref = desiredFramePlacement.translation.copy()
 framePlacementWeights = np.asarray(config['framePlacementWeights'])
 framePlacementCost = crocoddyl.CostModelFramePlacement(state, 
@@ -155,6 +156,7 @@ print("-------------------------------------------------------------------")
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
+
 # MPC & simulation parameters
 maxit = config['maxiter']
 T_tot = config['T_tot']
@@ -188,10 +190,10 @@ sim_data['U_ref'] = np.zeros((N_ctrl, nu))             # Reference torque for mo
 sim_data['U_mea'] = np.zeros((N_simu, nu))             # Actuation torques (i.e. disturbed reference sent to PyBullet at simu/HF)
 sim_data['X_mea'] = np.zeros((N_simu+1, nx))           # Measured states (i.e. measured from PyBullet at simu/HF)
 sim_data['X_mea_no_noise'] = np.zeros((N_simu+1, nx))  # Measured states (i.e measured from PyBullet at simu/HF) without noise
-sim_data['vel_U_ref'] = np.zeros((N_ctrl, nu))         # Desired torques (current ff output by DDP)
-sim_data['vel_U_mea'] = np.zeros((N_simu, nu))         # Actuation torques (sent to PyBullet)
-sim_data['vel_U_ref_HF'] = np.zeros((N_simu, nu))      # Actuation torques (sent to PyBullet)
-sim_data['vel_U_mea'][0,:] = np.zeros(nq)
+vel_U_ref = np.zeros((N_ctrl, nu))         # Desired torques (current ff output by DDP)
+vel_U_mea = np.zeros((N_simu, nu))         # Actuation torques (sent to PyBullet)
+vel_U_ref_HF = np.zeros((N_simu, nu))      # Actuation torques (sent to PyBullet)
+vel_U_mea[0,:] = np.zeros(nq)
   # Initialize PID errors
 err_u = np.zeros(nq)
 vel_err_u = np.zeros(nq)
@@ -291,11 +293,11 @@ for i in range(N_simu):
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(simu_freq/plan_freq) == 0):
         print("  PLAN ("+str(nb_plan)+"/"+str(N_plan)+")")
-        # Updtate OCP if necessary
-        for k,m in enumerate(ddp.problem.runningModels[:]):
-            # m.differential.costs.costs["placement"].weight += (i/N_simu)*config['frameWeight']   
-            # print(m.differential.costs.costs["placement"].weight)
-            m.differential.costs.costs["placement"].weight = utils.cost_weight_tanh(i, N_simu, max_weight=100, alpha=10, alpha_cut=0.2)
+        # # Updtate OCP if necessary
+        # for k,m in enumerate(ddp.problem.runningModels[:]):
+        #     # m.differential.costs.costs["placement"].weight += (i/N_simu)*config['frameWeight']   
+        #     # print(m.differential.costs.costs["placement"].weight)
+        #     m.differential.costs.costs["placement"].weight = utils.cost_weight_tanh(i, N_simu, max_weight=1000, alpha=5, alpha_cut=0.1)
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -338,13 +340,13 @@ for i in range(N_simu):
         # Optionally interpolate to HF
         if(nb_ctrl >= 1 and INTERPOLATE_CTRL):
           u_ref_prev = sim_data['U_ref'][nb_ctrl-1, :]
-          vel_u_ref_prev = sim_data['vel_U_ref'][nb_ctrl-1, :]
+          vel_u_ref_prev = vel_U_ref[nb_ctrl-1, :]
         else:
           u_ref_prev = u_ref
           vel_u_ref_prev = np.zeros(nq)
         # Estimate reference torque time-derivative by finite-differences for low-level PID
         vel_u_ref = ( u_ref - u_ref_prev ) / dt_ctrl
-        sim_data['vel_U_ref'][nb_ctrl, :] = vel_u_ref
+        vel_U_ref[nb_ctrl, :] = vel_u_ref
         # vel_u_des = (U_des[nb_ctrl-4, :] - 8*U_des[nb_ctrl-3, :] + U_des[nb_ctrl-1, :] - U_des[nb_ctrl, :]) / (12*dt_ctrl)
         # Increment control counter
         nb_ctrl += 1
@@ -358,7 +360,7 @@ for i in range(N_simu):
     else:
       u_ref_HF = u_ref  
       vel_u_ref_HF = vel_u_ref
-    sim_data['vel_U_ref_HF'][i,:] = vel_u_ref_HF
+    vel_U_ref_HF[i,:] = vel_u_ref_HF
     # Initialize measured torque to reference torque
     if(TORQUE_TRACKING):
       u_mea = u_ref_HF - Kp.dot(err_u) - Ki.dot(int_err_u) - Kd.dot(vel_err_u)
@@ -407,22 +409,24 @@ for i in range(N_simu):
     sim_data['X_mea'][i+1, :] = x_mea 
     # Estimate torque time-derivative
     if(i>=1):
-      sim_data['vel_U_mea'][i, :] = (u_mea - sim_data['U_mea'][i-1, :]) / (dt_simu)
+      vel_U_mea[i, :] = (u_mea - sim_data['U_mea'][i-1, :]) / (dt_simu)
       # vel_u_mea = (U_mea[i-4, :] - 8*U_mea[i-3, :] + U_mea[i-1, :] - U_mea[i, :]) / (12*dt_simu)
     else:
-      sim_data['vel_U_mea'][i, :] = np.zeros(nq)
+      vel_U_mea[i, :] = np.zeros(nq)
     # Update PID errors
     if(TORQUE_TRACKING):
       err_u = sim_data['U_mea'][i, :] - u_ref_HF              
       int_err_u += err_u                             
-      vel_err_u = sim_data['vel_U_mea'][i, :] #- vel_u_ref_HF #vel_u_ref_HF # vs vel_u_ref  
+      vel_err_u = vel_U_mea[i, :] #- vel_u_ref_HF #vel_u_ref_HF # vs vel_u_ref  
 
 print('--------------------------------')
 print('Simulation exited successfully !')
 print('--------------------------------')
+
 # # # # # # # # # # # #
 # PROCESS SIM RESULTS #
 # # # # # # # # # # # #
+
 # Post-process EE trajectories and record in sim data
 print('Post-processing end-effector trajectories...')
 sim_data['P_pred'] = np.zeros((N_plan, N_h+1, 3))
@@ -432,17 +436,19 @@ sim_data['P_mea'] = utils.get_p(sim_data['X_mea'][:,:nq], robot, id_endeff)
 q_des = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
 sim_data['P_des'] = utils.get_p(q_des, robot, id_endeff)
 sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
-# sim_data['p0'] = p0
-# Save sim data to yaml file (optional)
-if(config['SAVE_SIM_DATA_TO_YAML']):
-  # save_name = 'with_tracking_'+str(plan_freq/1000.)+'kHz'
-  utils.save_data_to_yaml(sim_data, save_name=save_name, save_dir='/home/skleff/force-feedback/data/DATASET2')
+
+# # # # # # # # # # #
+# PLOT SIM RESULTS  #
+# # # # # # # # # # #
+
 # Extract plot data from sim data
 plot_data = utils.extract_plot_data_from_sim_data(sim_data)
 # Add parameters to customize plots
 # plot_data['ax_p_ylim'] = 1
 
-# # # # # # # # # # #
-# PLOT SIM RESULTS  #
-# # # # # # # # # # #
-utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=True, pred_plot_sampling=50)
+utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=True, pred_plot_sampling=int(plan_freq/10))
+
+# Save optionally
+if(config['SAVE_SIM_DATA_TO_YAML']):
+  save_name = 'with_tracking_'+str(plan_freq)+'Hz'
+  utils.save_data_to_yaml(sim_data, save_name=save_name, save_dir='/home/skleff/force-feedback/data')
