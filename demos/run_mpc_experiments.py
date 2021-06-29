@@ -19,6 +19,11 @@ The goal of this script is to simulate the low-level torque control
 as well at higher frequency (5 to 20kHz) . In face of noise we should 
 still recover the performance of closed-loop MPC (ICRA 2021) because 
 the KUKA had a low-level torque control
+
+Automate the simulations and data saving: 
+- runs N_EXP sims for different freqs
+- saves plots of x,u,p and acc error in specified subdirs of /data
+- saves data dict as compressed npz , can be used later for analysis (separate script)
 '''
 
 import os.path
@@ -108,9 +113,9 @@ uLimitCost = crocoddyl.CostModelControl(state,
                                         u_lim_ref)
 print("[OCP] Created ctrl lim cost.")
    # End-effector placement 
-p_target = np.asarray(config['p_des']) 
-M_target = pin.SE3(M_ee.rotation.T, p_target)
-desiredFramePlacement = M_ee # M_target
+# p_target = np.asarray(config['p_des']) 
+# M_target = pin.SE3(M_ee.rotation.T, p_target)
+desiredFramePlacement = M_ee.copy() # M_target
 p_ref = desiredFramePlacement.translation.copy()
 framePlacementWeights = np.asarray(config['framePlacementWeights'])
 framePlacementCost = crocoddyl.CostModelFramePlacement(state, 
@@ -156,8 +161,9 @@ print("-------------------------------------------------------------------")
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
-freqs = ['BASELINE', 250, 500]  # 1000, 2000, 5000, 10000, 20000]
-N_EXP = 3
+# freqs = ['BASELINE', 250 , 500, 1000, 2000, 5000, 10000, 20000]
+freqs = [500, 2000, 5000]
+N_EXP = 1
 
 # For data analysis
 data = {}
@@ -219,10 +225,12 @@ for MPC_frequency in freqs:
     int_err_u = np.zeros(nq)
       # Initialize average acceleration tracking error (avg over 1ms)
     sim_data['A_err'] = np.zeros((N_ctrl, nx))
-      # Initialize measured state with PyB measurement + update pin
-    q_mea, v_mea = pybullet_simulator.get_state()
-    pybullet_simulator.forward_robot(q_mea, v_mea)
-    x0 = np.concatenate([q_mea, v_mea]).T
+      # Initialize measured state and simulator to initial state x0 
+    pybullet_simulator.reset_state(q0, dq0)
+    pybullet_simulator.forward_robot(q0, dq0)
+    # q_mea, v_mea = pybullet_simulator.get_state()
+    # pybullet_simulator.forward_robot(q_mea, v_mea)
+    x0 = np.concatenate([q0, dq0]).T
     sim_data['X_mea'][0, :] = x0
     sim_data['X_mea_no_noise'][0, :] = x0
     p0 = robot.data.oMf[id_endeff].translation.T.copy()
@@ -453,7 +461,7 @@ for MPC_frequency in freqs:
     sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
     # Plot and save figs
-    save_dir = '/home/skleff/force-feedback/data/DATASET4/'+str(MPC_frequency)
+    save_dir = '/home/skleff/force-feedback/data/DATASET5/'+str(MPC_frequency)
     plot_data = utils.extract_plot_data_from_sim_data(sim_data)
     figs = utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=True, 
                                                         pred_plot_sampling=int(plan_freq/10),
@@ -468,7 +476,10 @@ for MPC_frequency in freqs:
     # Save sim data to yaml file (optional)
     if(config['SAVE_SIM_DATA_TO_YAML']):
       save_name = str(plan_freq)+'Hz__exp_'+str(n_exp)
-      utils.save_data_to_yaml(sim_data, save_name=save_name, save_dir=save_dir)
+      np.savez_compressed(save_dir + "/" + save_name +".npz", sim_data,
+                          X_mea = sim_data["X_mea"])
+                          # name keys of sim_data dict 
+      # utils.save_data_to_yaml(sim_data, save_name=save_name, save_dir=save_dir)
 
 
 # # # # # # # # # # # # # # # # # 
@@ -489,7 +500,7 @@ for k, MPC_frequency in enumerate(freqs):
     pz_err_max_avg[k] += pz_err_max[k, n_exp]
     # Calculate steady-state error (avg error over last points) along z 
     length = int(N_simu/2)
-    pz_err_res[k, n_exp] = np.sum(pz_abs_err[-length])/length
+    pz_err_res[k, n_exp] = np.sum(pz_abs_err[-length:])/length
     pz_err_res_avg[k] += pz_err_res[k, n_exp]
   pz_err_max_avg[k] = pz_err_max_avg[k]/N_EXP
   pz_err_res_avg[k] = pz_err_res_avg[k]/N_EXP
@@ -545,7 +556,7 @@ fig2.legend(handles2, labels2, loc='upper right', prop={'size': 16})
 fig1.suptitle('Average peak error for EE task')
 fig2.suptitle('Average steady-state error for EE task')
 # Save, show , clean
-fig1.savefig('/home/skleff/force-feedback/data/DATASET4/peak_err.png')
-fig2.savefig('/home/skleff/force-feedback/data/DATASET4/resi_err.png')
+fig1.savefig('/home/skleff/force-feedback/data/DATASET5/peak_err.png')
+fig2.savefig('/home/skleff/force-feedback/data/DATASET5/resi_err.png')
 plt.show()
 plt.close('all')
