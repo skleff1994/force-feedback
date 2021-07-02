@@ -34,6 +34,7 @@ from utils import utils
 import pybullet as p
 import time 
 
+np.random.seed(1)
 
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
@@ -118,6 +119,14 @@ framePlacementCost = crocoddyl.CostModelFramePlacement(state,
                                                        crocoddyl.FramePlacement(id_endeff, desiredFramePlacement), 
                                                        actuation.nu) 
 print("[OCP] Created frame placement cost.")
+   # End-effector velocity 
+desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
+frameVelocityWeights = np.ones(6)
+frameVelocityCost = crocoddyl.CostModelFrameVelocity(state, 
+                                                     crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
+                                                     crocoddyl.FrameMotion(id_endeff, desiredFrameMotion), 
+                                                     actuation.nu) 
+print("[OCP] Created frame velocity cost.")
 # Create IAMs
 runningModels = []
 for i in range(N_h):
@@ -130,8 +139,8 @@ for i in range(N_h):
   runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight'])
   runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['xRegWeight'])
   runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['uRegWeight'])
-  runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
-  runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
+  # runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
+  # runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
   # Add armature
   runningModels[i].differential.armature = np.asarray(config['armature'])
   # Terminal IAM + set armature
@@ -142,7 +151,8 @@ terminalModel = crocoddyl.IntegratedActionModelEuler(
    # Add cost models
 terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
 terminalModel.differential.costs.addCost("stateReg", xRegCost, config['xRegWeightTerminal'])
-terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['xLimWeightTerminal'])
+terminalModel.differential.costs.addCost("velocity", frameVelocityCost, 1e4)
+# terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['xLimWeightTerminal'])
   # Add armature
 terminalModel.differential.armature = np.asarray(config['armature']) 
 print("[OCP] Created IAMs.")
@@ -200,10 +210,7 @@ vel_err_u = np.zeros(nq)
 int_err_u = np.zeros(nq)
   # Initialize average acceleration tracking error (avg over 1ms)
 sim_data['A_err'] = np.zeros((N_ctrl, nx))
-  # Initialize measured state with PyB measurement + update pin
-q_mea, v_mea = pybullet_simulator.get_state()
-pybullet_simulator.forward_robot(q_mea, v_mea)
-x0 = np.concatenate([q_mea, v_mea]).T
+  # Initialize measured state 
 sim_data['X_mea'][0, :] = x0
 sim_data['X_mea_no_noise'][0, :] = x0
 p0 = robot.data.oMf[id_endeff].translation.T.copy()
@@ -286,13 +293,18 @@ if(config['INIT_LOGS']):
   time.sleep(config['log_display_time'])
 
 # SIMULATE
+log_rate = 10000
+time_stop_noise = sim_data['T_tot'] #/2. # in sec
+
 for i in range(N_simu): 
-    print("  ")
-    print("SIMU step "+str(i)+"/"+str(N_simu))
+
+    if(i%log_rate==0): 
+      print("  ")
+      print("SIMU step "+str(i)+"/"+str(N_simu))
 
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(simu_freq/plan_freq) == 0):
-        print("  PLAN ("+str(nb_plan)+"/"+str(N_plan)+")")
+        # print("  PLAN ("+str(nb_plan)+"/"+str(N_plan)+")")
         # # Updtate OCP if necessary
         # for k,m in enumerate(ddp.problem.runningModels[:]):
         #     # m.differential.costs.costs["placement"].weight += (i/N_simu)*config['frameWeight']   
@@ -327,11 +339,10 @@ for i in range(N_simu):
         
   # If we are in a control cycle select reference torque to send to motors
     if(i%int(simu_freq/ctrl_freq) == 0):
-        print("  CTRL ("+str(nb_ctrl)+"/"+str(N_ctrl)+")")
+        # print("  CTRL ("+str(nb_ctrl)+"/"+str(N_ctrl)+")")
         # Optionally interpolate desired torque to control frequency
         if(INTERPOLATE_PLAN):
           coef = float(i % int(ctrl_freq/plan_freq)) / (float(ctrl_freq/plan_freq))
-          print("coef = ", coef)
           u_ref = (1-coef)*u_pred_0 + coef*u_pred_0_next   
         else:
           u_ref = u_pred_0
@@ -396,7 +407,7 @@ for i in range(N_simu):
     # Accumulate acceleration error over the control cycle
     sim_data['A_err'][nb_ctrl-1,:] += (np.abs(x_mea - x_pred_1))/float(simu_freq/ctrl_freq)
     # Optional noise + filtering
-    if(NOISE_STATE):
+    if(NOISE_STATE and float(i)/simu_freq <= time_stop_noise):
       wq = np.random.normal(0., var_q, nq)
       wv = np.random.normal(0., var_v, nv)
       x_mea += np.concatenate([wq, wv]).T
@@ -440,15 +451,20 @@ sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robo
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
+save_dir = '/home/skleff/force-feedback/data'
+save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz'
 
 # Extract plot data from sim data
-plot_data = utils.extract_plot_data_from_sim_data(sim_data)
-# Add parameters to customize plots
-# plot_data['ax_p_ylim'] = 1
+plot_data = utils.extract_plot_data(sim_data)
 
-utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=True, pred_plot_sampling=int(plan_freq/10))
+# Plot results
+utils.plot_results(plot_data, PLOT_PREDICTIONS=True, 
+                              pred_plot_sampling=int(plan_freq/10),
+                              SAVE=True,
+                              SAVE_DIR=save_dir,
+                              SAVE_NAME=save_name,
+                              AUTOSCALE=True)
 
 # Save optionally
-if(config['SAVE_SIM_DATA_TO_YAML']):
-  save_name = 'with_tracking_'+str(plan_freq)+'Hz'
-  utils.save_data_to_yaml(sim_data, save_name=save_name, save_dir='/home/skleff/force-feedback/data')
+if(config['SAVE_DATA']):
+  utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)

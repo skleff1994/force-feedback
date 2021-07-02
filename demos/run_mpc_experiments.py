@@ -123,6 +123,14 @@ framePlacementCost = crocoddyl.CostModelFramePlacement(state,
                                                        crocoddyl.FramePlacement(id_endeff, desiredFramePlacement), 
                                                        actuation.nu) 
 print("[OCP] Created frame placement cost.")
+   # End-effector velocity 
+desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
+frameVelocityWeights = np.ones(6)
+frameVelocityCost = crocoddyl.CostModelFrameVelocity(state, 
+                                                     crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
+                                                     crocoddyl.FrameMotion(id_endeff, desiredFrameMotion), 
+                                                     actuation.nu) 
+print("[OCP] Created frame velocity cost.")
 # Create IAMs
 runningModels = []
 for i in range(N_h):
@@ -135,8 +143,8 @@ for i in range(N_h):
   runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight'])
   runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['xRegWeight'])
   runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['uRegWeight'])
-  runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
-  runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
+  # runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
+  # runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
   # Add armature
   runningModels[i].differential.armature = np.asarray(config['armature'])
   # Terminal IAM + set armature
@@ -147,7 +155,8 @@ terminalModel = crocoddyl.IntegratedActionModelEuler(
    # Add cost models
 terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
 terminalModel.differential.costs.addCost("stateReg", xRegCost, config['xRegWeightTerminal'])
-terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['xLimWeightTerminal'])
+terminalModel.differential.costs.addCost("velocity", frameVelocityCost, 1e4)
+# terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['xLimWeightTerminal'])
   # Add armature
 terminalModel.differential.armature = np.asarray(config['armature']) 
 print("[OCP] Created IAMs.")
@@ -161,22 +170,33 @@ print("-------------------------------------------------------------------")
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
-# freqs = ['BASELINE', 250 , 500, 1000, 2000, 5000, 10000, 20000]
-freqs = [500, 2000, 5000]
+# freqs = ['BASELINE', 250 , 500, 1000, 2000, 5000, 10000] #, 20000]
+freqs = [250, 10000] #[ 'BASELINE', 1000, 2000, 5000, 10000]
 N_EXP = 1
+DATASET_NAME = 'DATASET6'
 
 # For data analysis
 data = {}
+PERFORMANCE_ANALYSIS = True
 
+# Generate one bias on torque per experiment (to make comparison fair btw freqs)
+alphas = []
+betas = []
+for n_exp in range(N_EXP):
+  alphas.append(np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(nq,)))
+  betas.append(np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(nq,)))
+
+# For each MPC frequency 
 for MPC_frequency in freqs:
 
   data[str(MPC_frequency)] = {}
 
+  # For each experiment
   for n_exp in range(N_EXP):
 
     # LOG
     print('######################')
-    print('# ' + str(MPC_frequency) + ' Hz (exp. '+str(n_exp)+'/'+str(N_EXP)+') #')
+    print('# ' + str(MPC_frequency) + ' Hz (exp. '+str(n_exp+1)+'/'+str(N_EXP)+') #')
     print('######################')
 
     # MPC & simulation parameters
@@ -215,6 +235,7 @@ for MPC_frequency in freqs:
     sim_data['U_mea'] = np.zeros((N_simu, nu))             # Actuation torques (i.e. disturbed reference sent to PyBullet at simu/HF)
     sim_data['X_mea'] = np.zeros((N_simu+1, nx))           # Measured states (i.e. measured from PyBullet at simu/HF)
     sim_data['X_mea_no_noise'] = np.zeros((N_simu+1, nx))  # Measured states (i.e measured from PyBullet at simu/HF) without noise
+    sim_data['K'] = np.zeros((N_plan, nq, nx))             # Ricatti gains (K_0)
     vel_U_ref = np.zeros((N_ctrl, nu))         # Desired torques (current ff output by DDP)
     vel_U_mea = np.zeros((N_simu, nu))         # Actuation torques (sent to PyBullet)
     vel_U_ref_HF = np.zeros((N_simu, nu))      # Actuation torques (sent to PyBullet)
@@ -239,8 +260,10 @@ for MPC_frequency in freqs:
     nb_ctrl = 0
     # Low-level simulation parameters (actuation model)
       # Scaling of desired torque
-    alpha = np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(nq,))
-    beta = np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(nq,))
+    alpha = alphas[n_exp]
+    beta = betas[n_exp]
+    sim_data['alpha'] = alpha
+    sim_data['beta'] = beta
       # White noise on desired torque and measured state
     var_u = 0.001*(u_max - u_min) #u_np.asarray(config['var_u']) 0.5% of range on the joint
     var_q = np.asarray(config['var_q'])
@@ -315,13 +338,16 @@ for MPC_frequency in freqs:
       time.sleep(config['log_display_time'])
 
     # SIMULATE
+    log_rate = 10000
     for i in range(N_simu): 
-        print("  ")
-        print("SIMU step "+str(i)+"/"+str(N_simu))
+
+        if(i%log_rate==0): 
+          print("  ")
+          print("SIMU step "+str(i)+"/"+str(N_simu))
 
       # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
         if(i%int(simu_freq/plan_freq) == 0):
-            print("  PLAN ("+str(nb_plan)+"/"+str(N_plan)+")")
+            # print("  PLAN ("+str(nb_plan)+"/"+str(N_plan)+")")
             # Reset x0 to measured state + warm-start solution
             ddp.problem.x0 = sim_data['X_mea'][i, :]
             xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -334,6 +360,8 @@ for MPC_frequency in freqs:
             # Extract desired control torque + prepare interpolation to control frequency
             x_pred_1 = sim_data['X_pred'][nb_plan, 1, :]
             u_pred_0 = sim_data['U_pred'][nb_plan, 0, :]
+            # Record Ricatti gain
+            sim_data['K'][nb_plan, :, :] = ddp.K[0]
             # Delay due to OCP resolution time 
             if(DELAY_OCP):
               buffer_OCP.append(u_pred_0)
@@ -351,11 +379,10 @@ for MPC_frequency in freqs:
             
       # If we are in a control cycle select reference torque to send to motors
         if(i%int(simu_freq/ctrl_freq) == 0):
-            print("  CTRL ("+str(nb_ctrl)+"/"+str(N_ctrl)+")")
+            # print("  CTRL ("+str(nb_ctrl)+"/"+str(N_ctrl)+")")
             # Optionally interpolate desired torque to control frequency
             if(INTERPOLATE_PLAN):
               coef = float(i % int(ctrl_freq/plan_freq)) / (float(ctrl_freq/plan_freq))
-              print("coef = ", coef)
               u_ref = (1-coef)*u_pred_0 + coef*u_pred_0_next   
             else:
               u_ref = u_pred_0
@@ -460,103 +487,103 @@ for MPC_frequency in freqs:
     sim_data['P_des'] = utils.get_p(q_des, robot, id_endeff)
     sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
-    # Plot and save figs
-    save_dir = '/home/skleff/force-feedback/data/DATASET5/'+str(MPC_frequency)
-    plot_data = utils.extract_plot_data_from_sim_data(sim_data)
-    figs = utils.plot_results_from_plot_data(plot_data, PLOT_PREDICTIONS=True, 
-                                                        pred_plot_sampling=int(plan_freq/10),
-                                                        SAVE=True,
-                                                        SAVE_DIR=save_dir,
-                                                        SAVE_NAME=str(plan_freq)+'Hz__exp_'+str(n_exp),
-                                                        SHOW=False)
-    
-    # Record data for performance analysis
-    data[str(MPC_frequency)][str(n_exp)] = plot_data
+    # Saving params
+    save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz__exp_'+str(n_exp)
+    save_dir = '/home/skleff/force-feedback/data/'+DATASET_NAME+'/'+str(MPC_frequency)
 
-    # Save sim data to yaml file (optional)
-    if(config['SAVE_SIM_DATA_TO_YAML']):
-      save_name = str(plan_freq)+'Hz__exp_'+str(n_exp)
-      np.savez_compressed(save_dir + "/" + save_name +".npz", sim_data,
-                          X_mea = sim_data["X_mea"])
-                          # name keys of sim_data dict 
-      # utils.save_data_to_yaml(sim_data, save_name=save_name, save_dir=save_dir)
+    # Plots
+    plot_data = utils.extract_plot_data(sim_data)
+    figs = utils.plot_results(plot_data, PLOT_PREDICTIONS=True, 
+                                         pred_plot_sampling=int(plan_freq/10),
+                                         SAVE=True,
+                                         SAVE_DIR=save_dir,
+                                         SAVE_NAME=save_name,
+                                         SHOW=False,
+                                         AUTOSCALE=True)
+    
+    #Save data for performance analysis as compressed .npz
+    if(config['SAVE_DATA']):
+      data[str(MPC_frequency)][str(n_exp)] = plot_data
+      utils.save_data(plot_data, save_name=save_name, save_dir=save_dir)
 
 
 # # # # # # # # # # # # # # # # # 
 ### PROCESS FOR PERF ANALYSIS ###
-# # # # # # # # # # # # # # # # # 
-# Process data for performance analysis along relevant axis
-pz_err_max = np.zeros((len(freqs), N_EXP))
-pz_err_max_avg = np.zeros(len(freqs))
-pz_err_res = np.zeros((len(freqs), N_EXP))
-pz_err_res_avg = np.zeros(len(freqs))
-for k, MPC_frequency in enumerate(freqs):
-  for n_exp in range(N_EXP):
-    # Get data
-    d = data[str(MPC_frequency)][str(n_exp)]
-    # Record error peak (max deviation from ref) along z axis
-    pz_abs_err = np.abs(d['p_mea_no_noise'][:,2] - d['p_ref'][2])
-    pz_err_max[k, n_exp] = np.max(pz_abs_err)
-    pz_err_max_avg[k] += pz_err_max[k, n_exp]
-    # Calculate steady-state error (avg error over last points) along z 
-    length = int(N_simu/2)
-    pz_err_res[k, n_exp] = np.sum(pz_abs_err[-length:])/length
-    pz_err_res_avg[k] += pz_err_res[k, n_exp]
-  pz_err_max_avg[k] = pz_err_max_avg[k]/N_EXP
-  pz_err_res_avg[k] = pz_err_res_avg[k]/N_EXP
+# # # # # # # # # # # # # # # # #
+if(PERFORMANCE_ANALYSIS):
 
-# # # # # # # # # # # # 
-### PLOT PERFORMANCE ##
-# # # # # # # # # # # # 
-import matplotlib.pyplot as plt
-# Plots
-fig1, ax1 = plt.subplots(1, 1, figsize=(19.2,10.8)) # Max err in z (averaged over N_EXP) , vs MPC frequency
-fig2, ax2 = plt.subplots(1, 1, figsize=(19.2,10.8)) # plot avg SS ERROR in z vs frequencies DOTS connected 
-# For each freq
-for k in range(1, len(freqs)): 
-    # Color for the current freq
-    coef = np.tanh(float(k) / float(len(data)) )
-    col = [coef, coef/3., 1-coef, 1.]
-    # For each exp plot max err , steady-state err
+  # Process data for performance analysis along relevant axis
+  pz_err_max = np.zeros((len(freqs), N_EXP))
+  pz_err_max_avg = np.zeros(len(freqs))
+  pz_err_res = np.zeros((len(freqs), N_EXP))
+  pz_err_res_avg = np.zeros(len(freqs))
+  for k, MPC_frequency in enumerate(freqs):
     for n_exp in range(N_EXP):
-      # max err
-      ax1.plot(freqs[k], pz_err_max[k, n_exp], marker='o', color=[coef, coef/3., 1-coef, .3]) 
-      # SS err
-      ax2.plot(freqs[k], pz_err_res[k, n_exp], marker='o', color=[coef, coef/3., 1-coef, .3])
-    # AVG max err
-    ax1.plot(freqs[k], pz_err_max_avg[k], marker='o', markersize=10, color=col, label=str(freqs[k])+' Hz')
-    ax1.set(xlabel='Frequency (kHz)', ylabel='$AVG max|p_{z} - pref_{z}|$ (m)')
-    # Err norm
-    ax2.plot(freqs[k], pz_err_res_avg[k], marker='o', markersize=10, color=col, label=str(freqs[k])+' Hz')
-    ax2.set(xlabel='Frequency (kHz)', ylabel='$AVG Steady-State Error |p_{z} - pref_{z}|$')
+      # Get data
+      d = data[str(MPC_frequency)][str(n_exp)]
+      # Record error peak (max deviation from ref) along z axis
+      pz_abs_err = np.abs(d['p_mea_no_noise'][:,2] - d['p_ref'][2])
+      pz_err_max[k, n_exp] = np.max(pz_abs_err)
+      pz_err_max_avg[k] += pz_err_max[k, n_exp]
+      # Calculate steady-state error (avg error over last points) along z 
+      length = int(N_simu/2)
+      pz_err_res[k, n_exp] = np.sum(pz_abs_err[-length:])/length
+      pz_err_res_avg[k] += pz_err_res[k, n_exp]
+    pz_err_max_avg[k] = pz_err_max_avg[k]/N_EXP
+    pz_err_res_avg[k] = pz_err_res_avg[k]/N_EXP
 
-# BASELINE tracking
-# For each exp plot max err , steady-state err
-for n_exp in range(N_EXP):
-  # max err
-  ax1.plot(1000., pz_err_max[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
-  # SS err
-  ax2.plot(1000, pz_err_res[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
-# AVG max err
-ax1.plot(1000, pz_err_max_avg[0], marker='o', markersize=12, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
-ax1.set(xlabel='Frequency (kHz)', ylabel='$AVG max|p_{z} - pref_{z}|$ (m)')
-# Err norm
-ax2.plot(1000, pz_err_res_avg[0], marker='o', markersize=12, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
-ax2.set(xlabel='Frequency (kHz)', ylabel='$AVG Steady-State Error |p_{z} - pref_{z}|$')
-# Grids
-ax2.grid() 
-ax1.grid() 
-# Legend error
-handles1, labels1 = ax1.get_legend_handles_labels()
-fig1.legend(handles1, labels1, loc='upper right', prop={'size': 16})
-# Legend error norm 
-handles2, labels2 = ax2.get_legend_handles_labels()
-fig2.legend(handles2, labels2, loc='upper right', prop={'size': 16})
-# titles
-fig1.suptitle('Average peak error for EE task')
-fig2.suptitle('Average steady-state error for EE task')
-# Save, show , clean
-fig1.savefig('/home/skleff/force-feedback/data/DATASET5/peak_err.png')
-fig2.savefig('/home/skleff/force-feedback/data/DATASET5/resi_err.png')
-plt.show()
-plt.close('all')
+  # # # # # # # # # # # # 
+  ### PLOT PERFORMANCE ##
+  # # # # # # # # # # # # 
+  import matplotlib.pyplot as plt
+  # Plots
+  fig1, ax1 = plt.subplots(1, 1, figsize=(19.2,10.8)) # Max err in z (averaged over N_EXP) , vs MPC frequency
+  fig2, ax2 = plt.subplots(1, 1, figsize=(19.2,10.8)) # plot avg SS ERROR in z vs frequencies DOTS connected 
+  # For each experiment plot errors 
+  for k in range(1, len(freqs)): 
+      # Color for the current freq
+      coef = np.tanh(float(k) / float(len(data)) )
+      col = [coef, coef/3., 1-coef, 1.]
+      # For each exp plot max err , steady-state err
+      for n_exp in range(N_EXP):
+        # max err
+        ax1.plot(freqs[k], pz_err_max[k, n_exp], marker='o', color=[coef, coef/3., 1-coef, .3]) 
+        # SS err
+        ax2.plot(freqs[k], pz_err_res[k, n_exp], marker='o', color=[coef, coef/3., 1-coef, .3])
+      # AVG max err
+      ax1.plot(freqs[k], pz_err_max_avg[k], marker='o', markersize=12, color=col, label=str(freqs[k])+' Hz')
+      ax1.set(xlabel='Frequency (kHz)', ylabel='$AVG max|p_{z} - pref_{z}|$ (m)')
+      # Err norm
+      ax2.plot(freqs[k], pz_err_res_avg[k], marker='o', markersize=12, color=col, label=str(freqs[k])+' Hz')
+      ax2.set(xlabel='Frequency (kHz)', ylabel='$AVG Steady-State Error |p_{z} - pref_{z}|$')
+
+  # BASELINE tracking
+  # For each exp plot max err , steady-state err
+  for n_exp in range(N_EXP):
+    # max err
+    ax1.plot(1000., pz_err_max[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
+    # SS err
+    ax2.plot(1000, pz_err_res[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
+  # AVG max err
+  ax1.plot(1000, pz_err_max_avg[0], marker='o', markersize=12, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
+  ax1.set(xlabel='Frequency (kHz)', ylabel='$AVG max|p_{z} - pref_{z}|$ (m)')
+  # Err norm
+  ax2.plot(1000, pz_err_res_avg[0], marker='o', markersize=12, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
+  ax2.set(xlabel='Frequency (kHz)', ylabel='$AVG Steady-State Error |p_{z} - pref_{z}|$')
+  # Grids
+  ax2.grid() 
+  ax1.grid() 
+  # Legend error
+  handles1, labels1 = ax1.get_legend_handles_labels()
+  fig1.legend(handles1, labels1, loc='upper right', prop={'size': 16})
+  # Legend error norm 
+  handles2, labels2 = ax2.get_legend_handles_labels()
+  fig2.legend(handles2, labels2, loc='upper right', prop={'size': 16})
+  # titles
+  fig1.suptitle('Average peak error for EE task')
+  fig2.suptitle('Average steady-state error for EE task')
+  # Save, show , clean
+  fig1.savefig('/home/skleff/force-feedback/data/'+DATASET_NAME+'/peak_err.png')
+  fig2.savefig('/home/skleff/force-feedback/data/'+DATASET_NAME+'/resi_err.png')
+  plt.show()
+  plt.close('all')
