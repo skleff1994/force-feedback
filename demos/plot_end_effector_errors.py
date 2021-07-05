@@ -9,7 +9,7 @@ import sys
 import matplotlib.pyplot as plt
 
 
-def main(DATASET_NAME=None, N_EXP=10):
+def main(DATASET_NAME=None, N_EXP=1):
   
   if DATASET_NAME is None:
     print("Please specify a DATASET to analyze !")
@@ -65,7 +65,7 @@ def main(DATASET_NAME=None, N_EXP=10):
     fig1, ax1 = plt.subplots(1, 1, figsize=(19.2,10.8)) # Max err in z (averaged over N_EXP) , vs MPC frequency
     fig2, ax2 = plt.subplots(1, 1, figsize=(19.2,10.8)) # plot avg SS ERROR in z vs frequencies DOTS connected 
     # For each experiment plot errors 
-    for k in range(1, len(freqs)): 
+    for k in range(len(freqs)): 
       # PLOT DATA
       if(freqs[k] != 'BASELINE'):
         # Color for the current freq

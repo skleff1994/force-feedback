@@ -178,6 +178,10 @@ DATASET_NAME = 'DATASET6'
 # For data analysis
 data = {}
 PERFORMANCE_ANALYSIS = True
+FIX_RANDOM_SEED = True
+
+if(FIX_RANDOM_SEED):
+  np.random.seed(1)
 
 # Generate one bias on torque per experiment (to make comparison fair btw freqs)
 alphas = []
@@ -487,20 +491,26 @@ for MPC_frequency in freqs:
     sim_data['P_des'] = utils.get_p(q_des, robot, id_endeff)
     sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
+    # Process Ricatti gains
+    print("Post-processing Ricatti gains...")
+     # SVD
+    
+     # VP / SV
     # Saving params
     save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz__exp_'+str(n_exp)
     save_dir = '/home/skleff/force-feedback/data/'+DATASET_NAME+'/'+str(MPC_frequency)
 
     # Plots
     plot_data = utils.extract_plot_data(sim_data)
-    figs = utils.plot_results(plot_data, PLOT_PREDICTIONS=True, 
-                                         pred_plot_sampling=int(plan_freq/10),
+    figs = utils.plot_results(plot_data, which_plots=['x','u','a','p','K'],
+                                         PLOT_PREDICTIONS=True, 
+                                         pred_plot_sampling=int(plan_freq/20),
                                          SAVE=True,
                                          SAVE_DIR=save_dir,
                                          SAVE_NAME=save_name,
                                          SHOW=False,
                                          AUTOSCALE=True)
-    
+
     #Save data for performance analysis as compressed .npz
     if(config['SAVE_DATA']):
       data[str(MPC_frequency)][str(n_exp)] = plot_data
@@ -512,6 +522,13 @@ for MPC_frequency in freqs:
 # # # # # # # # # # # # # # # # #
 if(PERFORMANCE_ANALYSIS):
 
+  # Sort and add BASELINE (1000Hz) if necessary
+  if('BASELINE' in freqs):
+    freqs.remove('BASELINE')
+    freqs.sort(key=int)
+    freqs.insert(0, 'BASELINE')
+
+  print(freqs)
   # Process data for performance analysis along relevant axis
   pz_err_max = np.zeros((len(freqs), N_EXP))
   pz_err_max_avg = np.zeros(len(freqs))
@@ -540,7 +557,8 @@ if(PERFORMANCE_ANALYSIS):
   fig1, ax1 = plt.subplots(1, 1, figsize=(19.2,10.8)) # Max err in z (averaged over N_EXP) , vs MPC frequency
   fig2, ax2 = plt.subplots(1, 1, figsize=(19.2,10.8)) # plot avg SS ERROR in z vs frequencies DOTS connected 
   # For each experiment plot errors 
-  for k in range(1, len(freqs)): 
+  for k in range(len(freqs)): 
+    if(freqs[k] != 'BASELINE'):
       # Color for the current freq
       coef = np.tanh(float(k) / float(len(data)) )
       col = [coef, coef/3., 1-coef, 1.]
@@ -559,17 +577,19 @@ if(PERFORMANCE_ANALYSIS):
 
   # BASELINE tracking
   # For each exp plot max err , steady-state err
-  for n_exp in range(N_EXP):
-    # max err
-    ax1.plot(1000., pz_err_max[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
-    # SS err
-    ax2.plot(1000, pz_err_res[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
-  # AVG max err
-  ax1.plot(1000, pz_err_max_avg[0], marker='o', markersize=12, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
-  ax1.set(xlabel='Frequency (kHz)', ylabel='$AVG max|p_{z} - pref_{z}|$ (m)')
-  # Err norm
-  ax2.plot(1000, pz_err_res_avg[0], marker='o', markersize=12, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
-  ax2.set(xlabel='Frequency (kHz)', ylabel='$AVG Steady-State Error |p_{z} - pref_{z}|$')
+  if('BASELINE' in freqs):
+    for n_exp in range(N_EXP):
+      # max err
+      ax1.plot(1000., pz_err_max[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
+      # SS err
+      ax2.plot(1000, pz_err_res[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
+    # AVG max err
+    ax1.plot(1000, pz_err_max_avg[0], marker='o', markersize=12, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
+    ax1.set(xlabel='Frequency (kHz)', ylabel='$AVG max|p_{z} - pref_{z}|$ (m)')
+    # Err norm
+    ax2.plot(1000, pz_err_res_avg[0], marker='o', markersize=12, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
+    ax2.set(xlabel='Frequency (kHz)', ylabel='$AVG Steady-State Error |p_{z} - pref_{z}|$')
+  
   # Grids
   ax2.grid() 
   ax1.grid() 
