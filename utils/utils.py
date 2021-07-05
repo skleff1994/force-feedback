@@ -744,11 +744,8 @@ def plot_endeff(plot_data, PLOT_PREDICTIONS=False,
 
 
 # Plot acceleration error data
-def plot_acc_err(plot_data, PLOT_PREDICTIONS=False, 
-                            pred_plot_sampling=100, 
-                            SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
-                            SHOW=True,
-                            AUTOSCALE=False):
+def plot_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                            SHOW=True):
     '''
     Plot acc err data
      Input:
@@ -798,9 +795,7 @@ def plot_acc_err(plot_data, PLOT_PREDICTIONS=False,
 
 
 # Plot Ricatti
-def plot_ricatti(plot_data, PLOT_PREDICTIONS=False, 
-                            pred_plot_sampling=100, 
-                            SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+def plot_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                             SHOW=True):
     '''
     Plot ricatti data
@@ -813,7 +808,7 @@ def plot_ricatti(plot_data, PLOT_PREDICTIONS=False,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting data...')
+    print('Plotting Ricatti data...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -884,9 +879,7 @@ def plot_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
                                              SHOW=False)
     
     if('a' in which_plots or which_plots is None or which_plots =='all'):
-        plots['a'] = plot_acc_err(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
-                                             pred_plot_sampling=pred_plot_sampling, 
-                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+        plots['a'] = plot_acc_err(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=SHOW)
 
     if('p' in which_plots or which_plots is None or which_plots =='all'):
@@ -896,9 +889,7 @@ def plot_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
 
     if('K' in which_plots or which_plots is None or which_plots =='all'):
-        plots['K'] = plot_ricatti(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
-                                             pred_plot_sampling=pred_plot_sampling, 
-                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+        plots['K'] = plot_ricatti(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
         
     if(SHOW):

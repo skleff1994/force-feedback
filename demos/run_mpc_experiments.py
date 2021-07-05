@@ -491,9 +491,15 @@ for MPC_frequency in freqs:
     sim_data['P_des'] = utils.get_p(q_des, robot, id_endeff)
     sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
-    # Process Ricatti gains
-    print("Post-processing Ricatti gains...")
-     # SVD
+    # Get SVD of ricatti
+    # Diagonalize Vxx
+    # Check reg of solver 
+    # Plot rank of Jacobian 
+    
+    # print("Post-processing Ricatti gains...")
+    # for i_plan in range(N_plan):
+    #   sim_data = ['K_svd'] = {}
+    #   sim_data['K'] 
     
      # VP / SV
     # Saving params
