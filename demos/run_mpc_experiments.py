@@ -171,25 +171,36 @@ print("-------------------------------------------------------------------")
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
 # freqs = ['BASELINE', 250 , 500, 1000, 2000, 5000, 10000] #, 20000]
-freqs = [10000] #, 10000] #[ 'BASELINE', 1000, 2000, 5000, 10000]
-N_EXP = 1
+freqs = [250, 500] # 10000] #, 10000] #[ 'BASELINE', 1000, 2000, 5000, 10000]
+N_EXP = 10
 DATASET_NAME = 'DATASET6'
 
 # For data analysis
 data = {}
-PERFORMANCE_ANALYSIS = True
-FIX_RANDOM_SEED = True
-WHICH_PLOTS = ['x','u','a','p','K', 'V', 'S', 'J']
+PERFORMANCE_ANALYSIS = True                         # Analyze performance across expes and freqs on EE task
+FIX_RANDOM_SEED = True                              # Fix random seed to ensure repeatability of simulations
+FIX_TORQUE_BIAS = True                              # Use only 1 bias for all experiments
+WHICH_PLOTS = ['x','u','a','p','K', 'V', 'S', 'J']  # Which plots to generate & save
 
+# Fix seed or not
 if(FIX_RANDOM_SEED):
   np.random.seed(1)
 
-# Generate one bias on torque per experiment (to make comparison fair btw freqs)
-alphas = []
-betas = []
-for n_exp in range(N_EXP):
-  alphas.append(np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(nq,)))
-  betas.append(np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(nq,)))
+# Generate one bias on torque per experiment - to make comparison fair btw freqs 
+#   i.e. 1 experiment <=> 1 actuator model
+if(not FIX_TORQUE_BIAS):
+  alphas = []
+  betas = []
+  for n_exp in range(N_EXP):
+    alphas.append(np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(nq,)))
+    betas.append(np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(nq,)))  
+# Otherwise fix alpha, beta once and for all
+else:
+  alpha = np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(nq,))
+  beta = np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(nq,))
+
+# Increase cost weight ratio EE/reg for each experiment by a factor gamma^2
+gamma = 2.
 
 # For each MPC frequency 
 for MPC_frequency in freqs:
@@ -271,10 +282,20 @@ for MPC_frequency in freqs:
     nb_ctrl = 0
     # Low-level simulation parameters (actuation model)
       # Scaling of desired torque
-    alpha = alphas[n_exp]
-    beta = betas[n_exp]
-    sim_data['alpha'] = alpha
-    sim_data['beta'] = beta
+    if(FIX_TORQUE_BIAS):
+      # Bias doesn't change across expe
+      sim_data['alpha'] = alpha
+      sim_data['beta'] = beta
+      # Bust cost weight ratio EE/reg does
+      for k,m in enumerate(ddp.problem.runningModels[:]):
+          m.differential.costs.costs["placement"].weight *= gamma
+          m.differential.costs.costs["stateReg"].weight /= gamma
+          m.differential.costs.costs["ctrlReg"].weight /= gamma
+    else:
+      # Bias changes across experiments
+      alpha = alphas[n_exp]
+      beta = betas[n_exp]
+
       # White noise on desired torque and measured state
     var_u = 0.001*(u_max - u_min) #u_np.asarray(config['var_u']) 0.5% of range on the joint
     var_q = np.asarray(config['var_q'])
