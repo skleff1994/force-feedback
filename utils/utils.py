@@ -402,12 +402,20 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['dt_simu'] = sim_data['dt_simu']
     plot_data['nq'] = sim_data['nq']
     plot_data['nv'] = sim_data['nv']
+    plot_data['nx'] = sim_data['nx']
     plot_data['T_h'] = sim_data['T_h']
     plot_data['N_h'] = sim_data['N_h']
     plot_data['p_ref'] = sim_data['p_ref']
     plot_data['alpha'] = sim_data['alpha']
     plot_data['beta'] = sim_data['beta']
+    # Solver stuff
     plot_data['K'] = sim_data['K']
+    plot_data['K_svd'] = sim_data['K_svd']
+    plot_data['Vxx_diag'] = sim_data['Vxx_diag']
+    plot_data['Vxx_eigval'] = sim_data['Vxx_eigval']
+    plot_data['J_rank'] = sim_data['J_rank']
+    plot_data['xreg'] = sim_data['xreg']
+    plot_data['ureg'] = sim_data['ureg']
     return plot_data
 
 # Same giving npz path OR dict as argument
@@ -757,7 +765,7 @@ def plot_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting data...')
+    print('Plotting acc error data...')
     T_tot = plot_data['T_tot']
     N_ctrl = plot_data['N_ctrl']
     dt_ctrl = plot_data['dt_ctrl']
@@ -813,21 +821,18 @@ def plot_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
     nq = plot_data['nq']
+
     # Create time spans for X and U + Create figs and subplots
     t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
-    fig_K, ax_K = plt.subplots(nq,2, figsize=(19.2,10.8))
+    fig_K, ax_K = plt.subplots(nq, 1, figsize=(19.2,10.8))
     # For each joint
     for i in range(nq):
-        # Ricatti gains on q
-        ax_K[i,0].plot(t_span_plan_u, plot_data['K'][:,i,i], 'b-', label='Ricatti gain Kq')
-        ax_K[i,0].set(xlabel='t (s)', ylabel='$Kq_{}$ (Nm)'.format(i,i))
-        ax_K[i,0].grid()
-        # Ricatti gains on v
-        ax_K[i,1].plot(t_span_plan_u, plot_data['K'][:,i,nq+i], 'b-', label='Ricatti gain Kv')
-        ax_K[i,1].set(xlabel='t (s)', ylabel='$Kv_{}$ (Nm)'.format(i,i))
-        ax_K[i,1].grid()
+        # Ricatti gains singular values
+        ax_K[i].plot(t_span_plan_u, plot_data['K_svd'][:,i], 'b-', label='Singular Value of Ricatti')
+        ax_K[i].set(xlabel='t (s)', ylabel='$\sigma [K]_{}$'.format(i))
+        ax_K[i].grid()
     # Titles
-    fig_K.suptitle('Diagonal Ricatti feedback gains (Kq,Kv)', size=16)
+    fig_K.suptitle('Singular Values of Ricatti feedback gains K', size=16)
     # Save figs
     if(SAVE):
         figs = {'K': fig_K}
@@ -842,6 +847,153 @@ def plot_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
         plt.show() 
     
     return fig_K
+
+
+# Plot Vxx
+def plot_Vxx(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                        SHOW=True):
+    '''
+    Plot Vxx data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting Vxx data...')
+    T_tot = plot_data['T_tot']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    nq = plot_data['nq']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_V, ax_V = plt.subplots(nq, 2, figsize=(19.2,10.8))
+    # For each state
+    for i in range(nq):
+        # Vxx diag
+        # ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_diag'][:,i], 'b-', label='Vxx diagonal')
+        # ax_V[i,0].set(xlabel='t (s)', ylabel='$Diag[Vxx_{}]$'.format(i,i))
+        # ax_V[i,0].grid()
+        # Vxx eigenvals
+        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eigval'][:,i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,0].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(i)+'(V_{xx})')
+        ax_V[i,0].grid()
+        # Vxx eigenvals
+        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eigval'][:,nq+i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,1].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(i)+'(V_{xx})')
+        ax_V[i,1].grid()
+    # Titles
+    fig_V.suptitle('Diagonal terms and Eigenvalues of Value Function Hessian Vxx', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'V': fig_V}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_V
+
+
+# Plot Solver regs
+def plot_solver(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                           SHOW=True):
+    '''
+    Plot solver data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting solver data...')
+    T_tot = plot_data['T_tot']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_S, ax_S = plt.subplots(2, 1, figsize=(19.2,10.8))
+    # Xreg
+    ax_S[0].plot(t_span_plan_u, plot_data['xreg'], 'b-', label='xreg')
+    ax_S[0].set(xlabel='t (s)', ylabel='$xreg$')
+    ax_S[0].grid()
+    # Ureg
+    ax_S[1].plot(t_span_plan_u, plot_data['ureg'], 'r-', label='ureg')
+    ax_S[1].set(xlabel='t (s)', ylabel='$ureg$')
+    ax_S[1].grid()
+    # Titles
+    fig_S.suptitle('FDDP solver regularization on x (Vxx diag) and u (Quu diag)', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'S': fig_S}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_S
+
+
+# Plot rank of Jacobian
+def plot_jacobian(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                             SHOW=True):
+    '''
+    Plot jacobian data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting solver data...')
+    T_tot = plot_data['T_tot']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_J, ax_J = plt.subplots(1, 1, figsize=(19.2,10.8))
+    # Rank of Jacobian
+    ax_J.plot(t_span_plan_u, plot_data['J_rank'], 'b-', label='rank')
+    ax_J.set(xlabel='t (s)', ylabel='rank')
+    ax_J.grid()
+    # Titles
+    fig_J.suptitle('Rank of Jacobian J(q)', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'J': fig_J}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_J
 
 
 # Plot data
@@ -891,7 +1043,19 @@ def plot_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
     if('K' in which_plots or which_plots is None or which_plots =='all'):
         plots['K'] = plot_ricatti(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
-        
+
+    if('V' in which_plots or which_plots is None or which_plots =='all'):
+        plots['V'] = plot_Vxx(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                         SHOW=False)
+
+    if('S' in which_plots or which_plots is None or which_plots =='all'):
+        plots['S'] = plot_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+
+    if('J' in which_plots or which_plots is None or which_plots =='all'):
+        plots['J'] = plot_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                              SHOW=False)
+
     if(SHOW):
         plt.show() 
     plt.close('all')

@@ -171,7 +171,7 @@ print("-------------------------------------------------------------------")
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
 # freqs = ['BASELINE', 250 , 500, 1000, 2000, 5000, 10000] #, 20000]
-freqs = [250, 10000] #[ 'BASELINE', 1000, 2000, 5000, 10000]
+freqs = [10000] #, 10000] #[ 'BASELINE', 1000, 2000, 5000, 10000]
 N_EXP = 1
 DATASET_NAME = 'DATASET6'
 
@@ -179,6 +179,7 @@ DATASET_NAME = 'DATASET6'
 data = {}
 PERFORMANCE_ANALYSIS = True
 FIX_RANDOM_SEED = True
+WHICH_PLOTS = ['x','u','a','p','K', 'V', 'S', 'J']
 
 if(FIX_RANDOM_SEED):
   np.random.seed(1)
@@ -229,6 +230,7 @@ for MPC_frequency in freqs:
     sim_data['dt_simu'] = dt_simu
     sim_data['nq'] = nq
     sim_data['nv'] = nv
+    sim_data['nx'] = nx
     sim_data['T_h'] = T_h
     sim_data['N_h'] = N_h
     sim_data['p_ref'] = p_ref
@@ -239,11 +241,16 @@ for MPC_frequency in freqs:
     sim_data['U_mea'] = np.zeros((N_simu, nu))             # Actuation torques (i.e. disturbed reference sent to PyBullet at simu/HF)
     sim_data['X_mea'] = np.zeros((N_simu+1, nx))           # Measured states (i.e. measured from PyBullet at simu/HF)
     sim_data['X_mea_no_noise'] = np.zeros((N_simu+1, nx))  # Measured states (i.e measured from PyBullet at simu/HF) without noise
-    sim_data['K'] = np.zeros((N_plan, nq, nx))             # Ricatti gains (K_0)
-    vel_U_ref = np.zeros((N_ctrl, nu))         # Desired torques (current ff output by DDP)
-    vel_U_mea = np.zeros((N_simu, nu))         # Actuation torques (sent to PyBullet)
-    vel_U_ref_HF = np.zeros((N_simu, nu))      # Actuation torques (sent to PyBullet)
+    vel_U_ref = np.zeros((N_ctrl, nu))                     # Desired torques (current ff output by DDP)
+    vel_U_mea = np.zeros((N_simu, nu))                     # Actuation torques (sent to PyBullet)
+    vel_U_ref_HF = np.zeros((N_simu, nu))                  # Actuation torques (sent to PyBullet)
     vel_U_mea[0,:] = np.zeros(nq)
+      # Sovler data
+    sim_data['K'] = np.zeros((N_plan, nq, nx))             # Ricatti gains (K_0)
+    sim_data['Vxx'] = np.zeros((N_plan, nx, nx))           # Hessian of the Value Function  
+    sim_data['xreg'] = np.zeros(N_plan)                    # State reg in solver (diag of Vxx)
+    sim_data['ureg'] = np.zeros(N_plan)                    # Control reg in solver (diag of Quu)
+    sim_data['J_rank'] = np.zeros(N_plan)                  # Rank of Jacobian
       # Initialize PID errors
     err_u = np.zeros(nq)
     vel_err_u = np.zeros(nq)
@@ -364,8 +371,12 @@ for MPC_frequency in freqs:
             # Extract desired control torque + prepare interpolation to control frequency
             x_pred_1 = sim_data['X_pred'][nb_plan, 1, :]
             u_pred_0 = sim_data['U_pred'][nb_plan, 0, :]
-            # Record Ricatti gain
-            sim_data['K'][nb_plan, :, :] = ddp.K[0]
+            # Record solver data
+            sim_data['K'][nb_plan, :, :] = ddp.K[0]      # Ricatti gain
+            sim_data['Vxx'][nb_plan, :, :] = ddp.Vxx[0]  # Hessian of V.F. 
+            sim_data['xreg'][nb_plan] = ddp.x_reg        # Reg solver on x
+            sim_data['ureg'][nb_plan] = ddp.u_reg        # Reg solver on u
+            sim_data['J_rank'][nb_plan] = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
             # Delay due to OCP resolution time 
             if(DELAY_OCP):
               buffer_OCP.append(u_pred_0)
@@ -492,23 +503,23 @@ for MPC_frequency in freqs:
     sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
     # Get SVD of ricatti
+    sim_data['K_svd'] = np.zeros((N_plan, nq))
+    for i in range(N_plan):
+      _, sim_data['K_svd'][i,:], _ = np.linalg.svd(sim_data['K'][i,:,:])
     # Diagonalize Vxx
-    # Check reg of solver 
-    # Plot rank of Jacobian 
-    
-    # print("Post-processing Ricatti gains...")
-    # for i_plan in range(N_plan):
-    #   sim_data = ['K_svd'] = {}
-    #   sim_data['K'] 
-    
-     # VP / SV
+    sim_data['Vxx_diag'] = np.zeros((N_plan, nx))
+    sim_data['Vxx_eigval'] = np.zeros((N_plan, nx))
+    for i in range(N_plan):
+      sim_data['Vxx_diag'][i, :] = sim_data['Vxx'][i, :, :].diagonal()
+      sim_data['Vxx_eigval'][i, :] = np.linalg.eigvals(sim_data['Vxx'][i, :, :])
+  
     # Saving params
     save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz__exp_'+str(n_exp)
     save_dir = '/home/skleff/force-feedback/data/'+DATASET_NAME+'/'+str(MPC_frequency)
 
     # Plots
     plot_data = utils.extract_plot_data(sim_data)
-    figs = utils.plot_results(plot_data, which_plots=['x','u','a','p','K'],
+    figs = utils.plot_results(plot_data, which_plots=WHICH_PLOTS,
                                          PLOT_PREDICTIONS=True, 
                                          pred_plot_sampling=int(plan_freq/20),
                                          SAVE=True,
