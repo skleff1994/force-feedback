@@ -170,37 +170,54 @@ print("-------------------------------------------------------------------")
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
+
+'''
+This loop runs N_EXP simulations for each MPC_frequency in freqs
+Data is recorded by default in ../data/DATASET_NAME/MPC_frequency as compressed .npz
+Plots specified in WHICH_PLOTS are generated for each experiments and saved as well
+Performance analysis computes, plots & save the average task residual & peak error for each expe and frequency
+Mainly used for 2 purposes:
+  1- Selecting 1 torque bias per experiment (FIX_TORQUE_BIAS=False) + analyze perfs vs frequency
+  2- Increasing cost weight ratio EE/reg at each experiment (INCREASE_COST_WEIGHT=True) + analyze perfs vs frequency
+'''
+
+# Set experiments meta-params
 # freqs = ['BASELINE', 250 , 500, 1000, 2000, 5000, 10000] #, 20000]
-freqs = [250, 500] # 10000] #, 10000] #[ 'BASELINE', 1000, 2000, 5000, 10000]
-N_EXP = 10
-DATASET_NAME = 'DATASET6'
-
-# For data analysis
-data = {}
-PERFORMANCE_ANALYSIS = True                         # Analyze performance across expes and freqs on EE task
+freqs = [250, 500, 1000, 2000, 5000] #, 10000] # 10000]                       # Which MPC frequency are we testing
+N_EXP = 3                                           # How many experiments per frequency
+DATASET_NAME = 'DATASET3_change_task_increase_freq' # To record dataset in /force_feedback/data/DATASET_NAME
+data = {}                                           # To store data dict of each experiment
+PERFORMANCE_ANALYSIS = True                         # Analyze & plot EE task performance across experiments & freqs
 FIX_RANDOM_SEED = True                              # Fix random seed to ensure repeatability of simulations
-FIX_TORQUE_BIAS = True                              # Use only 1 bias for all experiments
-WHICH_PLOTS = ['x','u','a','p','K', 'V', 'S', 'J']  # Which plots to generate & save
-
+FIX_TORQUE_BIAS = True                              # Use the same bias for all experiments (i.e. same actuator model)
+INCREASE_COST_WEIGHT = True                         # Increase cost weight ratio (EE/reg) at each experiment
+WHICH_PLOTS = ['x','u','p','K', 'V', 'S']       # Which plots to generate & save in data folders for each expe
 # Fix seed or not
 if(FIX_RANDOM_SEED):
   np.random.seed(1)
-
-# Generate one bias on torque per experiment - to make comparison fair btw freqs 
-#   i.e. 1 experiment <=> 1 actuator model
-if(not FIX_TORQUE_BIAS):
+# Warning in case bias and cost are not both changing 
+if(not FIX_TORQUE_BIAS and INCREASE_COST_WEIGHT):
+  print('WARNING: Cost function AND torque biases WILL change across experiments !')
+  time.sleep(5.)
+# Fix random (alpha, beta) once and for all
+if(FIX_TORQUE_BIAS):
+  alpha = np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(nq,))
+  beta = np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(nq,))
+# Otherwise generate one random bias on torque per experiment
+else:
   alphas = []
   betas = []
+  # 1 experiment <=> 1 actuator model
   for n_exp in range(N_EXP):
     alphas.append(np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(nq,)))
     betas.append(np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(nq,)))  
-# Otherwise fix alpha, beta once and for all
-else:
-  alpha = np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(nq,))
-  beta = np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(nq,))
-
 # Increase cost weight ratio EE/reg for each experiment by a factor gamma^2
-gamma = 2.
+gamma = 3.
+
+
+# # # # # # # # # # # #
+### LAUNCH MPC SIMU ###
+# # # # # # # # # # # #
 
 # For each MPC frequency 
 for MPC_frequency in freqs:
@@ -210,12 +227,12 @@ for MPC_frequency in freqs:
   # For each experiment
   for n_exp in range(N_EXP):
 
-    # LOG
+   ## LOG
     print('######################')
     print('# ' + str(MPC_frequency) + ' Hz (exp. '+str(n_exp+1)+'/'+str(N_EXP)+') #')
     print('######################')
 
-    # MPC & simulation parameters
+   ## MPC & simulation parameters
     maxit = config['maxiter']
     T_tot = config['T_tot']
     if(MPC_frequency == 'BASELINE'):
@@ -229,9 +246,10 @@ for MPC_frequency in freqs:
     T_h = N_h*dt                          # Duration of the MPC horizon (s)
     dt_ctrl = float(1./ctrl_freq)         # Time step duration of the control loop
     dt_plan = float(1./plan_freq)         # Time step duration of planning loop
-    # Initialize data
+
+   ## Initialize data
     sim_data = {}
-      # MPC sim parameters
+    # MPC sim parameters
     sim_data['T_tot'] = T_tot
     sim_data['N_simu'] = N_simu
     sim_data['N_ctrl'] = N_ctrl
@@ -245,7 +263,7 @@ for MPC_frequency in freqs:
     sim_data['T_h'] = T_h
     sim_data['N_h'] = N_h
     sim_data['p_ref'] = p_ref
-      # To be recorded
+    # To be recorded
     sim_data['X_pred'] = np.zeros((N_plan, N_h+1, nx))     # Predicted states (output of DDP, i.e. ddp.xs)
     sim_data['U_pred'] = np.zeros((N_plan, N_h, nu))       # Predicted torques (output of DDP, i.e. ddp.us)
     sim_data['U_ref'] = np.zeros((N_ctrl, nu))             # Reference torque for motor drivers (i.e. ddp.us[0] interpolated to control frequency)
@@ -256,64 +274,64 @@ for MPC_frequency in freqs:
     vel_U_mea = np.zeros((N_simu, nu))                     # Actuation torques (sent to PyBullet)
     vel_U_ref_HF = np.zeros((N_simu, nu))                  # Actuation torques (sent to PyBullet)
     vel_U_mea[0,:] = np.zeros(nq)
-      # Sovler data
+    # Solver & debug data
     sim_data['K'] = np.zeros((N_plan, nq, nx))             # Ricatti gains (K_0)
     sim_data['Vxx'] = np.zeros((N_plan, nx, nx))           # Hessian of the Value Function  
     sim_data['xreg'] = np.zeros(N_plan)                    # State reg in solver (diag of Vxx)
     sim_data['ureg'] = np.zeros(N_plan)                    # Control reg in solver (diag of Quu)
     sim_data['J_rank'] = np.zeros(N_plan)                  # Rank of Jacobian
-      # Initialize PID errors
+    # Initialize PID errors
     err_u = np.zeros(nq)
     vel_err_u = np.zeros(nq)
     int_err_u = np.zeros(nq)
-      # Initialize average acceleration tracking error (avg over 1ms)
+    # Initialize average acceleration tracking error (avg over 1ms)
     sim_data['A_err'] = np.zeros((N_ctrl, nx))
-      # Initialize measured state and simulator to initial state x0 
+    # Initialize measured state and simulator to initial state x0 
     pybullet_simulator.reset_state(q0, dq0)
     pybullet_simulator.forward_robot(q0, dq0)
-    # q_mea, v_mea = pybullet_simulator.get_state()
-    # pybullet_simulator.forward_robot(q_mea, v_mea)
     x0 = np.concatenate([q0, dq0]).T
     sim_data['X_mea'][0, :] = x0
     sim_data['X_mea_no_noise'][0, :] = x0
     p0 = robot.data.oMf[id_endeff].translation.T.copy()
-      # Replan & control counters
+    # Replan & control counters
     nb_plan = 0
     nb_ctrl = 0
-    # Low-level simulation parameters (actuation model)
-      # Scaling of desired torque
-    if(FIX_TORQUE_BIAS):
-      # Bias doesn't change across expe
-      sim_data['alpha'] = alpha
-      sim_data['beta'] = beta
-      # Bust cost weight ratio EE/reg does
+    # Increase OCP cost weights ratio EE/reg by a factor gamma^2
+    if(INCREASE_COST_WEIGHT):
       for k,m in enumerate(ddp.problem.runningModels[:]):
           m.differential.costs.costs["placement"].weight *= gamma
           m.differential.costs.costs["stateReg"].weight /= gamma
           m.differential.costs.costs["ctrlReg"].weight /= gamma
-    else:
-      # Bias changes across experiments
-      alpha = alphas[n_exp]
-      beta = betas[n_exp]
 
-      # White noise on desired torque and measured state
+   ## Low-level simulation parameters (actuation model)
+    # Scaling of desired torque
+    if(FIX_TORQUE_BIAS):
+      # Bias doesn't change across experiments
+      sim_data['alpha'] = alpha
+      sim_data['beta'] = beta
+    else:
+      # One bias per experiment
+      sim_data['alpha'] = alphas[n_exp]
+      sim_data['beta'] = betas[n_exp]
+    # White noise on desired torque and measured state
     var_u = 0.001*(u_max - u_min) #u_np.asarray(config['var_u']) 0.5% of range on the joint
     var_q = np.asarray(config['var_q'])
     var_v = np.asarray(config['var_v'])
-      # Buffers for delays
+    # Buffers for delays
     delay_OCP_ms = config['delay_OCP_ms']                   # in ms
     delay_OCP_cycle = int(delay_OCP_ms * 1e-3 * plan_freq)  # in planning cycles
     delay_sim_cycle = int(config['delay_sim_cycle'])        # in simu cycles
     buffer_OCP = []                                         # buffer for desired torques
     buffer_sim = []                                         # buffer for measured torque
-      # Proportional-integral torque control gains
+    # Proportional-integral torque control gains
     Kp = config['Kp']*np.eye(nq)
     Ki = config['Ki']*np.eye(nq)
     Kd = config['Kd']*np.eye(nq)
-      # Moving avg filter
+    # Moving avg filter
     u_avg_filter_length = config['u_avg_filter_length']    # in HF cycles
     x_avg_filter_length = config['x_avg_filter_length']    # in HF cycles
-    # Sim options
+
+   ## Sim options
     if(MPC_frequency == 'BASELINE'):
       TORQUE_TRACKING = True                          # Activate low-level reference torque tracking (PID) 
     else:
@@ -565,8 +583,9 @@ if(PERFORMANCE_ANALYSIS):
     freqs.remove('BASELINE')
     freqs.sort(key=int)
     freqs.insert(0, 'BASELINE')
+  else:
+    freqs.sort(key=int)
 
-  print(freqs)
   # Process data for performance analysis along relevant axis
   pz_err_max = np.zeros((len(freqs), N_EXP))
   pz_err_max_avg = np.zeros(len(freqs))
@@ -597,36 +616,41 @@ if(PERFORMANCE_ANALYSIS):
   # For each experiment plot errors 
   for k in range(len(freqs)): 
     if(freqs[k] != 'BASELINE'):
-      # Color for the current freq
-      coef = np.tanh(float(k) / float(len(data)) )
-      col = [coef, coef/3., 1-coef, 1.]
+      # Color for the current frequency
+      coef_col = np.tanh(float(k) / float(len(data)) )
+      col_exp_avg = [coef_col, coef_col/3., 1-coef_col, 1.]
       # For each exp plot max err , steady-state err
       for n_exp in range(N_EXP):
+        # Transparency gradient for expes
+        coef_exp = .1 + float(n_exp) / 2*float(N_EXP) 
+        col_exp = [coef_col, coef_col/3., 1-coef_col, coef_exp]
         # max err
-        ax1.plot(freqs[k], pz_err_max[k, n_exp], marker='o', color=[coef, coef/3., 1-coef, .3]) 
+        ax1.plot(freqs[k], pz_err_max[k, n_exp], marker='o', color=col_exp) 
         # SS err
-        ax2.plot(freqs[k], pz_err_res[k, n_exp], marker='o', color=[coef, coef/3., 1-coef, .3])
+        ax2.plot(freqs[k], pz_err_res[k, n_exp], marker='o', color=col_exp)
       # AVG max err
-      ax1.plot(freqs[k], pz_err_max_avg[k], marker='o', markersize=12, color=col, label=str(freqs[k])+' Hz')
-      ax1.set(xlabel='Frequency (kHz)', ylabel='$AVG max|p_{z} - pref_{z}|$ (m)')
+      ax1.plot(freqs[k], pz_err_max_avg[k], marker='s', markersize=14, color=col_exp_avg, label=str(freqs[k])+' Hz')
+      ax1.set(xlabel='Frequency (kHz)', ylabel='Peak Error $|p_{z} - pref_{z}|$ (m)')
       # Err norm
-      ax2.plot(freqs[k], pz_err_res_avg[k], marker='o', markersize=12, color=col, label=str(freqs[k])+' Hz')
-      ax2.set(xlabel='Frequency (kHz)', ylabel='$AVG Steady-State Error |p_{z} - pref_{z}|$')
+      ax2.plot(freqs[k], pz_err_res_avg[k], marker='s', markersize=14, color=col_exp_avg, label=str(freqs[k])+' Hz')
+      ax2.set(xlabel='Frequency (kHz)', ylabel='Residual Error $|p_{z} - pref_{z}|$ (m)')
 
   # BASELINE tracking
   # For each exp plot max err , steady-state err
   if('BASELINE' in freqs):
     for n_exp in range(N_EXP):
+      # Transparency gradient for expes
+      coef_exp = .1 + float(n_exp) / 2*float(N_EXP) 
       # max err
-      ax1.plot(1000., pz_err_max[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
+      ax1.plot(1000., pz_err_max[0, n_exp], marker='o', color=[0., 1., 0., coef_exp]) 
       # SS err
-      ax2.plot(1000, pz_err_res[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
+      ax2.plot(1000, pz_err_res[0, n_exp], marker='o', color=[0., 1., 0., coef_exp]) 
     # AVG max err
-    ax1.plot(1000, pz_err_max_avg[0], marker='o', markersize=12, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
-    ax1.set(xlabel='Frequency (kHz)', ylabel='$AVG max|p_{z} - pref_{z}|$ (m)')
+    ax1.plot(1000, pz_err_max_avg[0], marker='s', markersize=14, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
+    ax1.set(xlabel='Frequency (kHz)', ylabel='Peak Error $|p_{z} - pref_{z}|$ (m)')
     # Err norm
-    ax2.plot(1000, pz_err_res_avg[0], marker='o', markersize=12, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
-    ax2.set(xlabel='Frequency (kHz)', ylabel='$AVG Steady-State Error |p_{z} - pref_{z}|$')
+    ax2.plot(1000, pz_err_res_avg[0], marker='s', markersize=14, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
+    ax2.set(xlabel='Frequency (kHz)', ylabel='Residual Error $|p_{z} - pref_{z}|$ (m)')
   
   # Grids
   ax2.grid() 

@@ -880,14 +880,14 @@ def plot_Vxx(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
         # ax_V[i,0].grid()
         # Vxx eigenvals
         ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eigval'][:,i], 'b-', label='Vxx eigenvalue')
-        ax_V[i,0].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(i)+'(V_{xx})')
+        ax_V[i,0].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(i)+'(V_{{xx}})')
         ax_V[i,0].grid()
         # Vxx eigenvals
         ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eigval'][:,nq+i], 'b-', label='Vxx eigenvalue')
-        ax_V[i,1].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(i)+'(V_{xx})')
+        ax_V[i,1].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(nq+i)+'(V_{{xx}})')
         ax_V[i,1].grid()
     # Titles
-    fig_V.suptitle('Diagonal terms and Eigenvalues of Value Function Hessian Vxx', size=16)
+    fig_V.suptitle('Eigenvalues of Value Function Hessian Vxx', size=16)
     # Save figs
     if(SAVE):
         figs = {'V': fig_V}
