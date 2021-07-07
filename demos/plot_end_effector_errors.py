@@ -75,24 +75,22 @@ def main(DATASET_NAME=None):
     fig1, ax1 = plt.subplots(1, 1, figsize=(19.2,10.8)) # Max err in z (averaged over N_EXP) , vs MPC frequency
     fig2, ax2 = plt.subplots(1, 1, figsize=(19.2,10.8)) # plot avg SS ERROR in z vs frequencies DOTS connected 
     # For each experiment plot errors 
-    print("freqs = ", freqs)
     for k in range(len(freqs)): 
-      print('k= ', k)
       # PLOT DATA
       if(freqs[k] != 'BASELINE'):
         # Color for the current freq
-        coef_col = float(k) / float(len(data)) 
+        coef_col = float(k+1) / float(len(data)) 
         col_exp_avg = [coef_col, coef_col/3., 1-coef_col, 1.]
         # For each exp plot max err , steady-state err
         for n_exp in range(N_EXP):
           # Transparency gradient for expes
-          # coef_exp = 0.45 + float(n_exp) / 2*float(N_EXP) 
-          # col_exp = [coef_col, coef_col/3., 1-coef_col, coef_exp]
+          coef_exp = float(n_exp+1) / (2*float(N_EXP))
+          col_exp = [coef_col-coef_col*coef_exp, 0.25 - coef_exp/2, 1-coef_col, coef_exp]
           # max err
           print(pz_err_max[k, n_exp])
-          ax1.plot(float(freqs[k]), pz_err_max[k, n_exp], marker='o', color=col_exp_avg) 
+          ax1.plot(float(freqs[k]), pz_err_max[k, n_exp], marker='o', color=col_exp) 
           # SS err
-          ax2.plot(float(freqs[k]), pz_err_res[k, n_exp], marker='o', color=col_exp_avg)
+          ax2.plot(float(freqs[k]), pz_err_res[k, n_exp], marker='o', color=col_exp)
         # AVG max err
         ax1.plot(float(freqs[k]), pz_err_max_avg[k], marker='s', markersize=14, color=col_exp_avg, label=str(freqs[k])+' Hz')
         ax1.set(xlabel='Frequency (Hz)', ylabel='Peak Error $|p_{z} - pref_{z}|$ (m)')
@@ -104,11 +102,12 @@ def main(DATASET_NAME=None):
     if('BASELINE' in freqs):
       for n_exp in range(N_EXP):
         # Transparency gradient for expes
-        coef_exp = .1 + float(n_exp) / 2*float(N_EXP) 
+        coef_exp = float(n_exp+1) / (2*float(N_EXP))
+        col_exp = [0., 1., 0., coef_exp]
         # max err
-        ax1.plot(1000., pz_err_max[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
+        ax1.plot(1000., pz_err_max[0, n_exp], marker='o', color=col_exp,) 
         # SS err
-        ax2.plot(1000, pz_err_res[0, n_exp], marker='o', color=[0., 1., 0., .5],) 
+        ax2.plot(1000, pz_err_res[0, n_exp], marker='o', color=col_exp,) 
       # AVG max err
       ax1.plot(1000, pz_err_max_avg[0], marker='s', markersize=14, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
       ax1.set(xlabel='Frequency (Hz)', ylabel='$AVG max|p_{z} - pref_{z}|$ (m)')

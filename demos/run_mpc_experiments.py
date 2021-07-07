@@ -616,41 +616,42 @@ if(PERFORMANCE_ANALYSIS):
   # For each experiment plot errors 
   for k in range(len(freqs)): 
     if(freqs[k] != 'BASELINE'):
-      # Color for the current frequency
-      coef_col = np.tanh(float(k) / float(len(data)) )
+      # Color for the current freq
+      coef_col = float(k+1) / float(len(data)) 
       col_exp_avg = [coef_col, coef_col/3., 1-coef_col, 1.]
       # For each exp plot max err , steady-state err
       for n_exp in range(N_EXP):
         # Transparency gradient for expes
-        coef_exp = .1 + float(n_exp) / 2*float(N_EXP) 
-        col_exp = [coef_col, coef_col/3., 1-coef_col, coef_exp]
+        coef_exp = float(n_exp+1) / (2*float(N_EXP))
+        col_exp = [coef_col-coef_col*coef_exp, 0.25 - coef_exp/2, 1-coef_col, coef_exp]
         # max err
         ax1.plot(freqs[k], pz_err_max[k, n_exp], marker='o', color=col_exp) 
         # SS err
         ax2.plot(freqs[k], pz_err_res[k, n_exp], marker='o', color=col_exp)
       # AVG max err
       ax1.plot(freqs[k], pz_err_max_avg[k], marker='s', markersize=14, color=col_exp_avg, label=str(freqs[k])+' Hz')
-      ax1.set(xlabel='Frequency (kHz)', ylabel='Peak Error $|p_{z} - pref_{z}|$ (m)')
+      ax1.set(xlabel='Frequency (Hz)', ylabel='Peak Error $|p_{z} - pref_{z}|$ (m)')
       # Err norm
       ax2.plot(freqs[k], pz_err_res_avg[k], marker='s', markersize=14, color=col_exp_avg, label=str(freqs[k])+' Hz')
-      ax2.set(xlabel='Frequency (kHz)', ylabel='Residual Error $|p_{z} - pref_{z}|$ (m)')
+      ax2.set(xlabel='Frequency (Hz)', ylabel='Residual Error $|p_{z} - pref_{z}|$ (m)')
 
   # BASELINE tracking
   # For each exp plot max err , steady-state err
   if('BASELINE' in freqs):
     for n_exp in range(N_EXP):
       # Transparency gradient for expes
-      coef_exp = .1 + float(n_exp) / 2*float(N_EXP) 
+      coef_exp = float(n_exp+1) / (2*float(N_EXP))
+      col_exp = [0., 1., 0., coef_exp]
       # max err
-      ax1.plot(1000., pz_err_max[0, n_exp], marker='o', color=[0., 1., 0., coef_exp]) 
+      ax1.plot(1000., pz_err_max[0, n_exp], marker='o', color=col_exp,) 
       # SS err
-      ax2.plot(1000, pz_err_res[0, n_exp], marker='o', color=[0., 1., 0., coef_exp]) 
+      ax2.plot(1000, pz_err_res[0, n_exp], marker='o', color=col_exp,) 
     # AVG max err
     ax1.plot(1000, pz_err_max_avg[0], marker='s', markersize=14, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
-    ax1.set(xlabel='Frequency (kHz)', ylabel='Peak Error $|p_{z} - pref_{z}|$ (m)')
+    ax1.set(xlabel='Frequency (Hz)', ylabel='Peak Error $|p_{z} - pref_{z}|$ (m)')
     # Err norm
     ax2.plot(1000, pz_err_res_avg[0], marker='s', markersize=14, color=[0., 1., 0., 1.], label='BASELINE (1000) Hz')
-    ax2.set(xlabel='Frequency (kHz)', ylabel='Residual Error $|p_{z} - pref_{z}|$ (m)')
+    ax2.set(xlabel='Frequency (Hz)', ylabel='Residual Error $|p_{z} - pref_{z}|$ (m)')
   
   # Grids
   ax2.grid() 
