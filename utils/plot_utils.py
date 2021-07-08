@@ -4,6 +4,7 @@ import matplotlib
 import numpy as np
 from utils import pin_utils
 
+### Plot from MPC simulation 
 # Plot state data
 def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False, 
                           pred_plot_sampling=100, 
@@ -581,41 +582,41 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
     plots = {}
 
     if('x' in which_plots or which_plots is None or which_plots =='all'):
-        plots['x'] = plot_state(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        plots['x'] = plot_mpc_state(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                            pred_plot_sampling=pred_plot_sampling, 
                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                            SHOW=False)
     
     if('u' in which_plots or which_plots is None or which_plots =='all'):
-        plots['u'] = plot_control(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        plots['u'] = plot_mpc_control(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                              pred_plot_sampling=pred_plot_sampling, 
                                              SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
     
     if('a' in which_plots or which_plots is None or which_plots =='all'):
-        plots['a'] = plot_acc_err(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+        plots['a'] = plot_mpc_acc_err(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=SHOW)
 
     if('p' in which_plots or which_plots is None or which_plots =='all'):
-        plots['p'] = plot_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        plots['p'] = plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
 
     if('K' in which_plots or which_plots is None or which_plots =='all'):
-        plots['K'] = plot_ricatti(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+        plots['K'] = plot_mpc_ricatti(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
 
     if('V' in which_plots or which_plots is None or which_plots =='all'):
-        plots['V'] = plot_Vxx(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+        plots['V'] = plot_mpc_Vxx(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                          SHOW=False)
 
     if('S' in which_plots or which_plots is None or which_plots =='all'):
-        plots['S'] = plot_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+        plots['S'] = plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
 
     if('J' in which_plots or which_plots is None or which_plots =='all'):
-        plots['J'] = plot_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+        plots['J'] = plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                               SHOW=False)
 
     if(SHOW):
@@ -623,35 +624,47 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
     plt.close('all')
 
 
-# def plot_ddps(ddp_s, robot):
-#     '''
-#     Plot ddp results
-#     '''
-#     for ddp in ddp_s.items():
-#         plot_ddp(ddp, robot)
-
-#     plt.show()
-
-def plot_ddp_results(ddp, robot, id_endeff):
+### Plot from DDP solver 
+def plot_ddp_results(ddp, robot, id_endeff, which_plots='all'):
     '''
-    Plot ddp results for 1 or several solvers
+    Plot ddp results from 1 or several DDP solvers
     X, U, EE trajs
+    INPUT 
+      ddp       : DDP solver or list of ddp solvers
+      robot     : pinocchio robot wrapper
+      id_endeff : frame id of endeffector 
     '''
-    if(type(ddp)==list):
-        for k,d in enumerate(ddp):
-            if(k==0):
+    if(type(ddp) != list):
+        ddp = [ddp]
+    for k,d in enumerate(ddp):
+        # Return figs and axes object in case need to overlay new plots
+        if(k==0):
+            if('x' in which_plots or which_plots =='all'):
                 fig_x, ax_x = plot_ddp_state(ddp[k])
+            if('u' in which_plots or which_plots =='all'):
                 fig_u, ax_u = plot_ddp_control(ddp[k])
+            if('p' in which_plots or which_plots =='all'):
                 fig_p, ax_p = plot_ddp_endeff(ddp[k], robot, id_endeff)
-            else:
+            if('vxx' in which_plots or which_plots =='all'):
+                fig_vxx_sv, ax_vxx_sv = plot_ddp_vxx_sv(ddp[k])
+                fig_vxx_eig, ax_vxx_eig = plot_ddp_vxx_eig(ddp[k])
+            if('K' in which_plots or which_plots =='all'):
+                fig_K_sv, ax_K_sv = plot_ddp_ricatti_sv(ddp[k])
+                fig_K_eig, ax_K_eig = plot_ddp_ricatti_eig(ddp[k])
+        # Overlay on top of first plot
+        else:
+            if('x' in which_plots or which_plots =='all'):
                 plot_ddp_state(ddp[k], fig=fig_x, ax=ax_x)
+            if('u' in which_plots or which_plots =='all'):
                 plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u)
+            if('p' in which_plots or which_plots =='all'):
                 plot_ddp_endeff(ddp[k], robot, id_endeff, fig=fig_p, ax=ax_p)
-    else:
-        fig_x, ax_x = plot_ddp_state(ddp)
-        fig_u, ax_u = plot_ddp_control(ddp)
-        fig_p, ax_p = plot_ddp_endeff(ddp, robot, id_endeff)
-
+            if('vxx' in which_plots or which_plots =='all'):
+                plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv)
+                plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig)
+            if('K' in which_plots or which_plots =='all'):
+                plot_ddp_ricatti_sv(ddp[k], fig=fig_K_sv, ax=ax_K_sv)
+                plot_ddp_ricatti_eig(ddp[k], fig=fig_K_eig, ax=ax_K_eig)
     plt.show()
 
 def plot_ddp_state(ddp, fig=None, ax=None, label=None):
@@ -763,6 +776,274 @@ def plot_ddp_endeff(ddp, robot, id_endeff, fig=None, ax=None, label=None):
     fig.align_ylabels()
     fig.suptitle('Endeffector trajectories', size=16)
 
+    return fig, ax
+
+def plot_ddp_vxx_sv(ddp, fig=None, ax=None, label=None):
+    '''
+    Plot ddp results (vxx singular values)
+    '''
+    # Parameters
+    N = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nq = ddp.problem.runningModels[0].state.nq
+    nv = ddp.problem.runningModels[0].state.nv
+    nx = nq+nv
+    nx2 = nx//2
+    Vxx_sv = np.zeros((N, nq+nv)) 
+    # Extract singular values and eigenvalues of VF Hessian
+    for i in range(N):
+        _, Vxx_sv[i, :], _ = np.linalg.svd(ddp.Vxx[i])
+    # Plots
+    tspan = np.linspace(0, N*dt, N)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nx2, 2)
+    if(label is None):
+        label='Vxx Singular Values'
+    for i in range(nx2):
+        # Singular values 0 to 6
+        ax[i,0].plot(tspan, Vxx_sv[:,i], linestyle='-', marker='o', label=label)
+        ax[i,0].set_ylabel('$\sigma_%s$'%i, fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,0].grid(True)
+        # Eigenvalues 7 to 13
+        ax[i,1].plot(tspan, Vxx_sv[:,nx2+i], linestyle='-', marker='o', label=label)
+        ax[i,1].set_ylabel('$\sigma_%s$'%str(nx2+i), fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,1].grid(True)
+        # Remove xticks labels for clarity 
+        if(i != nx-1):
+            for j in range(2):
+                ax[i,j].set_xticklabels([])
+        # Set xlabel on bottom plot
+        if(i == nx-1):
+            for j in range(2):
+                ax[i,j].set_xlabel('t (s)', fontsize=16)
+    # Legend
+    handles, labels = ax[i,0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.align_ylabels()
+    fig.suptitle('Vxx Singular Values', size=16)
+
+    return fig, ax
+
+def plot_ddp_vxx_eig(ddp, fig=None, ax=None, label=None):
+    '''
+    Plot ddp results (vxx eigenvalues)
+    '''
+    # Parameters
+    N = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nq = ddp.problem.runningModels[0].state.nq
+    nv = ddp.problem.runningModels[0].state.nv
+    nx = nq+nv
+    nx2 = nx//2
+    Vxx_eig = np.zeros((N, nx))
+    # Extract singular values VF Hessian
+    for i in range(N):
+        Vxx_eig[i, :] = np.linalg.eigvals(ddp.Vxx[i])
+    # Plots
+    tspan = np.linspace(0, N*dt, N)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nx2, 2)
+    if(label is None):
+        label='Vxx Eigenvalues'
+    for i in range(nx2):
+        # Eigenvalues 0 to 6
+        ax[i,0].plot(tspan, Vxx_eig[:,i], linestyle='-', marker='o', label=label)
+        ax[i,0].set_ylabel('$\lambda_%s$'%i, fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,0].grid(True)
+        # Eigenvalues 7 to 13
+        ax[i,1].plot(tspan, Vxx_eig[:,nx2+i], linestyle='-', marker='o', label=label)
+        ax[i,1].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,1].grid(True)
+        # Remove xticks labels for clarity 
+        if(i != nx-1):
+            for j in range(2):
+                ax[i,j].set_xticklabels([])
+        # Set xlabel on bottom plot
+        if(i == nx-1):
+            for j in range(2):
+                ax[i,j].set_xlabel('t (s)', fontsize=16)
+    # Legend
+    handles, labels = ax[i,0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.align_ylabels()
+    fig.suptitle('Vxx Eigenvalues', size=16)
+
+    return fig, ax
+
+def plot_ddp_vxx_eig(ddp, fig=None, ax=None, label=None):
+    '''
+    Plot ddp results (vxx eigenvalues)
+    '''
+    # Parameters
+    N = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nq = ddp.problem.runningModels[0].state.nq
+    nv = ddp.problem.runningModels[0].state.nv
+    nx = nq+nv
+    nx2 = nx//2
+    Vxx_eig = np.zeros((N, nx))
+    # Extract singular values VF Hessian
+    for i in range(N):
+        Vxx_eig[i, :] = np.linalg.eigvals(ddp.Vxx[i])
+    # Plots
+    tspan = np.linspace(0, N*dt, N)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nx2, 2)
+    if(label is None):
+        label='Vxx Eigenvalues'
+    for i in range(nx2):
+        # Eigenvalues 0 to 6
+        ax[i,0].plot(tspan, Vxx_eig[:,i], linestyle='-', marker='o', label=label)
+        ax[i,0].set_ylabel('$\lambda_%s$'%i, fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,0].grid(True)
+        # Eigenvalues 7 to 13
+        ax[i,1].plot(tspan, Vxx_eig[:,nx2+i], linestyle='-', marker='o', label=label)
+        ax[i,1].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,1].grid(True)
+        # Remove xticks labels for clarity 
+        if(i != nx-1):
+            for j in range(2):
+                ax[i,j].set_xticklabels([])
+        # Set xlabel on bottom plot
+        if(i == nx-1):
+            for j in range(2):
+                ax[i,j].set_xlabel('t (s)', fontsize=16)
+    # Legend
+    handles, labels = ax[i,0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.align_ylabels()
+    fig.suptitle('Vxx Eigenvalues', size=16)
+
+    return fig, ax
+
+def plot_ddp_ricatti_sv(ddp, fig=None, ax=None, label=None):
+    '''
+    Plot ddp results (K sing vals)
+    '''
+    # Parameters
+    N = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nq = ddp.problem.runningModels[0].state.nq
+    nv = ddp.problem.runningModels[0].state.nv
+    nx = nq+nv
+    nx2 = nx//2
+    # K_diag = np.zeros((N, nx))
+    # K_eig = np.zeros((N, nx))
+    K_sv = np.zeros((N, nq))
+    # Extract diag , eig and sing val of Ricatti gain
+    for i in range(N):
+        # K_diag[i, :nq] = ddp.K[i][:nq,:nq].diagonal()
+        # K_diag[i, nv:] = ddp.K[i][:nq,nv:].diagonal()
+        # K_eig[i, :nq] = np.linalg.eigvals(ddp.K[i][:nq,:nq])
+        # K_eig[i, nv:] = np.linalg.eigvals(ddp.K[i][:nq,nv:])
+        _, K_sv[i, :], _ = np.linalg.svd(ddp.K[i][:nq,:nq])
+    # Plots
+    tspan = np.linspace(0, N*dt, N)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nx2, 1)
+    if(label is None):
+        label='K singular values'
+    for i in range(nx2):
+        # Diagonal terms
+        # ax[i,0].plot(tspan, K_diag[:,i], linestyle='-', marker='o', label=label)
+        # ax[i,0].set_ylabel('$diag_%s$'%i, fontsize=16)
+        # ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        # ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        # ax[i,0].grid(True)
+        # # Eigenvalues
+        # ax[i,1].plot(tspan, K_eig[:,nx2+i], linestyle='-', marker='o', label=label)
+        # ax[i,1].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
+        # ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        # ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        # ax[i,1].grid(True)
+        # # Singular values
+        ax[i].plot(tspan, K_sv[:,i], linestyle='-', marker='o', label=label)
+        ax[i].set_ylabel('$\sigma%s$'%str(i), fontsize=16)
+        ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        ax[i].grid(True)
+        # Remove xticks labels for clarity 
+        if(i != nx2-1):
+            ax[i].set_xticklabels([])
+        # Set xlabel on bottom plot
+        if(i == nx2-1):
+            ax[i].set_xlabel('t (s)', fontsize=16)
+    # Legend
+    handles, labels = ax[i].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.align_ylabels()
+    fig.suptitle('K singular values', size=16)
+    return fig, ax
+
+def plot_ddp_ricatti_eig(ddp, fig=None, ax=None, label=None):
+    '''
+    Plot ddp results (K sing vals)
+    '''
+    # Parameters
+    N = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nq = ddp.problem.runningModels[0].state.nq
+    nv = ddp.problem.runningModels[0].state.nv
+    nx = nq+nv
+    nx2 = nx//2
+    # K_diag = np.zeros((N, nx))
+    K_eig = np.zeros((N, nx))
+    # Extract diag , eig and sing val of Ricatti gain
+    for i in range(N):
+        # K_diag[i, :nq] = ddp.K[i][:nq,:nq].diagonal()
+        # K_diag[i, nv:] = ddp.K[i][:nq,nv:].diagonal()
+        K_eig[i, :nq] = np.linalg.eigvals(ddp.K[i][:nq,:nq])
+        K_eig[i, nv:] = np.linalg.eigvals(ddp.K[i][:nq,nv:])
+    # Plots
+    tspan = np.linspace(0, N*dt, N)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nx2, 2)
+    if(label is None):
+        label='K eigenvalues'
+    for i in range(nx2):
+        # Diagonal terms
+        # ax[i,0].plot(tspan, K_diag[:,i], linestyle='-', marker='o', label=label)
+        # ax[i,0].set_ylabel('$diag_%s$'%i, fontsize=16)
+        # ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        # ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        # ax[i,0].grid(True)
+        # Eigenvalues
+        ax[i,0].plot(tspan, K_eig[:,i], linestyle='-', marker='o', label=label)
+        ax[i,0].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        ax[i,0].grid(True)
+        # Eigenvalues
+        ax[i,1].plot(tspan, K_eig[:,nx2+i], linestyle='-', marker='o', label=label)
+        ax[i,1].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        ax[i,1].grid(True)
+        # Remove xticks labels for clarity 
+        if(i != nx2-1):
+            for j in range(2):
+                ax[i,j].set_xticklabels([])
+        # Set xlabel on bottom plot
+        if(i == nx2-1):
+            for j in range(2):
+                ax[i,j].set_xlabel('t (s)', fontsize=16)
+    # Legend
+    handles, labels = ax[i,0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.align_ylabels()
+    fig.suptitle('Ricatti gain eigenvalues', size=16)
     return fig, ax
 
 
