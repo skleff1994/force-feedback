@@ -17,7 +17,6 @@ from numpy.core.numeric import normalize_axis_tuple
 import pinocchio as pin
 
 import pybullet as p
-import pybullet_data
 
 # Animate and plot point mass from X,U trajs 
 def animatePointMass(xs, sleep=1):
@@ -336,6 +335,23 @@ def get_urdf_path(robot_name, robot_family='kuka'):
     urdf_path = pkg_dir/"robot_properties_kuka"/(robot_name + ".urdf")
     return str(urdf_path)
 
+# Returns urdf path of a kuka robot 
+def get_mesh_dir(robot_family='kuka'):
+    # Get config file
+    with importlib_resources.path("robot_properties_"+robot_family, "config.py") as p:
+        pkg_dir = p.parent.absolute()
+    urdf_dir = pkg_dir
+    return str(urdf_dir)
+
+# Load config file
+def load_config_file(config_name):
+    '''
+    Loads YAML config file in demos/config as a dict
+    '''
+    config_path = os.path.abspath(os.path.join(os.path.dirname(__file__),'../demos', 'config/'))
+    config_file = config_path+"/"+config_name+".yml"
+    config = load_yaml_file(config_file)
+    return config
 
 # Save data (dict) into compressed npz
 def save_data(sim_data, save_name=None, save_dir=None):
@@ -824,13 +840,17 @@ def plot_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
 
     # Create time spans for X and U + Create figs and subplots
     t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
-    fig_K, ax_K = plt.subplots(nq, 1, figsize=(19.2,10.8))
+    fig_K, ax_K = plt.subplots(nq, 2, figsize=(19.2,10.8))
     # For each joint
     for i in range(nq):
+        # Ricatti gains diag
+        ax_K[i,0].plot(t_span_plan_u, plot_data['K'][:,i,i], 'b-', label='Diag of Ricatti')
+        ax_K[i,0].set(xlabel='t (s)', ylabel='$diag [K]_{}$'.format(i))
+        ax_K[i,0].grid()
         # Ricatti gains singular values
-        ax_K[i].plot(t_span_plan_u, plot_data['K_svd'][:,i], 'b-', label='Singular Value of Ricatti')
-        ax_K[i].set(xlabel='t (s)', ylabel='$\sigma [K]_{}$'.format(i))
-        ax_K[i].grid()
+        ax_K[i,1].plot(t_span_plan_u, plot_data['K_svd'][:,i], 'b-', label='Singular Value of Ricatti')
+        ax_K[i,1].set(xlabel='t (s)', ylabel='$\sigma [K]_{}$'.format(i))
+        ax_K[i,1].grid()
     # Titles
     fig_K.suptitle('Singular Values of Ricatti feedback gains K', size=16)
     # Save figs
@@ -880,11 +900,11 @@ def plot_Vxx(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
         # ax_V[i,0].grid()
         # Vxx eigenvals
         ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eigval'][:,i], 'b-', label='Vxx eigenvalue')
-        ax_V[i,0].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(i)+'(V_{{xx}})')
+        ax_V[i,0].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(i)+'(Vxx)')
         ax_V[i,0].grid()
         # Vxx eigenvals
         ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eigval'][:,nq+i], 'b-', label='Vxx eigenvalue')
-        ax_V[i,1].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(nq+i)+'(V_{{xx}})')
+        ax_V[i,1].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(nq+i)+'(Vxx)')
         ax_V[i,1].grid()
     # Titles
     fig_V.suptitle('Eigenvalues of Value Function Hessian Vxx', size=16)
