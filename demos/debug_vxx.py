@@ -26,19 +26,27 @@ config['frameWeight'] = 51200
 config['xRegWeight'] = 1.953125e-5
 config['uRegWeight'] = 3.90625e-5
 # Select a state at right times
-ta = 0.5 
-tb = 1.0
+ta = 0.5 #0.5
+tb = 1. #1.0 .66
 k_simu_a = int(simu_freq*ta)
 k_simu_b = int(simu_freq*tb)
 k_plan_a = int(plan_freq*ta)
 k_plan_b = int(plan_freq*tb)
 x0a = np.concatenate([d['q_mea'][k_simu_a, :], d['v_mea'][k_simu_a, :]])
 x0b = np.concatenate([d['q_mea'][k_simu_b, :], d['v_mea'][k_simu_b, :]])
+x0a_ = np.concatenate([d['q_pred'][k_plan_a, 0, :], d['v_pred'][k_plan_a, 0, :]])
+x0b_ = np.concatenate([d['q_pred'][k_plan_b, 0, :], d['v_pred'][k_plan_b, 0, :]])
+print("xa mea : ", x0a)
+print("xa plan : ", x0a_)
+print("xb mea : ", x0b)
+print("xb plan : ", x0b_)
 lambda_a = d['Vxx_eigval'][k_plan_a, 0]
 lambda_b = d['Vxx_eigval'][k_plan_b, 0]
+# print("Select xA measurement at time "+str(k_simu_a/simu_freq))
+# print("Select Vxx_a plan at time "+str(k_plan_a/plan_freq))
 # Check VP values
-print(lambda_a)
-print(lambda_b)
+# print(lambda_a)
+# print(lambda_b)
 # Creating the DDP solver 
 ddp_a = ocp_utils.init_DDP(robot, config, x0a)
 ddp_b = ocp_utils.init_DDP(robot, config, x0b)
@@ -49,7 +57,9 @@ ddp_b.setCallbacks([crocoddyl.CallbackLogger(),
                     crocoddyl.CallbackVerbose()])
 ddp_a.solve(ddp_a.xs, ddp_a.us, maxiter=10, isFeasible=False)
 ddp_b.solve(ddp_b.xs, ddp_b.us, maxiter=10, isFeasible=False)
+print("ddp_a.Vxx[0] eig : ", np.linalg.eigvals(ddp_a.Vxx[0])[0], " (vs "+str(lambda_a)+")")
+print("ddp_a.Vxx[0] eig : ", np.linalg.eigvals(ddp_b.Vxx[0])[0], " (vs "+str(lambda_b)+")")
 
 # Plot results
 # plot_utils.plot_ddp_ricatti(ddp_a)
-plot_utils.plot_ddp_results([ddp_a, ddp_b], robot, id_endeff, which_plots=['K', 'vxx'])
+plot_utils.plot_ddp_results([ddp_a, ddp_b], robot, id_endeff, which_plots=['x', 'u', 'p'])

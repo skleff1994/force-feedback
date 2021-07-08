@@ -45,6 +45,7 @@ def cost_weight_linear(i, N, min_weight=0., max_weight=1.):
     return (max_weight-min_weight)/N * i + min_weight
 
 
+# Setup OCP and solver using Crocoddyl
 def init_DDP(robot, config, x0):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
