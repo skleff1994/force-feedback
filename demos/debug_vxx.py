@@ -1,14 +1,14 @@
 import numpy as np
 import crocoddyl
-from utils import utils, croco_helper
+from utils import path_utils, data_utils, ocp_utils
 from pinocchio.robot_wrapper import RobotWrapper
 import pinocchio as pin
 
 # Read config file
-config = utils.load_config_file('static_reaching_task3')
+config = path_utils.load_config_file('static_reaching_task3')
 simu_freq = 20e3
 # Robot pin wrapper
-robot = RobotWrapper.BuildFromURDF(utils.get_urdf_path('iiwa'), utils.get_mesh_dir())
+robot = RobotWrapper.BuildFromURDF(path_utils.get_urdf_path('iiwa'), path_utils.get_mesh_dir())
 nq, nv = robot.model.nq, robot.model.nv
 nu = nq
 q0 = np.asarray(config['q0'])
@@ -19,7 +19,7 @@ id_endeff = robot.model.getFrameId('contact')
 M_ee = robot.data.oMf[id_endeff]
 
 # Load data 
-d = utils.load_data('/home/skleff/force-feedback/data/DATASET3_change_task_increase_freq/10000/tracking=False_10000Hz__exp_9.npz')
+d = data_utils.load_data('/home/skleff/force-feedback/data/DATASET3_change_task_increase_freq/10000/tracking=False_10000Hz__exp_9.npz')
 plan_freq = 10e3
 # Change costs as in recorded simulation
 config['frameWeight'] = 51200
@@ -40,8 +40,8 @@ lambda_b = d['Vxx_eigval'][k_plan_b, 0]
 print(lambda_a)
 print(lambda_b)
 # Creating the DDP solver 
-ddp_a = croco_helper.init_DDP(robot, config, x0a)
-ddp_b = croco_helper.init_DDP(robot, config, x0b)
+ddp_a = ocp_utils.init_DDP(robot, config, x0a)
+ddp_b = ocp_utils.init_DDP(robot, config, x0b)
 # solve for each point
 ddp_a.setCallbacks([crocoddyl.CallbackLogger(),
                    crocoddyl.CallbackVerbose()])

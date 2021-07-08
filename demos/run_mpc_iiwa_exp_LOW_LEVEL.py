@@ -26,7 +26,7 @@ Automate the simulations and data saving:
 '''
 
 import numpy as np  
-from utils import utils, robot_loader, croco_helper
+from utils import path_utils, sim_utils, plot_utils, ocp_utils, data_utils
 import pybullet as p
 import time 
 
@@ -35,14 +35,14 @@ import time
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
   # Read config file
-config = utils.load_config_file('static_reaching_task3')
+config = path_utils.load_config_file('static_reaching_task3')
   # Create a Pybullet simulation environment + set simu freq
 simu_freq = config['simu_freq']  
 dt_simu = 1./simu_freq
 q0 = np.asarray(config['q0'])
 dq0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, dq0])   
-pybullet_simulator = robot_loader.init_kuka_simulator(dt=dt_simu, x0=x0)
+pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
   # Get pin wrapper
 robot = pybullet_simulator.pin_robot
   # Get initial frame placement + dimensions of joint space
@@ -58,7 +58,7 @@ print("-------------------------------------------------------------------")
 # # # # # # # # #
 ### SETUP OCP ### 
 # # # # # # # # #
-ddp = croco_helper.init_DDP(robot, config, x0)
+ddp = ocp_utils.init_DDP(robot, config, x0)
 
 # # # # # # # # # # # # #
 ### INIT EXPERIMENTS ####
@@ -441,11 +441,11 @@ for MPC_frequency in freqs:
     print('Post-processing end-effector trajectories...')
     sim_data['P_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, 3))
     for node_id in range(config['N_h']+1):
-      sim_data['P_pred'][:, node_id, :] = utils.get_p(sim_data['X_pred'][:, node_id, :nq], robot, id_endeff) - np.array([sim_data['p_ref']]*sim_data['N_plan'])
-    sim_data['P_mea'] = utils.get_p(sim_data['X_mea'][:,:nq], robot, id_endeff)
+      sim_data['P_pred'][:, node_id, :] = sim_utils.get_p(sim_data['X_pred'][:, node_id, :nq], robot, id_endeff) - np.array([sim_data['p_ref']]*sim_data['N_plan'])
+    sim_data['P_mea'] = sim_utils.get_p(sim_data['X_mea'][:,:nq], robot, id_endeff)
     q_des = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
-    sim_data['P_des'] = utils.get_p(q_des, robot, id_endeff)
-    sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
+    sim_data['P_des'] = sim_utils.get_p(q_des, robot, id_endeff)
+    sim_data['P_mea_no_noise'] = sim_utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
    ## Get SVD of ricatti + record in sim data
     sim_data['K_svd'] = np.zeros((sim_data['N_plan'], nq))
@@ -464,8 +464,8 @@ for MPC_frequency in freqs:
     save_dir = '/home/skleff/force-feedback/data/'+DATASET_NAME+'/'+str(MPC_frequency)
 
    ## Convert simulation data into plottable data and generate figures
-    plot_data = utils.extract_plot_data(sim_data)
-    figs = utils.plot_results(plot_data, which_plots=WHICH_PLOTS,
+    plot_data = data_utils.extract_plot_data(sim_data)
+    figs = plot_utils.plot_results(plot_data, which_plots=WHICH_PLOTS,
                                          PLOT_PREDICTIONS=True, 
                                          pred_plot_sampling=int(plan_freq/20),
                                          SAVE=True,
@@ -477,7 +477,7 @@ for MPC_frequency in freqs:
    ## Optionally save plottable data as compressed .npz for offline analysis
     if(config['SAVE_DATA']):
       data[str(MPC_frequency)][str(n_exp)] = plot_data
-      utils.save_data(plot_data, save_name=save_name, save_dir=save_dir)
+      data_utils.save_data(plot_data, save_name=save_name, save_dir=save_dir)
 
 
 # # # # # # # # # # # # # # # # # 

@@ -12,6 +12,39 @@ import crocoddyl
 import numpy as np
 import pinocchio as pin
 
+# Cost weights profiles, useful for reaching tasks/cost design
+def cost_weight_tanh(i, N, max_weight=1., alpha=1., alpha_cut=0.25):
+    '''
+    Monotonically increasing weight profile over [0,...,N]
+    based on a custom scaled hyperbolic tangent 
+     INPUT: 
+       i          : current time step in the window (e.g. OCP horizon or sim horizon)
+       N          : total number of time steps
+       max_weight : value of the weight at the end of the window (must be >0)
+       alpha      : controls the sharpness of the tanh (alpha high <=> very sharp)
+       alpha_cut  : shifts tanh over the time window (i.e. time of inflexion point)
+     OUPUT:
+       Cost weight at step i : it tarts at weight=0 (when i=0) and
+       ends at weight<= max_weight (at i=N). As alpha --> inf, we tend
+       toward max_weight
+    '''
+    return 0.5*max_weight*( np.tanh(alpha*(i/N) -alpha*alpha_cut) + np.tanh(alpha*alpha_cut) )
+
+
+def cost_weight_linear(i, N, min_weight=0., max_weight=1.):
+    '''
+    Linear cost weight profile over [0,...,N]
+     INPUT: 
+       i          : current time step in the window (e.g. OCP horizon or sim horizon)
+       N          : total number of time steps
+       max_weight : value of the weight at the end of the window (must be >=min_weight)
+       min_weight : value of the weight at the start of the window (must be >=0)
+     OUPUT:
+       Cost weight at step i
+    '''
+    return (max_weight-min_weight)/N * i + min_weight
+
+
 def init_DDP(robot, config, x0):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
