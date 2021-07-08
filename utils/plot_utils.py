@@ -2,10 +2,10 @@ from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
-
+from utils import pin_utils
 
 # Plot state data
-def plot_state(plot_data, PLOT_PREDICTIONS=False, 
+def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False, 
                           pred_plot_sampling=100, 
                           SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                           SHOW=True):
@@ -80,7 +80,7 @@ def plot_state(plot_data, PLOT_PREDICTIONS=False,
         ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)', linewidth=2)
         ax_x[i,0].set(xlabel='t (s)', ylabel='$q_{}$ (rad)'.format(i))
-        ax_x[i,0].grid()
+        ax_x[i,0].grid(True)
         
         # Joint velocity 
           # Desired 
@@ -89,7 +89,7 @@ def plot_state(plot_data, PLOT_PREDICTIONS=False,
         ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)')
         ax_x[i,1].set(xlabel='t (s)', ylabel='$v_{}$ (rad/s)'.format(i))
-        ax_x[i,1].grid()
+        ax_x[i,1].grid(True)
         
         # Legend
         handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
@@ -112,7 +112,7 @@ def plot_state(plot_data, PLOT_PREDICTIONS=False,
     return fig_x
 
 # Plot control data
-def plot_control(plot_data, PLOT_PREDICTIONS=False, 
+def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False, 
                             pred_plot_sampling=100, 
                             SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                             SHOW=True,
@@ -178,7 +178,7 @@ def plot_control(plot_data, PLOT_PREDICTIONS=False,
           # Measured
         ax_u[i].plot(t_span_simu_u, plot_data['u_mea'][:,i], 'r-', label='Measured') 
         ax_u[i].set(xlabel='t (s)', ylabel='$u_{}$ (Nm)'.format(i))
-        ax_u[i].grid()
+        ax_u[i].grid(True)
 
         handles_u, labels_u = ax_u[i].get_legend_handles_labels()
         fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
@@ -200,7 +200,7 @@ def plot_control(plot_data, PLOT_PREDICTIONS=False,
     return fig_u
 
 # Plot end-eff data
-def plot_endeff(plot_data, PLOT_PREDICTIONS=False, 
+def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False, 
                            pred_plot_sampling=100, 
                            SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                            SHOW=True,
@@ -240,21 +240,21 @@ def plot_endeff(plot_data, PLOT_PREDICTIONS=False,
     ax_p[0].set_title('x-position-ERROR')
     ax_p[0].set(xlabel='t (s)', ylabel='x (m)')
     # 
-    ax_p[0].grid()
+    ax_p[0].grid(True)
     # y
     ax_p[1].plot(t_span_plan_x, plot_data['p_des'][:,1]-p_ref[1], 'b-', label='py_des - py_ref', alpha=0.5)
     ax_p[1].plot(t_span_simu_x, plot_data['p_mea'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (WITH noise)', linewidth=1, alpha=0.3)
     ax_p[1].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (NO noise)', linewidth=2)
     ax_p[1].set_title('y-position-ERROR')
     ax_p[1].set(xlabel='t (s)', ylabel='y (m)')
-    ax_p[1].grid()
+    ax_p[1].grid(True)
     # z
     ax_p[2].plot(t_span_plan_x, plot_data['p_des'][:,2]-p_ref[2], 'b-', label='pz_des - pz_ref', alpha=0.5)
     ax_p[2].plot(t_span_simu_x, plot_data['p_mea'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (WITH noise)', linewidth=1, alpha=0.3)
     ax_p[2].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (NO noise)', linewidth=2)
     ax_p[2].set_title('z-position-ERROR')
     ax_p[2].set(xlabel='t (s)', ylabel='z (m)')
-    ax_p[2].grid()
+    ax_p[2].grid(True)
     # Add frame ref if any
     ax_p[0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., label='err=0', alpha=0.5)
     ax_p[1].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., label='err=0', alpha=0.5)
@@ -315,7 +315,7 @@ def plot_endeff(plot_data, PLOT_PREDICTIONS=False,
     return fig_p
 
 # Plot acceleration error data
-def plot_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+def plot_mpc_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                             SHOW=True):
     '''
     Plot acc err data
@@ -342,11 +342,11 @@ def plot_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
         # Joint velocity error (avg over 1 control cycle)
         ax_a[i,0].plot(t_span_ctrl_u, plot_data['a_err'][:,i], 'b-', label='Velocity error (average)')
         ax_a[i,0].set(xlabel='t (s)', ylabel='$u_{}$ (Nm)'.format(i))
-        ax_a[i,0].grid()
+        ax_a[i,0].grid(True)
         # Joint acceleration error (avg over 1 control cycle)
         ax_a[i,1].plot(t_span_ctrl_u, plot_data['a_err'][:,nq+i], 'b-', label='Acceleration error (average)')
         ax_a[i,1].set(xlabel='t (s)', ylabel='$u_{}$ (Nm)'.format(i))
-        ax_a[i,1].grid()
+        ax_a[i,1].grid(True)
     # title
     fig_a.suptitle('Average tracking errors over control cycles (1ms)', size=16)
     # Save figs
@@ -365,7 +365,7 @@ def plot_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     return fig_a
 
 # Plot Ricatti
-def plot_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+def plot_mpc_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                             SHOW=True):
     '''
     Plot ricatti data
@@ -392,11 +392,11 @@ def plot_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
         # Ricatti gains diag
         ax_K[i,0].plot(t_span_plan_u, plot_data['K'][:,i,i], 'b-', label='Diag of Ricatti')
         ax_K[i,0].set(xlabel='t (s)', ylabel='$diag [K]_{}$'.format(i))
-        ax_K[i,0].grid()
+        ax_K[i,0].grid(True)
         # Ricatti gains singular values
         ax_K[i,1].plot(t_span_plan_u, plot_data['K_svd'][:,i], 'b-', label='Singular Value of Ricatti')
         ax_K[i,1].set(xlabel='t (s)', ylabel='$\sigma [K]_{}$'.format(i))
-        ax_K[i,1].grid()
+        ax_K[i,1].grid(True)
     # Titles
     fig_K.suptitle('Singular Values of Ricatti feedback gains K', size=16)
     # Save figs
@@ -415,7 +415,7 @@ def plot_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     return fig_K
 
 # Plot Vxx
-def plot_Vxx(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+def plot_mpc_Vxx(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                         SHOW=True):
     '''
     Plot Vxx data
@@ -442,15 +442,15 @@ def plot_Vxx(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
         # Vxx diag
         # ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_diag'][:,i], 'b-', label='Vxx diagonal')
         # ax_V[i,0].set(xlabel='t (s)', ylabel='$Diag[Vxx_{}]$'.format(i,i))
-        # ax_V[i,0].grid()
+        # ax_V[i,0].grid(True)
         # Vxx eigenvals
         ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eigval'][:,i], 'b-', label='Vxx eigenvalue')
         ax_V[i,0].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(i)+'(Vxx)')
-        ax_V[i,0].grid()
+        ax_V[i,0].grid(True)
         # Vxx eigenvals
         ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eigval'][:,nq+i], 'b-', label='Vxx eigenvalue')
         ax_V[i,1].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(nq+i)+'(Vxx)')
-        ax_V[i,1].grid()
+        ax_V[i,1].grid(True)
     # Titles
     fig_V.suptitle('Eigenvalues of Value Function Hessian Vxx', size=16)
     # Save figs
@@ -469,7 +469,7 @@ def plot_Vxx(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     return fig_V
 
 # Plot Solver regs
-def plot_solver(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+def plot_mpc_solver(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                            SHOW=True):
     '''
     Plot solver data
@@ -493,11 +493,11 @@ def plot_solver(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     # Xreg
     ax_S[0].plot(t_span_plan_u, plot_data['xreg'], 'b-', label='xreg')
     ax_S[0].set(xlabel='t (s)', ylabel='$xreg$')
-    ax_S[0].grid()
+    ax_S[0].grid(True)
     # Ureg
     ax_S[1].plot(t_span_plan_u, plot_data['ureg'], 'r-', label='ureg')
     ax_S[1].set(xlabel='t (s)', ylabel='$ureg$')
-    ax_S[1].grid()
+    ax_S[1].grid(True)
     # Titles
     fig_S.suptitle('FDDP solver regularization on x (Vxx diag) and u (Quu diag)', size=16)
     # Save figs
@@ -516,7 +516,7 @@ def plot_solver(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     return fig_S
 
 # Plot rank of Jacobian
-def plot_jacobian(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+def plot_mpc_jacobian(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                              SHOW=True):
     '''
     Plot jacobian data
@@ -540,7 +540,7 @@ def plot_jacobian(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     # Rank of Jacobian
     ax_J.plot(t_span_plan_u, plot_data['J_rank'], 'b-', label='rank')
     ax_J.set(xlabel='t (s)', ylabel='rank')
-    ax_J.grid()
+    ax_J.grid(True)
     # Titles
     fig_J.suptitle('Rank of Jacobian J(q)', size=16)
     # Save figs
@@ -559,7 +559,7 @@ def plot_jacobian(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     return fig_J
 
 # Plot data
-def plot_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
+def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
                                               pred_plot_sampling=100, 
                                               SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                                               SHOW=True,
@@ -623,6 +623,149 @@ def plot_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
     plt.close('all')
 
 
+# def plot_ddps(ddp_s, robot):
+#     '''
+#     Plot ddp results
+#     '''
+#     for ddp in ddp_s.items():
+#         plot_ddp(ddp, robot)
+
+#     plt.show()
+
+def plot_ddp_results(ddp, robot, id_endeff):
+    '''
+    Plot ddp results for 1 or several solvers
+    X, U, EE trajs
+    '''
+    if(type(ddp)==list):
+        for k,d in enumerate(ddp):
+            if(k==0):
+                fig_x, ax_x = plot_ddp_state(ddp[k])
+                fig_u, ax_u = plot_ddp_control(ddp[k])
+                fig_p, ax_p = plot_ddp_endeff(ddp[k], robot, id_endeff)
+            else:
+                plot_ddp_state(ddp[k], fig=fig_x, ax=ax_x)
+                plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u)
+                plot_ddp_endeff(ddp[k], robot, id_endeff, fig=fig_p, ax=ax_p)
+    else:
+        fig_x, ax_x = plot_ddp_state(ddp)
+        fig_u, ax_u = plot_ddp_control(ddp)
+        fig_p, ax_p = plot_ddp_endeff(ddp, robot, id_endeff)
+
+    plt.show()
+
+def plot_ddp_state(ddp, fig=None, ax=None, label=None):
+    '''
+    Plot ddp results (state)
+    '''
+    # Parameters
+    N = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nq = ddp.problem.runningModels[0].state.nq
+    nv = ddp.problem.runningModels[0].state.nv
+    # Extract pos, vel trajs
+    x = np.array(ddp.xs)
+    q = x[:,:nq]
+    v = x[:,nv:]
+    # Plots
+    tspan = np.linspace(0, N*dt, N+1)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nq, 2)
+    if(label is None):
+        label='State'
+    for i in range(nq):
+        # Positions
+        ax[i,0].plot(tspan, q[:,i], linestyle='-', marker='o', label=label)
+        ax[i,0].set_ylabel('$q_%s$'%i, fontsize=16)
+        ax[i,0].grid(True)
+        # Velocities
+        ax[i,1].plot(tspan, v[:,i], linestyle='-', marker='o', label=label)
+        ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
+        ax[i,1].grid(True)
+        # Remove xticks labels for clarity 
+        if(i != nq-1):
+            for j in range(2):
+                ax[i,j].set_xticklabels([])
+        # Set xlabel on bottom plot
+        if(i == nq-1):
+            for j in range(2):
+                ax[i,j].set_xlabel('t (s)', fontsize=16)
+    # Legend
+    handles, labels = ax[i,0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.align_ylabels()
+    fig.suptitle('State trajectories', size=16)
+    
+    return fig, ax
+
+def plot_ddp_control(ddp, fig=None, ax=None, label=None):
+    '''
+    Plot ddp results (control)
+    '''
+    # Parameters
+    N = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nu = ddp.problem.runningModels[0].nu
+    # Extract pos, vel trajs
+    u = np.array(ddp.us)
+    # Plots
+    tspan = np.linspace(0, N*dt, N)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nu, 1)
+    if(label is None):
+        label='Control'    
+    for i in range(nu):
+        # Positions
+        ax[i].plot(tspan, u[:,i], linestyle='-', marker='o', label=label)
+        ax[i].set_ylabel('$u_%s$'%i, fontsize=16)
+        ax[i].grid(True)
+        # Remove xticks labels for clarity 
+        if(i != nu-1):
+            ax[i].set_xticklabels([])
+        # Set xlabel on bottom plot
+        if(i == nu-1):
+            ax[i].set_xlabel('t (s)', fontsize=16)
+    # Legend
+    handles, labels = ax[i].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.align_ylabels()
+    fig.suptitle('Control trajectories', size=16)
+
+    return fig, ax
+
+def plot_ddp_endeff(ddp, robot, id_endeff, fig=None, ax=None, label=None):
+    '''
+    Plot ddp results (endeff)
+    '''
+    # Parameters
+    N = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nq = ddp.problem.runningModels[0].state.nq
+    # Extract EE traj
+    x = np.array(ddp.xs)
+    q = x[:,:nq]
+    p = pin_utils.get_p(q, robot, id_endeff)
+    # Plots
+    tspan = np.linspace(0, N*dt, N+1)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(3, 1)
+    if(label is None):
+        label='End-effector'
+    ylabels = ['Px', 'Py', 'Pz']
+    for i in range(3):
+        # Positions
+        ax[i].plot(tspan, q[:,i], linestyle='-', marker='o', label=label)
+        ax[i].set_ylabel(ylabel=ylabels[i], fontsize=16)
+        ax[i].grid(True)
+    handles, labels = ax[i].get_legend_handles_labels()
+    ax[i].set_xlabel('t (s)', fontsize=16)
+    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.align_ylabels()
+    fig.suptitle('Endeffector trajectories', size=16)
+
+    return fig, ax
+
+
 
 
 # OLD
@@ -663,7 +806,7 @@ def animatePointMass(xs, sleep=1):
 
     anim = animation.FuncAnimation(fig, animate, init_func=init, frames=len(xs), interval=sleep, blit=True)
     print("... processing done")
-    plt.grid()
+    plt.grid(True)
     plt.show()
     return anim
 
@@ -710,14 +853,14 @@ def plotPointMass(xs, us, dt=1e-2, ref=None):
         ax[0].plot(tspan, [ref[0]]*(T+1), 'k-.', linewidth=2, label='ref')
     ax[0].set_title('Position p', size=16)
     ax[0].set(xlabel='time (s)', ylabel='p (m)')
-    ax[0].grid()
+    ax[0].grid(True)
     # Plot velocity
     ax[1].plot(tspan, x2, 'b-', linewidth=3, label='v')
     if(with_ref):
         ax[1].plot(tspan, [ref[1]]*(T+1), 'k-.', linewidth=2, label='ref')
     ax[1].set_title('Velocity v', size=16)
     ax[1].set(xlabel='time (s)', ylabel='v (m/s)')
-    ax[1].grid()
+    ax[1].grid(True)
     # Plot force if necessary 
     if(with_contact):
         # Contact
@@ -726,12 +869,12 @@ def plotPointMass(xs, us, dt=1e-2, ref=None):
             ax[2].plot(tspan, [ref[2]]*(T+1), 'k-.', linewidth=2, label='ref')
         ax[2].set_title('Contact force lambda', size=16)
         ax[2].set(xlabel='time (s)', ylabel='lmb (N)')
-        ax[2].grid()
+        ax[2].grid(True)
     # Plot control 
     ax[-1].plot(tspan[:T], u, 'k-', linewidth=3, label='u')
     ax[-1].set_title('Input force u', size=16)
     ax[-1].set(xlabel='time (s)', ylabel='u (N)')
-    ax[-1].grid()
+    ax[-1].grid(True)
     # Legend
     handles, labels = ax[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
@@ -762,14 +905,14 @@ def plotFiltered(Y_mea, X_hat, X_real, dt=1e-2):
     ax[0].plot(tspan, X_real[:,0], 'k-.', linewidth=2, label='Ground truth')
     ax[0].set_title('Position p', size=16)
     ax[0].set(xlabel='time (s)', ylabel='p (m)')
-    ax[0].grid()
+    ax[0].grid(True)
     # Plot velocities
     ax[1].plot(tspan[:T], Y_mea[:,1], 'b-', linewidth=2, alpha=.5, label='Measured')
     ax[1].plot(tspan, X_hat[:,1], 'r-', linewidth=3, alpha=.8, label='Filtered')
     ax[1].plot(tspan, X_real[:,1], 'k-.', linewidth=2, label='Ground truth')
     ax[1].set_title('Velocities p', size=16)
     ax[1].set(xlabel='time (s)', ylabel='v (m/s)')
-    ax[1].grid()
+    ax[1].grid(True)
     # Legend
     handles, labels = ax[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
