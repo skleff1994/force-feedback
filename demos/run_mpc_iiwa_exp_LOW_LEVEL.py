@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file mpc_iiwa_sim.py
+@file run_mpc_iiwa_exp_LOW_LEVEL.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -9,24 +9,24 @@
 """
 
 '''
-The robot is tasked with reaching a static EE target 
-Trajectory optimization using Crocoddyl in closed-loop MPC (feedback from state x=(q,v))
-Using PyBullet simulator for rigid-body dynamics 
-Using PyBullet GUI for visualization
+The KUKA LBR iiwa must reaching a static EE target 
+Trajectory optimization using Crocoddyl in closed-loop MPC (feedback from full state x=(q,v))
+Using PyBullet simulator + GUI for rigid-body dynamics & visualization
 
 The goal of this script is to simulate the low-level torque control
-as well at higher frequency (5 to 20kHz) . In face of noise we should 
+as well at higher frequency (~20kHz) . In face of noise we should 
 still recover the performance of closed-loop MPC (ICRA 2021) because 
-the KUKA had a low-level torque control
+the KUKA had a low-level torque control. Without low-level control,
+performance should logically degrade.
 
-Automate the simulations and data saving: 
+Purpose of the script = automate the simulations, data plot & saving 
 - runs N_EXP sims for different freqs
 - saves plots of x,u,p and acc error in specified subdirs of /data
 - saves data dict as compressed npz , can be used later for analysis (separate script)
 '''
 
 import numpy as np  
-from utils import path_utils, sim_utils, plot_utils, ocp_utils, data_utils
+from utils import path_utils, sim_utils, plot_utils, ocp_utils, data_utils, pin_utils
 import pybullet as p
 import time 
 
@@ -73,9 +73,9 @@ Mainly used for 2 purposes:
   2- Increasing cost weight ratio EE/reg at each experiment (INCREASE_COST_WEIGHT=True) + analyze perfs vs frequency
 '''
 # Set experiments meta-params
-freqs = [250]                                       # Which MPC frequency are we testing
+freqs = [10000]                                       # Which MPC frequency are we testing
 N_EXP = 1                                           # How many experiments per frequency
-DATASET_NAME = 'DATASET5_change_task_increase_freq' # To record dataset in /force_feedback/data/DATASET_NAME
+DATASET_NAME = 'DATASET6_change_task_increase_freq' # To record dataset in /force_feedback/data/DATASET_NAME
 data = {}                                           # To store data dict of each experiment
 PERFORMANCE_ANALYSIS = True                         # Analyze & plot EE task performance across experiments & freqs
 FIX_RANDOM_SEED = True                              # Fix random seed to ensure repeatability of simulations
@@ -208,7 +208,11 @@ for MPC_frequency in freqs:
           m.differential.costs.costs["ctrlReg"].weight = u_reg_weights[n_exp]
       # ddp.problem.terminalModel.differential.costs.costs["placement"].weight = ee_weights_t[n_exp]
       # ddp.problem.terminalModel.differential.costs.costs["stateReg"].weight = x_reg_weights_t[n_exp]
-      
+    
+    for k,m in enumerate(ddp.problem.runningModels[:]):
+        m.differential.costs.costs["placement"].weight = 51200 
+        m.differential.costs.costs["stateReg"].weight = 1.953125e-5 
+        m.differential.costs.costs["ctrlReg"].weight = 3.90625e-5 
    ## Low-level simulation parameters (actuation model)
     # Scaling of desired torque
     if(FIX_TORQUE_BIAS):
@@ -301,7 +305,7 @@ for MPC_frequency in freqs:
           print("  ")
           print("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
 
-      # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
+      # If planning cycle, solve OCP 
         if(i%int(simu_freq/plan_freq) == 0):
             # print("  PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
             # Reset x0 to measured state + warm-start solution
@@ -337,7 +341,7 @@ for MPC_frequency in freqs:
             # Increment planning counter
             nb_plan += 1
             
-      # If we are in a control cycle select reference torque to send to motors
+      # If control cycle, select reference torque for motor drivers
         if(i%int(simu_freq/ctrl_freq) == 0):
             # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
             # Optionally interpolate desired torque to control frequency
@@ -362,8 +366,8 @@ for MPC_frequency in freqs:
             # Increment control counter
             nb_ctrl += 1
             
-      # Simulate actuation with PI torque tracking controller (low-level control frequency)
-        # Optionally interpolate reference torque to HF / let constant
+      # If simu cycle, simulate actuation with(out) PI torque control 
+        # Optionally interpolate reference torque to HF 
         if(INTERPOLATE_CTRL):
           coef = float(i%int(simu_freq/ctrl_freq)) / float(simu_freq/ctrl_freq)
           u_ref_HF = (1-coef)*u_ref_prev + coef*u_ref  
@@ -377,7 +381,7 @@ for MPC_frequency in freqs:
           u_mea = u_ref_HF - Kp.dot(err_u) - Ki.dot(int_err_u) - Kd.dot(vel_err_u)
         else:
           u_mea = u_ref_HF 
-        # Actuation = scaling + noise + filtering + delay
+        # Actuation = affine scaling + noise + filtering + delay
         if(SCALE_TORQUES):
           u_mea = alpha*u_mea + beta
         if(NOISE_TORQUES):
@@ -401,12 +405,12 @@ for MPC_frequency in freqs:
         q_mea, v_mea = pybullet_simulator.get_state()
         # Update pinocchio model
         pybullet_simulator.forward_robot(q_mea, v_mea)
-        # Record data (unnoised)
+        # Record data (un-noised)
         x_mea = np.concatenate([q_mea, v_mea]).T 
         sim_data['X_mea_no_noise'][i+1, :] = x_mea
         # Accumulate acceleration error over the control cycle
         sim_data['A_err'][nb_ctrl-1,:] += (np.abs(x_mea - x_pred_1))/float(simu_freq/ctrl_freq)
-        # Optional noise + filtering
+        # Optional noise on state and filtering
         if(NOISE_STATE):
           wq = np.random.normal(0., var_q, nq)
           wv = np.random.normal(0., var_v, nv)
@@ -423,7 +427,7 @@ for MPC_frequency in freqs:
           vel_U_mea[i, :] = (u_mea - sim_data['U_mea'][i-1, :]) / (dt_simu)
         else:
           vel_U_mea[i, :] = np.zeros(nq)
-        # Update PID errors
+        # Update PI(D) errors
         if(TORQUE_TRACKING):
           err_u = sim_data['U_mea'][i, :] - u_ref_HF              
           int_err_u += err_u                             
@@ -441,11 +445,11 @@ for MPC_frequency in freqs:
     print('Post-processing end-effector trajectories...')
     sim_data['P_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, 3))
     for node_id in range(config['N_h']+1):
-      sim_data['P_pred'][:, node_id, :] = sim_utils.get_p(sim_data['X_pred'][:, node_id, :nq], robot, id_endeff) - np.array([sim_data['p_ref']]*sim_data['N_plan'])
-    sim_data['P_mea'] = sim_utils.get_p(sim_data['X_mea'][:,:nq], robot, id_endeff)
+      sim_data['P_pred'][:, node_id, :] = pin_utils.get_p(sim_data['X_pred'][:, node_id, :nq], robot, id_endeff) - np.array([sim_data['p_ref']]*sim_data['N_plan'])
+    sim_data['P_mea'] = pin_utils.get_p(sim_data['X_mea'][:,:nq], robot, id_endeff)
     q_des = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
-    sim_data['P_des'] = sim_utils.get_p(q_des, robot, id_endeff)
-    sim_data['P_mea_no_noise'] = sim_utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
+    sim_data['P_des'] = pin_utils.get_p(q_des, robot, id_endeff)
+    sim_data['P_mea_no_noise'] = pin_utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
    ## Get SVD of ricatti + record in sim data
     sim_data['K_svd'] = np.zeros((sim_data['N_plan'], nq))
@@ -465,7 +469,7 @@ for MPC_frequency in freqs:
 
    ## Convert simulation data into plottable data and generate figures
     plot_data = data_utils.extract_plot_data(sim_data)
-    figs = plot_utils.plot_results(plot_data, which_plots=WHICH_PLOTS,
+    figs = plot_utils.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
                                          PLOT_PREDICTIONS=True, 
                                          pred_plot_sampling=int(plan_freq/20),
                                          SAVE=True,

@@ -722,7 +722,7 @@ def plot_ddp_control(ddp, fig=None, ax=None, label=None):
     # Extract pos, vel trajs
     u = np.array(ddp.us)
     # Plots
-    tspan = np.linspace(0, N*dt, N)
+    tspan = np.linspace(0, N*dt-dt, N)
     if(ax is None or fig is None):
         fig, ax = plt.subplots(nu, 1)
     if(label is None):
@@ -775,6 +775,55 @@ def plot_ddp_endeff(ddp, robot, id_endeff, fig=None, ax=None, label=None):
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('Endeffector trajectories', size=16)
+
+    return fig, ax
+
+def plot_ddp_cost(ddp, fig=None, ax=None, label=None):
+    '''
+    Plot ddp results (cost)
+    '''
+    # Parameters
+    N = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nq = ddp.problem.runningModels[0].state.nq
+    nv = ddp.problem.runningModels[0].state.nv
+    nx = nq+nv
+    nx2 = nx//2
+    # Plots
+    tspan = np.linspace(0, N*dt, N+1)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nx2, 2)
+    if(label is None):
+        label='Cost'
+    # ax_ylim = np.max(Vxx_eig)
+    for i in range(nx2):
+        # Eigenvalues 0 to 6
+        ax[i,0].plot(tspan, ddp.cost, linestyle='-', marker='o', label=label)
+        ax[i,0].set_ylabel('$\lambda_%s$'%i, fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,0].grid(True)
+        # Eigenvalues 7 to 13
+        ax[i,1].plot(tspan, Vxx_eig[:,nx2+i], linestyle='-', marker='o', label=label)
+        ax[i,1].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,1].grid(True)
+        # Remove xticks labels for clarity 
+        if(i != nx2-1):
+            for j in range(2):
+                ax[i,j].set_xticklabels([])
+        # Set xlabel on bottom plot
+        if(i == nx2-1):
+            for j in range(2):
+                ax[i,j].set_xlabel('t (s)', fontsize=16)
+        # ax[i,0].set_ylim(0, ax_ylim) 
+        # ax[i,1].set_ylim(0, ax_ylim) 
+    # Legend
+    handles, labels = ax[i,0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.align_ylabels()
+    fig.suptitle('Vxx Eigenvalues', size=16)
 
     return fig, ax
 
