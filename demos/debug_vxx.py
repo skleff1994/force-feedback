@@ -21,7 +21,7 @@ id_endeff = robot.model.getFrameId('contact')
 M_ee = robot.data.oMf[id_endeff]
 
 # Load data 
-d = data_utils.load_data('/home/skleff/force-feedback/data/DATASET6_change_task_increase_freq/10000/tracking=False_10000Hz__exp_0.npz')
+d = data_utils.load_data('/home/skleff/force-feedback/data/DATASET3_change_task_increase_freq/10000/tracking=False_10000Hz__exp_9.npz')
 plan_freq = 10e3
 
 # Collect all the 'peak' point in data 
@@ -30,13 +30,24 @@ config['frameWeight'] = 51200
 config['xRegWeight'] = 1.953125e-5
 config['uRegWeight'] = 3.90625e-5
 print("Cost weights ratio = ", str(config['frameWeight']/config['xRegWeight']))
-# Select a state at right times
-ta = 0.6658 #0.5
-tb = 0.6659 #1.0 .66
+
+# Collect first peak point in data , either automatically or manually
+def find_peak(data, N_end=10000, eps=100):
+    '''
+    Returns planning step index at which Vxx drops
+    '''
+    for i in range(N_end):
+        if(data['Vxx_eigval'][i, 0] - data['Vxx_eigval'][N_end, 0] <= eps):
+            print("Found peak at t=", i, "( eigenval = ", data['Vxx_eigval'][i, 0], " )")
+            break
+    return i
+
+k_plan_b = find_peak(d) # peak 
+k_plan_a = k_plan_b-1   # just before
+ta = k_plan_a/plan_freq
+tb = k_plan_b/plan_freq
 k_simu_a = int(simu_freq*ta)
 k_simu_b = int(simu_freq*tb)
-k_plan_a = 6658 #int(plan_freq*ta)
-k_plan_b = 6659 #int(plan_freq*tb)
 x0a = np.concatenate([d['q_mea'][k_simu_a, :], d['v_mea'][k_simu_a, :]])
 x0b = np.concatenate([d['q_mea'][k_simu_b, :], d['v_mea'][k_simu_b, :]])
 x0a_ = np.concatenate([d['q_pred'][k_plan_a, 0, :], d['v_pred'][k_plan_a, 0, :]])
@@ -80,7 +91,7 @@ for i in range(1, d['N_h']):
     us_init_a.append(ui)
 uN = d['u_pred'][k_plan_a-1, -1, :]
 us_init_a.append(uN)
-
+    # X (xb)
 xs_init_b = []
 for i in range(1, d['N_h']+1):
     qi = d['q_pred'][k_plan_b-1, i, :]
@@ -92,7 +103,7 @@ vNp1 = d['v_pred'][k_plan_b-1, -1, :]
 xNp1 = np.concatenate([qNp1, vNp1])
 xs_init_b.append(xNp1)
 xs_init_b[0] = x0b_
-    # U (xa)
+    # U (xb)
 us_init_b = []
 for i in range(1, d['N_h']):
     ui = d['u_pred'][k_plan_b-1, i, :]
@@ -101,10 +112,8 @@ uN = d['u_pred'][k_plan_b-1, -1, :]
 us_init_b.append(uN)
 
 # Solve
-# ddp_a.solve(ddp_a.xs, ddp_a.us, maxiter=10, isFeasible=False)
-# ddp_b.solve(ddp_b.xs, ddp_b.us, maxiter=10, isFeasible=False)
-ddp_a.solve(xs_init_a, us_init_a)#, maxiter=10, isFeasible=False)
-ddp_b.solve(xs_init_b, us_init_b)#, maxiter=10, isFeasible=False)
+ddp_a.solve(xs_init_a, us_init_a, maxiter=10, isFeasible=False)
+ddp_b.solve(xs_init_b, us_init_b, maxiter=10, isFeasible=False)
 
 vals_a, vecs_a = np.linalg.eig(ddp_a.Vxx[0])
 vals_b, vecs_b = np.linalg.eig(ddp_b.Vxx[0])
@@ -112,8 +121,7 @@ print("ddp_a.Vxx["+str(id_eig)+"] eig val : ", vals_a[id_eig], " (vs "+str(lambd
 print("ddp_b.Vxx["+str(id_eig)+"] eig val : ", vals_b[id_eig], " (vs "+str(lambda_b)+" in data)")
 print("ddp_a.Vxx["+str(id_eig)+"] eig vec : ", vecs_a[id_eig])
 print("ddp_b.Vxx["+str(id_eig)+"] eig vec : ", vecs_b[id_eig])
-#  Calculate cost at selected states
 
 #  Plot results
 # plot_utils.plot_ddp_ricatti(ddp_a)
-# plot_utils.plot_ddp_results([ddp_a, ddp_b], robot, id_endeff)#, which_plots=['x', 'u', 'p'])
+plot_utils.plot_ddp_results([ddp_a, ddp_b], robot, id_endeff)#, which_plots=['x', 'u', 'p'])

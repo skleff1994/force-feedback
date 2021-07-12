@@ -75,7 +75,7 @@ Mainly used for 2 purposes:
 # Set experiments meta-params
 freqs = [10000]                                       # Which MPC frequency are we testing
 N_EXP = 1                                           # How many experiments per frequency
-DATASET_NAME = 'DATASET6_change_task_increase_freq' # To record dataset in /force_feedback/data/DATASET_NAME
+DATASET_NAME = 'DATASET5_change_task_increase_freq' # To record dataset in /force_feedback/data/DATASET_NAME
 data = {}                                           # To store data dict of each experiment
 PERFORMANCE_ANALYSIS = True                         # Analyze & plot EE task performance across experiments & freqs
 FIX_RANDOM_SEED = True                              # Fix random seed to ensure repeatability of simulations
