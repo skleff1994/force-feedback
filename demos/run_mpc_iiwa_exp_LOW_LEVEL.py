@@ -75,16 +75,16 @@ Mainly used for 2 purposes:
 # Set experiments meta-params
 freqs = [10000]                                       # Which MPC frequency are we testing
 N_EXP = 1                                           # How many experiments per frequency
-DATASET_NAME = 'DATASET5_change_task_increase_freq' # To record dataset in /force_feedback/data/DATASET_NAME
+DATASET_NAME = 'DATASET6_change_task_increase_freq' # To record dataset in /force_feedback/data/DATASET_NAME
 data = {}                                           # To store data dict of each experiment
-PERFORMANCE_ANALYSIS = True                         # Analyze & plot EE task performance across experiments & freqs
-FIX_RANDOM_SEED = True                              # Fix random seed to ensure repeatability of simulations
+PERFORMANCE_ANALYSIS = False                        # Analyze & plot EE task performance across experiments & freqs
+FIX_RANDOM_SEED = False                              # Fix random seed=1 to ensure repeatability of simulations
 FIX_TORQUE_BIAS = True                              # Use the same bias for all experiments (i.e. same actuator model)
 INCREASE_COST_WEIGHT = False                        # Increase cost weight ratio (EE/reg) at each experiment
 WHICH_PLOTS = ['x','u','p','K', 'V', 'S']           # Which plots to generate & save in data folders for each expe
 # Fix seed or not
 if(FIX_RANDOM_SEED):
-  np.random.seed(1)
+  np.random.seed(2)
 # Warning in case bias and cost are not both changing 
 if(not FIX_TORQUE_BIAS and INCREASE_COST_WEIGHT):
   print('WARNING: Cost function AND torque biases WILL change across experiments !')
@@ -451,9 +451,13 @@ for MPC_frequency in freqs:
     sim_data['P_des'] = pin_utils.get_p(q_des, robot, id_endeff)
     sim_data['P_mea_no_noise'] = pin_utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
-   ## Get SVD of ricatti + record in sim data
+   ## Get SVD of ricatti + diag + record in sim data
     sim_data['K_svd'] = np.zeros((sim_data['N_plan'], nq))
+    sim_data['Kp_diag'] = np.zeros((sim_data['N_plan'], nq))
+    sim_data['Kv_diag'] = np.zeros((sim_data['N_plan'], nv))
     for i in range(sim_data['N_plan']):
+      sim_data['Kp_diag'][i,:] = sim_data['K'][i,:,:nq].diagonal()
+      sim_data['Kv_diag'][i,:] = sim_data['K'][i,:,nv:].diagonal()
       _, sim_data['K_svd'][i,:], _ = np.linalg.svd(sim_data['K'][i,:,:])
    
    ## Diagonalize Vxx + record in sim data
@@ -461,8 +465,8 @@ for MPC_frequency in freqs:
     sim_data['Vxx_eigval'] = np.zeros((sim_data['N_plan'], nx))
     for i in range(sim_data['N_plan']):
       sim_data['Vxx_diag'][i, :] = sim_data['Vxx'][i, :, :].diagonal()
-      sim_data['Vxx_eigval'][i, :] = np.linalg.eigvals(sim_data['Vxx'][i, :, :])
-  
+      sim_data['Vxx_eigval'][i, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, :, :]))[::-1]
+
    ## Set saving name and directory
     save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz__exp_'+str(n_exp)
     save_dir = '/home/skleff/force-feedback/data/'+DATASET_NAME+'/'+str(MPC_frequency)

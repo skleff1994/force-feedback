@@ -74,7 +74,8 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['alpha'] = sim_data['alpha']
     plot_data['beta'] = sim_data['beta']
     # Solver stuff
-    plot_data['K'] = sim_data['K']
+    plot_data['Kp_diag'] = sim_data['Kp_diag']
+    plot_data['Kv_diag'] = sim_data['Kv_diag']
     plot_data['K_svd'] = sim_data['K_svd']
     plot_data['Vxx_diag'] = sim_data['Vxx_diag']
     plot_data['Vxx_eigval'] = sim_data['Vxx_eigval']

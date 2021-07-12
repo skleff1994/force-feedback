@@ -23,8 +23,8 @@ DELAY_OCP: True               # Add delay in OCP solution (i.e. ~1ms resolution
 SCALE_TORQUES: True           # Affine scaling of reference torque
 NOISE_TORQUES: False          # Add Gaussian noise on reference torques
 FILTER_TORQUES: False         # Moving average smoothing of reference torques
-NOISE_STATE: False ##             # Add Gaussian noise on the measured state 
-FILTER_STATE: True ##            # Moving average smoothing of reference torques
+NOISE_STATE: True             # Add Gaussian noise on the measured state 
+FILTER_STATE: True            # Moving average smoothing of reference torques
 INTERPOLATE_PLAN: False       # Interpolate DDP desired feedforward torque to control frequency
 INTERPOLATE_CTRL: False       # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
 # Initial logs
