@@ -73,18 +73,18 @@ Mainly used for 2 purposes:
   2- Increasing cost weight ratio EE/reg at each experiment (INCREASE_COST_WEIGHT=True) + analyze perfs vs frequency
 '''
 # Set experiments meta-params
-freqs = [10000]                                       # Which MPC frequency are we testing
-N_EXP = 1                                           # How many experiments per frequency
+freqs = [250, 10000]                                # Which MPC frequency are we testing
+N_EXP = 10                                          # How many experiments per frequency
 DATASET_NAME = 'DATASET6_change_task_increase_freq' # To record dataset in /force_feedback/data/DATASET_NAME
 data = {}                                           # To store data dict of each experiment
-PERFORMANCE_ANALYSIS = False                        # Analyze & plot EE task performance across experiments & freqs
-FIX_RANDOM_SEED = False                              # Fix random seed=1 to ensure repeatability of simulations
+PERFORMANCE_ANALYSIS = True                         # Analyze & plot EE task performance across experiments & freqs
+FIX_RANDOM_SEED = True                              # Fix random seed=1 to ensure repeatability of simulations
 FIX_TORQUE_BIAS = True                              # Use the same bias for all experiments (i.e. same actuator model)
-INCREASE_COST_WEIGHT = False                        # Increase cost weight ratio (EE/reg) at each experiment
-WHICH_PLOTS = ['x','u','p','K', 'V', 'S']           # Which plots to generate & save in data folders for each expe
+INCREASE_COST_WEIGHT = True                         # Increase cost weight ratio (EE/reg) at each experiment
+WHICH_PLOTS = ['x','u','p','K', 'V']                # Which plots to generate & save in data folders for each expe
 # Fix seed or not
 if(FIX_RANDOM_SEED):
-  np.random.seed(2)
+  np.random.seed(1)
 # Warning in case bias and cost are not both changing 
 if(not FIX_TORQUE_BIAS and INCREASE_COST_WEIGHT):
   print('WARNING: Cost function AND torque biases WILL change across experiments !')
@@ -102,7 +102,7 @@ else:
     alphas.append(np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(nq,)))
     betas.append(np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(nq,)))  
 # Generates increasing sequence of N_EXP cost weight ratios (EE/reg) with factor gamma^2
-initial_factor = 1
+initial_factor = 100
 if(INCREASE_COST_WEIGHT):
   gamma = 2.
   ee_weights = []
@@ -116,12 +116,13 @@ if(INCREASE_COST_WEIGHT):
   # wx_t = config['xRegWeightTerminal']/initial_factor
   wu = config['uRegWeight']/initial_factor
   for n_exp in range(N_EXP):
-    print("[nexp=", n_exp, "] EE : ", wee, " | regx : ", wx, " | regu : ", wu, " >> RATIO = ", "{:2e}".format(wee/wx))
     ee_weights.append(wee)
     # ee_weights_t.append(wee_t)
     x_reg_weights.append(wx)
     # x_reg_weights_t.append(wx_t)
     u_reg_weights.append(wu)
+    # Show value
+    print("[nexp=", n_exp, "] EE : ", wee, " | regx : ", wx, " | regu : ", wu, " >> RATIO = ", "{:2e}".format(wee/wx))
     wee *= gamma
     # wee_t *= gamma
     wx /= gamma
@@ -209,10 +210,11 @@ for MPC_frequency in freqs:
       # ddp.problem.terminalModel.differential.costs.costs["placement"].weight = ee_weights_t[n_exp]
       # ddp.problem.terminalModel.differential.costs.costs["stateReg"].weight = x_reg_weights_t[n_exp]
     
-    for k,m in enumerate(ddp.problem.runningModels[:]):
-        m.differential.costs.costs["placement"].weight = 51200 
-        m.differential.costs.costs["stateReg"].weight = 1.953125e-5 
-        m.differential.costs.costs["ctrlReg"].weight = 3.90625e-5 
+    # for k,m in enumerate(ddp.problem.runningModels[:]):
+    #     m.differential.costs.costs["placement"].weight = 512000 #51200 
+    #     m.differential.costs.costs["stateReg"].weight = 1.953125e-07 #1.953125e-5 
+    #     m.differential.costs.costs["ctrlReg"].weight = 3.90625e-07 #3.90625e-5 
+
    ## Low-level simulation parameters (actuation model)
     # Scaling of desired torque
     if(FIX_TORQUE_BIAS):
@@ -451,7 +453,7 @@ for MPC_frequency in freqs:
     sim_data['P_des'] = pin_utils.get_p(q_des, robot, id_endeff)
     sim_data['P_mea_no_noise'] = pin_utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
-   ## Get SVD of ricatti + diag + record in sim data
+   ## Get SVD & diagonal of Ricatti + record in sim data
     sim_data['K_svd'] = np.zeros((sim_data['N_plan'], nq))
     sim_data['Kp_diag'] = np.zeros((sim_data['N_plan'], nq))
     sim_data['Kv_diag'] = np.zeros((sim_data['N_plan'], nv))
@@ -460,12 +462,12 @@ for MPC_frequency in freqs:
       sim_data['Kv_diag'][i,:] = sim_data['K'][i,:,nv:].diagonal()
       _, sim_data['K_svd'][i,:], _ = np.linalg.svd(sim_data['K'][i,:,:])
    
-   ## Diagonalize Vxx + record in sim data
+   ##Get diagonal and eigenvals of Vxx + record in sim data
     sim_data['Vxx_diag'] = np.zeros((sim_data['N_plan'], nx))
-    sim_data['Vxx_eigval'] = np.zeros((sim_data['N_plan'], nx))
+    sim_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], nx))
     for i in range(sim_data['N_plan']):
       sim_data['Vxx_diag'][i, :] = sim_data['Vxx'][i, :, :].diagonal()
-      sim_data['Vxx_eigval'][i, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, :, :]))[::-1]
+      sim_data['Vxx_eig'][i, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, :, :]))[::-1]
 
    ## Set saving name and directory
     save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz__exp_'+str(n_exp)

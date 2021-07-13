@@ -32,7 +32,7 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
     # Create time spans for X and U + Create figs and subplots
     t_span_simu_x = np.linspace(0, T_tot, N_simu+1)
     t_span_plan_x = np.linspace(0, T_tot, N_plan+1)
-    fig_x, ax_x = plt.subplots(nq, 2, figsize=(19.2,10.8))
+    fig_x, ax_x = plt.subplots(nq, 2, figsize=(19.2,10.8), sharex='col') 
     # For each joint
     for i in range(nq):
 
@@ -75,26 +75,33 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
                 ax_x[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
 
         # Joint position
-          # Desired
         ax_x[i,0].plot(t_span_plan_x, plot_data['q_des'][:,i], 'b-', label='Desired')
-          # Measured
         ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)', linewidth=2)
-        ax_x[i,0].set(xlabel='t (s)', ylabel='$q_{}$ (rad)'.format(i))
+        ax_x[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
+        ax_x[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_x[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax_x[i,0].grid(True)
         
         # Joint velocity 
-          # Desired 
         ax_x[i,1].plot(t_span_plan_x, plot_data['v_des'][:,i], 'b-', label='Desired')
-          # Measured 
         ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)')
-        ax_x[i,1].set(xlabel='t (s)', ylabel='$v_{}$ (rad/s)'.format(i))
+        ax_x[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
+        ax_x[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_x[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax_x[i,1].grid(True)
-        
+        # Add xlabel on bottom plot of each column
+        if(i == nq-1):
+            ax_x[i,0].set_xlabel('t(s)', fontsize=16)
+            ax_x[i,1].set_xlabel('t(s)', fontsize=16)
         # Legend
         handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
         fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+    # y axis labels
+    fig_x.text(0.05, 0.5, 'Joint position (rad)', va='center', rotation='vertical', fontsize=16)
+    fig_x.text(0.49, 0.5, 'Joint velocity (rad/s)', va='center', rotation='vertical', fontsize=16)
+    fig_x.subplots_adjust(wspace=0.27)
     # Titles
     fig_x.suptitle('State = joint positions, velocities', size=16)
     # Save fig
@@ -141,7 +148,7 @@ def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False,
     # Create time spans for X and U + Create figs and subplots
     t_span_simu_u = np.linspace(0, T_tot-dt_simu, N_simu)
     t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
-    fig_u, ax_u = plt.subplots(nq, 1, figsize=(19.2,10.8))
+    fig_u, ax_u = plt.subplots(nq, 1, figsize=(19.2,10.8), sharex='col') 
     # For each joint
     for i in range(nq):
 
@@ -174,15 +181,20 @@ def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False,
                 ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
 
         # Joint torques
-          # Desired  
         ax_u[i].plot(t_span_plan_u, plot_data['u_des'][:,i], 'b-', label='Desired')
-          # Measured
         ax_u[i].plot(t_span_simu_u, plot_data['u_mea'][:,i], 'r-', label='Measured') 
-        ax_u[i].set(xlabel='t (s)', ylabel='$u_{}$ (Nm)'.format(i))
+        ax_u[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
+        ax_u[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_u[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax_u[i].grid(True)
-
+        # Last x axis label
+        if(i == nq-1):
+            ax_u[i].set_xlabel('t (s)', fontsize=16)
+        # LEgend
         handles_u, labels_u = ax_u[i].get_legend_handles_labels()
         fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
+    # Sup-y label
+    fig_u.text(0.04, 0.5, 'Joint torque (Nm)', va='center', rotation='vertical', fontsize=16)
     # Titles
     fig_u.suptitle('Control = joint torques', size=16)
     # Save figs
@@ -232,29 +244,35 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
     t_span_simu_x = np.linspace(0, T_tot, N_simu+1)
     t_span_ctrl_x = np.linspace(0, T_tot, N_ctrl+1)
     t_span_plan_x = np.linspace(0, T_tot, N_plan+1)
-    fig_p, ax_p = plt.subplots(3,1, figsize=(19.2,10.8)) 
+    fig_p, ax_p = plt.subplots(3,1, figsize=(19.2,10.8), sharex='col') 
     # Plot endeff
     # x
     ax_p[0].plot(t_span_plan_x, plot_data['p_des'][:,0]-p_ref[0], 'b-', label='p_des - p_ref', alpha=0.5)
     ax_p[0].plot(t_span_simu_x, plot_data['p_mea'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref (WITH noise)', linewidth=1, alpha=0.3)
     ax_p[0].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref (NO noise)', linewidth=2)
     ax_p[0].set_title('x-position-ERROR')
-    ax_p[0].set(xlabel='t (s)', ylabel='x (m)')
-    # 
+    ax_p[0].set_ylabel('x (m)', fontsize=16)
+    ax_p[0].yaxis.set_major_locator(plt.MaxNLocator(2))
+    ax_p[0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
     ax_p[0].grid(True)
     # y
     ax_p[1].plot(t_span_plan_x, plot_data['p_des'][:,1]-p_ref[1], 'b-', label='py_des - py_ref', alpha=0.5)
     ax_p[1].plot(t_span_simu_x, plot_data['p_mea'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (WITH noise)', linewidth=1, alpha=0.3)
     ax_p[1].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (NO noise)', linewidth=2)
     ax_p[1].set_title('y-position-ERROR')
-    ax_p[1].set(xlabel='t (s)', ylabel='y (m)')
+    ax_p[1].set_ylabel('y (m)', fontsize=16)
+    ax_p[1].yaxis.set_major_locator(plt.MaxNLocator(2))
+    ax_p[1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
     ax_p[1].grid(True)
     # z
     ax_p[2].plot(t_span_plan_x, plot_data['p_des'][:,2]-p_ref[2], 'b-', label='pz_des - pz_ref', alpha=0.5)
     ax_p[2].plot(t_span_simu_x, plot_data['p_mea'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (WITH noise)', linewidth=1, alpha=0.3)
     ax_p[2].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (NO noise)', linewidth=2)
     ax_p[2].set_title('z-position-ERROR')
-    ax_p[2].set(xlabel='t (s)', ylabel='z (m)')
+    ax_p[2].set_ylabel('z (m)', fontsize=16)
+    ax_p[2].yaxis.set_major_locator(plt.MaxNLocator(2))
+    ax_p[2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+    ax_p[2].set_xlabel('t (s)', fontsize=16)
     ax_p[2].grid(True)
     # Add frame ref if any
     ax_p[0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., label='err=0', alpha=0.5)
@@ -336,18 +354,29 @@ def plot_mpc_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     nq = plot_data['nq']
     # Create time spans for X and U + Create figs and subplots
     t_span_ctrl_u = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
-    fig_a, ax_a = plt.subplots(nq,2, figsize=(19.2,10.8))
+    fig_a, ax_a = plt.subplots(nq,2, figsize=(19.2,10.8), sharex='col') 
     # For each joint
     for i in range(nq):
-
         # Joint velocity error (avg over 1 control cycle)
         ax_a[i,0].plot(t_span_ctrl_u, plot_data['a_err'][:,i], 'b-', label='Velocity error (average)')
-        ax_a[i,0].set(xlabel='t (s)', ylabel='$u_{}$ (Nm)'.format(i))
+        ax_a[i,0].set_ylabel('$verr_{}$'.format(i), fontsize=12)
+        ax_a[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_a[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax_a[i,0].grid(True)
         # Joint acceleration error (avg over 1 control cycle)
         ax_a[i,1].plot(t_span_ctrl_u, plot_data['a_err'][:,nq+i], 'b-', label='Acceleration error (average)')
-        ax_a[i,1].set(xlabel='t (s)', ylabel='$u_{}$ (Nm)'.format(i))
+        ax_a[i,1].set_ylabel('$aerr_{}$'.format(i), fontsize=12)
+        ax_a[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_a[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax_a[i,1].grid(True)
+        # Set xlabel on bottom plot
+        if(i == nq-1):
+            ax_a[i,0].set_xlabel('t (s)', fontsize=16)
+            ax_a[i,1].set_xlabel('t (s)', fontsize=16)
+    # y axis labels
+    fig_a.text(0.05, 0.5, 'Vel. error (rad/s)', va='center', rotation='vertical', fontsize=16)
+    fig_a.text(0.49, 0.5, 'Acc. error (rad/s^2)', va='center', rotation='vertical', fontsize=16)
+    fig_a.subplots_adjust(wspace=0.27)    
     # title
     fig_a.suptitle('Average tracking errors over control cycles (1ms)', size=16)
     # Save figs
@@ -365,8 +394,8 @@ def plot_mpc_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     
     return fig_a
 
-# Plot Ricatti
-def plot_mpc_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+# Plot Ricatti SVD
+def plot_mpc_ricatti_svd(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                             SHOW=True):
     '''
     Plot ricatti data
@@ -379,7 +408,7 @@ def plot_mpc_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Ricatti data...')
+    print('Plotting Ricatti singular values...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -387,22 +416,86 @@ def plot_mpc_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
 
     # Create time spans for X and U + Create figs and subplots
     t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
-    fig_K, ax_K = plt.subplots(nq, 2, figsize=(19.2,10.8))
+    fig_K, ax_K = plt.subplots(nq, 1, figsize=(19.2,10.8), sharex='col') 
     # For each joint
     for i in range(nq):
-        # Ricatti gains diag
-        ax_K[i,0].plot(t_span_plan_u, plot_data['Kp_diag'][:,i], 'b-', label='Diag of Ricatti (Kp)')
-        ax_K[i,0].set(xlabel='t (s)', ylabel='$diag [K]_{}$'.format(i))
-        ax_K[i,0].grid(True)
         # Ricatti gains singular values
-        ax_K[i,1].plot(t_span_plan_u, plot_data['K_svd'][:,i], 'b-', label='Singular Value of Ricatti')
-        ax_K[i,1].set(xlabel='t (s)', ylabel='$\sigma [K]_{}$'.format(i))
-        ax_K[i,1].grid(True)
+        ax_K[i].plot(t_span_plan_u, plot_data['K_svd'][:,i], 'b-', label='Singular Values of Ricatti gain K')
+        ax_K[i].set_ylabel('$\sigma_{}$'.format(i), fontsize=12)
+        ax_K[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_K[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_K[i].grid(True)
+        # Set xlabel on bottom plot
+        if(i == nq-1):
+            ax_K[i].set_xlabel('t (s)', fontsize=16)
+    # y axis labels
+    # fig_K.text(0.04, 0.5, 'Singular values', va='center', rotation='vertical', fontsize=16)
     # Titles
     fig_K.suptitle('Singular Values of Ricatti feedback gains K', size=16)
     # Save figs
     if(SAVE):
-        figs = {'K': fig_K}
+        figs = {'K_svd': fig_K}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_K
+
+# Plot Ricatti Diagonal
+def plot_mpc_ricatti_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                            SHOW=True):
+    '''
+    Plot ricatti data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting Ricatti diagonal...')
+    T_tot = plot_data['T_tot']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    nq = plot_data['nq']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_K, ax_K = plt.subplots(nq, 2, figsize=(19.2,10.8), sharex='col') 
+    # For each joint
+    for i in range(nq):
+        # Diagonal terms
+        ax_K[i,0].plot(t_span_plan_u, plot_data['Kp_diag'][:,i], 'b-', label='Diag of Ricatti (Kp)')
+        ax_K[i,0].set_ylabel('$Kp_{}$'.format(i)+"$_{}$".format(i), fontsize=12)
+        ax_K[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_K[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_K[i,0].grid(True)
+        # Diagonal terms
+        ax_K[i,1].plot(t_span_plan_u, plot_data['Kv_diag'][:,i], 'b-', label='Diag of Ricatti (Kv)')
+        ax_K[i,1].set_ylabel('$Kv_{}$'.format(i)+"$_{}$".format(i), fontsize=12)
+        ax_K[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_K[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_K[i,1].grid(True)
+        if(i == nq-1):
+            ax_K[i,0].set_xlabel('t (s)', fontsize=16)
+            ax_K[i,1].set_xlabel('t (s)', fontsize=16)
+    # y axis labels
+    fig_K.text(0.05, 0.5, '$K_p$', va='center', rotation='vertical', fontsize=16)
+    fig_K.text(0.48, 0.5, '$K_v', va='center', rotation='vertical', fontsize=16)
+    fig_K.subplots_adjust(wspace=0.27)  
+    # Titles
+    fig_K.suptitle('Diagonal Ricatti feedback gains K', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'K_diag': fig_K}
         if(SAVE_DIR is None):
             SAVE_DIR = '/home/skleff/force-feedback/data'
         if(SAVE_NAME is None):
@@ -416,10 +509,10 @@ def plot_mpc_ricatti(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     return fig_K
 
 # Plot Vxx
-def plot_mpc_Vxx(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+def plot_mpc_Vxx_eig(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                         SHOW=True):
     '''
-    Plot Vxx data
+    Plot Vxx eigenvalues
      Input:
       plot_data                 : plotting data
       PLOT_PREDICTIONS          : True or False
@@ -429,7 +522,7 @@ def plot_mpc_Vxx(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Vxx data...')
+    print('Plotting Vxx eigenvalues...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -437,26 +530,96 @@ def plot_mpc_Vxx(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
 
     # Create time spans for X and U + Create figs and subplots
     t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
-    fig_V, ax_V = plt.subplots(nq, 2, figsize=(19.2,10.8))
+    fig_V, ax_V = plt.subplots(nq, 2, figsize=(19.2,10.8), sharex='col') 
     # For each state
     for i in range(nq):
-        # Vxx diag
-        # ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_diag'][:,i], 'b-', label='Vxx diagonal')
-        # ax_V[i,0].set(xlabel='t (s)', ylabel='$Diag[Vxx_{}]$'.format(i,i))
-        # ax_V[i,0].grid(True)
         # Vxx eigenvals
-        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eigval'][:,i], 'b-', label='Vxx eigenvalue')
-        ax_V[i,0].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(i)+'(Vxx)')
+        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eig'][:,i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,0].set_ylabel('$\lambda_{}$'.format(i), fontsize=12)
+        ax_V[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax_V[i,0].grid(True)
         # Vxx eigenvals
-        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eigval'][:,nq+i], 'b-', label='Vxx eigenvalue')
-        ax_V[i,1].set(xlabel='t (s)', ylabel='$\lambda_{}$'.format(nq+i)+'(Vxx)')
+        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eig'][:,nq+i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,1].set_ylabel('$\lambda_{%s}$'%str(nq+i), fontsize=12)
+        ax_V[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax_V[i,1].grid(True)
+        # Set xlabel on bottom plot
+        if(i == nq-1):
+            ax_V[i,0].set_xlabel('t (s)', fontsize=16)
+            ax_V[i,1].set_xlabel('t (s)', fontsize=16)
+    # # y axis labels
+    # fig_V.text(0.05, 0.5, 'Eigenvalue', va='center', rotation='vertical', fontsize=16)
+    # fig_V.text(0.49, 0.5, 'Eigenvalue', va='center', rotation='vertical', fontsize=16)
+    # fig_V.subplots_adjust(wspace=0.27)  
     # Titles
     fig_V.suptitle('Eigenvalues of Value Function Hessian Vxx', size=16)
     # Save figs
     if(SAVE):
-        figs = {'V': fig_V}
+        figs = {'V_eig': fig_V}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_V
+
+# Plot Vxx
+def plot_mpc_Vxx_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                        SHOW=True):
+    '''
+    Plot Vxx diagonal terms
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting Vxx diagonal...')
+    T_tot = plot_data['T_tot']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    nq = plot_data['nq']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_V, ax_V = plt.subplots(nq, 2, figsize=(19.2,10.8), sharex='col') 
+    # For each state
+    for i in range(nq):
+        # Vxx diag
+        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_diag'][:,i], 'b-', label='Vxx diagonal')
+        ax_V[i,0].set_ylabel('$Vxx_{}$'.format(i), fontsize=12)
+        ax_V[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_V[i,0].grid(True)
+        # Vxx diag
+        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_diag'][:,nq+i], 'b-', label='Vxx diagonal')
+        ax_V[i,1].set_ylabel('$Vxx_{%s}$'%str(nq+i), fontsize=12)
+        ax_V[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_V[i,1].grid(True)
+        # Set xlabel on bottom plot
+        if(i == nq-1):
+            ax_V[i,0].set_xlabel('t (s)', fontsize=16)
+            ax_V[i,1].set_xlabel('t (s)', fontsize=16)
+    # y axis labels
+    # fig_V.text(0.05, 0.5, 'Diagonal Vxx', va='center', rotation='vertical', fontsize=16)
+    # fig_V.text(0.49, 0.5, 'Diagonal Vxx', va='center', rotation='vertical', fontsize=16)
+    # fig_V.subplots_adjust(wspace=0.27)  
+    # Titles
+    fig_V.suptitle('Diagonal of Value Function Hessian Vxx', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'V_diag': fig_V}
         if(SAVE_DIR is None):
             SAVE_DIR = '/home/skleff/force-feedback/data'
         if(SAVE_NAME is None):
@@ -490,7 +653,7 @@ def plot_mpc_solver(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
 
     # Create time spans for X and U + Create figs and subplots
     t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
-    fig_S, ax_S = plt.subplots(2, 1, figsize=(19.2,10.8))
+    fig_S, ax_S = plt.subplots(2, 1, figsize=(19.2,10.8), sharex='col') 
     # Xreg
     ax_S[0].plot(t_span_plan_u, plot_data['xreg'], 'b-', label='xreg')
     ax_S[0].set(xlabel='t (s)', ylabel='$xreg$')
@@ -499,6 +662,7 @@ def plot_mpc_solver(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     ax_S[1].plot(t_span_plan_u, plot_data['ureg'], 'r-', label='ureg')
     ax_S[1].set(xlabel='t (s)', ylabel='$ureg$')
     ax_S[1].grid(True)
+
     # Titles
     fig_S.suptitle('FDDP solver regularization on x (Vxx diag) and u (Quu diag)', size=16)
     # Save figs
@@ -537,11 +701,12 @@ def plot_mpc_jacobian(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
 
     # Create time spans for X and U + Create figs and subplots
     t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
-    fig_J, ax_J = plt.subplots(1, 1, figsize=(19.2,10.8))
+    fig_J, ax_J = plt.subplots(1, 1, figsize=(19.2,10.8), sharex='col') 
     # Rank of Jacobian
     ax_J.plot(t_span_plan_u, plot_data['J_rank'], 'b-', label='rank')
     ax_J.set(xlabel='t (s)', ylabel='rank')
     ax_J.grid(True)
+
     # Titles
     fig_J.suptitle('Rank of Jacobian J(q)', size=16)
     # Save figs
@@ -604,11 +769,15 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
 
     if('K' in which_plots or which_plots is None or which_plots =='all'):
-        plots['K'] = plot_mpc_ricatti(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+        plots['K_diag'] = plot_mpc_ricatti_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                             SHOW=False)
+        plots['K_svd'] = plot_mpc_ricatti_svd(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
 
     if('V' in which_plots or which_plots is None or which_plots =='all'):
-        plots['V'] = plot_mpc_Vxx(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+        plots['V_diag'] = plot_mpc_Vxx_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                         SHOW=False)
+        plots['V_eig'] = plot_mpc_Vxx_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                          SHOW=False)
 
     if('S' in which_plots or which_plots is None or which_plots =='all'):
@@ -622,6 +791,7 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
     if(SHOW):
         plt.show() 
     plt.close('all')
+
 
 
 ### Plot from DDP solver 
@@ -683,7 +853,7 @@ def plot_ddp_state(ddp, fig=None, ax=None, label=None):
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
-        fig, ax = plt.subplots(nq, 2)
+        fig, ax = plt.subplots(nq, 2, sharex='col') 
     if(label is None):
         label='State'
     for i in range(nq):
@@ -695,14 +865,7 @@ def plot_ddp_state(ddp, fig=None, ax=None, label=None):
         ax[i,1].plot(tspan, v[:,i], linestyle='-', marker='o', label=label)
         ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
         ax[i,1].grid(True)
-        # Remove xticks labels for clarity 
-        if(i != nq-1):
-            for j in range(2):
-                ax[i,j].set_xticklabels([])
-        # Set xlabel on bottom plot
-        if(i == nq-1):
-            for j in range(2):
-                ax[i,j].set_xlabel('t (s)', fontsize=16)
+
     # Legend
     handles, labels = ax[i,0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
@@ -724,7 +887,7 @@ def plot_ddp_control(ddp, fig=None, ax=None, label=None):
     # Plots
     tspan = np.linspace(0, N*dt-dt, N)
     if(ax is None or fig is None):
-        fig, ax = plt.subplots(nu, 1)
+        fig, ax = plt.subplots(nu, 1, sharex='col') 
     if(label is None):
         label='Control'    
     for i in range(nu):
@@ -732,9 +895,6 @@ def plot_ddp_control(ddp, fig=None, ax=None, label=None):
         ax[i].plot(tspan, u[:,i], linestyle='-', marker='o', label=label)
         ax[i].set_ylabel('$u_%s$'%i, fontsize=16)
         ax[i].grid(True)
-        # Remove xticks labels for clarity 
-        if(i != nu-1):
-            ax[i].set_xticklabels([])
         # Set xlabel on bottom plot
         if(i == nu-1):
             ax[i].set_xlabel('t (s)', fontsize=16)
@@ -761,7 +921,7 @@ def plot_ddp_endeff(ddp, robot, id_endeff, fig=None, ax=None, label=None):
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
-        fig, ax = plt.subplots(3, 1)
+        fig, ax = plt.subplots(3, 1, sharex='col')
     if(label is None):
         label='End-effector'
     ylabels = ['Px', 'Py', 'Pz']
@@ -777,55 +937,6 @@ def plot_ddp_endeff(ddp, robot, id_endeff, fig=None, ax=None, label=None):
     fig.suptitle('Endeffector trajectories', size=16)
 
     return fig, ax
-
-# def plot_ddp_cost(ddp, fig=None, ax=None, label=None):
-#     '''
-#     Plot ddp results (cost)
-#     '''
-#     # Parameters
-#     N = ddp.problem.T
-#     dt = ddp.problem.runningModels[0].dt
-#     nq = ddp.problem.runningModels[0].state.nq
-#     nv = ddp.problem.runningModels[0].state.nv
-#     nx = nq+nv
-#     nx2 = nx//2
-#     # Plots
-#     tspan = np.linspace(0, N*dt, N+1)
-#     if(ax is None or fig is None):
-#         fig, ax = plt.subplots(nx2, 2)
-#     if(label is None):
-#         label='Cost'
-#     # ax_ylim = np.max(Vxx_eig)
-#     for i in range(nx2):
-#         # Eigenvalues 0 to 6
-#         ax[i,0].plot(tspan, ddp.cost, linestyle='-', marker='o', label=label)
-#         ax[i,0].set_ylabel('$\lambda_%s$'%i, fontsize=16)
-#         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
-#         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-#         ax[i,0].grid(True)
-#         # Eigenvalues 7 to 13
-#         ax[i,1].plot(tspan, Vxx_eig[:,nx2+i], linestyle='-', marker='o', label=label)
-#         ax[i,1].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
-#         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
-#         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-#         ax[i,1].grid(True)
-#         # Remove xticks labels for clarity 
-#         if(i != nx2-1):
-#             for j in range(2):
-#                 ax[i,j].set_xticklabels([])
-#         # Set xlabel on bottom plot
-#         if(i == nx2-1):
-#             for j in range(2):
-#                 ax[i,j].set_xlabel('t (s)', fontsize=16)
-#         # ax[i,0].set_ylim(0, ax_ylim) 
-#         # ax[i,1].set_ylim(0, ax_ylim) 
-#     # Legend
-#     handles, labels = ax[i,0].get_legend_handles_labels()
-#     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-#     fig.align_ylabels()
-#     fig.suptitle('Vxx Eigenvalues', size=16)
-
-#     return fig, ax
 
 def plot_ddp_vxx_sv(ddp, fig=None, ax=None, label=None):
     '''
@@ -845,30 +956,26 @@ def plot_ddp_vxx_sv(ddp, fig=None, ax=None, label=None):
     # Plots
     tspan = np.linspace(0, N*dt, N)
     if(ax is None or fig is None):
-        fig, ax = plt.subplots(nx2, 2)
+        fig, ax = plt.subplots(nx2, 2, sharex='col')
     if(label is None):
         label='Vxx Singular Values'
     for i in range(nx2):
         # Singular values 0 to 6
         ax[i,0].plot(tspan, Vxx_sv[:,i], linestyle='-', marker='o', label=label)
-        ax[i,0].set_ylabel('$\sigma_%s$'%i, fontsize=16)
+        ax[i,0].set_ylabel('$\sigma_{%s}$'%i, fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
         # Eigenvalues 7 to 13
         ax[i,1].plot(tspan, Vxx_sv[:,nx2+i], linestyle='-', marker='o', label=label)
-        ax[i,1].set_ylabel('$\sigma_%s$'%str(nx2+i), fontsize=16)
+        ax[i,1].set_ylabel('$\sigma_{%s}$'%str(nx2+i), fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)
-        # Remove xticks labels for clarity 
-        if(i != nx2-1):
-            for j in range(2):
-                ax[i,j].set_xticklabels([])
         # Set xlabel on bottom plot
         if(i == nx2-1):
-            for j in range(2):
-                ax[i,j].set_xlabel('t (s)', fontsize=16)
+            ax[i,0].set_xlabel('t (s)', fontsize=16)
+            ax[i,1].set_xlabel('t (s)', fontsize=16)
     # Legend
     handles, labels = ax[i,0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
@@ -895,33 +1002,27 @@ def plot_ddp_vxx_eig(ddp, fig=None, ax=None, label=None):
     # Plots
     tspan = np.linspace(0, N*dt, N)
     if(ax is None or fig is None):
-        fig, ax = plt.subplots(nx2, 2)
+        fig, ax = plt.subplots(nx2, 2, sharex='col')
     if(label is None):
         label='Vxx Eigenvalues'
     # ax_ylim = np.max(Vxx_eig)
     for i in range(nx2):
         # Eigenvalues 0 to 6
         ax[i,0].plot(tspan, Vxx_eig[:,i], linestyle='-', marker='o', label=label)
-        ax[i,0].set_ylabel('$\lambda_%s$'%i, fontsize=16)
+        ax[i,0].set_ylabel('$\lambda_{%s}$'%i, fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
         # Eigenvalues 7 to 13
         ax[i,1].plot(tspan, Vxx_eig[:,nx2+i], linestyle='-', marker='o', label=label)
-        ax[i,1].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
+        ax[i,1].set_ylabel('$\lambda_{%s}$'%str(nx2+i), fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)
-        # Remove xticks labels for clarity 
-        if(i != nx2-1):
-            for j in range(2):
-                ax[i,j].set_xticklabels([])
         # Set xlabel on bottom plot
         if(i == nx2-1):
-            for j in range(2):
-                ax[i,j].set_xlabel('t (s)', fontsize=16)
-        # ax[i,0].set_ylim(0, ax_ylim) 
-        # ax[i,1].set_ylim(0, ax_ylim) 
+            ax[i,0].set_xlabel('t (s)', fontsize=16)
+            ax[i,1].set_xlabel('t (s)', fontsize=16)
     # Legend
     handles, labels = ax[i,0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
@@ -946,39 +1047,20 @@ def plot_ddp_ricatti_sv(ddp, fig=None, ax=None, label=None):
     K_sv = np.zeros((N, nq))
     # Extract diag , eig and sing val of Ricatti gain
     for i in range(N):
-        # K_diag[i, :nq] = ddp.K[i][:nq,:nq].diagonal()
-        # K_diag[i, nv:] = ddp.K[i][:nq,nv:].diagonal()
-        # K_eig[i, :nq] = np.linalg.eigvals(ddp.K[i][:nq,:nq])
-        # K_eig[i, nv:] = np.linalg.eigvals(ddp.K[i][:nq,nv:])
         _, K_sv[i, :], _ = np.linalg.svd(ddp.K[i][:nq,:nq])
     # Plots
     tspan = np.linspace(0, N*dt, N)
     if(ax is None or fig is None):
-        fig, ax = plt.subplots(nx2, 1)
+        fig, ax = plt.subplots(nx2, 1, sharex='col')
     if(label is None):
         label='K singular values'
     for i in range(nx2):
-        # Diagonal terms
-        # ax[i,0].plot(tspan, K_diag[:,i], linestyle='-', marker='o', label=label)
-        # ax[i,0].set_ylabel('$diag_%s$'%i, fontsize=16)
-        # ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
-        # ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
-        # ax[i,0].grid(True)
-        # # Eigenvalues
-        # ax[i,1].plot(tspan, K_eig[:,nx2+i], linestyle='-', marker='o', label=label)
-        # ax[i,1].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
-        # ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
-        # ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
-        # ax[i,1].grid(True)
-        # # Singular values
+        # Singular values
         ax[i].plot(tspan, K_sv[:,i], linestyle='-', marker='o', label=label)
-        ax[i].set_ylabel('$\sigma%s$'%str(i), fontsize=16)
+        ax[i].set_ylabel('$\sigma_{%s}$'%str(i), fontsize=16)
         ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i].grid(True)
-        # Remove xticks labels for clarity 
-        if(i != nx2-1):
-            ax[i].set_xticklabels([])
         # Set xlabel on bottom plot
         if(i == nx2-1):
             ax[i].set_xlabel('t (s)', fontsize=16)
@@ -1004,43 +1086,31 @@ def plot_ddp_ricatti_eig(ddp, fig=None, ax=None, label=None):
     K_eig = np.zeros((N, nx))
     # Extract diag , eig and sing val of Ricatti gain
     for i in range(N):
-        # K_diag[i, :nq] = ddp.K[i][:nq,:nq].diagonal()
-        # K_diag[i, nv:] = ddp.K[i][:nq,nv:].diagonal()
         K_eig[i, :nq] = np.linalg.eigvals(ddp.K[i][:nq,:nq])
         K_eig[i, nv:] = np.linalg.eigvals(ddp.K[i][:nq,nv:])
     # Plots
     tspan = np.linspace(0, N*dt, N)
     if(ax is None or fig is None):
-        fig, ax = plt.subplots(nx2, 2)
+        fig, ax = plt.subplots(nx2, 2, sharex='col')
     if(label is None):
         label='K eigenvalues'
     for i in range(nx2):
-        # Diagonal terms
-        # ax[i,0].plot(tspan, K_diag[:,i], linestyle='-', marker='o', label=label)
-        # ax[i,0].set_ylabel('$diag_%s$'%i, fontsize=16)
-        # ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
-        # ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
-        # ax[i,0].grid(True)
         # Eigenvalues
         ax[i,0].plot(tspan, K_eig[:,i], linestyle='-', marker='o', label=label)
-        ax[i,0].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
+        ax[i,0].set_ylabel('$\lambda_{%s}$'%str(nx2+i), fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
         ax[i,0].grid(True)
         # Eigenvalues
         ax[i,1].plot(tspan, K_eig[:,nx2+i], linestyle='-', marker='o', label=label)
-        ax[i,1].set_ylabel('$\lambda_%s$'%str(nx2+i), fontsize=16)
+        ax[i,1].set_ylabel('$\lambda_{%s}$'%str(nx2+i), fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
         ax[i,1].grid(True)
-        # Remove xticks labels for clarity 
-        if(i != nx2-1):
-            for j in range(2):
-                ax[i,j].set_xticklabels([])
         # Set xlabel on bottom plot
         if(i == nx2-1):
-            for j in range(2):
-                ax[i,j].set_xlabel('t (s)', fontsize=16)
+            ax[i,0].set_xlabel('t (s)', fontsize=16)
+            ax[i,1].set_xlabel('t (s)', fontsize=16)
     # Legend
     handles, labels = ax[i,0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
@@ -1048,7 +1118,46 @@ def plot_ddp_ricatti_eig(ddp, fig=None, ax=None, label=None):
     fig.suptitle('Ricatti gain eigenvalues', size=16)
     return fig, ax
 
-
+def plot_ddp_ricatti_diag(ddp, fig=None, ax=None, label=None):
+    '''
+    Plot ddp results (K diag)
+    '''
+    # Parameters
+    N = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nq = ddp.problem.runningModels[0].state.nq
+    nv = ddp.problem.runningModels[0].state.nv
+    nx = nq+nv
+    nx2 = nx//2
+    # K_diag = np.zeros((N, nx))
+    K_diag = np.zeros((N, nx))
+    # Extract diag , eig and sing val of Ricatti gain
+    for i in range(N):
+        K_diag[i, :nq] = ddp.K[i][:nq,:nq].diagonal()
+        K_diag[i, nv:] = ddp.K[i][:nq,nv:].diagonal()
+    # Plots
+    tspan = np.linspace(0, N*dt, N)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nx2, 2, sharex='col')
+    if(label is None):
+        label='K diagonal terms'
+    for i in range(nx2):
+        # Diagonal terms
+        ax[i,0].plot(tspan, K_diag[:,i], linestyle='-', marker='o', label=label)
+        ax[i,0].set_ylabel('$diag_{%s}$'%i, fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        ax[i,0].grid(True)
+        # Set xlabel on bottom plot
+        if(i == nx2-1):
+            ax[i,0].set_xlabel('t (s)', fontsize=16)
+            ax[i,1].set_xlabel('t (s)', fontsize=16)
+    # Legend
+    handles, labels = ax[i,0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.align_ylabels()
+    fig.suptitle('Ricatti gain diagonal', size=16)
+    return fig, ax
 
 
 # OLD
