@@ -74,14 +74,14 @@ Mainly used for 2 purposes:
 '''
 # Set experiments meta-params
 freqs = [250, 10000]                                # Which MPC frequency are we testing
-N_EXP = 10                                          # How many experiments per frequency
+N_EXP = 1                                          # How many experiments per frequency
 DATASET_NAME = 'DATASET6_change_task_increase_freq_more_noise' # To record dataset in /force_feedback/data/DATASET_NAME
 data = {}                                           # To store data dict of each experiment
 PERFORMANCE_ANALYSIS = True                         # Analyze & plot EE task performance across experiments & freqs
 FIX_RANDOM_SEED = True                              # Fix random seed=1 to ensure repeatability of simulations
 FIX_TORQUE_BIAS = True                              # Use the same bias for all experiments (i.e. same actuator model)
 INCREASE_COST_WEIGHT = True                         # Increase cost weight ratio (EE/reg) at each experiment
-WHICH_PLOTS = ['x','u','p','K','V']                # Which plots to generate & save in data folders for each expe
+WHICH_PLOTS = ['x','u','p','K','V','S','Q']                # Which plots to generate & save in data folders for each expe
 # Fix seed or not
 if(FIX_RANDOM_SEED):
   np.random.seed(1)
@@ -306,6 +306,7 @@ for MPC_frequency in freqs:
 
     # SIMULATE
     log_rate = 10000
+
     for i in range(sim_data['N_simu']): 
 
         if(i%log_rate==0): 
@@ -328,11 +329,11 @@ for MPC_frequency in freqs:
             x_pred_1 = sim_data['X_pred'][nb_plan, 1, :]
             u_pred_0 = sim_data['U_pred'][nb_plan, 0, :]
             # Record solver data
-            sim_data['K'][nb_plan, :, :, :] = np.array(ddp.K)         # Ricatti gain
-            sim_data['Vxx'][nb_plan, :, :, :] = np.array(ddp.Vxx)     # Hessian of V.F. 
-            sim_data['Quu'][nb_plan, :, :, :] = np.array(ddp.Quu)     # Hessian of V.F. 
-            sim_data['xreg'][nb_plan] = ddp.x_reg        # Reg solver on x
-            sim_data['ureg'][nb_plan] = ddp.u_reg        # Reg solver on u
+            sim_data['K'][nb_plan, :, :, :] = np.array(ddp.K)         # Ricatti gains
+            sim_data['Vxx'][nb_plan, :, :, :] = np.array(ddp.Vxx)     # Hessians of V.F. 
+            sim_data['Quu'][nb_plan, :, :, :] = np.array(ddp.Quu)     # Hessians of Q 
+            sim_data['xreg'][nb_plan] = ddp.x_reg                     # Reg solver on x
+            sim_data['ureg'][nb_plan] = ddp.u_reg                     # Reg solver on u
             sim_data['J_rank'][nb_plan] = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
             # Delay due to OCP resolution time 
             if(DELAY_OCP):
@@ -465,26 +466,26 @@ for MPC_frequency in freqs:
     sim_data['Kv_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nv))
     for i in range(sim_data['N_plan']):
       for j in range(sim_data['N_h']):
-        sim_data['Kp_diag'][i,:] = sim_data['K'][i, j, :, :nq].diagonal()
-        sim_data['Kv_diag'][i,:] = sim_data['K'][i, j, :, nv:].diagonal()
+        sim_data['Kp_diag'][i, j, :] = sim_data['K'][i, j, :, :nq].diagonal()
+        sim_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nv:].diagonal()
         _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
-        sim_data['K_svd'][i,:] = np.sort(sv)[::-1]
+        sim_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
    
    ## Get diagonal and eigenvals of Vxx + record in sim data
     sim_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, nx))
     sim_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, nx))
     for i in range(sim_data['N_plan']):
       for j in range(sim_data['N_h']+1):
-        sim_data['Vxx_diag'][i, :] = sim_data['Vxx'][i, j, :, :].diagonal()
-        sim_data['Vxx_eig'][i, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
+        sim_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
+        sim_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
 
    ## Get diagonal and eigenvals of Quu + record in sim data
     sim_data['Quu_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h'], nu))
     sim_data['Quu_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
     for i in range(sim_data['N_plan']):
       for j in range(sim_data['N_h']):
-        sim_data['Quu_diag'][i, :] = sim_data['Quu'][i, j, :, :].diagonal()
-        sim_data['Quu_eig'][i, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
+        sim_data['Quu_diag'][i, j, :] = sim_data['Quu'][i, j, :, :].diagonal()
+        sim_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
 
    ## Set saving name and directory
     save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz__exp_'+str(n_exp)

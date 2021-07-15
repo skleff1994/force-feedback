@@ -646,7 +646,7 @@ def plot_mpc_Quu_eig(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Vxx eigenvalues...')
+    print('Plotting Quu eigenvalues...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -654,34 +654,23 @@ def plot_mpc_Quu_eig(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
 
     # Create time spans for X and U + Create figs and subplots
     t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
-    fig_V, ax_V = plt.subplots(nq, 2, figsize=(19.2,10.8), sharex='col') 
+    fig_Q, ax_Q = plt.subplots(nq, 1, figsize=(19.2,10.8), sharex='col') 
     # For each state
     for i in range(nq):
-        # Vxx eigenvals
-        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eig'][:, 0, i], 'b-', label='Vxx eigenvalue')
-        ax_V[i,0].set_ylabel('$\lambda_{}$'.format(i), fontsize=12)
-        ax_V[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax_V[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
-        ax_V[i,0].grid(True)
-        # Vxx eigenvals
-        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eig'][:, 0, nq+i], 'b-', label='Vxx eigenvalue')
-        ax_V[i,1].set_ylabel('$\lambda_{%s}$'%str(nq+i), fontsize=12)
-        ax_V[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax_V[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
-        ax_V[i,1].grid(True)
+        # Quu eigenvals
+        ax_Q[i].plot(t_span_plan_u, plot_data['Quu_eig'][:, 0, i], 'b-', label='Quu eigenvalue')
+        ax_Q[i].set_ylabel('$\lambda_{}$'.format(i), fontsize=12)
+        ax_Q[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_Q[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_Q[i].grid(True)
         # Set xlabel on bottom plot
         if(i == nq-1):
-            ax_V[i,0].set_xlabel('t (s)', fontsize=16)
-            ax_V[i,1].set_xlabel('t (s)', fontsize=16)
-    # # y axis labels
-    # fig_V.text(0.05, 0.5, 'Eigenvalue', va='center', rotation='vertical', fontsize=16)
-    # fig_V.text(0.49, 0.5, 'Eigenvalue', va='center', rotation='vertical', fontsize=16)
-    # fig_V.subplots_adjust(wspace=0.27)  
+            ax_Q[i].set_xlabel('t (s)', fontsize=16)
     # Titles
-    fig_V.suptitle('Eigenvalues of Value Function Hessian Vxx', size=16)
+    fig_Q.suptitle('Eigenvalues of Hamiltonian Hessian Quu', size=16)
     # Save figs
     if(SAVE):
-        figs = {'V_eig': fig_V}
+        figs = {'Q_eig': fig_Q}
         if(SAVE_DIR is None):
             SAVE_DIR = '/home/skleff/force-feedback/data'
         if(SAVE_NAME is None):
@@ -692,7 +681,58 @@ def plot_mpc_Quu_eig(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     if(SHOW):
         plt.show() 
     
-    return fig_V
+    return fig_Q
+
+# Plot Quu diag
+def plot_mpc_Quu_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                        SHOW=True):
+    '''
+    Plot Quu diagonal terms
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting Quu diagonal...')
+    T_tot = plot_data['T_tot']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    nq = plot_data['nq']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_Q, ax_Q = plt.subplots(nq, 1, figsize=(19.2,10.8), sharex='col') 
+    # For each state
+    for i in range(nq):
+        # Quu diag
+        ax_Q[i].plot(t_span_plan_u, plot_data['Quu_diag'][:, 0, i], 'b-', label='Quu diagonal')
+        ax_Q[i].set_ylabel('$Vxx_{}$'.format(i), fontsize=12)
+        ax_Q[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_Q[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_Q[i].grid(True)
+        # Set xlabel on bottom plot
+        if(i == nq-1):
+            ax_Q[i].set_xlabel('t (s)', fontsize=16)
+    # Titles
+    fig_Q.suptitle('Diagonal of Hamiltonian Hessian Quu', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'Q_diag': fig_Q}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_Q
 
 # Plot Solver regs
 def plot_mpc_solver(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
@@ -849,7 +889,11 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
     if('J' in which_plots or which_plots is None or which_plots =='all'):
         plots['J'] = plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                               SHOW=False)
-
+    if('Q' in which_plots or which_plots is None or which_plots =='all'):
+        plots['Q_diag'] = plot_mpc_Quu_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                         SHOW=False)
+        plots['Q_eig'] = plot_mpc_Quu_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                         SHOW=False)
     if(SHOW):
         plt.show() 
     plt.close('all')
