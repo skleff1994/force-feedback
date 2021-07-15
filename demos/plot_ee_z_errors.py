@@ -1,5 +1,5 @@
 # from demos.run_mpc_experiments import N_EXP
-from utils import utils
+from utils import data_utils
 import numpy as np 
 import matplotlib.pyplot as plt
 from os import listdir
@@ -47,7 +47,7 @@ def main(DATASET_NAME=None):
           N_EXP = n_exp
           STOP_SCAN = True
           break
-        data[freq][str(n_exp)]= utils.load_data(data_path + '/' + freq + file_name)
+        data[freq][str(n_exp)]= data_utils.load_data(data_path + '/' + freq + file_name)
         n_exp +=1 
 
     # Process data for performance analysis along z axis

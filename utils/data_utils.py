@@ -74,14 +74,27 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['alpha'] = sim_data['alpha']
     plot_data['beta'] = sim_data['beta']
     # Solver stuff
+    plot_data['K'] = sim_data['K']
     plot_data['Kp_diag'] = sim_data['Kp_diag']
     plot_data['Kv_diag'] = sim_data['Kv_diag']
     plot_data['K_svd'] = sim_data['K_svd']
+    plot_data['Vxx'] = sim_data['Vxx']
     plot_data['Vxx_diag'] = sim_data['Vxx_diag']
     plot_data['Vxx_eig'] = sim_data['Vxx_eig']
+    plot_data['Quu'] = sim_data['Quu']
+    plot_data['Quu_diag'] = sim_data['Quu_diag']
+    plot_data['Quu_eig'] = sim_data['Quu_eig']
     plot_data['J_rank'] = sim_data['J_rank']
     plot_data['xreg'] = sim_data['xreg']
     plot_data['ureg'] = sim_data['ureg']
+    # Cost weighs 
+    if('ee_weight' in sim_data.keys() and
+       'x_reg_weight' in sim_data.keys() and
+       'u_reg_weight' in sim_data.keys()):
+       plot_data['ee_weight'] = sim_data['ee_weight']
+       plot_data['x_reg_weight'] = sim_data['x_reg_weight']
+       plot_data['u_reg_weight'] = sim_data['u_reg_weight']
+
     return plot_data
 
 # Same giving npz path OR dict as argument

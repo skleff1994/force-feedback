@@ -75,13 +75,13 @@ Mainly used for 2 purposes:
 # Set experiments meta-params
 freqs = [250, 10000]                                # Which MPC frequency are we testing
 N_EXP = 10                                          # How many experiments per frequency
-DATASET_NAME = 'DATASET6_change_task_increase_freq' # To record dataset in /force_feedback/data/DATASET_NAME
+DATASET_NAME = 'DATASET6_change_task_increase_freq_more_noise' # To record dataset in /force_feedback/data/DATASET_NAME
 data = {}                                           # To store data dict of each experiment
 PERFORMANCE_ANALYSIS = True                         # Analyze & plot EE task performance across experiments & freqs
 FIX_RANDOM_SEED = True                              # Fix random seed=1 to ensure repeatability of simulations
 FIX_TORQUE_BIAS = True                              # Use the same bias for all experiments (i.e. same actuator model)
 INCREASE_COST_WEIGHT = True                         # Increase cost weight ratio (EE/reg) at each experiment
-WHICH_PLOTS = ['x','u','p','K', 'V']                # Which plots to generate & save in data folders for each expe
+WHICH_PLOTS = ['x','u','p','K','V']                # Which plots to generate & save in data folders for each expe
 # Fix seed or not
 if(FIX_RANDOM_SEED):
   np.random.seed(1)
@@ -105,6 +105,7 @@ else:
 initial_factor = 100
 if(INCREASE_COST_WEIGHT):
   gamma = 2.
+  print("Initial factor = ", initial_factor, " | gamma = ", gamma)
   ee_weights = []
   ee_weights_t = []
   x_reg_weights = []
@@ -122,7 +123,7 @@ if(INCREASE_COST_WEIGHT):
     # x_reg_weights_t.append(wx_t)
     u_reg_weights.append(wu)
     # Show value
-    print("[nexp=", n_exp, "] EE : ", wee, " | regx : ", wx, " | regu : ", wu, " >> RATIO = ", "{:2e}".format(wee/wx))
+    print("[nexp=", n_exp+1, "] EE : ", wee, " | regx : ", wx, " | regu : ", wu, " >> RATIO = ", "{:2e}".format(wee/wx))
     wee *= gamma
     # wee_t *= gamma
     wx /= gamma
@@ -182,11 +183,12 @@ for MPC_frequency in freqs:
     vel_U_ref_HF = np.zeros((sim_data['N_simu'], nu))                  # Actuation torques (sent to PyBullet)
     vel_U_mea[0,:] = np.zeros(nq)
     # Solver & debug data
-    sim_data['K'] = np.zeros((sim_data['N_plan'], nq, nx))             # Ricatti gains (K_0)
-    sim_data['Vxx'] = np.zeros((sim_data['N_plan'], nx, nx))           # Hessian of the Value Function  
-    sim_data['xreg'] = np.zeros(sim_data['N_plan'])                    # State reg in solver (diag of Vxx)
-    sim_data['ureg'] = np.zeros(sim_data['N_plan'])                    # Control reg in solver (diag of Quu)
-    sim_data['J_rank'] = np.zeros(sim_data['N_plan'])                  # Rank of Jacobian
+    sim_data['K'] = np.zeros((sim_data['N_plan'], config['N_h'], nq, nx))        # Ricatti gains (K_0)
+    sim_data['Vxx'] = np.zeros((sim_data['N_plan'], config['N_h']+1, nx, nx))    # Hessian of the Value Function  
+    sim_data['Quu'] = np.zeros((sim_data['N_plan'], config['N_h'], nu, nu))      # Hessian of the Value Function 
+    sim_data['xreg'] = np.zeros(sim_data['N_plan'])                              # State reg in solver (diag of Vxx)
+    sim_data['ureg'] = np.zeros(sim_data['N_plan'])                              # Control reg in solver (diag of Quu)
+    sim_data['J_rank'] = np.zeros(sim_data['N_plan'])                            # Rank of Jacobian
     # Initialize PID errors
     err_u = np.zeros(nq)
     vel_err_u = np.zeros(nq)
@@ -201,8 +203,11 @@ for MPC_frequency in freqs:
     # Replan & control counters
     nb_plan = 0
     nb_ctrl = 0
-    # Set cost weights for current experiment
+    # Record and set cost weights for current experiment
     if(INCREASE_COST_WEIGHT):
+      sim_data['ee_weight'] = ee_weights[n_exp]
+      sim_data['x_reg_weight'] = x_reg_weights[n_exp]
+      sim_data['u_reg_weight'] = u_reg_weights[n_exp]
       for k,m in enumerate(ddp.problem.runningModels[:]):
           m.differential.costs.costs["placement"].weight = ee_weights[n_exp]
           m.differential.costs.costs["stateReg"].weight = x_reg_weights[n_exp]
@@ -211,7 +216,7 @@ for MPC_frequency in freqs:
       # ddp.problem.terminalModel.differential.costs.costs["stateReg"].weight = x_reg_weights_t[n_exp]
     
     # for k,m in enumerate(ddp.problem.runningModels[:]):
-    #     m.differential.costs.costs["placement"].weight = 512000 #51200 
+    #     m.differential.costs.costs["placement"].weight = 5120000 #51200 
     #     m.differential.costs.costs["stateReg"].weight = 1.953125e-07 #1.953125e-5 
     #     m.differential.costs.costs["ctrlReg"].weight = 3.90625e-07 #3.90625e-5 
 
@@ -323,8 +328,9 @@ for MPC_frequency in freqs:
             x_pred_1 = sim_data['X_pred'][nb_plan, 1, :]
             u_pred_0 = sim_data['U_pred'][nb_plan, 0, :]
             # Record solver data
-            sim_data['K'][nb_plan, :, :] = ddp.K[0]      # Ricatti gain
-            sim_data['Vxx'][nb_plan, :, :] = ddp.Vxx[0]  # Hessian of V.F. 
+            sim_data['K'][nb_plan, :, :, :] = np.array(ddp.K)         # Ricatti gain
+            sim_data['Vxx'][nb_plan, :, :, :] = np.array(ddp.Vxx)     # Hessian of V.F. 
+            sim_data['Quu'][nb_plan, :, :, :] = np.array(ddp.Quu)     # Hessian of V.F. 
             sim_data['xreg'][nb_plan] = ddp.x_reg        # Reg solver on x
             sim_data['ureg'][nb_plan] = ddp.u_reg        # Reg solver on u
             sim_data['J_rank'][nb_plan] = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
@@ -454,20 +460,31 @@ for MPC_frequency in freqs:
     sim_data['P_mea_no_noise'] = pin_utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
    ## Get SVD & diagonal of Ricatti + record in sim data
-    sim_data['K_svd'] = np.zeros((sim_data['N_plan'], nq))
-    sim_data['Kp_diag'] = np.zeros((sim_data['N_plan'], nq))
-    sim_data['Kv_diag'] = np.zeros((sim_data['N_plan'], nv))
+    sim_data['K_svd'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
+    sim_data['Kp_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
+    sim_data['Kv_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nv))
     for i in range(sim_data['N_plan']):
-      sim_data['Kp_diag'][i,:] = sim_data['K'][i,:,:nq].diagonal()
-      sim_data['Kv_diag'][i,:] = sim_data['K'][i,:,nv:].diagonal()
-      _, sim_data['K_svd'][i,:], _ = np.linalg.svd(sim_data['K'][i,:,:])
+      for j in range(sim_data['N_h']):
+        sim_data['Kp_diag'][i,:] = sim_data['K'][i, j, :, :nq].diagonal()
+        sim_data['Kv_diag'][i,:] = sim_data['K'][i, j, :, nv:].diagonal()
+        _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
+        sim_data['K_svd'][i,:] = np.sort(sv)[::-1]
    
-   ##Get diagonal and eigenvals of Vxx + record in sim data
-    sim_data['Vxx_diag'] = np.zeros((sim_data['N_plan'], nx))
-    sim_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], nx))
+   ## Get diagonal and eigenvals of Vxx + record in sim data
+    sim_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, nx))
+    sim_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, nx))
     for i in range(sim_data['N_plan']):
-      sim_data['Vxx_diag'][i, :] = sim_data['Vxx'][i, :, :].diagonal()
-      sim_data['Vxx_eig'][i, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, :, :]))[::-1]
+      for j in range(sim_data['N_h']+1):
+        sim_data['Vxx_diag'][i, :] = sim_data['Vxx'][i, j, :, :].diagonal()
+        sim_data['Vxx_eig'][i, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
+
+   ## Get diagonal and eigenvals of Quu + record in sim data
+    sim_data['Quu_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h'], nu))
+    sim_data['Quu_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
+    for i in range(sim_data['N_plan']):
+      for j in range(sim_data['N_h']):
+        sim_data['Quu_diag'][i, :] = sim_data['Quu'][i, j, :, :].diagonal()
+        sim_data['Quu_eig'][i, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
 
    ## Set saving name and directory
     save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz__exp_'+str(n_exp)

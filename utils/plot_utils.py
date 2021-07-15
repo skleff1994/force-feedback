@@ -420,7 +420,7 @@ def plot_mpc_ricatti_svd(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     # For each joint
     for i in range(nq):
         # Ricatti gains singular values
-        ax_K[i].plot(t_span_plan_u, plot_data['K_svd'][:,i], 'b-', label='Singular Values of Ricatti gain K')
+        ax_K[i].plot(t_span_plan_u, plot_data['K_svd'][:, 0, i], 'b-', label='Singular Values of Ricatti gain K')
         ax_K[i].set_ylabel('$\sigma_{}$'.format(i), fontsize=12)
         ax_K[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_K[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -473,13 +473,13 @@ def plot_mpc_ricatti_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     # For each joint
     for i in range(nq):
         # Diagonal terms
-        ax_K[i,0].plot(t_span_plan_u, plot_data['Kp_diag'][:,i], 'b-', label='Diag of Ricatti (Kp)')
+        ax_K[i,0].plot(t_span_plan_u, plot_data['Kp_diag'][:, 0, i], 'b-', label='Diag of Ricatti (Kp)')
         ax_K[i,0].set_ylabel('$Kp_{}$'.format(i)+"$_{}$".format(i), fontsize=12)
         ax_K[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_K[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax_K[i,0].grid(True)
         # Diagonal terms
-        ax_K[i,1].plot(t_span_plan_u, plot_data['Kv_diag'][:,i], 'b-', label='Diag of Ricatti (Kv)')
+        ax_K[i,1].plot(t_span_plan_u, plot_data['Kv_diag'][:, 0, i], 'b-', label='Diag of Ricatti (Kv)')
         ax_K[i,1].set_ylabel('$Kv_{}$'.format(i)+"$_{}$".format(i), fontsize=12)
         ax_K[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_K[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -508,7 +508,7 @@ def plot_mpc_ricatti_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     
     return fig_K
 
-# Plot Vxx
+# Plot Vxx eig
 def plot_mpc_Vxx_eig(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                         SHOW=True):
     '''
@@ -534,13 +534,13 @@ def plot_mpc_Vxx_eig(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     # For each state
     for i in range(nq):
         # Vxx eigenvals
-        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eig'][:,i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eig'][:, 0, i], 'b-', label='Vxx eigenvalue')
         ax_V[i,0].set_ylabel('$\lambda_{}$'.format(i), fontsize=12)
         ax_V[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_V[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax_V[i,0].grid(True)
         # Vxx eigenvals
-        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eig'][:,nq+i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eig'][:, 0, nq+i], 'b-', label='Vxx eigenvalue')
         ax_V[i,1].set_ylabel('$\lambda_{%s}$'%str(nq+i), fontsize=12)
         ax_V[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_V[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -570,7 +570,7 @@ def plot_mpc_Vxx_eig(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     
     return fig_V
 
-# Plot Vxx
+# Plot Vxx diag
 def plot_mpc_Vxx_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                         SHOW=True):
     '''
@@ -596,13 +596,13 @@ def plot_mpc_Vxx_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     # For each state
     for i in range(nq):
         # Vxx diag
-        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_diag'][:,i], 'b-', label='Vxx diagonal')
+        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_diag'][:, 0, i], 'b-', label='Vxx diagonal')
         ax_V[i,0].set_ylabel('$Vxx_{}$'.format(i), fontsize=12)
         ax_V[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_V[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax_V[i,0].grid(True)
         # Vxx diag
-        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_diag'][:,nq+i], 'b-', label='Vxx diagonal')
+        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_diag'][:, 0, nq+i], 'b-', label='Vxx diagonal')
         ax_V[i,1].set_ylabel('$Vxx_{%s}$'%str(nq+i), fontsize=12)
         ax_V[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_V[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -620,6 +620,68 @@ def plot_mpc_Vxx_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     # Save figs
     if(SAVE):
         figs = {'V_diag': fig_V}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_V
+
+# Plot Quu eig
+def plot_mpc_Quu_eig(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                        SHOW=True):
+    '''
+    Plot Quu eigenvalues
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting Vxx eigenvalues...')
+    T_tot = plot_data['T_tot']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    nq = plot_data['nq']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_V, ax_V = plt.subplots(nq, 2, figsize=(19.2,10.8), sharex='col') 
+    # For each state
+    for i in range(nq):
+        # Vxx eigenvals
+        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eig'][:, 0, i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,0].set_ylabel('$\lambda_{}$'.format(i), fontsize=12)
+        ax_V[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_V[i,0].grid(True)
+        # Vxx eigenvals
+        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eig'][:, 0, nq+i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,1].set_ylabel('$\lambda_{%s}$'%str(nq+i), fontsize=12)
+        ax_V[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_V[i,1].grid(True)
+        # Set xlabel on bottom plot
+        if(i == nq-1):
+            ax_V[i,0].set_xlabel('t (s)', fontsize=16)
+            ax_V[i,1].set_xlabel('t (s)', fontsize=16)
+    # # y axis labels
+    # fig_V.text(0.05, 0.5, 'Eigenvalue', va='center', rotation='vertical', fontsize=16)
+    # fig_V.text(0.49, 0.5, 'Eigenvalue', va='center', rotation='vertical', fontsize=16)
+    # fig_V.subplots_adjust(wspace=0.27)  
+    # Titles
+    fig_V.suptitle('Eigenvalues of Value Function Hessian Vxx', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'V_eig': fig_V}
         if(SAVE_DIR is None):
             SAVE_DIR = '/home/skleff/force-feedback/data'
         if(SAVE_NAME is None):
@@ -810,34 +872,35 @@ def plot_ddp_results(ddp, robot, id_endeff, which_plots='all'):
         # Return figs and axes object in case need to overlay new plots
         if(k==0):
             if('x' in which_plots or which_plots =='all'):
-                fig_x, ax_x = plot_ddp_state(ddp[k])
+                fig_x, ax_x = plot_ddp_state(ddp[k], SHOW=False)
             if('u' in which_plots or which_plots =='all'):
-                fig_u, ax_u = plot_ddp_control(ddp[k])
+                fig_u, ax_u = plot_ddp_control(ddp[k], SHOW=False)
             if('p' in which_plots or which_plots =='all'):
-                fig_p, ax_p = plot_ddp_endeff(ddp[k], robot, id_endeff)
+                fig_p, ax_p = plot_ddp_endeff(ddp[k], robot, id_endeff, SHOW=False)
             if('vxx' in which_plots or which_plots =='all'):
-                fig_vxx_sv, ax_vxx_sv = plot_ddp_vxx_sv(ddp[k])
-                fig_vxx_eig, ax_vxx_eig = plot_ddp_vxx_eig(ddp[k])
+                fig_vxx_sv, ax_vxx_sv = plot_ddp_vxx_sv(ddp[k], SHOW=False)
+                fig_vxx_eig, ax_vxx_eig = plot_ddp_vxx_eig(ddp[k], SHOW=False)
             if('K' in which_plots or which_plots =='all'):
-                fig_K_sv, ax_K_sv = plot_ddp_ricatti_sv(ddp[k])
-                fig_K_eig, ax_K_eig = plot_ddp_ricatti_eig(ddp[k])
+                fig_K_sv, ax_K_sv = plot_ddp_ricatti_sv(ddp[k], SHOW=False)
+                fig_K_eig, ax_K_eig = plot_ddp_ricatti_eig(ddp[k], SHOW=False)
         # Overlay on top of first plot
         else:
             if('x' in which_plots or which_plots =='all'):
-                plot_ddp_state(ddp[k], fig=fig_x, ax=ax_x)
+                plot_ddp_state(ddp[k], fig=fig_x, ax=ax_x, SHOW=False)
             if('u' in which_plots or which_plots =='all'):
-                plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u)
+                plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u, SHOW=False)
             if('p' in which_plots or which_plots =='all'):
-                plot_ddp_endeff(ddp[k], robot, id_endeff, fig=fig_p, ax=ax_p)
+                plot_ddp_endeff(ddp[k], robot, id_endeff, fig=fig_p, ax=ax_p, SHOW=False)
             if('vxx' in which_plots or which_plots =='all'):
-                plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv)
-                plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig)
+                plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv, SHOW=False)
+                plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig, SHOW=False)
             if('K' in which_plots or which_plots =='all'):
-                plot_ddp_ricatti_sv(ddp[k], fig=fig_K_sv, ax=ax_K_sv)
-                plot_ddp_ricatti_eig(ddp[k], fig=fig_K_eig, ax=ax_K_eig)
+                plot_ddp_ricatti_sv(ddp[k], fig=fig_K_sv, ax=ax_K_sv, SHOW=False)
+                plot_ddp_ricatti_eig(ddp[k], fig=fig_K_eig, ax=ax_K_eig, SHOW=False)
+    
     plt.show()
 
-def plot_ddp_state(ddp, fig=None, ax=None, label=None):
+def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True):
     '''
     Plot ddp results (state)
     '''
@@ -871,10 +934,11 @@ def plot_ddp_state(ddp, fig=None, ax=None, label=None):
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('State trajectories', size=16)
-    
+    if(SHOW):
+        plt.show()
     return fig, ax
 
-def plot_ddp_control(ddp, fig=None, ax=None, label=None):
+def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True):
     '''
     Plot ddp results (control)
     '''
@@ -903,10 +967,11 @@ def plot_ddp_control(ddp, fig=None, ax=None, label=None):
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('Control trajectories', size=16)
-
+    if(SHOW):
+        plt.show()
     return fig, ax
 
-def plot_ddp_endeff(ddp, robot, id_endeff, fig=None, ax=None, label=None):
+def plot_ddp_endeff(ddp, robot, id_endeff, fig=None, ax=None, label=None, SHOW=True):
     '''
     Plot ddp results (endeff)
     '''
@@ -935,10 +1000,11 @@ def plot_ddp_endeff(ddp, robot, id_endeff, fig=None, ax=None, label=None):
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('Endeffector trajectories', size=16)
-
+    if(SHOW):
+        plt.show()
     return fig, ax
 
-def plot_ddp_vxx_sv(ddp, fig=None, ax=None, label=None):
+def plot_ddp_vxx_sv(ddp, fig=None, ax=None, label=None, SHOW=True):
     '''
     Plot ddp results (vxx singular values)
     '''
@@ -952,7 +1018,8 @@ def plot_ddp_vxx_sv(ddp, fig=None, ax=None, label=None):
     Vxx_sv = np.zeros((N, nq+nv)) 
     # Extract singular values and eigenvalues of VF Hessian
     for i in range(N):
-        _, Vxx_sv[i, :], _ = np.linalg.svd(ddp.Vxx[i])
+        _, sv, _ = np.linalg.svd(ddp.Vxx[i])
+        Vxx_sv[i, :] = np.sort(sv)[::-1]
     # Plots
     tspan = np.linspace(0, N*dt, N)
     if(ax is None or fig is None):
@@ -981,10 +1048,11 @@ def plot_ddp_vxx_sv(ddp, fig=None, ax=None, label=None):
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('Vxx Singular Values', size=16)
-
+    if(SHOW):
+        plt.show()
     return fig, ax
 
-def plot_ddp_vxx_eig(ddp, fig=None, ax=None, label=None):
+def plot_ddp_vxx_eig(ddp, fig=None, ax=None, label=None, SHOW=True):
     '''
     Plot ddp results (vxx eigenvalues)
     '''
@@ -1028,10 +1096,11 @@ def plot_ddp_vxx_eig(ddp, fig=None, ax=None, label=None):
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('Vxx Eigenvalues', size=16)
-
+    if(SHOW):
+        plt.show()
     return fig, ax
 
-def plot_ddp_ricatti_sv(ddp, fig=None, ax=None, label=None):
+def plot_ddp_ricatti_sv(ddp, fig=None, ax=None, label=None, SHOW=True):
     '''
     Plot ddp results (K sing vals)
     '''
@@ -1069,9 +1138,11 @@ def plot_ddp_ricatti_sv(ddp, fig=None, ax=None, label=None):
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('K singular values', size=16)
+    if(SHOW):
+        plt.show()
     return fig, ax
 
-def plot_ddp_ricatti_eig(ddp, fig=None, ax=None, label=None):
+def plot_ddp_ricatti_eig(ddp, fig=None, ax=None, label=None, SHOW=True):
     '''
     Plot ddp results (K sing vals)
     '''
@@ -1086,8 +1157,8 @@ def plot_ddp_ricatti_eig(ddp, fig=None, ax=None, label=None):
     K_eig = np.zeros((N, nx))
     # Extract diag , eig and sing val of Ricatti gain
     for i in range(N):
-        K_eig[i, :nq] = np.linalg.eigvals(ddp.K[i][:nq,:nq])
-        K_eig[i, nv:] = np.linalg.eigvals(ddp.K[i][:nq,nv:])
+        K_eig[i, :nq] = np.sort(np.linalg.eigvals(ddp.K[i][:nq,:nq]))[::-1]
+        K_eig[i, nv:] = np.sort(np.linalg.eigvals(ddp.K[i][:nq,nv:]))[::-1]
     # Plots
     tspan = np.linspace(0, N*dt, N)
     if(ax is None or fig is None):
@@ -1116,9 +1187,11 @@ def plot_ddp_ricatti_eig(ddp, fig=None, ax=None, label=None):
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('Ricatti gain eigenvalues', size=16)
+    if(SHOW):
+        plt.show()
     return fig, ax
 
-def plot_ddp_ricatti_diag(ddp, fig=None, ax=None, label=None):
+def plot_ddp_ricatti_diag(ddp, fig=None, ax=None, label=None, SHOW=True):
     '''
     Plot ddp results (K diag)
     '''
@@ -1157,6 +1230,8 @@ def plot_ddp_ricatti_diag(ddp, fig=None, ax=None, label=None):
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('Ricatti gain diagonal', size=16)
+    if(SHOW):
+        plt.show()
     return fig, ax
 
 

@@ -69,8 +69,8 @@ beta_min: -0.5
 beta_max: 0.5
   # White noise on desired torque and measured state
 # var_u: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1, 0.1]
-var_q: 0.0028
-var_v: 0.0028
+var_q: 0.028 #x10
+var_v: 0.028 #x10
   # Buffer for torque delay
 delay_OCP_ms: 1    # in ms
 delay_sim_cycle: 1 # in HF cycles
