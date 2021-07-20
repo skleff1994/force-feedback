@@ -35,6 +35,7 @@ def extract_plot_data_from_sim_data(sim_data):
     nx = sim_data['X_mea'].shape[1]
     nq = nx//2
     nv = nx-nq
+    nu = nq
     # state predictions
     plot_data['q_pred'] = sim_data['X_pred'][:,:,:nq]
     plot_data['v_pred'] = sim_data['X_pred'][:,:,nv:]
@@ -73,17 +74,33 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['p_ref'] = sim_data['p_ref']
     plot_data['alpha'] = sim_data['alpha']
     plot_data['beta'] = sim_data['beta']
-    # Solver stuff
-    plot_data['K'] = sim_data['K']
-    plot_data['Kp_diag'] = sim_data['Kp_diag']
-    plot_data['Kv_diag'] = sim_data['Kv_diag']
-    plot_data['K_svd'] = sim_data['K_svd']
-    plot_data['Vxx'] = sim_data['Vxx']
-    plot_data['Vxx_diag'] = sim_data['Vxx_diag']
-    plot_data['Vxx_eig'] = sim_data['Vxx_eig']
-    plot_data['Quu'] = sim_data['Quu']
-    plot_data['Quu_diag'] = sim_data['Quu_diag']
-    plot_data['Quu_eig'] = sim_data['Quu_eig']
+    # Get SVD & diagonal of Ricatti + record in sim data
+    plot_data['K_svd'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
+    plot_data['Kp_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
+    plot_data['Kv_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nv))
+    for i in range(sim_data['N_plan']):
+      for j in range(sim_data['N_h']):
+        plot_data['Kp_diag'][i, j, :] = sim_data['K'][i, j, :, :nq].diagonal()
+        plot_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nv:].diagonal()
+        _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
+        plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
+    # Get diagonal and eigenvals of Vxx + record in sim data
+    plot_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, nx))
+    plot_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, nx))
+    for i in range(sim_data['N_plan']):
+      for j in range(sim_data['N_h']+1):
+        plot_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
+        plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
+    # Get diagonal and eigenvals of Quu + record in sim data
+    plot_data['Quu_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h'], nu))
+    plot_data['Quu_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
+    for i in range(sim_data['N_plan']):
+      for j in range(sim_data['N_h']):
+        plot_data['Quu_diag'][i, j, :] = sim_data['Quu'][i, j, :, :].diagonal()
+        plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
+    # plot_data['K'] = sim_data['K']
+    # plot_data['Vxx'] = sim_data['Vxx']
+    # plot_data['Quu'] = sim_data['Quu']
     plot_data['J_rank'] = sim_data['J_rank']
     plot_data['xreg'] = sim_data['xreg']
     plot_data['ureg'] = sim_data['ureg']

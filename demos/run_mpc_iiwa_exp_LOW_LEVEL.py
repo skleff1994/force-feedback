@@ -34,18 +34,18 @@ import time
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
-  # Read config file
+# Read config file
 config = path_utils.load_config_file('static_reaching_task3')
-  # Create a Pybullet simulation environment + set simu freq
+# Create a Pybullet simulation environment + set simu freq
 simu_freq = config['simu_freq']  
 dt_simu = 1./simu_freq
 q0 = np.asarray(config['q0'])
 dq0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, dq0])   
 pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
-  # Get pin wrapper
+# Get pin wrapper
 robot = pybullet_simulator.pin_robot
-  # Get initial frame placement + dimensions of joint space
+# Get initial frame placement + dimensions of joint space
 id_endeff = robot.model.getFrameId('contact')
 M_ee = robot.data.oMf[id_endeff]
 nq, nv = robot.model.nq, robot.model.nv
@@ -74,7 +74,7 @@ Mainly used for 2 purposes:
 '''
 # Set experiments meta-params
 freqs = [250, 10000]                                # Which MPC frequency are we testing
-N_EXP = 1                                          # How many experiments per frequency
+N_EXP = 5                                           # How many experiments per frequency
 DATASET_NAME = 'DATASET6_change_task_increase_freq_more_noise' # To record dataset in /force_feedback/data/DATASET_NAME
 data = {}                                           # To store data dict of each experiment
 PERFORMANCE_ANALYSIS = True                         # Analyze & plot EE task performance across experiments & freqs
@@ -460,32 +460,32 @@ for MPC_frequency in freqs:
     sim_data['P_des'] = pin_utils.get_p(q_des, robot, id_endeff)
     sim_data['P_mea_no_noise'] = pin_utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
     
-   ## Get SVD & diagonal of Ricatti + record in sim data
-    sim_data['K_svd'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
-    sim_data['Kp_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
-    sim_data['Kv_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nv))
-    for i in range(sim_data['N_plan']):
-      for j in range(sim_data['N_h']):
-        sim_data['Kp_diag'][i, j, :] = sim_data['K'][i, j, :, :nq].diagonal()
-        sim_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nv:].diagonal()
-        _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
-        sim_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
+  #  ## Get SVD & diagonal of Ricatti + record in sim data
+  #   sim_data['K_svd'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
+  #   sim_data['Kp_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
+  #   sim_data['Kv_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nv))
+  #   for i in range(sim_data['N_plan']):
+  #     for j in range(sim_data['N_h']):
+  #       sim_data['Kp_diag'][i, j, :] = sim_data['K'][i, j, :, :nq].diagonal()
+  #       sim_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nv:].diagonal()
+  #       _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
+  #       sim_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
    
-   ## Get diagonal and eigenvals of Vxx + record in sim data
-    sim_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, nx))
-    sim_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, nx))
-    for i in range(sim_data['N_plan']):
-      for j in range(sim_data['N_h']+1):
-        sim_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
-        sim_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
+  #  ## Get diagonal and eigenvals of Vxx + record in sim data
+  #   sim_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, nx))
+  #   sim_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, nx))
+  #   for i in range(sim_data['N_plan']):
+  #     for j in range(sim_data['N_h']+1):
+  #       sim_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
+  #       sim_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
 
-   ## Get diagonal and eigenvals of Quu + record in sim data
-    sim_data['Quu_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h'], nu))
-    sim_data['Quu_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
-    for i in range(sim_data['N_plan']):
-      for j in range(sim_data['N_h']):
-        sim_data['Quu_diag'][i, j, :] = sim_data['Quu'][i, j, :, :].diagonal()
-        sim_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
+  #  ## Get diagonal and eigenvals of Quu + record in sim data
+  #   sim_data['Quu_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h'], nu))
+  #   sim_data['Quu_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
+  #   for i in range(sim_data['N_plan']):
+  #     for j in range(sim_data['N_h']):
+  #       sim_data['Quu_diag'][i, j, :] = sim_data['Quu'][i, j, :, :].diagonal()
+  #       sim_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
 
    ## Set saving name and directory
     save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz__exp_'+str(n_exp)
