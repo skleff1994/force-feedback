@@ -75,35 +75,38 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['alpha'] = sim_data['alpha']
     plot_data['beta'] = sim_data['beta']
     # Get SVD & diagonal of Ricatti + record in sim data
-    plot_data['K_svd'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
-    plot_data['Kp_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
-    plot_data['Kv_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nv))
-    for i in range(sim_data['N_plan']):
-      for j in range(sim_data['N_h']):
-        plot_data['Kp_diag'][i, j, :] = sim_data['K'][i, j, :, :nq].diagonal()
-        plot_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nv:].diagonal()
-        _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
-        plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
+    if('K' in sim_data.keys()):
+      plot_data['K_svd'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
+      plot_data['Kp_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
+      plot_data['Kv_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nv))
+      for i in range(sim_data['N_plan']):
+        for j in range(sim_data['N_h']):
+          plot_data['Kp_diag'][i, j, :] = sim_data['K'][i, j, :, :nq].diagonal()
+          plot_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nv:].diagonal()
+          _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
+          plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
     # Get diagonal and eigenvals of Vxx + record in sim data
-    plot_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, nx))
-    plot_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, nx))
-    for i in range(sim_data['N_plan']):
-      for j in range(sim_data['N_h']+1):
-        plot_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
-        plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
+    if('Vxx' in sim_data.keys()):
+      plot_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, nx))
+      plot_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, nx))
+      for i in range(sim_data['N_plan']):
+        for j in range(sim_data['N_h']+1):
+          plot_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
+          plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
     # Get diagonal and eigenvals of Quu + record in sim data
-    plot_data['Quu_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h'], nu))
-    plot_data['Quu_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
-    for i in range(sim_data['N_plan']):
-      for j in range(sim_data['N_h']):
-        plot_data['Quu_diag'][i, j, :] = sim_data['Quu'][i, j, :, :].diagonal()
-        plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
-    # plot_data['K'] = sim_data['K']
-    # plot_data['Vxx'] = sim_data['Vxx']
-    # plot_data['Quu'] = sim_data['Quu']
-    plot_data['J_rank'] = sim_data['J_rank']
-    plot_data['xreg'] = sim_data['xreg']
-    plot_data['ureg'] = sim_data['ureg']
+    if('Quu' in sim_data.keys()):
+      plot_data['Quu_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h'], nu))
+      plot_data['Quu_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
+      for i in range(sim_data['N_plan']):
+        for j in range(sim_data['N_h']):
+          plot_data['Quu_diag'][i, j, :] = sim_data['Quu'][i, j, :, :].diagonal()
+          plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
+    if('J_rank' in sim_data.keys()):
+        plot_data['J_rank'] = sim_data['J_rank']
+    if('xreg' in sim_data.keys()):
+        plot_data['xreg'] = sim_data['xreg']
+    if('ureg' in sim_data.keys()):
+        plot_data['ureg'] = sim_data['ureg']
     # Cost weighs 
     if('ee_weight' in sim_data.keys() and
        'x_reg_weight' in sim_data.keys() and

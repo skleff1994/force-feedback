@@ -9,7 +9,7 @@ simu_freq: 20000  # Simulation frequency in Hz
 ctrl_freq: 1000  # Control frequency
 plan_freq: 1000 # Planning frequency
 # MPC
-T_tot: 3.    # Simu duration (s)
+T_tot: 1.    # Simu duration (s)
 dt: 0.03      # OCP integration step 
 N_h: 30       # Horizon length in nodes
 maxiter: 10   # Max number of iterations in DDP
@@ -17,7 +17,7 @@ maxiter: 10   # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]
 dq0: [0.,0.,0.,0.,0.,0.,0.]
 # Simulation options
-TORQUE_TRACKING: False        # Activate low-level reference torque tracking (PID) 
+TORQUE_TRACKING: True         # Activate low-level reference torque tracking (PID) 
 DELAY_SIM: False              # Add delay in reference torques (low-level)
 DELAY_OCP: True               # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES: True           # Affine scaling of reference torque

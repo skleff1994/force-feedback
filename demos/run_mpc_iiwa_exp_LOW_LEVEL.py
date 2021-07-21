@@ -459,33 +459,6 @@ for MPC_frequency in freqs:
     q_des = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
     sim_data['P_des'] = pin_utils.get_p(q_des, robot, id_endeff)
     sim_data['P_mea_no_noise'] = pin_utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
-    
-  #  ## Get SVD & diagonal of Ricatti + record in sim data
-  #   sim_data['K_svd'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
-  #   sim_data['Kp_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
-  #   sim_data['Kv_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nv))
-  #   for i in range(sim_data['N_plan']):
-  #     for j in range(sim_data['N_h']):
-  #       sim_data['Kp_diag'][i, j, :] = sim_data['K'][i, j, :, :nq].diagonal()
-  #       sim_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nv:].diagonal()
-  #       _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
-  #       sim_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
-   
-  #  ## Get diagonal and eigenvals of Vxx + record in sim data
-  #   sim_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, nx))
-  #   sim_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, nx))
-  #   for i in range(sim_data['N_plan']):
-  #     for j in range(sim_data['N_h']+1):
-  #       sim_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
-  #       sim_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
-
-  #  ## Get diagonal and eigenvals of Quu + record in sim data
-  #   sim_data['Quu_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h'], nu))
-  #   sim_data['Quu_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
-  #   for i in range(sim_data['N_plan']):
-  #     for j in range(sim_data['N_h']):
-  #       sim_data['Quu_diag'][i, j, :] = sim_data['Quu'][i, j, :, :].diagonal()
-  #       sim_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
 
    ## Set saving name and directory
     save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz__exp_'+str(n_exp)

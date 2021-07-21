@@ -4,6 +4,11 @@ from pinocchio.robot_wrapper import RobotWrapper
 np.set_printoptions(precision=4, linewidth=180)
 import pinocchio as pin
 
+'''
+Unit test to reproduce the bug of 'peaks in Vxx' . 
+an be shared using the data_debug_vxx.npz data file + robot_properties_kuka (urdf and mesh)
+'''
+
 # Load robot model
 simu_freq = 20e3
 plan_freq = 10e3 

@@ -871,29 +871,39 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
 
     if('K' in which_plots or which_plots is None or which_plots =='all'):
-        plots['K_diag'] = plot_mpc_ricatti_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                             SHOW=False)
-        plots['K_svd'] = plot_mpc_ricatti_svd(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                             SHOW=False)
+        if('K_diag' in plot_data.keys()):
+            plots['K_diag'] = plot_mpc_ricatti_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+        if('K_svd' in plot_data.keys()):
+            plots['K_svd'] = plot_mpc_ricatti_svd(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
 
     if('V' in which_plots or which_plots is None or which_plots =='all'):
-        plots['V_diag'] = plot_mpc_Vxx_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                         SHOW=False)
-        plots['V_eig'] = plot_mpc_Vxx_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                         SHOW=False)
-
-    if('S' in which_plots or which_plots is None or which_plots =='all'):
-        plots['S'] = plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+        if('V_diag' in plot_data.keys()):
+            plots['V_diag'] = plot_mpc_Vxx_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+        if('V_eig' in plot_data.keys()):
+            plots['V_eig'] = plot_mpc_Vxx_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
 
+    if('S' in which_plots or which_plots is None or which_plots =='all'):
+        if('S' in plot_data.keys()):
+            plots['S'] = plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
     if('J' in which_plots or which_plots is None or which_plots =='all'):
-        plots['J'] = plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                              SHOW=False)
+        if('J' in plot_data.keys()):
+            plots['J'] = plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
     if('Q' in which_plots or which_plots is None or which_plots =='all'):
-        plots['Q_diag'] = plot_mpc_Quu_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                         SHOW=False)
-        plots['Q_eig'] = plot_mpc_Quu_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                         SHOW=False)
+        if('Q_diag' in plot_data.keys()):
+            plots['Q_diag'] = plot_mpc_Quu_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+        if('Q_eig' in plot_data.keys()):
+            plots['Q_eig'] = plot_mpc_Quu_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+    
     if(SHOW):
         plt.show() 
     plt.close('all')

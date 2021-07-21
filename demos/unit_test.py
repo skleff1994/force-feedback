@@ -6,6 +6,11 @@ from pinocchio.robot_wrapper import RobotWrapper
 np.set_printoptions(precision=4, linewidth=180)
 import pinocchio as pin
 
+'''
+Unit test to reproduce the bug of 'peaks in Vxx' . 
+Generate the data_debug_vxx.npz data file from larger datasets
+'''
+
 SAVE_DATA = False
 SAVE_PATH = '/home/skleff/force-feedback/data/data_debug_vxx.npz'
 

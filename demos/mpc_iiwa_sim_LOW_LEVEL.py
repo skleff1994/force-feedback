@@ -1,7 +1,7 @@
 # Number of runs
 """
 @package force_feedback
-@file mpc_iiwa_sim.py
+@file mpc_iiwa_sim_LOW_LEVEL.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -21,48 +21,31 @@ still recover the performance of closed-loop MPC (ICRA 2021) because
 the KUKA had a low-level torque control
 '''
 
-import os.path
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'../')))
-
 import numpy as np  
-import pinocchio as pin
-import crocoddyl
-from bullet_utils.env import BulletEnvWithGround
-from robot_properties_kuka.iiwaWrapper import IiwaRobot, IiwaConfig
-from utils import utils 
+from utils import path_utils, sim_utils, plot_utils, ocp_utils, data_utils, pin_utils
 import pybullet as p
 import time 
-
-np.random.seed(1)
 
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
-    # Read config file
-config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'config/'))
-config_name = 'static_reaching_task3'
-config_file = config_path+"/"+config_name+".yml"
-config = utils.load_yaml_file(config_file)
-    # Create a Pybullet simulation environment + set simu freq
-simu_freq = config['simu_freq']         
+# Read config file
+config = path_utils.load_config_file('static_reaching_task3')
+# Create a Pybullet simulation environment + set simu freq
+simu_freq = config['simu_freq']  
 dt_simu = 1./simu_freq
-env = BulletEnvWithGround(p.GUI, dt=dt_simu)
-pybullet_simulator = IiwaRobot()
-env.add_robot(pybullet_simulator)
-    # Create a robot instance. This initializes the simulator as well.
+q0 = np.asarray(config['q0'])
+dq0 = np.asarray(config['dq0'])
+x0 = np.concatenate([q0, dq0])   
+pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
+# Get pin wrapper
 robot = pybullet_simulator.pin_robot
+# Get initial frame placement + dimensions of joint space
 id_endeff = robot.model.getFrameId('contact')
+M_ee = robot.data.oMf[id_endeff]
 nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv
 nu = nq
-    # Reset robot to initial state in PyBullet + update pinocchio data
-q0 = np.asarray(config['q0'])
-dq0 = np.asarray(config['dq0']) 
-pybullet_simulator.reset_state(q0, dq0)
-pybullet_simulator.forward_robot(q0, dq0)
-    # Get initial frame placement
-M_ee = robot.data.oMf[id_endeff]
 print("-------------------------------------------------------------------")
 print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
 print("-------------------------------------------------------------------")
@@ -70,146 +53,46 @@ print("-------------------------------------------------------------------")
 # # # # # # # # #
 ### SETUP OCP ### 
 # # # # # # # # #
-  # OCP parameters 
-dt = config['dt']                   # OCP integration step (s)               
-N_h = config['N_h']                 # Number of knots in the horizon 
-x0 = np.concatenate([q0, dq0])      # Initial state 
-  # Construct cost function terms
-   # State and actuation models
-state = crocoddyl.StateMultibody(robot.model)
-actuation = crocoddyl.ActuationModelFull(state)
-   # State regularization
-stateRegWeights = np.asarray(config['stateRegWeights'])
-x_reg_ref = x0 #np.zeros(nq+nv)     
-xRegCost = crocoddyl.CostModelState(state, 
-                                    crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
-                                    x_reg_ref, 
-                                    actuation.nu)
-print("[OCP] Created state reg cost.")
-   # Control regularization
-ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
-u_grav = pin.rnea(robot.model, robot.data, x0[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
-uRegCost = crocoddyl.CostModelControl(state, 
-                                      crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
-                                      u_grav)
-print("[OCP] Created ctrl reg cost.")
-   # State limits penalization
-x_lim_ref  = np.zeros(nq+nv)
-xLimitCost = crocoddyl.CostModelState(state, 
-                                      crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
-                                      x_lim_ref, 
-                                      actuation.nu)
-print("[OCP] Created state lim cost.")
-   # Control limits penalization
-u_min = -np.asarray(config['u_lim']) 
-u_max = +np.asarray(config['u_lim']) 
-u_lim_ref = np.zeros(nq)
-uLimitCost = crocoddyl.CostModelControl(state, 
-                                        crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
-                                        u_lim_ref)
-print("[OCP] Created ctrl lim cost.")
-   # End-effector placement 
-p_target = np.asarray(config['p_des']) 
-M_target = pin.SE3(M_ee.rotation.T, p_target)
-desiredFramePlacement = M_ee # M_target
-p_ref = desiredFramePlacement.translation.copy()
-framePlacementWeights = np.asarray(config['framePlacementWeights'])
-framePlacementCost = crocoddyl.CostModelFramePlacement(state, 
-                                                       crocoddyl.ActivationModelWeightedQuad(framePlacementWeights**2), 
-                                                       crocoddyl.FramePlacement(id_endeff, desiredFramePlacement), 
-                                                       actuation.nu) 
-print("[OCP] Created frame placement cost.")
-   # End-effector velocity 
-desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
-frameVelocityWeights = np.ones(6)
-frameVelocityCost = crocoddyl.CostModelFrameVelocity(state, 
-                                                     crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
-                                                     crocoddyl.FrameMotion(id_endeff, desiredFrameMotion), 
-                                                     actuation.nu) 
-print("[OCP] Created frame velocity cost.")
-# Create IAMs
-runningModels = []
-for i in range(N_h):
-  # Create IAM 
-  runningModels.append(crocoddyl.IntegratedActionModelEuler( 
-      crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
-                                                       actuation, 
-                                                       crocoddyl.CostModelSum(state, nu=actuation.nu)), dt ) )
-  # Add cost models
-  runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight'])
-  runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['xRegWeight'])
-  runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['uRegWeight'])
-  # runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
-  # runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
-  # Add armature
-  runningModels[i].differential.armature = np.asarray(config['armature'])
-  # Terminal IAM + set armature
-terminalModel = crocoddyl.IntegratedActionModelEuler(
-    crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
-                                                        actuation, 
-                                                        crocoddyl.CostModelSum(state, nu=actuation.nu) ) )
-   # Add cost models
-terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
-terminalModel.differential.costs.addCost("stateReg", xRegCost, config['xRegWeightTerminal'])
-terminalModel.differential.costs.addCost("velocity", frameVelocityCost, 1e4)
-# terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['xLimWeightTerminal'])
-  # Add armature
-terminalModel.differential.armature = np.asarray(config['armature']) 
-print("[OCP] Created IAMs.")
-# Create the shooting problem
-problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
-# Creating the DDP solver 
-ddp = crocoddyl.SolverFDDP(problem)
-print("[OCP] OCP is ready.")
-print("-------------------------------------------------------------------")
+ddp = ocp_utils.init_DDP(robot, config, x0)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
-
-# MPC & simulation parameters
-maxit = config['maxiter']
-T_tot = config['T_tot']
-plan_freq = config['plan_freq']       # MPC re-planning frequency (Hz)
-ctrl_freq = config['ctrl_freq']       # Control - simulation - frequency (Hz)
-N_plan = int(T_tot*plan_freq)         # Total number of planning steps in the simulation
-N_ctrl = int(T_tot*ctrl_freq)         # Total number of control steps in the simulation 
-N_simu = int(T_tot*simu_freq)         # Total number of simulation steps 
-T_h = N_h*dt                          # Duration of the MPC horizon (s)
-dt_ctrl = float(1./ctrl_freq)         # Time step duration of the control loop
-dt_plan = float(1./plan_freq)         # Time step duration of planning loop
-# Initialize data
 sim_data = {}
-  # MPC sim parameters
-sim_data['T_tot'] = T_tot
-sim_data['N_simu'] = N_simu
-sim_data['N_ctrl'] = N_ctrl
-sim_data['N_plan'] = N_plan
-sim_data['dt_plan'] = dt_plan
-sim_data['dt_ctrl'] = dt_ctrl
-sim_data['dt_simu'] = dt_simu
+# MPC & simulation parameters
+plan_freq = config['plan_freq']                         # MPC planning frequency (Hz)
+ctrl_freq = config['ctrl_freq']                         # Control - simulation - frequency (Hz)
+sim_data['T_tot'] = config['T_tot']                     # Total duration of simulation (s)
+sim_data['N_plan'] = int(sim_data['T_tot']*plan_freq)   # Total number of planning steps in the simulation
+sim_data['N_ctrl'] = int(sim_data['T_tot']*ctrl_freq)   # Total number of control steps in the simulation 
+sim_data['N_simu'] = int(sim_data['T_tot']*simu_freq)   # Total number of simulation steps 
+sim_data['T_h'] = config['N_h']*config['dt']            # Duration of the MPC horizon (s)
+sim_data['N_h'] = config['N_h']                         # Number of nodes in MPC horizon
+sim_data['dt_ctrl'] = float(1./ctrl_freq)               # Duration of 1 control cycle (s)
+sim_data['dt_plan'] = float(1./plan_freq)               # Duration of 1 planning cycle (s)
+sim_data['dt_simu'] = dt_simu                           # Duration of 1 simulation cycle (s)
+# Misc params
 sim_data['nq'] = nq
 sim_data['nv'] = nv
-sim_data['T_h'] = T_h
-sim_data['N_h'] = N_h
-sim_data['p_ref'] = p_ref
-  # To be recorded
-sim_data['X_pred'] = np.zeros((N_plan, N_h+1, nx))     # Predicted states (output of DDP, i.e. ddp.xs)
-sim_data['U_pred'] = np.zeros((N_plan, N_h, nu))       # Predicted torques (output of DDP, i.e. ddp.us)
-sim_data['U_ref'] = np.zeros((N_ctrl, nu))             # Reference torque for motor drivers (i.e. ddp.us[0] interpolated to control frequency)
-sim_data['U_mea'] = np.zeros((N_simu, nu))             # Actuation torques (i.e. disturbed reference sent to PyBullet at simu/HF)
-sim_data['X_mea'] = np.zeros((N_simu+1, nx))           # Measured states (i.e. measured from PyBullet at simu/HF)
-sim_data['X_mea_no_noise'] = np.zeros((N_simu+1, nx))  # Measured states (i.e measured from PyBullet at simu/HF) without noise
-vel_U_ref = np.zeros((N_ctrl, nu))         # Desired torques (current ff output by DDP)
-vel_U_mea = np.zeros((N_simu, nu))         # Actuation torques (sent to PyBullet)
-vel_U_ref_HF = np.zeros((N_simu, nu))      # Actuation torques (sent to PyBullet)
+sim_data['nx'] = nx
+sim_data['p_ref'] = M_ee.translation.copy()
+# Main data to record 
+sim_data['X_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, nx))     # Predicted states (output of DDP, i.e. ddp.xs)
+sim_data['U_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], nu))       # Predicted torques (output of DDP, i.e. ddp.us)
+sim_data['U_ref'] = np.zeros((sim_data['N_ctrl'], nu))             # Reference torque for motor drivers (i.e. ddp.us[0] interpolated to control frequency)
+sim_data['U_mea'] = np.zeros((sim_data['N_simu'], nu))             # Actuation torques (i.e. disturbed reference sent to PyBullet at simu/HF)
+sim_data['X_mea'] = np.zeros((sim_data['N_simu']+1, nx))           # Measured states (i.e. measured from PyBullet at simu/HF)
+sim_data['X_mea_no_noise'] = np.zeros((sim_data['N_simu']+1, nx))  # Measured states (i.e measured from PyBullet at simu/HF) without noise
+vel_U_ref = np.zeros((sim_data['N_ctrl'], nu))                     # Desired torques (current ff output by DDP)
+vel_U_mea = np.zeros((sim_data['N_simu'], nu))                     # Actuation torques (sent to PyBullet)
+vel_U_ref_HF = np.zeros((sim_data['N_simu'], nu))                  # Actuation torques (sent to PyBullet)
 vel_U_mea[0,:] = np.zeros(nq)
   # Initialize PID errors
 err_u = np.zeros(nq)
 vel_err_u = np.zeros(nq)
 int_err_u = np.zeros(nq)
   # Initialize average acceleration tracking error (avg over 1ms)
-sim_data['A_err'] = np.zeros((N_ctrl, nx))
+sim_data['A_err'] = np.zeros((sim_data['N_ctrl'], nx))
   # Initialize measured state 
 sim_data['X_mea'][0, :] = x0
 sim_data['X_mea_no_noise'][0, :] = x0
@@ -221,8 +104,10 @@ nb_ctrl = 0
   # Scaling of desired torque
 alpha = np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(nq,))
 beta = np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(nq,))
+sim_data['alpha'] = alpha
+sim_data['beta'] = beta
   # White noise on desired torque and measured state
-var_u = 0.001*(u_max - u_min) #u_np.asarray(config['var_u']) 0.5% of range on the joint
+var_u = 0.001*(2*np.asarray(config['u_lim'])) #u_np.asarray(config['var_u']) 0.5% of range on the joint
 var_q = np.asarray(config['var_q'])
 var_v = np.asarray(config['var_v'])
   # Buffers for delays
@@ -238,7 +123,8 @@ Kd = config['Kd']*np.eye(nq)
   # Moving avg filter
 u_avg_filter_length = config['u_avg_filter_length']    # in HF cycles
 x_avg_filter_length = config['x_avg_filter_length']    # in HF cycles
-# Sim options
+  # Sim options
+WHICH_PLOTS = ['x','u','p']
 TORQUE_TRACKING = config['TORQUE_TRACKING']       # Activate low-level reference torque tracking (PID) 
 DELAY_SIM = config['DELAY_SIM']                   # Add delay in reference torques (low-level)
 DELAY_OCP = config['DELAY_OCP']                   # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -249,8 +135,6 @@ NOISE_STATE = config['NOISE_STATE']               # Add Gaussian noise on the me
 FILTER_STATE = config['FILTER_STATE']             # Moving average smoothing of reference torques
 INTERPOLATE_PLAN = config['INTERPOLATE_PLAN']     # Interpolate DDP desired feedforward torque to control frequency
 INTERPOLATE_CTRL = config['INTERPOLATE_CTRL']     # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
-# Copy whole config into sim data 
-sim_data['config'] = config
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -260,22 +144,22 @@ if(config['INIT_LOGS']):
   print('                  * Simulation is ready *') 
   print('                  ***********************')        
   print('---------------------------------------------------------')
-  print('- Total simulation duration            : T_tot  = '+str(T_tot)+' s')
+  print('- Total simulation duration            : T_tot  = '+str(sim_data['T_tot'])+' s')
   print('- Simulation frequency                 : f_simu = '+str(float(simu_freq/1000.))+' kHz')
   print('- Control frequency                    : f_ctrl = '+str(float(ctrl_freq/1000.))+' kHz')
   print('- Replanning frequency                 : f_plan = '+str(float(plan_freq/1000.))+' kHz')
-  print('- Total # of simulation steps          : N_ctrl = '+str(N_simu))
-  print('- Total # of control steps             : N_ctrl = '+str(N_ctrl))
-  print('- Total # of planning steps            : N_plan = '+str(N_plan))
-  print('- Duration of MPC horizon              : T_ocp  = '+str(T_h)+' s')
-  print('- OCP integration step                 : dt     = '+str(dt)+' s')
+  print('- Total # of simulation steps          : N_ctrl = '+str(sim_data['N_simu']))
+  print('- Total # of control steps             : N_ctrl = '+str(sim_data['N_ctrl']))
+  print('- Total # of planning steps            : N_plan = '+str(sim_data['N_plan']))
+  print('- Duration of MPC horizon              : T_ocp  = '+str(sim_data['T_h'])+' s')
+  print('- OCP integration step                 : dt     = '+str(config['dt'])+' s')
   print('---------------------------------------------------------')
   print('- Simulate low-level torque control?   : TORQUE_TRACKING  = '+str(TORQUE_TRACKING))
   if(TORQUE_TRACKING):
     print('    - PID gains = \n'
-         +'      Kp ='+str(Kp)+'\n'
-         +'      Ki ='+str(Ki)+'\n'
-         +'      Kd ='+str(Kd)+'\n')
+        +'      Kp ='+str(Kp)+'\n'
+        +'      Ki ='+str(Ki)+'\n'
+        +'      Kd ='+str(Kd)+'\n')
   print('- Simulate delay in low-level torque?  : DELAY_SIM        = '+str(DELAY_SIM)+' ('+str(delay_sim_cycle)+' cycles)')
   print('- Simulate delay in OCP solution?      : DELAY_OCP        = '+str(DELAY_OCP)+' ('+str(delay_OCP_ms)+' ms)')
   print('- Affine scaling of ref. ctrl torque?  : SCALE_TORQUES    = '+str(SCALE_TORQUES))
@@ -296,11 +180,11 @@ if(config['INIT_LOGS']):
 log_rate = 10000
 time_stop_noise = sim_data['T_tot'] #/2. # in sec
 
-for i in range(N_simu): 
+for i in range(sim_data['N_simu']): 
 
     if(i%log_rate==0): 
       print("  ")
-      print("SIMU step "+str(i)+"/"+str(N_simu))
+      print("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
 
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(simu_freq/plan_freq) == 0):
@@ -316,7 +200,7 @@ for i in range(N_simu):
         xs_init[0] = sim_data['X_mea'][i, :]
         us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
         # Solve OCP & record MPC predictions
-        ddp.solve(xs_init, us_init, maxiter=maxit, isFeasible=False)
+        ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
         sim_data['X_pred'][nb_plan, :, :] = np.array(ddp.xs)
         sim_data['U_pred'][nb_plan, :, :] = np.array(ddp.us)
         # Extract desired control torque + prepare interpolation to control frequency
@@ -356,7 +240,7 @@ for i in range(N_simu):
           u_ref_prev = u_ref
           vel_u_ref_prev = np.zeros(nq)
         # Estimate reference torque time-derivative by finite-differences for low-level PID
-        vel_u_ref = ( u_ref - u_ref_prev ) / dt_ctrl
+        vel_u_ref = ( u_ref - u_ref_prev ) / sim_data['dt_ctrl']
         vel_U_ref[nb_ctrl, :] = vel_u_ref
         # vel_u_des = (U_des[nb_ctrl-4, :] - 8*U_des[nb_ctrl-3, :] + U_des[nb_ctrl-1, :] - U_des[nb_ctrl, :]) / (12*dt_ctrl)
         # Increment control counter
@@ -437,34 +321,31 @@ print('--------------------------------')
 # # # # # # # # # # # #
 # PROCESS SIM RESULTS #
 # # # # # # # # # # # #
-
-# Post-process EE trajectories and record in sim data
+# Post-process EE trajectories + record in sim data
 print('Post-processing end-effector trajectories...')
-sim_data['P_pred'] = np.zeros((N_plan, N_h+1, 3))
-for node_id in range(N_h+1):
-  sim_data['P_pred'][:, node_id, :] = utils.get_p(sim_data['X_pred'][:, node_id, :nq], robot, id_endeff) - np.array([p_ref]*N_plan)
-sim_data['P_mea'] = utils.get_p(sim_data['X_mea'][:,:nq], robot, id_endeff)
+sim_data['P_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, 3))
+for node_id in range(config['N_h']+1):
+  sim_data['P_pred'][:, node_id, :] = pin_utils.get_p(sim_data['X_pred'][:, node_id, :nq], robot, id_endeff) - np.array([sim_data['p_ref']]*sim_data['N_plan'])
+sim_data['P_mea'] = pin_utils.get_p(sim_data['X_mea'][:,:nq], robot, id_endeff)
 q_des = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
-sim_data['P_des'] = utils.get_p(q_des, robot, id_endeff)
-sim_data['P_mea_no_noise'] = utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
+sim_data['P_des'] = pin_utils.get_p(q_des, robot, id_endeff)
+sim_data['P_mea_no_noise'] = pin_utils.get_p(sim_data['X_mea_no_noise'][:,:nq], robot, id_endeff)
 
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/force-feedback/data'
 save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz'
-
 # Extract plot data from sim data
-plot_data = utils.extract_plot_data(sim_data)
-
+plot_data = data_utils.extract_plot_data(sim_data)
 # Plot results
-utils.plot_results(plot_data, PLOT_PREDICTIONS=True, 
+plot_utils.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
+                              PLOT_PREDICTIONS=True, 
                               pred_plot_sampling=int(plan_freq/10),
                               SAVE=True,
                               SAVE_DIR=save_dir,
                               SAVE_NAME=save_name,
                               AUTOSCALE=True)
-
 # Save optionally
 if(config['SAVE_DATA']):
-  utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)
+  data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)
