@@ -1,7 +1,7 @@
 # Number of runs
 """
 @package force_feedback
-@file mpc_iiwa_sim_LOW_LEVEL.py
+@file mpc_iiwa_sim_LOWE_LEVEL_IMPEDANCE.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -15,10 +15,7 @@ Trajectory optimization using Crocoddyl in closed-loop MPC (feedback from state 
 Using PyBullet simulator for rigid-body dynamics 
 Using PyBullet GUI for visualization
 
-The goal of this script is to simulate the low-level torque control
-as well at higher frequency (5 to 20kHz) . In face of noise we should 
-still recover the performance of closed-loop MPC (ICRA 2021) because 
-the KUKA had a low-level torque control
+Vanilla MPC
 '''
 
 import numpy as np  
@@ -30,7 +27,7 @@ import time
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task')
+config = path_utils.load_config_file('static_reaching_task_imp')
 # Create a Pybullet simulation environment + set simu freq
 simu_freq = config['simu_freq']  
 dt_simu = 1./simu_freq
@@ -80,6 +77,7 @@ sim_data['p_ref'] = M_ee.translation.copy()
 sim_data['X_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, nx))     # Predicted states (output of DDP, i.e. ddp.xs)
 sim_data['U_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], nu))       # Predicted torques (output of DDP, i.e. ddp.us)
 sim_data['U_ref'] = np.zeros((sim_data['N_ctrl'], nu))             # Reference torque for motor drivers (i.e. ddp.us[0] interpolated to control frequency)
+sim_data['X_ref'] = np.zeros((sim_data['N_ctrl']+1, nx))             # Reference torque for motor drivers (i.e. ddp.us[0] interpolated to control frequency)
 sim_data['U_mea'] = np.zeros((sim_data['N_simu'], nu))             # Actuation torques (i.e. disturbed reference sent to PyBullet at simu/HF)
 sim_data['X_mea'] = np.zeros((sim_data['N_simu']+1, nx))           # Measured states (i.e. measured from PyBullet at simu/HF)
 sim_data['X_mea_no_noise'] = np.zeros((sim_data['N_simu']+1, nx))  # Measured states (i.e measured from PyBullet at simu/HF) without noise
@@ -88,9 +86,8 @@ vel_U_mea = np.zeros((sim_data['N_simu'], nu))                     # Actuation t
 vel_U_ref_HF = np.zeros((sim_data['N_simu'], nu))                  # Actuation torques (sent to PyBullet)
 vel_U_mea[0,:] = np.zeros(nq)
   # Initialize PID errors
-err_u = np.zeros(nq)
-vel_err_u = np.zeros(nq)
-int_err_u = np.zeros(nq)
+err_q = np.zeros(nq)
+err_v = np.zeros(nq)
   # Initialize average acceleration tracking error (avg over 1ms)
 sim_data['A_err'] = np.zeros((sim_data['N_ctrl'], nx))
   # Initialize measured state 
@@ -118,14 +115,13 @@ buffer_OCP = []                                         # buffer for desired to
 buffer_sim = []                                         # buffer for measured torque
   # Proportional-integral torque control gains
 Kp = config['Kp']*np.eye(nq)
-Ki = config['Ki']*np.eye(nq)
 Kd = config['Kd']*np.eye(nq)
   # Moving avg filter
 u_avg_filter_length = config['u_avg_filter_length']    # in HF cycles
 x_avg_filter_length = config['x_avg_filter_length']    # in HF cycles
   # Sim options
 WHICH_PLOTS = ['x','u','p']
-TORQUE_TRACKING = config['TORQUE_TRACKING']       # Activate low-level reference torque tracking (PID) 
+IMPEDANCE = config['IMPEDANCE']       # Activate low-level reference torque tracking (PID) 
 DELAY_SIM = config['DELAY_SIM']                   # Add delay in reference torques (low-level)
 DELAY_OCP = config['DELAY_OCP']                   # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES = config['SCALE_TORQUES']           # Affine scaling of reference torque
@@ -178,7 +174,6 @@ if(config['INIT_LOGS']):
 
 # SIMULATE
 log_rate = 10000
-time_stop_noise = sim_data['T_tot'] #/2. # in sec
 
 for i in range(sim_data['N_simu']): 
 
@@ -188,12 +183,6 @@ for i in range(sim_data['N_simu']):
 
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(simu_freq/plan_freq) == 0):
-        # print("  PLAN ("+str(nb_plan)+"/"+str(N_plan)+")")
-        # # Updtate OCP if necessary
-        # for k,m in enumerate(ddp.problem.runningModels[:]):
-        #     # m.differential.costs.costs["placement"].weight += (i/N_simu)*config['frameWeight']   
-        #     # print(m.differential.costs.costs["placement"].weight)
-        #     m.differential.costs.costs["placement"].weight = utils.cost_weight_tanh(i, N_simu, max_weight=1000, alpha=5, alpha_cut=0.1)
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -204,6 +193,7 @@ for i in range(sim_data['N_simu']):
         sim_data['X_pred'][nb_plan, :, :] = np.array(ddp.xs)
         sim_data['U_pred'][nb_plan, :, :] = np.array(ddp.us)
         # Extract desired control torque + prepare interpolation to control frequency
+        x_pred_0 = sim_data['X_pred'][nb_plan, 0, :]
         x_pred_1 = sim_data['X_pred'][nb_plan, 1, :]
         u_pred_0 = sim_data['U_pred'][nb_plan, 0, :]
         # Delay due to OCP resolution time 
@@ -213,52 +203,49 @@ for i in range(sim_data['N_simu']):
             pass
           else:                            
             u_pred_0 = buffer_OCP.pop(-delay_OCP_cycle)
-        # Optionally interpolate to control frequency
+        # Prepare optional interpolation to control frequency
         if(nb_plan >= 1 and INTERPOLATE_PLAN==True):
-          u_pred_0_next = sim_data['U_pred'][nb_plan, 1, :]
+          u_pred_1 = sim_data['U_pred'][nb_plan, 1, :]
         else:
-          u_pred_0_next = u_pred_0 
+          u_pred_1 = u_pred_0 
         # Increment planning counter
         nb_plan += 1
         
   # If we are in a control cycle select reference torque to send to motors
     if(i%int(simu_freq/ctrl_freq) == 0):
-        # print("  CTRL ("+str(nb_ctrl)+"/"+str(N_ctrl)+")")
         # Optionally interpolate desired torque to control frequency
         if(INTERPOLATE_PLAN):
           coef = float(i % int(ctrl_freq/plan_freq)) / (float(ctrl_freq/plan_freq))
-          u_ref = (1-coef)*u_pred_0 + coef*u_pred_0_next   
+          u_ref = (1-coef)*u_pred_0 + coef*u_pred_1   
+          x_ref = (1-coef)*x_pred_0 + coef*x_pred_1   # or shift +1 in time?
         else:
           u_ref = u_pred_0
-        # Record reference torque
+          x_ref = x_pred_1
+        # Record reference torque and state
         sim_data['U_ref'][nb_ctrl, :] = u_ref 
-        # Optionally interpolate to HF
+        sim_data['X_ref'][nb_ctrl, :] = x_ref 
+        # Prepare optional interpolation to HF
         if(nb_ctrl >= 1 and INTERPOLATE_CTRL):
           u_ref_prev = sim_data['U_ref'][nb_ctrl-1, :]
-          vel_u_ref_prev = vel_U_ref[nb_ctrl-1, :]
+          x_ref_prev = sim_data['X_ref'][nb_ctrl-1, :]
         else:
           u_ref_prev = u_ref
-          vel_u_ref_prev = np.zeros(nq)
-        # Estimate reference torque time-derivative by finite-differences for low-level PID
-        vel_u_ref = ( u_ref - u_ref_prev ) / sim_data['dt_ctrl']
-        vel_U_ref[nb_ctrl, :] = vel_u_ref
-        # vel_u_des = (U_des[nb_ctrl-4, :] - 8*U_des[nb_ctrl-3, :] + U_des[nb_ctrl-1, :] - U_des[nb_ctrl, :]) / (12*dt_ctrl)
+          x_ref_prev = x_ref
         # Increment control counter
         nb_ctrl += 1
         
-  # Simulate actuation with PI torque tracking controller (low-level control frequency)
+  # Simulate actuation with low-level impedance controller (low-level control frequency)
     # Optionally interpolate reference torque to HF / let constant
     if(INTERPOLATE_CTRL):
       coef = float(i%int(simu_freq/ctrl_freq)) / float(simu_freq/ctrl_freq)
       u_ref_HF = (1-coef)*u_ref_prev + coef*u_ref  
-      vel_u_ref_HF = (1-coef)*vel_u_ref_prev + coef*vel_u_ref  
+      x_ref_HF = (1-coef)*x_ref_prev + coef*x_ref  
     else:
-      u_ref_HF = u_ref  
-      vel_u_ref_HF = vel_u_ref
-    vel_U_ref_HF[i,:] = vel_u_ref_HF
-    # Initialize measured torque to reference torque
-    if(TORQUE_TRACKING):
-      u_mea = u_ref_HF - Kp.dot(err_u) - Ki.dot(int_err_u) - Kd.dot(vel_err_u)
+      u_ref_HF = u_ref 
+      x_ref_HF = x_ref 
+    # Compute torque to be applied , with or without impedance loop
+    if(IMPEDANCE):
+      u_mea = u_ref_HF - Kp.dot(err_q) - Kd.dot(err_v)
     else:
       u_mea = u_ref_HF 
     # Actuation = scaling + noise + filtering + delay
@@ -291,7 +278,7 @@ for i in range(sim_data['N_simu']):
     # Accumulate acceleration error over the control cycle
     sim_data['A_err'][nb_ctrl-1,:] += (np.abs(x_mea - x_pred_1))/float(simu_freq/ctrl_freq)
     # Optional noise + filtering
-    if(NOISE_STATE and float(i)/simu_freq <= time_stop_noise):
+    if(NOISE_STATE):
       wq = np.random.normal(0., var_q, nq)
       wv = np.random.normal(0., var_v, nv)
       x_mea += np.concatenate([wq, wv]).T
@@ -302,17 +289,11 @@ for i in range(sim_data['N_simu']):
       x_mea = x_mea / (n_sum + 1)
     # Record noised data
     sim_data['X_mea'][i+1, :] = x_mea 
-    # Estimate torque time-derivative
-    if(i>=1):
-      vel_U_mea[i, :] = (u_mea - sim_data['U_mea'][i-1, :]) / (dt_simu)
-      # vel_u_mea = (U_mea[i-4, :] - 8*U_mea[i-3, :] + U_mea[i-1, :] - U_mea[i, :]) / (12*dt_simu)
-    else:
-      vel_U_mea[i, :] = np.zeros(nq)
     # Update PID errors
-    if(TORQUE_TRACKING):
-      err_u = sim_data['U_mea'][i, :] - u_ref_HF              
-      int_err_u += err_u                             
-      vel_err_u = vel_U_mea[i, :] #- vel_u_ref_HF #vel_u_ref_HF # vs vel_u_ref  
+    if(IMPEDANCE):
+      err_x = x_mea - x_ref_HF
+      err_q = err_x[:nq]    
+      err_v = err_x[nv:]           
 
 print('--------------------------------')
 print('Simulation exited successfully !')
@@ -335,7 +316,7 @@ sim_data['P_mea_no_noise'] = pin_utils.get_p(sim_data['X_mea_no_noise'][:,:nq], 
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/force-feedback/data'
-save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(plan_freq)+'Hz'
+save_name = 'impedance='+str(IMPEDANCE)+'_'+str(plan_freq)+'Hz'
 # Extract plot data from sim data
 plot_data = data_utils.extract_plot_data(sim_data)
 # Plot results

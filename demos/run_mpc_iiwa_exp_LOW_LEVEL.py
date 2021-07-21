@@ -35,7 +35,7 @@ import time
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task3')
+config = path_utils.load_config_file('static_reaching_task')
 # Create a Pybullet simulation environment + set simu freq
 simu_freq = config['simu_freq']  
 dt_simu = 1./simu_freq

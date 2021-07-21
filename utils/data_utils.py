@@ -46,12 +46,13 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['v_mea_no_noise'] = sim_data['X_mea_no_noise'][:,nv:]
     # desired state (append 1st state at start)
     plot_data['q_des'] = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
+    plot_data['q_ref'] = sim_data['X_ref'][:,:nq]
     plot_data['v_des'] = np.vstack([sim_data['X_mea'][0,nv:], sim_data['X_pred'][:,1,nv:]])
     # end-eff position
     plot_data['p_mea'] = sim_data['P_mea']
     plot_data['p_mea_no_noise'] = sim_data['P_mea_no_noise']
     plot_data['p_pred'] = sim_data['P_pred']
-    plot_data['p_des'] = sim_data['P_des'] #np.vstack([sim_data['p0'], sim_data['P_pred'][:,10,:]])
+    plot_data['p_des'] = sim_data['P_des'] 
     # control
     plot_data['u_pred'] = sim_data['U_pred']
     plot_data['u_des'] = sim_data['U_pred'][:,0,:]
