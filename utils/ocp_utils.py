@@ -394,51 +394,54 @@ def init_DDP_LPF(robot, config, x0, f_c=100):
       # State regularization
     stateRegWeights = np.asarray(config['stateRegWeights'])
     x_reg_ref = np.concatenate([np.asarray(config['q0']), np.asarray(config['dq0'])]) #np.zeros(nq+nv)     
-    xRegCost = crocoddyl.CostModelState(state, 
-                                        crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
-                                        x_reg_ref, 
-                                        actuation.nu)
+    xRegCost = crocoddyl.CostModelResidual(state, 
+                                           crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
+                                           crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
     print("[OCP] Created state reg cost.")
        # Control regularization
     ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
     u_grav = pin.rnea(robot.model, robot.data, x_reg_ref[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
-    uRegCost = crocoddyl.CostModelControl(state, 
-                                        crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
-                                        u_grav)
+    uRegCost = crocoddyl.CostModelResidual(state, 
+                                          crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
+                                          crocoddyl.ResidualModelControl(state, u_grav))
     print("[OCP] Created ctrl reg cost.")
       # State limits penalization
     x_lim_ref  = np.zeros(nq+nv)
-    xLimitCost = crocoddyl.CostModelState(state, 
-                                        crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
-                                        x_lim_ref, 
-                                        actuation.nu)
+    xLimitCost = crocoddyl.CostModelResidual(state, 
+                                          crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
+                                          crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
     print("[OCP] Created state lim cost.")
       # Control limits penalization
     u_min = -np.asarray(config['u_lim']) 
     u_max = +np.asarray(config['u_lim']) 
     u_lim_ref = np.zeros(nq)
-    uLimitCost = crocoddyl.CostModelControl(state, 
+    uLimitCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
-                                            u_lim_ref)
+                                            crocoddyl.ResidualModelControl(state, u_lim_ref))
     print("[OCP] Created ctrl lim cost.")
       # End-effector placement 
-    p_target = np.asarray(config['p_des']) 
-    M_target = pin.SE3(M_ee.rotation.T, p_target)
-    desiredFramePlacement = M_target
+    # p_target = np.asarray(config['p_des']) 
+    # M_target = pin.SE3(M_ee.rotation.T, p_target)
+    desiredFramePlacement = M_ee.copy() # M_target
     # p_ref = desiredFramePlacement.translation.copy()
     framePlacementWeights = np.asarray(config['framePlacementWeights'])
-    framePlacementCost = crocoddyl.CostModelFramePlacement(state, 
-                                                        crocoddyl.ActivationModelWeightedQuad(framePlacementWeights**2), 
-                                                        crocoddyl.FramePlacement(id_endeff, desiredFramePlacement), 
-                                                        actuation.nu) 
+    framePlacementCost = crocoddyl.CostModelResidual(state, 
+                                                     crocoddyl.ActivationModelWeightedQuad(framePlacementWeights**2), 
+                                                     crocoddyl.ResidualModelFramePlacement(state, 
+                                                                                           id_endeff, 
+                                                                                           desiredFramePlacement, 
+                                                                                           actuation.nu)) 
     print("[OCP] Created frame placement cost.")
       # End-effector velocity 
     desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
     frameVelocityWeights = np.ones(6)
-    frameVelocityCost = crocoddyl.CostModelFrameVelocity(state, 
-                                                        crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
-                                                        crocoddyl.FrameMotion(id_endeff, desiredFrameMotion), 
-                                                        actuation.nu) 
+    frameVelocityCost = crocoddyl.CostModelResidual(state, 
+                                                    crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
+                                                    crocoddyl.ResidualModelFrameVelocity(state, 
+                                                                                         id_endeff, 
+                                                                                         desiredFrameMotion, 
+                                                                                         pin.LOCAL, 
+                                                                                         actuation.nu)) 
     print("[OCP] Created frame velocity cost.")
     
     # LPF (CT) param                     
