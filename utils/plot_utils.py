@@ -1289,6 +1289,93 @@ def plot_ddp_ricatti_diag(ddp, fig=None, ax=None, label=None, SHOW=True):
     return fig, ax
 
 
+
+def plot_ddp_results_LPF(ddp, robot, id_endeff):
+    '''
+    Plot results of DDP solver with stateLPF
+    '''
+    # Parameters
+    N_h = ddp.problem.T
+    dt = ddp.problem.runningModels[0].dt
+    nq = ddp.problem.runningModels[0].state.nq
+    nv = ddp.problem.runningModels[0].state.nv
+    nu = nq
+    # Extract solution trajectories
+    xs = np.array(ddp.xs)
+    us = np.array(ddp.us)
+    q = np.empty((N_h+1, nq))
+    v = np.empty((N_h+1, nv))
+    u = np.empty((N_h+1, nq))
+    for i in range(N_h+1):
+        q[i,:] = xs[i][:nq].T
+        v[i,:] = xs[i][nv:nv+nq].T
+        u[i,:] = xs[i][nv+nq:].T
+    p_ee = pin_utils.get_p(q, robot, id_endeff)
+    w = np.empty((N_h, nu))
+    for i in range(N_h):
+        w[i,:] = us[i].T
+    print("Plot results...")
+    # Create time spans for X and U + figs and subplots
+    tspan_x = np.linspace(0, N_h*dt, N_h+1)
+    tspan_w = np.linspace(0, N_h*dt, N_h)
+    fig_x, ax_x = plt.subplots(nq, 3)
+    fig_w, ax_w = plt.subplots(nq, 1)
+    fig_p, ax_p = plt.subplots(3, 1)
+    # Plot joints pos, vel , acc, torques
+    for i in range(nq):
+        # Positions
+        ax_x[i,0].plot(tspan_x, q[:,i], 'b.', label='pos_des')
+        ax_x[i,0].plot(tspan_x[-1], q[-1,i], 'ro')
+        ax_x[i,0].set_ylabel('$q_%s$'%i, fontsize=16)
+        ax_x[i,0].grid()
+        # Velocities
+        ax_x[i,1].plot(tspan_x, v[:,i], 'b.', label='vel_des')
+        ax_x[i,1].plot(tspan_x[-1], v[-1,i], 'ro')
+        ax_x[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
+        ax_x[i,1].grid()
+        # Torques
+        ax_x[i,2].plot(tspan_x, u[:,i], 'b.', label='torque_des')
+        ax_x[i,2].plot(tspan_x[-1], u[-1,i], 'ro')
+        ax_x[i,2].set_ylabel('$u_%s$'%i, fontsize=16)
+        ax_x[i,2].grid()
+        # Input (w)
+        ax_w[i].plot(tspan_w, w[:,i], 'b.', label='input_des') 
+        ax_w[i].set_ylabel(ylabel='$w_%d$'%i, fontsize=16)
+        ax_w[i].grid()
+        # Remove xticks labels for clarity 
+        if(i != nq-1):
+            for j in range(3):
+                ax_x[i,j].set_xticklabels([])
+            ax_w[i].set_xticklabels([])
+        # Set xlabel on bottom plot
+        if(i == nq-1):
+            for j in range(3):
+                ax_x[i,j].set_xlabel('t (s)', fontsize=16)
+            ax_w[i].set_xlabel('t (s)', fontsize=16)
+        # Legend
+        handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
+        fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+        handles_w, labels_w = ax_w[i].get_legend_handles_labels()
+        fig_w.legend(handles_w, labels_w, loc='upper right', prop={'size': 16})
+    # Plot EE
+    ylabels_p = ['Px', 'Py', 'Pz']
+    for i in range(3):
+        ax_p[i].plot(tspan_x, p_ee[:,i], 'b.', label='desired')
+        ax_p[i].set_ylabel(ylabel=ylabels_p[i], fontsize=16)
+        ax_p[i].grid()
+        handles_p, labels_p = ax_p[i].get_legend_handles_labels()
+        fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
+    ax_p[-1].set_xlabel('t (s)', fontsize=16)
+    # Align labels + set titles
+    fig_x.align_ylabels()
+    fig_w.align_ylabels()
+    fig_p.align_ylabels()
+    fig_x.suptitle('Joint trajectories', size=16)
+    fig_w.suptitle('Joint input', size=16)
+    fig_p.suptitle('End-effector trajectory', size=16)
+    plt.show()
+
+
 # OLD
 
 # Animate and plot point mass from X,U trajs 

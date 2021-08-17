@@ -68,3 +68,15 @@ def get_f(q, v, tau, pin_robot, id_endeff, dt=1e-2):
         # Contact force
         f[i,:] = np.linalg.inv( jac.dot(Minv).dot(jac.T) ).dot( jac.dot(Minv).dot( h - tau[i,:] + M.dot(a[i,:]) ) )
     return f
+
+def get_u_grav(q, pin_robot):
+    '''
+    Return gravity torque at q
+    '''
+    return pin.rnea(pin_robot.model, pin_robot.data, q, np.zeros((pin_robot.model.nv,1)), np.zeros((pin_robot.model.nq,1)))
+
+def get_u_mea(q, v, pin_robot):
+    '''
+    Return gravity torque at q
+    '''
+    return pin.rnea(pin_robot.model, pin_robot.data, q, v, np.zeros((pin_robot.model.nq,1)))
