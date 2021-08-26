@@ -234,7 +234,7 @@ for i in range(sim_data['N_simu']):
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(N_ctrl)+")")
         # Optionally interpolate state and control to control frequency
         if(INTERPOLATE_PLAN):
-          coef = float(i % int(ctrl_freq/plan_freq)) / (float(ctrl_freq/plan_freq))
+          coef = float(i % int(ctrl_freq/plan_freq)+1) / (float(ctrl_freq/plan_freq))
           u_ref = (1-coef)*u_pred_0 + coef*u_pred_1   
           x_ref = (1-coef)*x_pred_0 + coef*x_pred_1   # or shift +1 in time?
         else:
@@ -278,7 +278,7 @@ for i in range(sim_data['N_simu']):
     tau_des = x_ref_HF[-nq:] # send interp tau*_0 --> tau*_1 to the robot
     # Actuation = scaling + noise + filtering + delay
     if(SCALE_TORQUES):
-      tau_des = alpha*tau_des + beta
+      tau_mea = alpha*tau_des + beta
     if(NOISE_TORQUES):
       u_mea += np.random.normal(0., var_u)
     if(FILTER_TORQUES):
@@ -294,14 +294,21 @@ for i in range(sim_data['N_simu']):
         u_mea = buffer_sim.pop(-delay_sim_cycle)
     # Record measured torque & step simulator
     sim_data['U_mea'][i, :] = u_mea
+
+    # Actuation model = LPF on interpolated values?
+    alpha = float(1./(1+2*np.pi*5e-5*config['f_c']))
+    tau_mea = alpha*tau_des + (1-alpha)*u_mea # in fact u_des as long as old actuation model is desactivated
+
     pybullet_simulator.send_joint_command(tau_des) #u_mea 
     p.stepSimulation()
     # Measure new state from simulation :
     q_mea, v_mea = pybullet_simulator.get_state()
+    
+
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea, v_mea)
     # Record data (unnoised)
-    x_mea = np.concatenate([q_mea, v_mea, tau_des]).T 
+    x_mea = np.concatenate([q_mea, v_mea, tau_mea]).T 
     sim_data['X_mea_no_noise'][i+1, :] = x_mea
     # Accumulate acceleration error over the control cycle
     sim_data['A_err'][nb_ctrl-1,:] += (np.abs(x_mea - x_pred_1))/float(simu_freq/ctrl_freq)
@@ -356,7 +363,7 @@ plot_data = data_utils.extract_plot_data(sim_data)
 # Plot results
 plot_utils.plot_mpc_results_lpf(plot_data, which_plots=WHICH_PLOTS,
                               PLOT_PREDICTIONS=True, 
-                              pred_plot_sampling=int(plan_freq/10),
+                              pred_plot_sampling=int(plan_freq/20),
                               SAVE=True,
                               SAVE_DIR=save_dir,
                               SAVE_NAME=save_name,
