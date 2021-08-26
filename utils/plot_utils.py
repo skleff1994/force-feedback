@@ -4,7 +4,318 @@ import matplotlib
 import numpy as np
 from utils import pin_utils
 
-### Plot from MPC simulation 
+### Plot from MPC simulation (LPF)
+# Plot state data
+def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False, 
+                          pred_plot_sampling=100, 
+                          SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                          SHOW=True):
+    '''
+    Plot state data (MPC simulation using LPF, i.e. state x = (q,v,tau))
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting state data...')
+    T_tot = plot_data['T_tot']
+    N_simu = plot_data['N_simu']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    nq = plot_data['nq']
+    T_h = plot_data['T_h']
+    N_h = plot_data['N_h']
+    # Create time spans for X and U + Create figs and subplots
+    t_span_simu_x = np.linspace(0, T_tot, N_simu+1)
+    t_span_plan_x = np.linspace(0, T_tot, N_plan+1)
+    fig_x, ax_x = plt.subplots(nq, 3, figsize=(19.2,10.8), sharex='col') 
+    # For each joint
+    for i in range(nq):
+
+        if(PLOT_PREDICTIONS):
+
+            # Extract state predictions of i^th joint
+            q_pred_i = plot_data['q_pred'][:,:,i]
+            v_pred_i = plot_data['v_pred'][:,:,i]
+            tau_pred_i = plot_data['tau_pred'][:,:,i]
+            # For each planning step in the trajectory
+            for j in range(0, N_plan, pred_plot_sampling):
+                # Receding horizon = [j,j+N_h]
+                t0_horizon = j*dt_plan
+                tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+                tspan_u_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
+                # Set up lists of (x,y) points for predicted positions and velocities
+                points_q = np.array([tspan_x_pred, q_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                points_v = np.array([tspan_x_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                points_tau = np.array([tspan_x_pred, tau_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                # Set up lists of segments
+                segs_q = np.concatenate([points_q[:-1], points_q[1:]], axis=1)
+                segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
+                segs_tau= np.concatenate([points_tau[:-1], points_tau[1:]], axis=1)
+                # Make collections segments
+                cm = plt.get_cmap('Greys_r') 
+                lc_q = LineCollection(segs_q, cmap=cm, zorder=-1)
+                lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
+                lc_tau = LineCollection(segs_tau, cmap=cm, zorder=-1)
+                lc_q.set_array(tspan_x_pred)
+                lc_v.set_array(tspan_x_pred) 
+                lc_tau.set_array(tspan_x_pred)
+                # Customize
+                lc_q.set_linestyle('-')
+                lc_v.set_linestyle('-')
+                lc_tau.set_linestyle('-')
+                lc_q.set_linewidth(1)
+                lc_v.set_linewidth(1)
+                lc_tau.set_linewidth(1)
+                # Plot collections
+                ax_x[i,0].add_collection(lc_q)
+                ax_x[i,1].add_collection(lc_v)
+                ax_x[i,2].add_collection(lc_tau)
+                # Scatter to highlight points
+                colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+                my_colors = cm(colors)
+                ax_x[i,0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
+                ax_x[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
+                ax_x[i,2].scatter(tspan_x_pred, tau_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
+
+        # Joint position
+        ax_x[i,0].plot(t_span_plan_x, plot_data['q_des'][:,i], 'b-', label='Desired')
+        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)', linewidth=2)
+        ax_x[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
+        ax_x[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_x[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax_x[i,0].grid(True)
+        
+        # Joint velocity 
+        ax_x[i,1].plot(t_span_plan_x, plot_data['v_des'][:,i], 'b-', label='Desired')
+        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)')
+        ax_x[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
+        ax_x[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_x[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax_x[i,1].grid(True)
+
+        # Joint torques
+        ax_x[i,2].plot(t_span_plan_x, plot_data['tau_des'][:,i], 'b-', label='Desired')
+        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)')
+        ax_x[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
+        ax_x[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_x[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax_x[i,2].grid(True)
+
+        # Add xlabel on bottom plot of each column
+        if(i == nq-1):
+            ax_x[i,0].set_xlabel('t(s)', fontsize=16)
+            ax_x[i,1].set_xlabel('t(s)', fontsize=16)
+            ax_x[i,2].set_xlabel('t(s)', fontsize=16)
+        # Legend
+        handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
+        fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+    # y axis labels
+    fig_x.text(0.06, 0.5, 'Joint position (rad)', va='center', rotation='vertical', fontsize=12)
+    fig_x.text(0.345, 0.5, 'Joint velocity (rad/s)', va='center', rotation='vertical', fontsize=12)
+    fig_x.text(0.625, 0.5, 'Joint torque (Nm)', va='center', rotation='vertical', fontsize=12)
+    fig_x.subplots_adjust(wspace=0.37)
+    # Titles
+    fig_x.suptitle('State = joint position ($q$), velocity ($v$), torque ($\\tau$)', size=16)
+    # Save fig
+    if(SAVE):
+        figs = {'x': fig_x}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_x
+
+# Plot control data
+def plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=False, 
+                            pred_plot_sampling=100, 
+                            SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                            SHOW=True,
+                            AUTOSCALE=False):
+    '''
+    Plot control data (MPC simulation using LPF, i.e. control u = unfiltered torque)
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting control data...')
+    T_tot = plot_data['T_tot']
+    N_simu = plot_data['N_simu']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    dt_simu = plot_data['dt_simu']
+    nq = plot_data['nq']
+    T_h = plot_data['T_h']
+    N_h = plot_data['N_h']
+    # Create time spans for X and U + Create figs and subplots
+    t_span_simu_u = np.linspace(0, T_tot-dt_simu, N_simu)
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_u, ax_u = plt.subplots(nq, 1, figsize=(19.2,10.8), sharex='col') 
+    # For each joint
+    for i in range(nq):
+
+        if(PLOT_PREDICTIONS):
+
+            # Extract state predictions of i^th joint
+            u_pred_i = plot_data['u_pred'][:,:,i]
+
+            # For each planning step in the trajectory
+            for j in range(0, N_plan, pred_plot_sampling):
+                # Receding horizon = [j,j+N_h]
+                t0_horizon = j*dt_plan
+                tspan_u_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
+                # Set up lists of (x,y) points for predicted positions and velocities
+                points_u = np.array([tspan_u_pred, u_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                # Set up lists of segments
+                segs_u = np.concatenate([points_u[:-1], points_u[1:]], axis=1)
+                # Make collections segments
+                cm = plt.get_cmap('Greys_r') 
+                lc_u = LineCollection(segs_u, cmap=cm, zorder=-1)
+                lc_u.set_array(tspan_u_pred)
+                # Customize
+                lc_u.set_linestyle('-')
+                lc_u.set_linewidth(1)
+                # Plot collections
+                ax_u[i].add_collection(lc_u)
+                # Scatter to highlight points
+                colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+                my_colors = cm(colors)
+                ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
+
+        # Joint torques
+        ax_u[i].plot(t_span_plan_u, plot_data['u_des'][:,i], 'b-', label='Desired')
+        ax_u[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
+        ax_u[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_u[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_u[i].grid(True)
+        # Last x axis label
+        if(i == nq-1):
+            ax_u[i].set_xlabel('t (s)', fontsize=16)
+        # LEgend
+        handles_u, labels_u = ax_u[i].get_legend_handles_labels()
+        fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
+    # Sup-y label
+    fig_u.text(0.04, 0.5, 'Joint torque (Nm)', va='center', rotation='vertical', fontsize=16)
+    # Titles
+    fig_u.suptitle('Control = unfiltered joint torques', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'u': fig_u}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+
+    return fig_u
+
+# Plot data
+def plot_mpc_results_lpf(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
+                                              pred_plot_sampling=100, 
+                                              SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                                              SHOW=True,
+                                              AUTOSCALE=False):
+    '''
+    Plot sim data (MPC simulation using LPF, i.e. state x = (q,v,tau))
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+      AUTOSCALE                 : rescale y-axis of endeff plot 
+                                  based on maximum value taken
+    '''
+
+    plots = {}
+
+    if('x' in which_plots or which_plots is None or which_plots =='all'):
+        plots['x'] = plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                           pred_plot_sampling=pred_plot_sampling, 
+                                           SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                           SHOW=False)
+    
+    if('u' in which_plots or which_plots is None or which_plots =='all'):
+        plots['u'] = plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                             pred_plot_sampling=pred_plot_sampling, 
+                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                             SHOW=False)
+    
+    if('a' in which_plots or which_plots is None or which_plots =='all'):
+        plots['a'] = plot_mpc_acc_err(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                             SHOW=SHOW)
+
+    if('p' in which_plots or which_plots is None or which_plots =='all'):
+        plots['p'] = plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                            pred_plot_sampling=pred_plot_sampling, 
+                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False, AUTOSCALE=AUTOSCALE)
+
+    if('K' in which_plots or which_plots is None or which_plots =='all'):
+        if('K_diag' in plot_data.keys()):
+            plots['K_diag'] = plot_mpc_ricatti_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+        if('K_svd' in plot_data.keys()):
+            plots['K_svd'] = plot_mpc_ricatti_svd(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('V' in which_plots or which_plots is None or which_plots =='all'):
+        if('V_diag' in plot_data.keys()):
+            plots['V_diag'] = plot_mpc_Vxx_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+        if('V_eig' in plot_data.keys()):
+            plots['V_eig'] = plot_mpc_Vxx_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+
+    if('S' in which_plots or which_plots is None or which_plots =='all'):
+        if('S' in plot_data.keys()):
+            plots['S'] = plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('J' in which_plots or which_plots is None or which_plots =='all'):
+        if('J' in plot_data.keys()):
+            plots['J'] = plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('Q' in which_plots or which_plots is None or which_plots =='all'):
+        if('Q_diag' in plot_data.keys()):
+            plots['Q_diag'] = plot_mpc_Quu_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+        if('Q_eig' in plot_data.keys()):
+            plots['Q_eig'] = plot_mpc_Quu_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+    
+    if(SHOW):
+        plt.show() 
+    plt.close('all')
+
+
+
+### Plot from MPC simulation (regular)
 # Plot state data
 def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False, 
                           pred_plot_sampling=100, 
@@ -27,6 +338,7 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
     nq = plot_data['nq']
+    nx = plot_data['nx']
     T_h = plot_data['T_h']
     N_h = plot_data['N_h']
     # Create time spans for X and U + Create figs and subplots
@@ -41,7 +353,6 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
             # Extract state predictions of i^th joint
             q_pred_i = plot_data['q_pred'][:,:,i]
             v_pred_i = plot_data['v_pred'][:,:,i]
-
             # For each planning step in the trajectory
             for j in range(0, N_plan, pred_plot_sampling):
                 # Receding horizon = [j,j+N_h]
@@ -91,6 +402,7 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
         ax_x[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax_x[i,1].grid(True)
+
         # Add xlabel on bottom plot of each column
         if(i == nq-1):
             ax_x[i,0].set_xlabel('t(s)', fontsize=16)

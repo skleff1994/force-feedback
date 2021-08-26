@@ -208,20 +208,20 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False):
                                           crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                           crocoddyl.ResidualModelControl(state, u_grav))
     print("[OCP] Created ctrl reg cost.")
-    #   # State limits penalization
-    # x_lim_ref  = np.zeros(nq+nv)
-    # xLimitCost = crocoddyl.CostModelResidual(state, 
-    #                                          crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
-    #                                          crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
-    # print("[OCP] Created state lim cost.")
-    #   # Control limits penalization
-    # u_min = -np.asarray(config['u_lim']) 
-    # u_max = +np.asarray(config['u_lim']) 
-    # u_lim_ref = np.zeros(nq)
-    # uLimitCost = crocoddyl.CostModelResidual(state, 
-    #                                          crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
-    #                                          crocoddyl.ResidualModelControl(state, u_lim_ref))
-    # print("[OCP] Created ctrl lim cost.")
+      # State limits penalization
+    x_lim_ref  = np.zeros(nq+nv)
+    xLimitCost = crocoddyl.CostModelResidual(state, 
+                                             crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
+                                             crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
+    print("[OCP] Created state lim cost.")
+      # Control limits penalization
+    u_min = -np.asarray(config['u_lim']) 
+    u_max = +np.asarray(config['u_lim']) 
+    u_lim_ref = np.zeros(nq)
+    uLimitCost = crocoddyl.CostModelResidual(state, 
+                                             crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
+                                             crocoddyl.ResidualModelControl(state, u_lim_ref))
+    print("[OCP] Created ctrl lim cost.")
       # End-effector placement 
     # p_target = np.asarray(config['p_des']) 
     # M_target = pin.SE3(M_ee.rotation.T, p_target)
@@ -236,17 +236,17 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False):
                                                                                            desiredFramePlacement, 
                                                                                            actuation.nu)) 
     print("[OCP] Created frame placement cost.")
-    #   # End-effector velocity 
-    # desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
-    # frameVelocityWeights = np.ones(6)
-    # frameVelocityCost = crocoddyl.CostModelResidual(state, 
-    #                                                 crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
-    #                                                 crocoddyl.ResidualModelFrameVelocity(state, 
-    #                                                                                      id_endeff, 
-    #                                                                                      desiredFrameMotion, 
-    #                                                                                      pin.LOCAL, 
-    #                                                                                      actuation.nu)) 
-    # print("[OCP] Created frame velocity cost.")
+      # End-effector velocity 
+    desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
+    frameVelocityWeights = np.ones(6)
+    frameVelocityCost = crocoddyl.CostModelResidual(state, 
+                                                    crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
+                                                    crocoddyl.ResidualModelFrameVelocity(state, 
+                                                                                         id_endeff, 
+                                                                                         desiredFrameMotion, 
+                                                                                         pin.LOCAL, 
+                                                                                         actuation.nu)) 
+    print("[OCP] Created frame velocity cost.")
     
     # LPF (CT) param                     
     alpha =  1 / (1 + 2*np.pi*dt*f_c) # Smoothing factor : close to 1 means f_c decrease, close to 0 means f_c very large 
@@ -268,6 +268,8 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False):
       runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight']) 
       runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['xRegWeight'])
       runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['uRegWeight']) 
+      runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
+      runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
       runningModels[i].differential.armature = np.asarray(config['armature'])
 
     # Terminal IAM + set armature
@@ -281,6 +283,7 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False):
     # Add cost models
     terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
     terminalModel.differential.costs.addCost("stateReg", xRegCost, config['xRegWeightTerminal'])
+    terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
     terminalModel.differential.armature = np.asarray(config['armature'])
     
     print("[OCP] Created IAMs.")

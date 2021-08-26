@@ -32,22 +32,30 @@ def extract_plot_data_from_sim_data(sim_data):
     '''
     print('Extracting plotting data from simulation data...')
     plot_data = {}
-    nx = sim_data['X_mea'].shape[1]
-    nq = nx//2
-    nv = nx-nq
+    nq = sim_data['nq']
+    nv = sim_data['nv']
+    nx = sim_data['nx']
+    plot_data['nq'] = nq
+    plot_data['nv'] = nv
+    plot_data['nx'] = nx
     nu = nq
     # state predictions
     plot_data['q_pred'] = sim_data['X_pred'][:,:,:nq]
-    plot_data['v_pred'] = sim_data['X_pred'][:,:,nv:]
+    plot_data['v_pred'] = sim_data['X_pred'][:,:,nq:nq+nv]
+    plot_data['tau_pred'] = sim_data['X_pred'][:,:,nq+nv:]
     # measured state
     plot_data['q_mea'] = sim_data['X_mea'][:,:nq]
-    plot_data['v_mea'] = sim_data['X_mea'][:,nv:]
+    plot_data['v_mea'] = sim_data['X_mea'][:,nq:nq+nv]
+    plot_data['tau_mea'] = sim_data['X_mea'][:,nq+nv:]
     plot_data['q_mea_no_noise'] = sim_data['X_mea_no_noise'][:,:nq]
-    plot_data['v_mea_no_noise'] = sim_data['X_mea_no_noise'][:,nv:]
+    plot_data['v_mea_no_noise'] = sim_data['X_mea_no_noise'][:,nq:nq+nv]
+    plot_data['tau_mea_no_noise'] = sim_data['X_mea_no_noise'][:,nq+nv:]
     # desired state (append 1st state at start)
     plot_data['q_des'] = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
-    plot_data['q_ref'] = sim_data['X_ref'][:,:nq]
-    plot_data['v_des'] = np.vstack([sim_data['X_mea'][0,nv:], sim_data['X_pred'][:,1,nv:]])
+    plot_data['v_des'] = np.vstack([sim_data['X_mea'][0,nq:nq+nv], sim_data['X_pred'][:,1,nq:nq+nv]])
+    plot_data['tau_des'] = np.vstack([sim_data['X_mea'][0,nq+nv:], sim_data['X_pred'][:,1,nq+nv:]])
+    if('X_ref' in sim_data.keys()):
+        plot_data['q_ref'] = sim_data['X_ref'][:,:nq]
     # end-eff position
     plot_data['p_mea'] = sim_data['P_mea']
     plot_data['p_mea_no_noise'] = sim_data['P_mea_no_noise']
@@ -67,9 +75,6 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['dt_plan'] = sim_data['dt_plan']
     plot_data['dt_ctrl'] = sim_data['dt_ctrl']
     plot_data['dt_simu'] = sim_data['dt_simu']
-    plot_data['nq'] = sim_data['nq']
-    plot_data['nv'] = sim_data['nv']
-    plot_data['nx'] = sim_data['nx']
     plot_data['T_h'] = sim_data['T_h']
     plot_data['N_h'] = sim_data['N_h']
     plot_data['p_ref'] = sim_data['p_ref']
@@ -83,7 +88,7 @@ def extract_plot_data_from_sim_data(sim_data):
       for i in range(sim_data['N_plan']):
         for j in range(sim_data['N_h']):
           plot_data['Kp_diag'][i, j, :] = sim_data['K'][i, j, :, :nq].diagonal()
-          plot_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nv:].diagonal()
+          plot_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nq:nx].diagonal()
           _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
           plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
     # Get diagonal and eigenvals of Vxx + record in sim data
