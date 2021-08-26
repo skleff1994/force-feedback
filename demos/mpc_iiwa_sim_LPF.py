@@ -53,16 +53,17 @@ print("-------------------------------------------------------------------")
 #################
 N_h = config['N_h']
 dt = config['dt']
-u0 = np.asarray(config['tau0'])
-y0 = np.concatenate([x0, u0]) #pin_utils.get_u_grav(q0, robot)])
-ddp = ocp_utils.init_DDP_LPF(robot, config, y0, f_c=100)
+# u0 = np.asarray(config['tau0'])
+ug = pin_utils.get_u_grav(q0, robot)
+y0 = np.concatenate([x0, ug])
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, f_c=config['f_c'])
 # Solve and extract solution trajectories
-ddp.solve(ddp.xs, ddp.us, maxiter=100, isFeasible=False)
+xs_init = [y0 for i in range(N_h+1)]
+us_init = ddp.problem.quasiStatic(xs_init[:-1])
+ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 xs = np.array(ddp.xs) # optimal (q,v,u) traj
 us = np.array(ddp.us) # optimal   (w)   traj
-print(xs[0].shape)
-print(us[0].shape)
-
+# Plot
 plot_utils.plot_ddp_results_LPF(ddp, robot, id_endeff)
 
 # ##################
