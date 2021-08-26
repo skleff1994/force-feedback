@@ -49,8 +49,14 @@ ug = pin_utils.get_u_grav(q0, robot)
 y0 = np.concatenate([x0, ug])
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, f_c=config['f_c'], callbacks=True)
 # Solve and extract solution trajectories
-# xs_init = [y0 for i in range(N_h+1)]
-us_init = [ug for i in range(N_h)] #ddp.problem.quasiStatic(xs_init[:-1])
+xs_init = [y0 for i in range(N_h+1)]
+us_init = ddp.problem.quasiStatic(xs_init[:-1])
+ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+# xs = np.array(ddp.xs) # optimal (q,v,u) traj
+# us = np.array(ddp.us) # optimal   (w)   traj
+# Plot
+plot_utils.plot_ddp_results_LPF(ddp, robot, id_endeff)
+
 
 # # Test integration (rollout)
 # xs = ddp.problem.rollout(us_init)
@@ -81,9 +87,4 @@ us_init = [ug for i in range(N_h)] #ddp.problem.quasiStatic(xs_init[:-1])
 # crocoddyl.plotOCSolution(xs, us)
 
 
-    # ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-# xs = np.array(ddp.xs) # optimal (q,v,u) traj
-# us = np.array(ddp.us) # optimal   (w)   traj
-# Plot
-# plot_utils.plot_ddp_results_LPF(ddp, robot, id_endeff)
 

@@ -262,7 +262,7 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False):
           crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                            actuation, 
                                                            crocoddyl.CostModelSum(state, nu=actuation.nu)), 
-                                                           stepTime=dt, withCostResidual=True, fc=f_c))
+                                                           stepTime=dt, withCostResidual=True, fc=f_c, cost_weight_w=2.))
 
       # Add cost models
       runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight']) 
