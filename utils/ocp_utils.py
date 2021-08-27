@@ -166,7 +166,7 @@ def init_DDP(robot, config, x0):
 
 
 # Setup OCP and solver using Crocoddyl
-def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False):
+def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
      - Running cost: EE placement (Mref) + x_reg (xref) + u_reg (uref)
@@ -223,9 +223,9 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False):
                                              crocoddyl.ResidualModelControl(state, u_lim_ref))
     print("[OCP] Created ctrl lim cost.")
       # End-effector placement 
-    # p_target = np.asarray(config['p_des']) 
-    # M_target = pin.SE3(M_ee.rotation.T, p_target)
-    desiredFramePlacement = M_ee.copy()
+    p_target = np.asarray(config['p_des']) 
+    M_target = pin.SE3(M_ee.rotation.T, p_target)
+    desiredFramePlacement = M_target #M_ee.copy()
     # desiredFramePlacement.translation[0] += 0.1
     # desiredFramePlacement.translation[1] -= 0.2
     framePlacementWeights = np.asarray(config['framePlacementWeights'])
@@ -262,7 +262,7 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False):
           crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                            actuation, 
                                                            crocoddyl.CostModelSum(state, nu=actuation.nu)), 
-                                                           stepTime=dt, withCostResidual=True, fc=f_c, cost_weight_w=.001))
+                                                           stepTime=dt, withCostResidual=True, fc=f_c, cost_weight_w=cost_w))
 
       # Add cost models
       runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight']) 
@@ -278,7 +278,7 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False):
         crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                          actuation, 
                                                          crocoddyl.CostModelSum(state, nu=actuation.nu)),
-                                                         stepTime=dt, withCostResidual=True, fc=f_c, cost_weight_w=.001)
+                                                         stepTime=dt, withCostResidual=True, fc=f_c, cost_weight_w=cost_w)
                                                             
     # Add cost models
     terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])

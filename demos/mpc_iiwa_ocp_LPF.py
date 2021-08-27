@@ -23,7 +23,7 @@ from robot_properties_kuka.config import IiwaConfig
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task_lpf')
+config = path_utils.load_config_file('static_reaching_task_lpf_ocp')
 # Create a Pybullet simulation environment + set simu freq
 simu_freq = config['simu_freq']  
 dt_simu = 1./simu_freq
@@ -47,13 +47,25 @@ dt = config['dt']
 # u0 = np.asarray(config['tau0'])
 ug = pin_utils.get_u_grav(q0, robot) 
 y0 = np.concatenate([x0, ug])
-ddp = ocp_utils.init_DDP_LPF(robot, config, y0, f_c=config['f_c'], callbacks=True)
+ddp = ocp_utils.init_DDP_LPF(robot, config, 
+                             y0, f_c=config['f_c'], callbacks=True, cost_w=1e-4)
+
+
+# Schedule weights for target reaching
+coef = 10.
+for k,m in enumerate(ddp.problem.runningModels):
+    m.differential.costs.costs['placement'].cost.weight = coef*(float(k)/N_h)
+
 # Solve and extract solution trajectories
 xs_init = [y0 for i in range(N_h+1)]
-us_init = ddp.problem.quasiStatic(xs_init[:-1])
+us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+# ddp.solve([],[], maxiter=config['maxiter'], isFeasible=False)
 # xs = np.array(ddp.xs) # optimal (q,v,u) traj
 # us = np.array(ddp.us) # optimal   (w)   traj
+
+1
+
 # Plot
 plot_utils.plot_ddp_results_LPF(ddp, robot, id_endeff)
 

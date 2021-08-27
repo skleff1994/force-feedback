@@ -298,7 +298,8 @@ for i in range(sim_data['N_simu']):
     # Actuation model = LPF on interpolated values?
     alpha = float(1./(1+2*np.pi*5e-5*config['f_c']))
     tau_mea = alpha*tau_des + (1-alpha)*u_mea # in fact u_des as long as old actuation model is desactivated
-
+    tau_mea = alpha*tau_des + beta
+    
     pybullet_simulator.send_joint_command(tau_des) #u_mea 
     p.stepSimulation()
     # Measure new state from simulation :
