@@ -102,7 +102,7 @@ def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False,
 
         # Joint torques
         ax_x[i,2].plot(t_span_plan_x, plot_data['tau_des'][:,i], 'b-', label='Desired')
-        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax_x[i,2].plot(t_span_simu_x[:-1], plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)')
         ax_x[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
         ax_x[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -175,7 +175,7 @@ def plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=False,
         if(PLOT_PREDICTIONS):
 
             # Extract state predictions of i^th joint
-            u_pred_i = plot_data['u_pred'][:,:,i]
+            u_pred_i = plot_data['w_pred'][:,:,i]
 
             # For each planning step in the trajectory
             for j in range(0, N_plan, pred_plot_sampling):
@@ -201,7 +201,7 @@ def plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=False,
                 ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
 
         # Joint torques
-        ax_u[i].plot(t_span_plan_u, plot_data['u_des'][:,i], 'b-', label='Desired')
+        ax_u[i].plot(t_span_plan_u, plot_data['tau_des'][:-1,i], 'b-', label='Desired')
         ax_u[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
         ax_u[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_u[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -315,7 +315,7 @@ def plot_mpc_results_lpf(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
 
 
-### Plot from MPC simulation (regular)
+### Plot from MPC simulation (regular i.e. 'impedance_mpc' repo)
 # Plot state data
 def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False, 
                           pred_plot_sampling=100, 

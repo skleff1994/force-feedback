@@ -34,39 +34,58 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data = {}
     nq = sim_data['nq']
     nv = sim_data['nv']
-    nx = sim_data['nx']
+    if('nx' in sim_data.keys()):
+        nx = sim_data['nx']
+        plot_data['nx'] = nx
+    if('ny' in sim_data.keys()):
+        ny = sim_data['ny']  
+        plot_data['ny'] = ny     
     plot_data['nq'] = nq
     plot_data['nv'] = nv
-    plot_data['nx'] = nx
     nu = nq
-    # state predictions
-    plot_data['q_pred'] = sim_data['X_pred'][:,:,:nq]
-    plot_data['v_pred'] = sim_data['X_pred'][:,:,nq:nq+nv]
-    plot_data['tau_pred'] = sim_data['X_pred'][:,:,nq+nv:]
-    # measured state
-    plot_data['q_mea'] = sim_data['X_mea'][:,:nq]
-    plot_data['v_mea'] = sim_data['X_mea'][:,nq:nq+nv]
-    plot_data['tau_mea'] = sim_data['X_mea'][:,nq+nv:]
-    plot_data['q_mea_no_noise'] = sim_data['X_mea_no_noise'][:,:nq]
-    plot_data['v_mea_no_noise'] = sim_data['X_mea_no_noise'][:,nq:nq+nv]
-    plot_data['tau_mea_no_noise'] = sim_data['X_mea_no_noise'][:,nq+nv:]
-    # desired state (append 1st state at start)
-    plot_data['q_des'] = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
-    plot_data['v_des'] = np.vstack([sim_data['X_mea'][0,nq:nq+nv], sim_data['X_pred'][:,1,nq:nq+nv]])
-    plot_data['tau_des'] = np.vstack([sim_data['X_mea'][0,nq+nv:], sim_data['X_pred'][:,1,nq+nv:]])
-    if('X_ref' in sim_data.keys()):
-        plot_data['q_ref'] = sim_data['X_ref'][:,:nq]
+    # State data 
+    if('X_pred' in sim_data.keys()):
+        # MPC predictions
+        plot_data['q_pred'] = sim_data['X_pred'][:,:,:nq]
+        plot_data['v_pred'] = sim_data['X_pred'][:,:,nq:nq+nv]
+        # Measurements
+        plot_data['q_mea'] = sim_data['X_mea'][:,:nq]
+        plot_data['v_mea'] = sim_data['X_mea'][:,nq:nq+nv]
+        plot_data['q_mea_no_noise'] = sim_data['X_mea_no_noise'][:,:nq]
+        plot_data['v_mea_no_noise'] = sim_data['X_mea_no_noise'][:,nq:nq+nv]
+        # Desired states (1st prediction of MPC horizon)
+        plot_data['q_des'] = np.vstack([plot_data['q_mea'][0], sim_data['X_pred'][:,1,:nq]])
+        plot_data['v_des'] = np.vstack([plot_data['v_mea'][0], sim_data['X_pred'][:,1,nq:nq+nv]])
+    if('Y_pred' in sim_data.keys()):
+        plot_data['q_pred'] = sim_data['Y_pred'][:,:,:nq]
+        plot_data['v_pred'] = sim_data['Y_pred'][:,:,nq:nq+nv]
+        plot_data['tau_pred'] = sim_data['Y_pred'][:,:,nq+nv:]
+        plot_data['q_mea'] = sim_data['Y_mea'][:,:nq]
+        plot_data['v_mea'] = sim_data['Y_mea'][:,nq:nq+nv]
+        plot_data['tau_mea'] = sim_data['Y_mea'][:,nq+nv:]
+        plot_data['q_mea_no_noise'] = sim_data['Y_mea_no_noise'][:,:nq]
+        plot_data['v_mea_no_noise'] = sim_data['Y_mea_no_noise'][:,nq:nq+nv]
+        plot_data['tau_mea_no_noise'] = sim_data['Y_mea_no_noise'][:,nq+nv:]
+        plot_data['q_des'] = np.vstack([plot_data['q_mea'][0], sim_data['Y_pred'][:,1,:nq]])
+        plot_data['v_des'] = np.vstack([plot_data['v_mea'][0], sim_data['Y_pred'][:,1,nq:nq+nv]])
+        plot_data['tau_des'] = np.vstack([plot_data['tau_mea'][0], sim_data['Y_pred'][:,1,nq+nv:]])
     # end-eff position
     plot_data['p_mea'] = sim_data['P_mea']
     plot_data['p_mea_no_noise'] = sim_data['P_mea_no_noise']
     plot_data['p_pred'] = sim_data['P_pred']
     plot_data['p_des'] = sim_data['P_des'] 
     # control
-    plot_data['u_pred'] = sim_data['U_pred']
-    plot_data['u_des'] = sim_data['U_pred'][:,0,:]
-    plot_data['u_mea'] = sim_data['U_mea']
+    if('U_pred' in sim_data.keys()):
+        plot_data['u_pred'] = sim_data['U_pred']
+        plot_data['u_des'] = sim_data['U_pred'][:,0,:]
+        plot_data['u_mea'] = sim_data['U_mea']
+    if('W_pred' in sim_data.keys()):
+        plot_data['w_pred'] = sim_data['W_pred']
+        plot_data['tau_ref'] = sim_data['Tau_ref']
+        plot_data['tau_mea'] = sim_data['Tau_mea']
     # acc error
-    plot_data['a_err'] = sim_data['A_err']
+    if('A_err' in sim_data.keys()):
+        plot_data['a_err'] = sim_data['A_err']
     # Misc. params
     plot_data['T_tot'] = sim_data['T_tot']
     plot_data['N_simu'] = sim_data['N_simu']
