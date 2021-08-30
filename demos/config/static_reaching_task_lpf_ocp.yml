@@ -11,8 +11,8 @@ plan_freq: 500  # Planning frequency
 f_c: 20          # Low-pass filter cut-off frequency
 # MPC
 T_tot: 2.    # Simu duration (s)
-dt: 0.02       # OCP integration step 
-N_h: 500      # Horizon length in nodes
+dt: 0.03       # OCP integration step 
+N_h: 100      # Horizon length in nodes
 maxiter: 100   # Max number of iterations in DDP
 # Initial robot state
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]
@@ -39,25 +39,25 @@ SAVE_DATA: False
 # TASK  # 
 # # # # #
 # State regularization 
-stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 5., 5., 5., 5., 5., 5., 5.]
-xRegWeight: 0.1
-xRegWeightTerminal: 0.01
+stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 4., 4., 4., 4., 4., 4., 4.]
+xRegWeight: 0.5
+xRegWeightTerminal: 0.1
 # Torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-uRegWeight: 0.001
+uRegWeight: 0.01
 # State limits
-xLimWeight: 10.
-xLimWeightTerminal: 10.
+xLimWeight: 100.
+xLimWeightTerminal: 100.
 # Torque limits
 u_lim: [320, 320, 176, 176, 110, 40, 40]
 uLimWeight: 1.
 # Frame placement 
 p_des: [0.5, -0.5, 0.7]  # Desired end-effector position
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-frameWeight: 20.
-framePlacementWeightTerminal: 1000.
+frameWeight: 2.
+framePlacementWeightTerminal: 10.
 # Frame velocity
-frameVelocityWeightTerminal: 0.
+frameVelocityWeightTerminal: 1000.
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .01]
 

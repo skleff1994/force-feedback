@@ -45,6 +45,20 @@ def cost_weight_linear(i, N, min_weight=0., max_weight=1.):
     return (max_weight-min_weight)/N * i + min_weight
 
 
+def cost_weight_parabolic(i, N, min_weight=0., max_weight=1.):
+    '''
+    Parabolic cost weight profile over [0,...,N] with min at i=N/2
+     INPUT: 
+       i          : current time step in the window (e.g. OCP horizon or sim horizon)
+       N          : total number of time steps
+       min_weight : minimum weight reached when i=N/2
+       max_weight : maximum weight reached at t=0 and i=N
+     OUPUT:
+       Cost weight at step i
+    '''
+    return min_weight + 4.*(max_weight-min_weight)/float(N**2) * (i-N/2)**2
+
+
 # Setup OCP and solver using Crocoddyl
 def init_DDP(robot, config, x0):
     '''

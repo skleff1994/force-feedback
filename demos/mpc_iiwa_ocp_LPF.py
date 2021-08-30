@@ -50,24 +50,38 @@ y0 = np.concatenate([x0, ug])
 ddp = ocp_utils.init_DDP_LPF(robot, config, 
                              y0, f_c=config['f_c'], callbacks=True, cost_w=1e-4)
 
-
 # Schedule weights for target reaching
-coef = 10.
 for k,m in enumerate(ddp.problem.runningModels):
-    m.differential.costs.costs['placement'].cost.weight = coef*(float(k)/N_h)
+    m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(k, N_h, max_weight=100., alpha=5., alpha_cut=0.65)
+    m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.01, max_weight=config['xRegWeight'])
+    print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
+    " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
+    # if(k<=10.):
+    #     m.differential.costs.costs['stateReg'].weight = 5.
 
 # Solve and extract solution trajectories
 xs_init = [y0 for i in range(N_h+1)]
 us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-# ddp.solve([],[], maxiter=config['maxiter'], isFeasible=False)
-# xs = np.array(ddp.xs) # optimal (q,v,u) traj
-# us = np.array(ddp.us) # optimal   (w)   traj
 
-1
+
+import time
+robot.initDisplay(loadModel=True)
+robot.display(q0)
+viewer = robot.viz.viewer
+viewer.gui.addFloor('world/floor')
+viewer.gui.refresh()
+
+print("Visualizing...")
+for i in range(N_h):
+    # Iter log
+    print("Display config n°"+str(i))
+    viewer.gui.refresh()
+    robot.display(ddp.xs[i][:nq])
+    time.sleep(.1)
 
 # Plot
-plot_utils.plot_ddp_results_LPF(ddp, robot, id_endeff)
+# plot_utils.plot_ddp_results_LPF(ddp, robot, id_endeff)
 
 
 # # Test integration (rollout)
