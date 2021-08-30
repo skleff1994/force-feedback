@@ -25,6 +25,67 @@ def load_data(npz_file):
     d = np.load(npz_file, allow_pickle=True)
     return d['data'][()]
 
+
+def init_sim_data(config, robot, y0):
+    '''
+    Initialize simulation data from config file
+    '''
+    sim_data = {}
+    # MPC & simulation parameters
+    sim_data['T_tot'] = config['T_tot']                             # Total duration of simulation (s)
+    sim_data['simu_freq'] = config['simu_freq']
+    sim_data['ctrl_freq'] = config['ctrl_freq']
+    sim_data['plan_freq'] = config['plan_freq']  
+    sim_data['N_plan'] = int(sim_data['T_tot']*sim_data['plan_freq']) # Total number of planning steps in the simulation
+    sim_data['N_ctrl'] = int(sim_data['T_tot']*sim_data['ctrl_freq']) # Total number of control steps in the simulation 
+    sim_data['N_simu'] = int(sim_data['T_tot']*sim_data['simu_freq']) # Total number of simulation steps 
+    sim_data['T_h'] = config['N_h']*config['dt']                    # Duration of the MPC horizon (s)
+    sim_data['N_h'] = config['N_h']                                 # Number of nodes in MPC horizon
+    sim_data['dt_ctrl'] = float(1./sim_data['ctrl_freq'])             # Duration of 1 control cycle (s)
+    sim_data['dt_plan'] = float(1./sim_data['plan_freq'])             # Duration of 1 planning cycle (s)
+    sim_data['dt_simu'] = float(1./sim_data['simu_freq'])             # Duration of 1 simulation cycle (s)
+    # Misc params
+    sim_data['nq'] = robot.model.nq
+    sim_data['nv'] = robot.model.nv
+    sim_data['nu'] = robot.model.nq
+    sim_data['ny'] = sim_data['nq'] + sim_data['nv'] + sim_data['nu']
+    sim_data['id_endeff'] = robot.model.getFrameId('contact')
+    sim_data['p_ref'] = robot.data.oMf[sim_data['id_endeff']]
+    # Main data to record 
+    sim_data['Y_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'])) # Predicted states  (ddp.xs : {y* = (q*, v*, tau*)} )
+    sim_data['W_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques (ddp.us : {w*} )
+    sim_data['Tau_ref'] = np.zeros((sim_data['N_ctrl'], sim_data['nu']))                 # Reference torque for motor drivers (tau* interpolated at ctrl freq)
+    sim_data['Tau_mea'] = np.zeros((sim_data['N_simu'], sim_data['nu']))                 # Actuation torques (output of actuator sent to PyBullet at simu freq)
+    sim_data['Y_mea'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))                 # Measured states (measured y = (q, v, tau) from PyBullet at simu freq)
+    sim_data['Y_mea_no_noise'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))        # Measured states (measured y = (q, v, tau) from PyBullet at simu freq) without noise
+    # Derivatives of torque 
+    sim_data['dTau_ref'] = np.zeros((sim_data['N_ctrl'], sim_data['nu']))                            # Desired torques (current ff output by DDP)
+    sim_data['dTau_mea'] = np.zeros((sim_data['N_simu'], sim_data['nu']))                            # Actuation torques (sent to PyBullet)
+    sim_data['dTau_ref_HF'] = np.zeros((sim_data['N_simu'], sim_data['nu']))                         # Actuation torques (sent to PyBullet)
+    sim_data['dTau_mea'][0,:] = np.zeros(sim_data['nq'])
+    # Initialize measured state 
+    sim_data['Y_mea'][0, :] = y0
+    sim_data['Y_mea_no_noise'][0, :] = y0
+    # Low-level simulation parameters (actuation model)
+    # Scaling of desired torque
+    alpha = np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(sim_data['nq'],))
+    beta = np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(sim_data['nq'],))
+    sim_data['alpha'] = alpha
+    sim_data['beta'] = beta
+    # White noise on desired torque and measured state
+    sim_data['var_q'] = np.asarray(config['var_q'])
+    sim_data['var_v'] = np.asarray(config['var_v'])
+    sim_data['var_u'] = 0.001*(2*np.asarray(config['u_lim'])) #u_np.asarray(config['var_u']) 0.5% of range on the joint
+    # White noise on desired torque and measured state
+    sim_data['gain_P'] = config['Kp']*np.eye(sim_data['nq'])
+    sim_data['gain_I'] = config['Ki']*np.eye(sim_data['nq'])
+    sim_data['gain_D'] = config['Kd']*np.eye(sim_data['nq'])
+    # Delays
+    sim_data['delay_OCP_cycle'] = int(config['delay_OCP_ms'] * 1e-3 * sim_data['plan_freq']) # in planning cycles
+    sim_data['delay_sim_cycle'] = int(config['delay_sim_cycle'])                           # in simu cycles
+    
+    return sim_data
+
 # Extract MPC simu-specific plotting data from sim data
 def extract_plot_data_from_sim_data(sim_data):
     '''

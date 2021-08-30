@@ -8,10 +8,10 @@
 simu_freq: 1000 # Simulation frequency in Hz
 ctrl_freq: 500  # Control frequency
 plan_freq: 500  # Planning frequency
-f_c: 20          # Low-pass filter cut-off frequency
+f_c: 20         # Low-pass filter cut-off frequency
 # MPC
-T_tot: 2.    # Simu duration (s)
-dt: 0.03       # OCP integration step 
+T_tot: .2    # Simu duration (s)
+dt: 0.03     # OCP integration step 
 N_h: 30      # Horizon length in nodes
 maxiter: 5   # Max number of iterations in DDP
 # Initial robot state
@@ -19,21 +19,23 @@ q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]
 dq0: [0.,0.,0.,0.,0.,0.,0.]
 tau0: [0., -2.3274, 0., 0.012262, 0., -0.010595, 0.]
 # Simulation options
-TORQUE_TRACKING: False         # Activate low-level reference torque tracking (PID) 
-DELAY_SIM: False              # Add delay in reference torques (low-level)
-DELAY_OCP: False               # Add delay in OCP solution (i.e. ~1ms resolution time)
-SCALE_TORQUES: False           # Affine scaling of reference torque
-NOISE_TORQUES: False          # Add Gaussian noise on reference torques
-FILTER_TORQUES: False         # Moving average smoothing of reference torques
-NOISE_STATE: False             # Add Gaussian noise on the measured state 
-FILTER_STATE: False            # Moving average smoothing of reference torques
-INTERPOLATE_PLAN: True       # Interpolate DDP desired feedforward torque to control frequency
-INTERPOLATE_CTRL: False       # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
-# Initial logs
-INIT_LOGS: False
-log_display_time: 2
+TORQUE_TRACKING: False          # Activate low-level reference torque tracking (PID) 
+DELAY_SIM: False                # Add delay in reference torques (low-level)
+DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
+SCALE_TORQUES: False            # Affine scaling of reference torque
+NOISE_TORQUES: False            # Add Gaussian noise on reference torques
+FILTER_TORQUES: False           # Moving average smoothing of reference torques
+NOISE_STATE: False              # Add Gaussian noise on the measured state 
+FILTER_STATE: False             # Moving average smoothing of reference torques
+INTERPOLATE_PLAN_TO_CTRL: False # Interpolate DDP desired feedforward torque to control frequency
+INTERPOLATE_CTRL_TO_SIMU: False # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
 # Save plot_data to npz
 SAVE_DATA: False
+# Logs
+INIT_LOG: True
+init_log_display_time: 2
+LOG: True
+log_rate: 10000 
 
 # # # # # 
 # TASK  # 

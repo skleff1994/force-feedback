@@ -48,14 +48,14 @@ dt = config['dt']
 ug = pin_utils.get_u_grav(q0, robot) 
 y0 = np.concatenate([x0, ug])
 ddp = ocp_utils.init_DDP_LPF(robot, config, 
-                             y0, f_c=config['f_c'], callbacks=True, cost_w=1e-4)
+                             y0, f_c=config['f_c'], callbacks=True, cost_w=1e-4) #1e-4
 
 # Schedule weights for target reaching
 for k,m in enumerate(ddp.problem.runningModels):
     m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(k, N_h, max_weight=100., alpha=5., alpha_cut=0.65)
     m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.01, max_weight=config['xRegWeight'])
-    print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
-    " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
+    # print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
+    # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
 
 # Solve and extract solution trajectories
 xs_init = [y0 for i in range(N_h+1)]
@@ -63,7 +63,26 @@ us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 # Plot
-plot_utils.plot_ddp_results_LPF(ddp, robot, id_endeff)
+fig, ax = plot_utils.plot_ddp_results_LPF(ddp, robot, SHOW=False)
+
+
+# Debug by passing the unfiltered torque into the LPF
+tau_s = np.array(ddp.xs)[:,:nu]
+w_s = np.array(ddp.us)
+tau_integrated_s = np.zeros(tau_s.shape)
+alpha = 1./float(1+2*np.pi*config['f_c']*dt)
+tau_integrated_s[0,:] = ug 
+for i in range(N_h):
+    tau_integrated_s[i+1,:] = alpha*tau_integrated_s[i,:] + (1-alpha)*w_s[i,:]
+for i in range(nq):
+    ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), tau_integrated_s[:,i], 'r-', label='Integrated')
+import matplotlib.pyplot as plt
+handles_x, labels_x = ax['y'][i,2].get_legend_handles_labels()
+fig['y'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+plt.show()
+
+
+
 
 # import time
 # robot.initDisplay(loadModel=True)
@@ -79,8 +98,6 @@ plot_utils.plot_ddp_results_LPF(ddp, robot, id_endeff)
 #     viewer.gui.refresh()
 #     robot.display(ddp.xs[i][:nq])
 #     time.sleep(.1)
-
-
 
 
 # # Test integration (rollout)
