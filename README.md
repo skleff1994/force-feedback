@@ -1,5 +1,5 @@
 # What is it
-Force feedback in Optimal Control : preliminary studies. Several approaches are explored, relaxing the rigid contact assumption, or not. Also the problem of "impedance MPC" is analyzed through simulations.
+Force feedback in Optimal Control : preliminary studies. Several approaches are explored, relaxing the rigid contact assumption, or not. In particular, the LPF approach is studied: low-pass filter (LPF) modeling the actuation dynamics, the filtered torque are treated as states in the optimization.
 
 # Dependencies
 - [PyBullet](https://pybullet.org/wordpress/)
