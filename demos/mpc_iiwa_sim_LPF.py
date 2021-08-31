@@ -58,9 +58,9 @@ dt = config['dt']
 # u0 = np.asarray(config['tau0'])
 ug = pin_utils.get_u_grav(q0, robot)
 y0 = np.concatenate([x0, ug])
-ddp = ocp_utils.init_DDP_LPF(robot, config, y0, f_c=config['f_c'], cost_w=1e-4)
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, f_c=config['f_c'], cost_w=1e-2)
 
-WEIGHT_PROFILE = False
+WEIGHT_PROFILE = True
 SOLVE_AND_PLOT_INIT = False
 
 if(WEIGHT_PROFILE):
@@ -108,7 +108,7 @@ NOISE_STATE = config['NOISE_STATE']                           # Add Gaussian noi
 FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
 INTERPOLATE_PLAN_TO_CTRL = config['INTERPOLATE_PLAN_TO_CTRL'] # Interpolate DDP desired feedforward torque to control frequency
 INTERPOLATE_CTRL_TO_SIMU = config['INTERPOLATE_CTRL_TO_SIMU'] # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
-EPSILON = 1e-2
+EPSILON = 1.
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -162,7 +162,7 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
-        
+
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['Y_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -174,6 +174,7 @@ for i in range(sim_data['N_simu']):
         sim_data['W_pred'][nb_plan, :, :] = np.array(ddp.us)
         # Extract relevant predictions for control 
         y_ref_0_PLAN = sim_data['Y_pred'][nb_plan, 0, :]  # y0* = measured state    (q^,  v^ , tau^ )
+        # print(np.linalg.norm(y_ref_0_PLAN - y0))
         y_ref_1_PLAN = sim_data['Y_pred'][nb_plan, 1, :]  # y1* = predicted state   (q1*, v1*, tau1*)
         w_ref_0_PLAN = sim_data['W_pred'][nb_plan, 0, :]  # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
         w_ref_1_PLAN = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted control (w1*) !! UNFILTERED TORQUE !! 
@@ -243,23 +244,25 @@ for i in range(sim_data['N_simu']):
     # sim_data['Y_ref_SIMU'][i, :] = y_ref_SIMU # recording (q1*, v1*, tau1*) !!!!
     # sim_data['W_ref_SIMU'][i, :] = w_ref_SIMU
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )
-    if(TORQUE_TRACKING):
-      tau_mea_SIMU = tau_ref_SIMU - sim_data['gain_P'].dot(err_u_P) - sim_data['gain_I'].dot(err_u_I) - sim_data['gain_D'].dot(err_u_D)
-    else:
-      tau_mea_SIMU = tau_ref_SIMU 
-    if(SCALE_TORQUES):
-      tau_mea_SIMU = sim_data['alpha']*tau_mea_SIMU + sim_data['beta']
-    if(FILTER_TORQUES):
-      n_sum = min(i, config['u_avg_filter_length'])
-      for k in range(n_sum):
-        tau_mea_SIMU += sim_data['Y_mea_SIMU'][i-k-1, -nu:]
-      tau_mea_SIMU = tau_mea_SIMU / (n_sum + 1)
-    if(DELAY_SIM):
-      buffer_sim.append(tau_mea_SIMU)            
-      if(len(buffer_sim)<sim_data['delay_sim_cycle']):    
-        pass
-      else:                          
-        tau_mea_SIMU = buffer_sim.pop(-sim_data['delay_sim_cycle'])
+    tau_mea_SIMU = tau_ref_SIMU 
+    # if(TORQUE_TRACKING):
+    #   tau_mea_SIMU = tau_ref_SIMU - sim_data['gain_P'].dot(err_u_P) - sim_data['gain_I'].dot(err_u_I) - sim_data['gain_D'].dot(err_u_D)
+    # else:
+    #   tau_mea_SIMU = tau_ref_SIMU 
+    # if(SCALE_TORQUES):
+    #   tau_mea_SIMU = sim_data['alpha']*tau_mea_SIMU + sim_data['beta']
+    # if(FILTER_TORQUES):
+    #   n_sum = min(i, config['u_avg_filter_length'])
+    #   for k in range(n_sum):
+    #     tau_mea_SIMU += sim_data['Y_mea_SIMU'][i-k-1, -nu:]
+    #   tau_mea_SIMU = tau_mea_SIMU / (n_sum + 1)
+    # if(DELAY_SIM):
+    #   buffer_sim.append(tau_mea_SIMU)            
+    #   if(len(buffer_sim)<sim_data['delay_sim_cycle']):    
+    #     pass
+    #   else:                          
+    #     tau_mea_SIMU = buffer_sim.pop(-sim_data['delay_sim_cycle'])
+
     # Record un-noised torque 
     # sim_data['Y_mea_SIMU'][i, :] = tau_mea_SIMU
     # if(NOISE_TORQUES):
@@ -281,28 +284,29 @@ for i in range(sim_data['N_simu']):
     # Record data (unnoised)
     y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
     sim_data['Y_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
-    # Optional noise + filtering
-    if(NOISE_STATE): # and float(i)/freq_SIMU <= time_stop_noise):
-      noise_q = np.random.normal(0., sim_data['var_q'], nq)
-      noise_v = np.random.normal(0., sim_data['var_v'], nv)
-      noise_tau = np.random.normal(0., sim_data['var_u'], nu)
-      y_mea_SIMU += np.concatenate([noise_q, noise_v, noise_tau]).T
-    if(FILTER_STATE):
-      n_sum = min(i, config['x_avg_filter_length'])
-      for k in range(n_sum):
-        y_mea_SIMU += sim_data['Y_mea_SIMU'][i-k-1, :]
-      y_mea_SIMU = y_mea_SIMU / (n_sum + 1)
+
+    # # Optional noise + filtering
+    # if(NOISE_STATE): # and float(i)/freq_SIMU <= time_stop_noise):
+    #   noise_q = np.random.normal(0., sim_data['var_q'], nq)
+    #   noise_v = np.random.normal(0., sim_data['var_v'], nv)
+    #   noise_tau = np.random.normal(0., sim_data['var_u'], nu)
+    #   y_mea_SIMU += np.concatenate([noise_q, noise_v, noise_tau]).T
+    # if(FILTER_STATE):
+    #   n_sum = min(i, config['x_avg_filter_length'])
+    #   for k in range(n_sum):
+    #     y_mea_SIMU += sim_data['Y_mea_SIMU'][i-k-1, :]
+    #   y_mea_SIMU = y_mea_SIMU / (n_sum + 1)
     # Record noised data
     sim_data['Y_mea_SIMU'][i+1, :] = y_mea_SIMU 
-    # Estimate torque time-derivative
-    if(i>=1):
-      sim_data['dY_mea_SIMU'][i, :] = (y_mea_SIMU - sim_data['dY_mea_SIMU'][i-1, :]) / (dt_simu)
-      # vel_u_mea = (Tau_mea[i-4, :] - 8*Tau_mea[i-3, :] + Tau_mea[i-1, :] - Tau_mea[i, :]) / (12*dt_simu)
-    # Update PID errors
-    if(TORQUE_TRACKING):
-      err_u_P = sim_data['Y_mea_SIMU'][i, -nu:] - tau_ref_SIMU              
-      err_u_I += err_u_P                             
-      err_u_D = sim_data['dY_mea_SIMU'][i, :] #- vel_u_ref_HF #vel_u_ref_HF # vs vel_u_ref  
+    # # Estimate torque time-derivative
+    # if(i>=1):
+    #   sim_data['dY_mea_SIMU'][i, :] = (y_mea_SIMU - sim_data['dY_mea_SIMU'][i-1, :]) / (dt_simu)
+    #   # vel_u_mea = (Tau_mea[i-4, :] - 8*Tau_mea[i-3, :] + Tau_mea[i-1, :] - Tau_mea[i, :]) / (12*dt_simu)
+    # # Update PID errors
+    # if(TORQUE_TRACKING):
+    #   err_u_P = sim_data['Y_mea_SIMU'][i, -nu:] - tau_ref_SIMU              
+    #   err_u_I += err_u_P                             
+    #   err_u_D = sim_data['dY_mea_SIMU'][i, :] #- vel_u_ref_HF #vel_u_ref_HF # vs vel_u_ref  
 
 print('--------------------------------')
 print('Simulation exited successfully !')
