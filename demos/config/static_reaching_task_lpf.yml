@@ -7,10 +7,10 @@
 # Frequencies
 simu_freq: 1000 # Simulation frequency in Hz
 ctrl_freq: 500  # Control frequency
-plan_freq: 500  # Planning frequency
+plan_freq: 100  # Planning frequency
 f_c: 20         # Low-pass filter cut-off frequency
 # MPC
-T_tot: .2    # Simu duration (s)
+T_tot: 1.    # Simu duration (s)
 dt: 0.03     # OCP integration step 
 N_h: 30      # Horizon length in nodes
 maxiter: 5   # Max number of iterations in DDP
@@ -33,7 +33,7 @@ INTERPOLATE_CTRL_TO_SIMU: False # Interpolate motor driver reference torque and
 SAVE_DATA: False
 # Logs
 INIT_LOG: True
-init_log_display_time: 2
+init_log_display_time: 1
 LOG: True
 log_rate: 10000 
 

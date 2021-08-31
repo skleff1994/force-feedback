@@ -50,22 +50,31 @@ def init_sim_data(config, robot, y0):
     sim_data['nu'] = robot.model.nq
     sim_data['ny'] = sim_data['nq'] + sim_data['nv'] + sim_data['nu']
     sim_data['id_endeff'] = robot.model.getFrameId('contact')
-    sim_data['p_ref'] = robot.data.oMf[sim_data['id_endeff']]
-    # Main data to record 
-    sim_data['Y_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'])) # Predicted states  (ddp.xs : {y* = (q*, v*, tau*)} )
-    sim_data['W_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques (ddp.us : {w*} )
-    sim_data['Tau_ref'] = np.zeros((sim_data['N_ctrl'], sim_data['nu']))                 # Reference torque for motor drivers (tau* interpolated at ctrl freq)
-    sim_data['Tau_mea'] = np.zeros((sim_data['N_simu'], sim_data['nu']))                 # Actuation torques (output of actuator sent to PyBullet at simu freq)
-    sim_data['Y_mea'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))                 # Measured states (measured y = (q, v, tau) from PyBullet at simu freq)
-    sim_data['Y_mea_no_noise'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))        # Measured states (measured y = (q, v, tau) from PyBullet at simu freq) without noise
-    # Derivatives of torque 
-    sim_data['dTau_ref'] = np.zeros((sim_data['N_ctrl'], sim_data['nu']))                            # Desired torques (current ff output by DDP)
-    sim_data['dTau_mea'] = np.zeros((sim_data['N_simu'], sim_data['nu']))                            # Actuation torques (sent to PyBullet)
-    sim_data['dTau_ref_HF'] = np.zeros((sim_data['N_simu'], sim_data['nu']))                         # Actuation torques (sent to PyBullet)
-    sim_data['dTau_mea'][0,:] = np.zeros(sim_data['nq'])
+    sim_data['p_ref'] = robot.data.oMf[sim_data['id_endeff']].translation
+    # Predictions
+    sim_data['Y_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'])) # Predicted states  ( ddp.xs : {y* = (q*, v*, tau*)} )
+    sim_data['W_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {w*} )
+    sim_data['Y_ref_CTRL'] = np.zeros((sim_data['N_ctrl']+1, sim_data['ny']))              # Reference state at motor drivers freq ( y* interpolated at CTRL freq )
+    sim_data['W_ref_CTRL'] = np.zeros((sim_data['N_ctrl'], sim_data['nu']))              # Reference input at motor drivers freq ( w* interpolated at CTRL freq )
+    sim_data['Y_ref_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))              # Reference state at actuation freq ( y* interpolated at SIMU freq )
+    sim_data['W_ref_SIMU'] = np.zeros((sim_data['N_simu'], sim_data['nu']))              # Reference input at actuation freq ( w* interpolated at SIMU freq )
+    sim_data['Tau_des'] = np.zeros((sim_data['N_simu']+1, sim_data['nu']))                 # Desired control at actuation freq sent to actuator ( tau0* + EPS(tau1* - tau0*) )
+    # Measurements
+    sim_data['Y_mea_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))            # Measured states ( y^mea = (q, v, tau) from actuator & PyB at SIMU freq )
+    sim_data['Y_mea_no_noise_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))   # Measured states ( y^mea = (q, v, tau) from actuator & PyB at SIMU freq ) without noise
+    # # Derivatives  
+    sim_data['dY_ref_CTRL'] = np.zeros((sim_data['N_ctrl'], sim_data['ny']))             # Estimated (FD) derivative of ref. state at CTRL frequency
+    sim_data['dY_ref_SIMU'] = np.zeros((sim_data['N_simu'], sim_data['ny']))             # Estimated (FD) derivative of ref. state at SIMU frequency
+    sim_data['dY_mea_SIMU'] = np.zeros((sim_data['N_simu'], sim_data['ny']))             # Estimated (FD) derivative of mea. state at SIMU frequency
     # Initialize measured state 
-    sim_data['Y_mea'][0, :] = y0
-    sim_data['Y_mea_no_noise'][0, :] = y0
+    sim_data['Y_ref_CTRL'][0, :] = y0
+    sim_data['Y_ref_SIMU'][0, :] = y0
+    sim_data['Y_mea_SIMU'][0, :] = y0
+    sim_data['Y_mea_no_noise_SIMU'][0, :] = y0
+    sim_data['Tau_des'][0, :] = y0[-sim_data['nu']:]
+    sim_data['dY_ref_CTRL'][0,:] = np.zeros(sim_data['ny'])
+    sim_data['dY_ref_SIMU'][0,:] = np.zeros(sim_data['ny'])
+    sim_data['dY_mea_SIMU'][0,:] = np.zeros(sim_data['ny'])
     # Low-level simulation parameters (actuation model)
     # Scaling of desired torque
     alpha = np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(sim_data['nq'],))
@@ -118,23 +127,40 @@ def extract_plot_data_from_sim_data(sim_data):
         plot_data['q_des'] = np.vstack([plot_data['q_mea'][0], sim_data['X_pred'][:,1,:nq]])
         plot_data['v_des'] = np.vstack([plot_data['v_mea'][0], sim_data['X_pred'][:,1,nq:nq+nv]])
     if('Y_pred' in sim_data.keys()):
+        # Predictions at PLAN freq
         plot_data['q_pred'] = sim_data['Y_pred'][:,:,:nq]
         plot_data['v_pred'] = sim_data['Y_pred'][:,:,nq:nq+nv]
-        plot_data['tau_pred'] = sim_data['Y_pred'][:,:,nq+nv:]
-        plot_data['q_mea'] = sim_data['Y_mea'][:,:nq]
-        plot_data['v_mea'] = sim_data['Y_mea'][:,nq:nq+nv]
-        plot_data['tau_mea'] = sim_data['Y_mea'][:,nq+nv:]
-        plot_data['q_mea_no_noise'] = sim_data['Y_mea_no_noise'][:,:nq]
-        plot_data['v_mea_no_noise'] = sim_data['Y_mea_no_noise'][:,nq:nq+nv]
-        plot_data['tau_mea_no_noise'] = sim_data['Y_mea_no_noise'][:,nq+nv:]
-        plot_data['q_des'] = np.vstack([plot_data['q_mea'][0], sim_data['Y_pred'][:,1,:nq]])
-        plot_data['v_des'] = np.vstack([plot_data['v_mea'][0], sim_data['Y_pred'][:,1,nq:nq+nv]])
-        plot_data['tau_des'] = np.vstack([plot_data['tau_mea'][0], sim_data['Y_pred'][:,1,nq+nv:]])
+        plot_data['tau_pred'] = sim_data['Y_pred'][:,:,-nu:]
+    
+        # Measurements at SIMU freq
+        plot_data['q_mea'] = sim_data['Y_mea_SIMU'][:,:nq]
+        plot_data['v_mea'] = sim_data['Y_mea_SIMU'][:,nq:nq+nv]
+        plot_data['tau_mea'] = sim_data['Y_mea_SIMU'][:,-nu:]
+    
+        plot_data['q_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,:nq]
+        plot_data['v_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,nq:nq+nv]
+        plot_data['tau_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,-nu:]
+    
+        # References at PLAN freq
+        plot_data['q_des_PLAN'] = np.vstack([plot_data['q_mea'][0], plot_data['q_pred'][:,1]])
+        plot_data['q_des_CTRL'] = sim_data['Y_ref_CTRL'][:,:nq] 
+        plot_data['q_des_SIMU'] = sim_data['Y_ref_SIMU'][:,:nq]
+
+        plot_data['v_des_PLAN'] = np.vstack([plot_data['v_mea'][0], plot_data['v_pred'][:,1]])
+        plot_data['v_des_CTRL'] = sim_data['Y_ref_CTRL'][:,nq:nq+nv] 
+        plot_data['v_des_SIMU'] = sim_data['Y_ref_SIMU'][:,nq:nq+nv]
+
+        plot_data['tau_des_PLAN'] = np.vstack([plot_data['tau_mea'][0], plot_data['tau_pred'][:,1]])
+        plot_data['tau_des_CTRL'] = sim_data['Y_ref_CTRL'][:,-nu:]
+        plot_data['tau_des_SIMU'] = sim_data['Y_ref_SIMU'][:,-nu:]
+
+        plot_data['tau_des'] = sim_data['Tau_des']
+
     # end-eff position
-    plot_data['p_mea'] = sim_data['P_mea']
-    plot_data['p_mea_no_noise'] = sim_data['P_mea_no_noise']
+    plot_data['p_mea'] = sim_data['P_mea_SIMU']
+    plot_data['p_mea_no_noise'] = sim_data['P_mea_no_noise_SIMU']
     plot_data['p_pred'] = sim_data['P_pred']
-    plot_data['p_des'] = sim_data['P_des'] 
+    plot_data['p_des'] = sim_data['P_des_PLAN'] 
     # control
     if('U_pred' in sim_data.keys()):
         plot_data['u_pred'] = sim_data['U_pred']
@@ -142,8 +168,9 @@ def extract_plot_data_from_sim_data(sim_data):
         plot_data['u_mea'] = sim_data['U_mea']
     if('W_pred' in sim_data.keys()):
         plot_data['w_pred'] = sim_data['W_pred']
-        plot_data['tau_ref'] = sim_data['Tau_ref']
-        plot_data['tau_mea'] = sim_data['Tau_mea']
+        plot_data['w_des_PLAN'] = sim_data['W_pred'][:,0,:]
+        plot_data['w_des_CTRL'] = sim_data['W_ref_CTRL']
+        plot_data['w_des_SIMU'] = sim_data['W_ref_SIMU']
     # acc error
     if('A_err' in sim_data.keys()):
         plot_data['a_err'] = sim_data['A_err']

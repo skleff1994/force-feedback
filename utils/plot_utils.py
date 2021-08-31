@@ -25,6 +25,7 @@ def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False,
     print('Plotting state data...')
     T_tot = plot_data['T_tot']
     N_simu = plot_data['N_simu']
+    N_ctrl = plot_data['N_ctrl']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
     nq = plot_data['nq']
@@ -32,6 +33,7 @@ def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False,
     N_h = plot_data['N_h']
     # Create time spans for X and U + Create figs and subplots
     t_span_simu_x = np.linspace(0, T_tot, N_simu+1)
+    t_span_ctrl_x = np.linspace(0, T_tot, N_ctrl+1)
     t_span_plan_x = np.linspace(0, T_tot, N_plan+1)
     fig_x, ax_x = plt.subplots(nq, 3, figsize=(19.2,10.8), sharex='col') 
     # For each joint
@@ -84,27 +86,51 @@ def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False,
                 ax_x[i,2].scatter(tspan_x_pred, tau_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
 
         # Joint position
-        ax_x[i,0].plot(t_span_plan_x, plot_data['q_des'][:,i], 'b-', label='Desired')
-        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)', linewidth=2)
+        # ax_x[i,0].plot(t_span_plan_x, plot_data['q_des_PLAN'][:,i], 'b-', label='PLAN', alpha=0.4)
+        # ax_x[i,0].plot(t_span_ctrl_x, plot_data['q_des_CTRL'][:,i], 'g*', label='CTRL', alpha=0.7)
+        # ax_x[i,0].plot(t_span_simu_x, plot_data['q_des_SIMU'][:,i], 'rx', label='SIMU', alpha=0.9)
+
+        ax_x[i,0].plot(t_span_plan_x, plot_data['q_des_PLAN'][:,i], 'b-', label='Desired (MPC rate)', alpha=0.4)
+        # ax_x[i,0].plot(t_span_ctrl_x, plot_data['q_des_CTRL'][:,i], 'g-', label='CTRL', alpha=0.7)
+        ax_x[i,0].plot(t_span_simu_x, plot_data['q_des_SIMU'][:,i], 'r-', label='Desired (Simu rate)', alpha=0.9)
+
+        # ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], 'g-', label='Measured (simu)')
         ax_x[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
         ax_x[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax_x[i,0].grid(True)
         
+
         # Joint velocity 
-        ax_x[i,1].plot(t_span_plan_x, plot_data['v_des'][:,i], 'b-', label='Desired')
-        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)')
+        # ax_x[i,1].plot(t_span_plan_x, plot_data['v_des_PLAN'][:,i], 'b-', label='PLAN', alpha=0.4)
+        # ax_x[i,1].plot(t_span_ctrl_x, plot_data['v_des_CTRL'][:,i], 'g*', label='CTRL', alpha=0.7)
+        # ax_x[i,1].plot(t_span_simu_x, plot_data['v_des_SIMU'][:,i], 'rx', label='SIMU', alpha=0.9)
+        
+        ax_x[i,1].plot(t_span_plan_x, plot_data['v_des_PLAN'][:,i], 'b-', label='Desired (MPC rate)', alpha=0.4)
+        # ax_x[i,1].plot(t_span_ctrl_x, plot_data['v_des_CTRL'][:,i], 'g-', label='CTRL', alpha=0.7)
+        ax_x[i,1].plot(t_span_simu_x, plot_data['v_des_SIMU'][:,i], 'r-', label='Desired (Simu rate)', alpha=0.9)
+
+        # ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], 'g-', label='Measured (simu)')
         ax_x[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
         ax_x[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax_x[i,1].grid(True)
 
+
         # Joint torques
-        ax_x[i,2].plot(t_span_plan_x, plot_data['tau_des'][:,i], 'b-', label='Desired')
-        ax_x[i,2].plot(t_span_simu_x[:-1], plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea_no_noise'][:,i], 'r-', label='Measured (NO noise)')
+        # ax_x[i,2].plot(t_span_plan_x, plot_data['tau_des_PLAN'][:,i], 'b-', label='PLAN', alpha=0.4)
+        # ax_x[i,2].plot(t_span_ctrl_x, plot_data['tau_des_CTRL'][:,i], 'g*', label='CTRL', alpha=0.7)
+        # ax_x[i,2].plot(t_span_simu_x, plot_data['tau_des_SIMU'][:,i], 'rx', label='SIMU', alpha=0.9)
+
+        ax_x[i,2].plot(t_span_plan_x, plot_data['tau_des_PLAN'][:,i], 'b-', label='Desired (MPC rate)', alpha=0.4)
+        # ax_x[i,2].plot(t_span_ctrl_x, plot_data['tau_des_CTRL'][:,i], 'g-', label='CTRL', alpha=0.7)
+        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_des_SIMU'][:,i], 'r-', label='Desired (Simu rate)', alpha=0.9)
+
+        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_des'][:,i], 'c-', label='Torque sent (Simu rate)', alpha=0.9)
+        # ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea_no_noise'][:,i], 'g-', label='Measured (simu)')
         ax_x[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
         ax_x[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -160,14 +186,17 @@ def plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=False,
     print('Plotting control data...')
     T_tot = plot_data['T_tot']
     N_simu = plot_data['N_simu']
+    N_ctrl = plot_data['N_ctrl']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
     dt_simu = plot_data['dt_simu']
+    dt_ctrl = plot_data['dt_ctrl']
     nq = plot_data['nq']
     T_h = plot_data['T_h']
     N_h = plot_data['N_h']
     # Create time spans for X and U + Create figs and subplots
     t_span_simu_u = np.linspace(0, T_tot-dt_simu, N_simu)
+    t_span_ctrl_u = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
     t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
     fig_u, ax_u = plt.subplots(nq, 1, figsize=(19.2,10.8), sharex='col') 
     # For each joint
@@ -202,7 +231,14 @@ def plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=False,
                 ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
 
         # Joint torques
-        ax_u[i].plot(t_span_plan_u, plot_data['tau_des'][:-1,i], 'b-', label='Desired')
+        # ax_u[i].plot(t_span_plan_u, plot_data['w_des_PLAN'][:,i], 'b-', label='PLAN', alpha=.4)
+        # ax_u[i].plot(t_span_ctrl_u, plot_data['w_des_CTRL'][:,i], 'g*', label='CTRL', alpha=.7)
+        # ax_u[i].plot(t_span_simu_u, plot_data['w_des_SIMU'][:,i], 'rx', label='SIMU', alpha=.9)
+        
+        ax_u[i].plot(t_span_plan_u, plot_data['w_des_PLAN'][:,i], 'b-', label='Desired (MPC rate)', alpha=.4)
+        # ax_u[i].plot(t_span_ctrl_u, plot_data['w_des_CTRL'][:,i], 'g-', label='CTRL', alpha=.7)
+        ax_u[i].plot(t_span_simu_u, plot_data['w_des_SIMU'][:,i], 'r-', label='Desired (Simu rate)', alpha=.9)
+
         ax_u[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
         ax_u[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_u[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))

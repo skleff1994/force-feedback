@@ -8,7 +8,7 @@
 simu_freq: 1000 # Simulation frequency in Hz
 ctrl_freq: 500  # Control frequency
 plan_freq: 500  # Planning frequency
-f_c: 10000        # Low-pass filter cut-off frequency
+f_c: 20       # Low-pass filter cut-off frequency
 # MPC
 T_tot: 2.    # Simu duration (s)
 dt: 0.03       # OCP integration step 
