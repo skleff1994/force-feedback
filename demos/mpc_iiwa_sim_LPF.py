@@ -58,7 +58,7 @@ dt = config['dt']
 # u0 = np.asarray(config['tau0'])
 ug = pin_utils.get_u_grav(q0, robot)
 y0 = np.concatenate([x0, ug])
-ddp = ocp_utils.init_DDP_LPF(robot, config, y0, f_c=config['f_c'], cost_w=1e-2)
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, f_c=config['f_c'], cost_w=1e-2, tau_plus=True)
 
 WEIGHT_PROFILE = False
 SOLVE_AND_PLOT_INIT = False
@@ -94,8 +94,8 @@ err_u_D = np.zeros(nq)
 nb_plan = 0
 nb_ctrl = 0
   # Buffers for delays
-buffer_OCP = []                                               # buffer for desired torques
-buffer_sim = []                                               # buffer for measured torque
+buffer_OCP = []                                               # buffer for desired torques delayed by OCP computation time
+buffer_sim = []                                               # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
 WHICH_PLOTS = ['y','w']                                       # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 TORQUE_TRACKING = config['TORQUE_TRACKING']                   # Activate low-level reference torque tracking (PID) 
@@ -110,7 +110,14 @@ INTERPOLATE_PLAN_TO_CTRL = config['INTERPOLATE_PLAN_TO_CTRL'] # Interpolate MPC 
 INTERPOLATE_CTRL_TO_SIMU = config['INTERPOLATE_CTRL_TO_SIMU'] # Interpolate motor driver reference torque to low-level frequency 
 # INTERPOLATE_PLAN_TO_SIMU = config['INTERPOLATE_PLAN_TO_SIMU'] # Interpolate MPC prediction to low-level frequency 
 #                                                               # !!! automatically sets to True *_PLAN_TO_CTRL and *_CTRL_TO_SIMU
-EPSILON = 1.
+dt_ocp = dt                               # planning freq 
+dt_ctr = float(1./sim_data['ctrl_freq'])  # control freq 
+dt_sim = float(1./sim_data['simu_freq'])  # sampling freq
+scaling_ctrl = dt_ctr / dt_ocp
+scaling_simu = dt_sim / dt_ocp
+
+print("Scaling SIM : ", scaling_simu)
+print("Scaling CTR : ", scaling_ctrl)
 
 buffer_Y_PLAN_TO_CTRL = []
 buffer_W_PLAN_TO_CTRL = []
@@ -167,32 +174,18 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
-        # ddp.problem.runningModels[0].differential.costs.costs['ctrlReg'].weight = max(1e6/float(i**2+1), config['uRegWeight'])
-        for k,m in enumerate(ddp.problem.runningModels):
-          print(1e4/float(i+1)/(k**2+1))
-          m.differential.costs.costs['ctrlReg'].weight = 1e4/float(i+1)/(k+1)
-          # m.differential.costs.costs['stateReg'].weight = min(ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=10., alpha=5., alpha_cut=0.65), config['xRegWeight'])
-          m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=config['frameWeight'], alpha=5., alpha_cut=0.65)
 
-        # # Modify OCP (activation functions)
-        # r = ddp.problem.runningDatas[0].differential.costs.costs['placement'].activation.a_value
-        # if(r>=4.):
-        #   for k,m in enumerate(ddp.problem.runningModels):
-        #     # m.differential.costs.costs['ctrlReg'].weight = 1. #\
-        #     m.differential.costs.costs['stateReg'].weight = 20.
-        #       # 10*ocp_utils.activation_decreasing_exponential(float(k+1/r), alpha=100., max_weight=10, min_weight=1e-2)
-        # else:
-        #   for k,m in enumerate(ddp.problem.runningModels):
-        #     # m.differential.costs.costs['ctrlReg'].weight = config['uRegWeight']
-        #     m.differential.costs.costs['stateReg'].weight = config['xRegWeight'] #\
-            
-          # 0.1*ocp_utils.activation_decreasing_exponential(float(1/r), alpha=100., max_weight=10, min_weight=1e-2)
-        # else:
-        #   ddp.problem.runningModels[0].differential.costs.costs['stateReg'].weight = config['uRegWeight']
-        if(i%1000==0):
-          print("Placement = ", ddp.problem.runningModels[0].differential.costs.costs['placement'].weight )
-          print("stateReg  = ", ddp.problem.runningModels[0].differential.costs.costs['stateReg'].weight )
-          print("ctrlReg   = ", ddp.problem.runningModels[0].differential.costs.costs['ctrlReg'].weight )
+        # reg_u_factor = 1e6/float(np.log(i+2)) # decreases throughout simulation 
+        # for k,m in enumerate(ddp.problem.runningModels):
+          # m.differential.costs.costs['ctrlReg'].weight = max(reg_u_factor/float(k+1), config['uRegWeight']) # decreasing over MPC horizon
+          # m.differential.costs.costs['stateReg'].weight = min(ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=10., alpha=5., alpha_cut=0.65), config['xRegWeight'])
+          # m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=config['frameWeight'], alpha=5., alpha_cut=0.65)
+
+
+        # if(i%1000==0):
+          # print("Placement = ", ddp.problem.runningModels[0].differential.costs.costs['placement'].weight )
+          # print("stateReg  = ", ddp.problem.runningModels[0].differential.costs.costs['stateReg'].weight )
+          # print("ctrlReg decreasing from ", ddp.problem.runningModels[0].differential.costs.costs['ctrlReg'].weight, " to ", ddp.problem.runningModels[-1].differential.costs.costs['ctrlReg'].weight )
 
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['Y_mea_SIMU'][i, :]
@@ -223,36 +216,44 @@ for i in range(sim_data['N_simu']):
             w_ref_0_PLAN = buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
         # Increment planning counter
         nb_plan += 1
+
         
   # If we are in a control cycle select reference torque to send to the actuator
-    if(i%int(freq_SIMU/freq_CTRL) == 0):
-        
+    if(i%int(freq_SIMU/freq_CTRL) == 0):        
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
-          
+
+        # Interpolate to CTRL frequency
+        coef_ctrl = scaling_ctrl * float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
+        y_pred_ctrl = y_curr + coef_ctrl*(y_pred - y_curr)
+        w_pred_ctrl = w_pred_prev + coef_ctrl*(w_curr - w_pred_prev)
+
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['Y_pred_CTRL'][nb_ctrl, :] = y_curr  
         # Record predictions at CTRL rate 
-        sim_data['W_pred_CTRL'][nb_ctrl, :] = w_pred_prev # predicted control w* = w0*
-        sim_data['Y_pred_CTRL'][nb_ctrl+1, :] = y_pred    # predicted state   y* = y1*
-
+        sim_data['W_pred_CTRL'][nb_ctrl, :] = w_pred_ctrl   # predicted control w* = w0*
+        sim_data['Y_pred_CTRL'][nb_ctrl+1, :] = y_pred_ctrl # predicted state   y* = y1*
         # Increment control counter
         nb_ctrl += 1
         
+
   # Simulate actuation with PI torque tracking controller (low-level control frequency)
 
-    # Reference torque sent to actuator by motor
-    coef = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    # print("coef = ", coef)
-    tau_ref_SIMU = y_curr[-nu:]+ EPSILON*coef*(y_pred[-nu:] - y_curr[-nu:]) 
+    # Interpolate to SIMU frequency
+    coef_simu = scaling_simu * float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
+    y_pred_simu = y_curr + coef_simu*(y_pred - y_curr)
+    w_pred_simu = w_pred_prev + coef_simu*(w_curr - w_pred_prev)
+
+    # Reference torque sent to actuator by motor (SIMU frequency)
+    tau_ref_SIMU = y_curr[-nu:]+ coef_simu*(y_pred[-nu:] - y_curr[-nu:]) 
 
     # First prediction = measurement = initialization of MPC
     if(i==0):
       sim_data['Y_pred_SIMU'][i, :] = y_curr  
       sim_data['Tau_des'][i,:] = y_curr[-nu:]
     # Record predictions at CTRL rate 
-    sim_data['W_pred_SIMU'][i, :] = w_pred_prev # predicted control w* = w0*
-    sim_data['Y_pred_SIMU'][i+1, :] = y_pred    # predicted state   y* = y1*
+    sim_data['W_pred_SIMU'][i, :] = w_pred_simu   # predicted control w* = w0*
+    sim_data['Y_pred_SIMU'][i+1, :] = y_pred_simu # predicted state   y* = y1*
 
     # Motor torque 
     sim_data['Tau_des'][i+1, :] = tau_ref_SIMU  # record tau_des, to be compared with tau_mea (after actuation)

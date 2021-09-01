@@ -23,7 +23,7 @@ from robot_properties_kuka.config import IiwaConfig
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task_lpf_ocp')
+config = path_utils.load_config_file('static_reaching_task_lpf_ocp_spike_debug')
 # Create a Pybullet simulation environment + set simu freq
 simu_freq = config['simu_freq']  
 dt_simu = 1./simu_freq
@@ -48,7 +48,7 @@ dt = config['dt']
 ug = pin_utils.get_u_grav(q0, robot) 
 y0 = np.concatenate([x0, ug])
 ddp = ocp_utils.init_DDP_LPF(robot, config, 
-                             y0, f_c=config['f_c'], callbacks=True, cost_w=1e-4) #1e-4
+                             y0, f_c=config['f_c'], callbacks=True, cost_w=1e-4, tau_plus=True) #1e-4
 
 # Schedule weights for target reaching
 for k,m in enumerate(ddp.problem.runningModels):

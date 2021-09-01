@@ -39,8 +39,8 @@ def init_sim_data(config, robot, y0):
     sim_data['N_plan'] = int(sim_data['T_tot']*sim_data['plan_freq']) # Total number of planning steps in the simulation
     sim_data['N_ctrl'] = int(sim_data['T_tot']*sim_data['ctrl_freq']) # Total number of control steps in the simulation 
     sim_data['N_simu'] = int(sim_data['T_tot']*sim_data['simu_freq']) # Total number of simulation steps 
-    sim_data['T_h'] = config['N_h']*config['dt']                    # Duration of the MPC horizon (s)
-    sim_data['N_h'] = config['N_h']                                 # Number of nodes in MPC horizon
+    sim_data['T_h'] = config['N_h']*config['dt']                      # Duration of the MPC horizon (s)
+    sim_data['N_h'] = config['N_h']                                   # Number of nodes in MPC horizon
     sim_data['dt_ctrl'] = float(1./sim_data['ctrl_freq'])             # Duration of 1 control cycle (s)
     sim_data['dt_plan'] = float(1./sim_data['plan_freq'])             # Duration of 1 planning cycle (s)
     sim_data['dt_simu'] = float(1./sim_data['simu_freq'])             # Duration of 1 simulation cycle (s)

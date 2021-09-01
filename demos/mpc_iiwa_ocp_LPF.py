@@ -48,7 +48,7 @@ dt = config['dt']
 ug = pin_utils.get_u_grav(q0, robot) 
 y0 = np.concatenate([x0, ug])
 ddp = ocp_utils.init_DDP_LPF(robot, config, 
-                             y0, f_c=config['f_c'], callbacks=True, cost_w=1e-4) #1e-4
+                             y0, f_c=config['f_c'], callbacks=True, cost_w=1e-4, tau_plus=True) #1e-4
 
 # Schedule weights for target reaching
 for k,m in enumerate(ddp.problem.runningModels):

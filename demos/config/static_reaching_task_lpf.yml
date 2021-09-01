@@ -7,7 +7,7 @@
 # Frequencies
 simu_freq: 10000 # Simulation frequency in Hz
 ctrl_freq: 5000 # Control frequency
-plan_freq: 1000  # Planning frequency
+plan_freq: 5000  # Planning frequency
 f_c: 20         # Low-pass filter cut-off frequency
 # MPC
 T_tot: .3    # Simu duration (s)
@@ -48,18 +48,18 @@ xRegWeightTerminal: 0.1
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 uRegWeight: 0.01
 # State limits
-xLimWeight: 100.
-xLimWeightTerminal: 100.
+xLimWeight: 1
+xLimWeightTerminal: 1.
 # Torque limits
 u_lim: [320, 320, 176, 176, 110, 40, 40]
 uLimWeight: 1.
 # Frame placement 
 p_des: [0.5, -0.5, 0.7]  # Desired end-effector position
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-frameWeight: 10.
-framePlacementWeightTerminal: 10000.
+frameWeight: 20.
+framePlacementWeightTerminal: 1000 #10000.
 # Frame velocity
-frameVelocityWeightTerminal: 100.
+frameVelocityWeightTerminal: 0 #100.
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .01]
 

@@ -241,7 +241,7 @@ def init_DDP(robot, config, x0):
 
 
 # Setup OCP and solver using Crocoddyl
-def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1):
+def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1, tau_plus=True):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
      - Running cost: EE placement (Mref) + x_reg (xref) + u_reg (uref)
@@ -250,9 +250,13 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1):
     xref = initial state read in config
     uref = initial gravity compensation torque (from xref)
     INPUT: 
-        robot  : pinocchio robot wrapper
-        config : dict from YAML config file describing task and MPC params
-        x0     : initial state of shooting problem
+        robot     : pinocchio robot wrapper
+        config    : dict from YAML config file describing task and MPC params
+        x0        : initial state of shooting problem
+        f_c       : cutoff frequency for the low-pass filter on torques
+        callbacks : display Crocoddyl's DDP solver callbacks
+        cost_w    : cost weight on reg. of unfiltered input w around 0
+        tau_plus  : use "tau_plus" integration if True, "tau" otherwise
     OUTPUT:
         FDDP solver
     '''
@@ -337,7 +341,7 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1):
           crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                            actuation, 
                                                            crocoddyl.CostModelSum(state, nu=actuation.nu)), 
-                                                           stepTime=dt, withCostResidual=True, fc=f_c, cost_weight_w=cost_w))
+                                                           stepTime=dt, withCostResidual=True, fc=f_c, cost_weight_w=cost_w, tau_plus_integration=tau_plus))
 
       # Add cost models
       runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight']) 
@@ -353,7 +357,7 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1):
         crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                          actuation, 
                                                          crocoddyl.CostModelSum(state, nu=actuation.nu)),
-                                                         stepTime=dt, withCostResidual=True, fc=f_c, cost_weight_w=cost_w)
+                                                         stepTime=0., withCostResidual=True, fc=f_c, cost_weight_w=cost_w, tau_plus_integration=tau_plus)
                                                             
     # Add cost models
     terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
