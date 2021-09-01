@@ -91,11 +91,11 @@ def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False,
         # ax_x[i,0].plot(t_span_simu_x, plot_data['q_des_SIMU'][:,i], 'rx', label='SIMU', alpha=0.9)
 
         ax_x[i,0].plot(t_span_plan_x, plot_data['q_des_PLAN'][:,i], 'b-', label='Desired (MPC rate)', alpha=0.4)
-        # ax_x[i,0].plot(t_span_ctrl_x, plot_data['q_des_CTRL'][:,i], 'g-', label='CTRL', alpha=0.7)
+        ax_x[i,0].plot(t_span_ctrl_x, plot_data['q_des_CTRL'][:,i], 'g-', label='CTRL', alpha=0.7)
         ax_x[i,0].plot(t_span_simu_x, plot_data['q_des_SIMU'][:,i], 'r-', label='Desired (Simu rate)', alpha=0.9)
 
         # ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], 'g-', label='Measured (simu)')
+        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], 'y-', label='Measured (simu)')
         ax_x[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
         ax_x[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -108,11 +108,11 @@ def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False,
         # ax_x[i,1].plot(t_span_simu_x, plot_data['v_des_SIMU'][:,i], 'rx', label='SIMU', alpha=0.9)
         
         ax_x[i,1].plot(t_span_plan_x, plot_data['v_des_PLAN'][:,i], 'b-', label='Desired (MPC rate)', alpha=0.4)
-        # ax_x[i,1].plot(t_span_ctrl_x, plot_data['v_des_CTRL'][:,i], 'g-', label='CTRL', alpha=0.7)
+        ax_x[i,1].plot(t_span_ctrl_x, plot_data['v_des_CTRL'][:,i], 'g-', label='CTRL', alpha=0.7)
         ax_x[i,1].plot(t_span_simu_x, plot_data['v_des_SIMU'][:,i], 'r-', label='Desired (Simu rate)', alpha=0.9)
 
         # ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], 'g-', label='Measured (simu)')
+        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], 'y-', label='Measured (simu)')
         ax_x[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
         ax_x[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -125,12 +125,12 @@ def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False,
         # ax_x[i,2].plot(t_span_simu_x, plot_data['tau_des_SIMU'][:,i], 'rx', label='SIMU', alpha=0.9)
 
         ax_x[i,2].plot(t_span_plan_x, plot_data['tau_des_PLAN'][:,i], 'b-', label='Desired (MPC rate)', alpha=0.4)
-        # ax_x[i,2].plot(t_span_ctrl_x, plot_data['tau_des_CTRL'][:,i], 'g-', label='CTRL', alpha=0.7)
+        ax_x[i,2].plot(t_span_ctrl_x, plot_data['tau_des_CTRL'][:,i], 'g-', label='CTRL', alpha=0.7)
         ax_x[i,2].plot(t_span_simu_x, plot_data['tau_des_SIMU'][:,i], 'r-', label='Desired (Simu rate)', alpha=0.9)
 
-        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_des'][:,i], 'c-', label='Torque sent (Simu rate)', alpha=0.9)
+        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_des'][:,i], color=[.5, .5,.5, .5], linestyle='-', label='Torque sent (Simu rate)', alpha=0.9)
         # ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea_no_noise'][:,i], 'g-', label='Measured (simu)')
+        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea_no_noise'][:,i], 'y-', label='Measured (simu)')
         ax_x[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
         ax_x[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -236,9 +236,10 @@ def plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=False,
         # ax_u[i].plot(t_span_simu_u, plot_data['w_des_SIMU'][:,i], 'rx', label='SIMU', alpha=.9)
         
         ax_u[i].plot(t_span_plan_u, plot_data['w_des_PLAN'][:,i], 'b-', label='Desired (MPC rate)', alpha=.4)
-        # ax_u[i].plot(t_span_ctrl_u, plot_data['w_des_CTRL'][:,i], 'g-', label='CTRL', alpha=.7)
+        ax_u[i].plot(t_span_ctrl_u, plot_data['w_des_CTRL'][:,i], 'g-', label='CTRL', alpha=.7)
         ax_u[i].plot(t_span_simu_u, plot_data['w_des_SIMU'][:,i], 'r-', label='Desired (Simu rate)', alpha=.9)
-
+        
+        ax_u[i].plot(t_span_plan_u, plot_data['w_mea_PLAN'][:,i], 'y-', label='Optimal control w0* (MPC rate)', alpha=.9)
         ax_u[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
         ax_u[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_u[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
