@@ -167,24 +167,32 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
+        # ddp.problem.runningModels[0].differential.costs.costs['ctrlReg'].weight = max(1e6/float(i**2+1), config['uRegWeight'])
+        for k,m in enumerate(ddp.problem.runningModels):
+          print(1e4/float(i+1)/(k**2+1))
+          m.differential.costs.costs['ctrlReg'].weight = 1e4/float(i+1)/(k+1)
+          # m.differential.costs.costs['stateReg'].weight = min(ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=10., alpha=5., alpha_cut=0.65), config['xRegWeight'])
+          m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=config['frameWeight'], alpha=5., alpha_cut=0.65)
 
-        # Modify OCP (activation functions)
-        r = ddp.problem.runningDatas[0].differential.costs.costs['placement'].activation.a_value
-        if(r>=4.):
-          for k,m in enumerate(ddp.problem.runningModels):
-            # m.differential.costs.costs['ctrlReg'].weight = 1. #\
-            m.differential.costs.costs['stateReg'].weight = 20.
-              # 10*ocp_utils.activation_decreasing_exponential(float(k+1/r), alpha=100., max_weight=10, min_weight=1e-2)
-        else:
-          for k,m in enumerate(ddp.problem.runningModels):
-            # m.differential.costs.costs['ctrlReg'].weight = config['uRegWeight']
-            m.differential.costs.costs['stateReg'].weight = config['xRegWeight'] #\
+        # # Modify OCP (activation functions)
+        # r = ddp.problem.runningDatas[0].differential.costs.costs['placement'].activation.a_value
+        # if(r>=4.):
+        #   for k,m in enumerate(ddp.problem.runningModels):
+        #     # m.differential.costs.costs['ctrlReg'].weight = 1. #\
+        #     m.differential.costs.costs['stateReg'].weight = 20.
+        #       # 10*ocp_utils.activation_decreasing_exponential(float(k+1/r), alpha=100., max_weight=10, min_weight=1e-2)
+        # else:
+        #   for k,m in enumerate(ddp.problem.runningModels):
+        #     # m.differential.costs.costs['ctrlReg'].weight = config['uRegWeight']
+        #     m.differential.costs.costs['stateReg'].weight = config['xRegWeight'] #\
+            
           # 0.1*ocp_utils.activation_decreasing_exponential(float(1/r), alpha=100., max_weight=10, min_weight=1e-2)
         # else:
         #   ddp.problem.runningModels[0].differential.costs.costs['stateReg'].weight = config['uRegWeight']
-        # if(i%1000==0):
-        #   print("Residual (placement) = ", r)
-        #   print("stateReg weight = ", ddp.problem.runningModels[0].differential.costs.costs['ctrlReg'].weight )
+        if(i%1000==0):
+          print("Placement = ", ddp.problem.runningModels[0].differential.costs.costs['placement'].weight )
+          print("stateReg  = ", ddp.problem.runningModels[0].differential.costs.costs['stateReg'].weight )
+          print("ctrlReg   = ", ddp.problem.runningModels[0].differential.costs.costs['ctrlReg'].weight )
 
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['Y_mea_SIMU'][i, :]

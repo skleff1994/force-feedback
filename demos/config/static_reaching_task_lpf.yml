@@ -46,7 +46,7 @@ xRegWeight: 0.1
 xRegWeightTerminal: 0.1
 # Torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-uRegWeight: 0.1
+uRegWeight: 0.01
 # State limits
 xLimWeight: 100.
 xLimWeightTerminal: 100.
@@ -56,7 +56,7 @@ uLimWeight: 1.
 # Frame placement 
 p_des: [0.5, -0.5, 0.7]  # Desired end-effector position
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-frameWeight: 1.
+frameWeight: 10.
 framePlacementWeightTerminal: 10000.
 # Frame velocity
 frameVelocityWeightTerminal: 100.
