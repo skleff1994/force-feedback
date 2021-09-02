@@ -349,6 +349,7 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1, tau_pl
       runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['uRegWeight']) 
       runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
       runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
+      runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
       runningModels[i].differential.armature = np.asarray(config['armature'])
 
     # Terminal IAM + set armature

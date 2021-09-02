@@ -66,10 +66,12 @@ SOLVE_AND_PLOT_INIT = False
 if(WEIGHT_PROFILE):
   #  Schedule weights for target reaching
   for k,m in enumerate(ddp.problem.runningModels):
-      m.differential.costs.costs['placement'].weight = 10. + ocp_utils.cost_weight_tanh(k, N_h, max_weight=100., alpha=5., alpha_cut=0.65)
+      m.differential.costs.costs['placement'].weight = 10. + ocp_utils.cost_weight_tanh(k, N_h, max_weight=10., alpha=5., alpha_cut=0.65)
       m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.01, max_weight=config['xRegWeight'])
-      print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
-      " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
+      m.differential.costs.costs['ctrlReg'].weight  = 10./(k**2+1)
+      # print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
+      # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
+
 
 if(SOLVE_AND_PLOT_INIT):
   xs_init = [y0 for i in range(N_h+1)]
@@ -110,11 +112,14 @@ INTERPOLATE_PLAN_TO_CTRL = config['INTERPOLATE_PLAN_TO_CTRL'] # Interpolate MPC 
 INTERPOLATE_CTRL_TO_SIMU = config['INTERPOLATE_CTRL_TO_SIMU'] # Interpolate motor driver reference torque to low-level frequency 
 # INTERPOLATE_PLAN_TO_SIMU = config['INTERPOLATE_PLAN_TO_SIMU'] # Interpolate MPC prediction to low-level frequency 
 #                                                               # !!! automatically sets to True *_PLAN_TO_CTRL and *_CTRL_TO_SIMU
-dt_ocp = dt                               # planning freq 
-dt_ctr = float(1./sim_data['ctrl_freq'])  # control freq 
-dt_sim = float(1./sim_data['simu_freq'])  # sampling freq
+dt_ocp = dt                               # OCP sampling rate 
+dt_mpc = float(1./sim_data['plan_freq'])  # planning rate
+dt_ctr = float(1./sim_data['ctrl_freq'])  # control rate 
+dt_sim = float(1./sim_data['simu_freq'])  # sampling rate 
+scaling_plan = dt_mpc / dt_ocp
 scaling_ctrl = dt_ctr / dt_ocp
 scaling_simu = dt_sim / dt_ocp
+EPSILON = 1./scaling_simu
 
 print("Scaling SIM : ", scaling_simu)
 print("Scaling CTR : ", scaling_ctrl)
@@ -175,12 +180,13 @@ for i in range(sim_data['N_simu']):
         
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
 
-        # reg_u_factor = 1e6/float(np.log(i+2)) # decreases throughout simulation 
-        # for k,m in enumerate(ddp.problem.runningModels):
-          # m.differential.costs.costs['ctrlReg'].weight = max(reg_u_factor/float(k+1), config['uRegWeight']) # decreasing over MPC horizon
-          # m.differential.costs.costs['stateReg'].weight = min(ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=10., alpha=5., alpha_cut=0.65), config['xRegWeight'])
-          # m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=config['frameWeight'], alpha=5., alpha_cut=0.65)
-
+        # reg_u_factor = 1e4/float(i+1) # decreases throughout simulation 
+        # reg_x_factor = 1e4/float(i+1) # decreases throughout simulation 
+        # coef = float(i+1)/sim_data['N_simu']
+        for k,m in enumerate(ddp.problem.runningModels):
+          # m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=config['frameWeight'], alpha=1., alpha_cut=0.65)
+          # m.differential.costs.costs['stateReg'].weight = max(10/float(i+1), config['xRegWeight'])
+          m.differential.costs.costs['ctrlReg'].weight = max(1e3/float(i+1), config['uRegWeight'])
 
         # if(i%1000==0):
           # print("Placement = ", ddp.problem.runningModels[0].differential.costs.costs['placement'].weight )
@@ -194,18 +200,29 @@ for i in range(sim_data['N_simu']):
         us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-        sim_data['Y_pred_PLAN'][nb_plan, :, :] = np.array(ddp.xs)
-        sim_data['W_pred_PLAN'][nb_plan, :, :] = np.array(ddp.us)
-        # Extract relevant predictions for control 
-        y_curr = sim_data['Y_pred_PLAN'][nb_plan, 0, :]  # y0* = measured state    (q^,  v^ , tau^ )
-        y_pred = sim_data['Y_pred_PLAN'][nb_plan, 1, :]  # y1* = predicted state   (q1*, v1*, tau1*)
-        w_curr = sim_data['W_pred_PLAN'][nb_plan, 0, :]  # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
-        w_pred = sim_data['W_pred_PLAN'][nb_plan, 1, :]  # w1* = predicted control (w1*) !! UNFILTERED TORQUE !! 
-
+        sim_data['Y_pred'][nb_plan, :, :] = np.array(ddp.xs)
+        sim_data['W_pred'][nb_plan, :, :] = np.array(ddp.us)
+        # Extract relevant predictions for interpolations
+        y_curr = sim_data['Y_pred'][nb_plan, 0, :]  # y0* = measured state    (q^,  v^ , tau^ )
+        w_curr = sim_data['W_pred'][nb_plan, 0, :]  # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
+        y_pred = sim_data['Y_pred'][nb_plan, 1, :]  # y1* = predicted state   (q1*, v1*, tau1*)
+        w_pred = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted control (w1*) !! UNFILTERED TORQUE !! 
+        # Initialize control prediction
         if(nb_plan==0):
           w_pred_prev = w_curr
         else:
-          w_pred_prev = sim_data['W_pred_PLAN'][nb_plan-1, 1, :]
+          w_pred_prev = sim_data['W_pred'][nb_plan-1, 1, :]
+
+        # Interpolate the MPC prediction (OCP sampling rate) to planning frequency (PLAN rate) 
+        coef_plan = scaling_plan 
+        y_pred_plan = y_curr + coef_plan*(y_pred - y_curr)
+        w_pred_plan = w_pred_prev + coef_plan*(w_curr - w_pred_prev)
+        # First prediction = measurement = initialization of MPC
+        if(nb_plan==0):
+          sim_data['Y_pred_PLAN'][nb_plan, :] = y_curr  
+        # Record predictions at CTRL rate 
+        sim_data['W_pred_PLAN'][nb_plan, :] = w_pred_plan   # predicted control w* = w0*
+        sim_data['Y_pred_PLAN'][nb_plan+1, :] = y_pred_plan # predicted state   y* = y1*
 
         # Optionally delay due to OCP resoltion time 
         if(DELAY_OCP):
@@ -214,6 +231,7 @@ for i in range(sim_data['N_simu']):
             pass
           else:                            
             w_ref_0_PLAN = buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
+        
         # Increment planning counter
         nb_plan += 1
 
@@ -222,17 +240,17 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_CTRL) == 0):        
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
 
-        # Interpolate to CTRL frequency
-        coef_ctrl = scaling_ctrl * float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        y_pred_ctrl = y_curr + coef_ctrl*(y_pred - y_curr)
-        w_pred_ctrl = w_pred_prev + coef_ctrl*(w_curr - w_pred_prev)
+        # # Interpolate to CTRL frequency
+        # coef_ctrl = scaling_ctrl * float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
+        # y_pred_ctrl = y_curr + coef_ctrl*(y_pred - y_curr)
+        # w_pred_ctrl = w_pred_prev + coef_ctrl*(w_curr - w_pred_prev)
+        # # First prediction = measurement = initialization of MPC
+        # if(nb_ctrl==0):
+        #   sim_data['Y_pred_CTRL'][nb_ctrl, :] = y_curr  
+        # # Record predictions at CTRL rate 
+        # sim_data['W_pred_CTRL'][nb_ctrl, :] = w_pred_ctrl   # predicted control w* = w0*
+        # sim_data['Y_pred_CTRL'][nb_ctrl+1, :] = y_pred_ctrl # predicted state   y* = y1*
 
-        # First prediction = measurement = initialization of MPC
-        if(nb_ctrl==0):
-          sim_data['Y_pred_CTRL'][nb_ctrl, :] = y_curr  
-        # Record predictions at CTRL rate 
-        sim_data['W_pred_CTRL'][nb_ctrl, :] = w_pred_ctrl   # predicted control w* = w0*
-        sim_data['Y_pred_CTRL'][nb_ctrl+1, :] = y_pred_ctrl # predicted state   y* = y1*
         # Increment control counter
         nb_ctrl += 1
         
@@ -241,23 +259,20 @@ for i in range(sim_data['N_simu']):
 
     # Interpolate to SIMU frequency
     coef_simu = scaling_simu * float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    y_pred_simu = y_curr + coef_simu*(y_pred - y_curr)
-    w_pred_simu = w_pred_prev + coef_simu*(w_curr - w_pred_prev)
+    # y_pred_simu = y_curr + coef_simu*(y_pred - y_curr)
+    # w_pred_simu = w_pred_prev + coef_simu*(w_curr - w_pred_prev)
+    # # First prediction = measurement = initialization of MPC
+    # if(i==0):
+    #   sim_data['Y_pred_SIMU'][i, :] = y_curr  
+    # # Record predictions at CTRL rate 
+    # sim_data['W_pred_SIMU'][i, :] = w_pred_simu   # predicted control w* = w0*
+    # sim_data['Y_pred_SIMU'][i+1, :] = y_pred_simu # predicted state   y* = y1*
 
     # Reference torque sent to actuator by motor (SIMU frequency)
-    tau_ref_SIMU = y_curr[-nu:]+ coef_simu*(y_pred[-nu:] - y_curr[-nu:]) 
-
-    # First prediction = measurement = initialization of MPC
+    tau_ref_SIMU = y_curr[-nu:]+ coef_simu * EPSILON * (y_pred[-nu:] - y_curr[-nu:]) 
     if(i==0):
-      sim_data['Y_pred_SIMU'][i, :] = y_curr  
       sim_data['Tau_des'][i,:] = y_curr[-nu:]
-    # Record predictions at CTRL rate 
-    sim_data['W_pred_SIMU'][i, :] = w_pred_simu   # predicted control w* = w0*
-    sim_data['Y_pred_SIMU'][i+1, :] = y_pred_simu # predicted state   y* = y1*
-
-    # Motor torque 
-    sim_data['Tau_des'][i+1, :] = tau_ref_SIMU  # record tau_des, to be compared with tau_mea (after actuation)
-
+    sim_data['Tau_des'][i+1, :] = tau_ref_SIMU  
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
     tau_mea_SIMU = tau_ref_SIMU 
 
@@ -329,9 +344,9 @@ print('Post-processing end-effector trajectories...')
 id_endeff = robot.model.getFrameId('contact')
 sim_data['P_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, 3))
 for node_id in range(config['N_h']+1):
-  sim_data['P_pred'][:, node_id, :] = pin_utils.get_p(sim_data['Y_pred_PLAN'][:, node_id, :nq], robot, id_endeff) - np.array([sim_data['p_ref']]*sim_data['N_plan'])
+  sim_data['P_pred'][:, node_id, :] = pin_utils.get_p(sim_data['Y_pred'][:, node_id, :nq], robot, id_endeff) - np.array([sim_data['p_ref']]*sim_data['N_plan'])
 sim_data['P_mea_SIMU'] = pin_utils.get_p(sim_data['Y_mea_SIMU'][:,:nq], robot, id_endeff)
-q_des = np.vstack([y0[:nq], sim_data['Y_pred_PLAN'][:,1,:nq]])
+q_des = np.vstack([y0[:nq], sim_data['Y_pred'][:,1,:nq]])
 sim_data['P_des_PLAN'] = pin_utils.get_p(q_des, robot, id_endeff)
 sim_data['P_mea_no_noise_SIMU'] = pin_utils.get_p(sim_data['Y_mea_no_noise_SIMU'][:,:nq], robot, id_endeff)
 
