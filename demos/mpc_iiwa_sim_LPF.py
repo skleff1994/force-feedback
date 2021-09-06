@@ -58,7 +58,8 @@ dt = config['dt']
 # u0 = np.asarray(config['tau0'])
 ug = pin_utils.get_u_grav(q0, robot)
 y0 = np.concatenate([x0, ug])
-ddp = ocp_utils.init_DDP_LPF(robot, config, y0, f_c=config['f_c'], cost_w=1e-2, tau_plus=True)
+which_costs = ['all']
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, cost_w=1e-3, tau_plus=True)
 
 WEIGHT_PROFILE = False
 SOLVE_AND_PLOT_INIT = False
@@ -183,10 +184,10 @@ for i in range(sim_data['N_simu']):
         # reg_u_factor = 1e4/float(i+1) # decreases throughout simulation 
         # reg_x_factor = 1e4/float(i+1) # decreases throughout simulation 
         # coef = float(i+1)/sim_data['N_simu']
-        for k,m in enumerate(ddp.problem.runningModels):
-          # m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=config['frameWeight'], alpha=1., alpha_cut=0.65)
-          # m.differential.costs.costs['stateReg'].weight = max(10/float(i+1), config['xRegWeight'])
-          m.differential.costs.costs['ctrlReg'].weight = max(1e3/float(i+1), config['uRegWeight'])
+        # for k,m in enumerate(ddp.problem.runningModels):
+        #   # m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=config['frameWeight'], alpha=1., alpha_cut=0.65)
+        #   # m.differential.costs.costs['stateReg'].weight = max(10/float(i+1), config['xRegWeight'])
+        #   m.differential.costs.costs['ctrlReg'].weight = max(1e3/float(i+1), config['uRegWeight'])
 
         # if(i%1000==0):
           # print("Placement = ", ddp.problem.runningModels[0].differential.costs.costs['placement'].weight )

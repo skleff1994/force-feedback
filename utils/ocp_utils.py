@@ -241,7 +241,7 @@ def init_DDP(robot, config, x0):
 
 
 # Setup OCP and solver using Crocoddyl
-def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1, tau_plus=True):
+def init_DDP_LPF(robot, config, y0, callbacks=False, cost_w=0.1, tau_plus=True, which_costs=['all']):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
      - Running cost: EE placement (Mref) + x_reg (xref) + u_reg (uref)
@@ -253,7 +253,6 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1, tau_pl
         robot     : pinocchio robot wrapper
         config    : dict from YAML config file describing task and MPC params
         x0        : initial state of shooting problem
-        f_c       : cutoff frequency for the low-pass filter on torques
         callbacks : display Crocoddyl's DDP solver callbacks
         cost_w    : cost weight on reg. of unfiltered input w around 0
         tau_plus  : use "tau_plus" integration if True, "tau" otherwise
@@ -327,7 +326,8 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1, tau_pl
                                                                                          actuation.nu)) 
     print("[OCP] Created frame velocity cost.")
     
-    # LPF (CT) param                     
+    # LPF (CT) param
+    f_c = config['f_c']                
     alpha =  1 / (1 + 2*np.pi*dt*f_c) # Smoothing factor : close to 1 means f_c decrease, close to 0 means f_c very large 
     print("LOW-PASS FILTER : ")
     print("f_c   = ", f_c)
@@ -344,12 +344,19 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1, tau_pl
                                                            stepTime=dt, withCostResidual=True, fc=f_c, cost_weight_w=cost_w, tau_plus_integration=tau_plus))
 
       # Add cost models
-      runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight']) 
-      runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['xRegWeight'])
-      runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['uRegWeight']) 
-      runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
-      runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
-      runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
+      if('all' or 'placement' in which_costs):
+        runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight']) 
+      if('all' or 'stateReg' in which_costs):
+        runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['xRegWeight'])
+      if('all' or 'ctrlReg' in which_costs):
+        runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['uRegWeight']) 
+      if('all' or 'stateLim' in which_costs):
+        runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
+      if('all' or 'ctrlLim' in which_costs):
+        runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
+      if('all' or 'velocity' in which_costs):
+        runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
+      # Armature
       runningModels[i].differential.armature = np.asarray(config['armature'])
 
     # Terminal IAM + set armature
@@ -361,9 +368,15 @@ def init_DDP_LPF(robot, config, y0, f_c=100, callbacks=False, cost_w=0.1, tau_pl
                                                          stepTime=0., withCostResidual=True, fc=f_c, cost_weight_w=cost_w, tau_plus_integration=tau_plus)
                                                             
     # Add cost models
-    terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
-    terminalModel.differential.costs.addCost("stateReg", xRegCost, config['xRegWeightTerminal'])
-    terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
+    if('all' or 'placement' in which_costs):
+      terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
+    if('all' or 'velocity' in which_costs):
+      terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
+    if('all' or 'stateReg' in which_costs):
+      terminalModel.differential.costs.addCost("stateReg", xRegCost, config['xRegWeightTerminal'])
+    if('all' or 'stateLim' in which_costs):
+      terminalModel.differential.costs.addCost("stateLim", xRegCost, config['xLimWeightTerminal'])
+    # Armature
     terminalModel.differential.armature = np.asarray(config['armature'])
     
     print("[OCP] Created IAMs.")
