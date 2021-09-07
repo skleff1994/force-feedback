@@ -13,7 +13,7 @@ import numpy as np
 import pinocchio as pin
 
 
-# Interpolator
+# Interpolator
 def linear_interpolation(data, N):
     '''
     linear interpolation of trajectory with N interpolation knots
@@ -24,9 +24,9 @@ def linear_interpolation(data, N):
      OUTPUT:
        interp : interpolated trajectory of size N_samples
     '''
-    n = data.shape[0] # Number of input samples 
+    n = data.shape[0] # Number of input samples 
     d = data.shape[1] # Dimension of each input sample
-    m = N*(n-1)+1     # Number of output samples (interpolated)
+    m = N*(n-1)+1     # Number of output samples (interpolated)
     interp = np.zeros((m, d))
     sample = 0        # Index of input sample 
     for i in range(m):
@@ -48,7 +48,7 @@ def linear_interpolation(data, N):
 
 
 
-# Cost weights profiles, useful for reaching tasks/cost design
+# Cost weights profiles, useful for reaching tasks/cost design
 def cost_weight_tanh(i, N, max_weight=1., alpha=1., alpha_cut=0.25):
     '''
     Monotonically increasing weight profile over [0,...,N]
@@ -120,7 +120,7 @@ def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5
 
 
 
-# Setup OCP and solver using Crocoddyl
+# Setup OCP and solver using Crocoddyl
 def init_DDP(robot, config, x0):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
@@ -140,7 +140,7 @@ def init_DDP(robot, config, x0):
     # OCP parameters 
     dt = config['dt']                   # OCP integration step (s)               
     N_h = config['N_h']                 # Number of knots in the horizon 
-    # Model params
+    # Model params
     id_endeff = robot.model.getFrameId('contact')
     M_ee = robot.data.oMf[id_endeff]
     nq, nv = robot.model.nq, robot.model.nv
@@ -155,7 +155,7 @@ def init_DDP(robot, config, x0):
                                            crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                            crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
     print("[OCP] Created state reg cost.")
-       # Control regularization
+       # Control regularization
     ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
     u_grav = pin.rnea(robot.model, robot.data, x_reg_ref[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
     uRegCost = crocoddyl.CostModelResidual(state, 
@@ -168,7 +168,7 @@ def init_DDP(robot, config, x0):
                                           crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
                                           crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
     print("[OCP] Created state lim cost.")
-      # Control limits penalization
+      # Control limits penalization
     u_min = -np.asarray(config['u_lim']) 
     u_max = +np.asarray(config['u_lim']) 
     u_lim_ref = np.zeros(nq)
@@ -209,25 +209,25 @@ def init_DDP(robot, config, x0):
             crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                              actuation, 
                                                              crocoddyl.CostModelSum(state, nu=actuation.nu)), dt ) )
-        # Add cost models
+        # Add cost models
         runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight'])
         runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['xRegWeight'])
         runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['uRegWeight'])
         # runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
         # runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
-        # Add armature
+        # Add armature
         runningModels[i].differential.armature = np.asarray(config['armature'])
-    # Terminal IAM + set armature
+    # Terminal IAM + set armature
     terminalModel = crocoddyl.IntegratedActionModelEuler(
         crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                             actuation, 
                                                             crocoddyl.CostModelSum(state, nu=actuation.nu) ) )
-    # Add cost models
+    # Add cost models
     terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
     terminalModel.differential.costs.addCost("stateReg", xRegCost, config['xRegWeightTerminal'])
     terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
     # terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['xLimWeightTerminal'])
-    # Add armature
+    # Add armature
     terminalModel.differential.armature = np.asarray(config['armature']) 
     print("[OCP] Created IAMs.")
     
@@ -240,8 +240,12 @@ def init_DDP(robot, config, x0):
     return ddp
 
 
-# Setup OCP and solver using Crocoddyl
-def init_DDP_LPF(robot, config, y0, callbacks=False, cost_w=0.1, tau_plus=True, which_costs=['all']):
+# Setup OCP and solver using Crocoddyl
+def init_DDP_LPF(robot, config, y0, callbacks=False, 
+                                    cost_w=0.1, 
+                                    tau_plus=True,
+                                    lpf_type=0,
+                                    which_costs=['all']):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
      - Running cost: EE placement (Mref) + x_reg (xref) + u_reg (uref)
@@ -250,12 +254,16 @@ def init_DDP_LPF(robot, config, y0, callbacks=False, cost_w=0.1, tau_plus=True, 
     xref = initial state read in config
     uref = initial gravity compensation torque (from xref)
     INPUT: 
-        robot     : pinocchio robot wrapper
-        config    : dict from YAML config file describing task and MPC params
-        x0        : initial state of shooting problem
-        callbacks : display Crocoddyl's DDP solver callbacks
-        cost_w    : cost weight on reg. of unfiltered input w around 0
-        tau_plus  : use "tau_plus" integration if True, "tau" otherwise
+        robot       : pinocchio robot wrapper
+        config      : dict from YAML config file describing task and MPC params
+        x0          : initial state of shooting problem
+        callbacks   : display Crocoddyl's DDP solver callbacks
+        cost_w      : cost weight on reg. of unfiltered input w around 0
+        tau_plus    : use "tau_plus" integration if True, "tau" otherwise
+        lpf_type    : use expo moving avg (0), classical lpf (1) or exact (2)
+        which_costs : which cost terms in the running & terminal cost?
+                        'placement', 'velocity', 'stateReg', 'ctrlReg'
+                        'stateLim', 'ctrlLim'
     OUTPUT:
         FDDP solver
     '''
@@ -263,7 +271,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False, cost_w=0.1, tau_plus=True, 
     # OCP parameters 
     dt = config['dt']                   # OCP integration step (s)               
     N_h = config['N_h']                 # Number of knots in the horizon 
-    # Model params
+    # Model params
     id_endeff = robot.model.getFrameId('contact')
     M_ee = robot.data.oMf[id_endeff]
     nq, nv = robot.model.nq, robot.model.nv
@@ -279,7 +287,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False, cost_w=0.1, tau_plus=True, 
                                            crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                            crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
     print("[OCP] Created state reg cost.")
-       # Control regularization
+       # Control regularization
     ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
     u_grav = y0[-nq:] #pin.rnea(robot.model, robot.data, x_reg_ref[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
     uRegCost = crocoddyl.CostModelResidual(state, 
@@ -292,7 +300,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False, cost_w=0.1, tau_plus=True, 
                                              crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
                                              crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
     print("[OCP] Created state lim cost.")
-      # Control limits penalization
+      # Control limits penalization
     u_min = -np.asarray(config['u_lim']) 
     u_max = +np.asarray(config['u_lim']) 
     u_lim_ref = np.zeros(nq)
@@ -326,9 +334,15 @@ def init_DDP_LPF(robot, config, y0, callbacks=False, cost_w=0.1, tau_plus=True, 
                                                                                          actuation.nu)) 
     print("[OCP] Created frame velocity cost.")
     
-    # LPF (CT) param
-    f_c = config['f_c']                
-    alpha =  1 / (1 + 2*np.pi*dt*f_c) # Smoothing factor : close to 1 means f_c decrease, close to 0 means f_c very large 
+    # LPF (CT) param   
+    f_c = config['f_c']    
+    if(lpf_type==0):
+        alpha = np.exp(-2*np.pi*f_c*dt)
+    if(lpf_type==1):
+        alpha = 1./float(1+2*np.pi*f_c*dt)
+    if(lpf_type==2):
+        y = np.cos(2*np.pi*f_c*dt)
+        alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
     print("LOW-PASS FILTER : ")
     print("f_c   = ", f_c)
     print("alpha = ", alpha)
@@ -336,16 +350,23 @@ def init_DDP_LPF(robot, config, y0, callbacks=False, cost_w=0.1, tau_plus=True, 
     # Create IAMs
     runningModels = []
     for i in range(N_h):
-      # Using pure python
+      # Using pure python
       runningModels.append(crocoddyl.IntegratedActionModelLPF(
-          crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
-                                                           actuation, 
-                                                           crocoddyl.CostModelSum(state, nu=actuation.nu)), 
-                                                           stepTime=dt, withCostResidual=True, fc=f_c, cost_weight_w=cost_w, tau_plus_integration=tau_plus))
+                  crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
+                                                                   actuation, 
+                                                                   crocoddyl.CostModelSum(state, nu=actuation.nu)), 
+                                                              stepTime=dt, 
+                                                              withCostResidual=True, 
+                                                              fc=f_c, 
+                                                              cost_weight_w=cost_w, 
+                                                              tau_plus_integration=tau_plus,
+                                                              filter=lpf_type))
 
-      # Add cost models
+      # Add cost models
       if('all' or 'placement' in which_costs):
         runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight']) 
+      if('all' or 'velocity' in which_costs):
+        runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
       if('all' or 'stateReg' in which_costs):
         runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['xRegWeight'])
       if('all' or 'ctrlReg' in which_costs):
@@ -354,32 +375,34 @@ def init_DDP_LPF(robot, config, y0, callbacks=False, cost_w=0.1, tau_plus=True, 
         runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
       if('all' or 'ctrlLim' in which_costs):
         runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
-      if('all' or 'velocity' in which_costs):
-        runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
-      # Armature
+      # Add armature
       runningModels[i].differential.armature = np.asarray(config['armature'])
 
-    # Terminal IAM + set armature
-    # Using pure python
+    # Terminal IAM + set armature
+    # Using pure python
     terminalModel = crocoddyl.IntegratedActionModelLPF(
-        crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
-                                                         actuation, 
-                                                         crocoddyl.CostModelSum(state, nu=actuation.nu)),
-                                                         stepTime=0., withCostResidual=True, fc=f_c, cost_weight_w=cost_w, tau_plus_integration=tau_plus)
+            crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
+                                                             actuation, 
+                                                             crocoddyl.CostModelSum(state, nu=actuation.nu)),
+                                                      stepTime=0., 
+                                                      withCostResidual=True, 
+                                                      fc=f_c, 
+                                                      cost_weight_w=cost_w, 
+                                                      tau_plus_integration=tau_plus,
+                                                      filter=lpf_type)
                                                             
-    # Add cost models
+    # Add cost models
     if('all' or 'placement' in which_costs):
       terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
     if('all' or 'velocity' in which_costs):
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
     if('all' or 'stateReg' in which_costs):
       terminalModel.differential.costs.addCost("stateReg", xRegCost, config['xRegWeightTerminal'])
-    if('all' or 'stateLim' in which_costs):
-      terminalModel.differential.costs.addCost("stateLim", xRegCost, config['xLimWeightTerminal'])
-    # Armature
+    # Add armature
     terminalModel.differential.armature = np.asarray(config['armature'])
     
     print("[OCP] Created IAMs.")
+
     # Create the shooting problem
     problem = crocoddyl.ShootingProblem(y0, runningModels, terminalModel)
     # Creating the DDP solver 

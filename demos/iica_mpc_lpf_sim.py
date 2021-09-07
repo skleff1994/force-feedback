@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file mpc_iiwa_sim_LPF.py
+@file iiwa_mpc_lpf_sim.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
@@ -84,7 +84,7 @@ if(SOLVE_AND_PLOT_INIT):
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
-sim_data = data_utils.init_sim_data(config, robot, y0)
+sim_data = data_utils.init_sim_data_lpf(config, robot, y0)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
 freq_CTRL = sim_data['ctrl_freq']
@@ -357,7 +357,7 @@ sim_data['P_mea_no_noise_SIMU'] = pin_utils.get_p(sim_data['Y_mea_no_noise_SIMU'
 save_dir = '/home/skleff/force-feedback/data'
 save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(freq_PLAN)+'Hz'
 # Extract plot data from sim data
-plot_data = data_utils.extract_plot_data(sim_data)
+plot_data = data_utils.extract_plot_data_from_sim_data_lpf(sim_data)
 # Plot results
 plot_utils.plot_mpc_results_lpf(plot_data, which_plots=WHICH_PLOTS,
                                 PLOT_PREDICTIONS=True, 

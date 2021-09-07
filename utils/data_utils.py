@@ -25,10 +25,27 @@ def load_data(npz_file):
     d = np.load(npz_file, allow_pickle=True)
     return d['data'][()]
 
-
+# Initialize simulation data for MPC simulation
 def init_sim_data(config, robot, y0):
     '''
     Initialize simulation data from config file
+    '''
+    # TO BE IMPLEMENTED (like in /impedance_mpc repo)
+    pass 
+
+# Extract MPC simu-specific plotting data from sim data
+def extract_plot_data_from_sim_data(sim_data):
+    '''
+    Extract plot data from simu data
+    '''
+    # TO BE IMPLEMENTED (like in /impedance_mpc repo)
+    pass
+
+
+# Initialize MPC simulation with torque feedback based on Low-Pass-Filter (LPF) Actuation Model
+def init_sim_data_lpf(config, robot, y0):
+    '''
+    Initialize simulation data from config file (for torque feedback MPC based on LPF)
     '''
     sim_data = {}
     # MPC & simulation parameters
@@ -98,10 +115,11 @@ def init_sim_data(config, robot, y0):
     
     return sim_data
 
-# Extract MPC simu-specific plotting data from sim data
-def extract_plot_data_from_sim_data(sim_data):
+
+# Extract MPC simu-specific plotting data from sim data (LPF)
+def extract_plot_data_from_sim_data_lpf(sim_data):
     '''
-    Extract plot data from simu data
+    Extract plot data from simu data (for torque feedback MPC based on LPF)
     '''
     print('Extracting plotting data from simulation data...')
     plot_data = {}

@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file mpc_iiwa_ocp_LPF.py
+@file iiwa_ocp_lpf_debug_spike.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -44,8 +44,11 @@ dt = config['dt']
 # u0 = np.asarray(config['tau0'])
 ug = pin_utils.get_u_grav(q0, robot) 
 y0 = np.concatenate([x0, ug])
-ddp = ocp_utils.init_DDP_LPF(robot, config, 
-                             y0, callbacks=True, cost_w=1e-4, tau_plus=True) #1e-4
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, 
+                             callbacks=True, cost_w=1e-4, #1e-4
+                             tau_plus=True, lpf_type=0,
+                             which_costs=['all']) 
+
 
 # Schedule weights for target reaching
 for k,m in enumerate(ddp.problem.runningModels):

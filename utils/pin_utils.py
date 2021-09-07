@@ -73,7 +73,8 @@ def get_u_grav(q, pin_robot):
     '''
     Return gravity torque at q
     '''
-    return pin.rnea(pin_robot.model, pin_robot.data, q, np.zeros((pin_robot.model.nv,1)), np.zeros((pin_robot.model.nq,1)))
+    return pin.computeGeneralizedGravity(pin_robot.model, pin_robot.data, q)
+    # return pin.rnea(pin_robot.model, pin_robot.data, q, np.zeros((pin_robot.model.nv,1)), np.zeros((pin_robot.model.nq,1)))
 
 def get_u_mea(q, v, pin_robot):
     '''

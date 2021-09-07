@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file mpc_iiwa_ocp_LPF.py
+@file iiwa_ocp_lpf.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -35,6 +35,9 @@ M_ee = robot.data.oMf[id_endeff]
 nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv
 nu = nq
+# Update robot model with initial state
+robot.framesForwardKinematics(q0)
+robot.computeJointJacobians(q0)
 
 #################
 ### OCP SETUP ###
@@ -44,22 +47,26 @@ dt = config['dt']
 # u0 = np.asarray(config['tau0'])
 ug = pin_utils.get_u_grav(q0, robot) 
 y0 = np.concatenate([x0, ug])
-ddp = ocp_utils.init_DDP_LPF(robot, config, 
-                             y0, callbacks=True, cost_w=1e-4, tau_plus=True) #1e-4
 
-# Schedule weights for target reaching
-for k,m in enumerate(ddp.problem.runningModels):
-    m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(k, N_h, max_weight=100., alpha=5., alpha_cut=0.65)
-    m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.01, max_weight=config['xRegWeight'])
-    # print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
-    # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
+LPF_TYPE = 1
+
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, 
+                             callbacks=True, cost_w=1e-3, #1e-4
+                             tau_plus=True, lpf_type=LPF_TYPE,
+                             which_costs=['ctrlReg'] ) 
+
+for i in range(N_h-1):
+#   if(i<=int(9*N_h/10)):
+    ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = 100
+
 
 # Solve and extract solution trajectories
 xs_init = [y0 for i in range(N_h+1)]
 us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
-# Plot
+
+#  Plot
 fig, ax = plot_utils.plot_ddp_results_LPF(ddp, robot, SHOW=False)
 
 
@@ -67,12 +74,21 @@ fig, ax = plot_utils.plot_ddp_results_LPF(ddp, robot, SHOW=False)
 tau_s = np.array(ddp.xs)[:,:nu]
 w_s = np.array(ddp.us)
 tau_integrated_s = np.zeros(tau_s.shape)
-alpha = 1./float(1+2*np.pi*config['f_c']*dt)
+if(LPF_TYPE==0):
+    alpha = np.exp(-2*np.pi*config['f_c']*dt)
+if(LPF_TYPE==1):
+    alpha = 1./float(1+2*np.pi*config['f_c']*dt)
+if(LPF_TYPE==2):
+    y = np.cos(2*np.pi*config['f_c']*dt)
+    alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
+# print()
 tau_integrated_s[0,:] = ug 
 for i in range(N_h):
     tau_integrated_s[i+1,:] = alpha*tau_integrated_s[i,:] + (1-alpha)*w_s[i,:]
 for i in range(nq):
     ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), tau_integrated_s[:,i], 'r-', label='Integrated')
+    ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), ug[i]*np.ones(N_h+1), 'k--', label='Gravity')
+    ax['w'][i].plot(np.linspace(0, N_h*dt, N_h), ug[i]*np.ones(N_h), 'k--', label='Gravity')
 import matplotlib.pyplot as plt
 handles_x, labels_x = ax['y'][i,2].get_legend_handles_labels()
 fig['y'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
