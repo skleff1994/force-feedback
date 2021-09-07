@@ -281,59 +281,66 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     state = crocoddyl.StateMultibody(robot.model)
     actuation = crocoddyl.ActuationModelFull(state)
       # State regularization
-    stateRegWeights = np.asarray(config['stateRegWeights'])
-    x_reg_ref = np.concatenate([y0[:nq], np.zeros(nv)]) #np.zeros(nq+nv)     
-    xRegCost = crocoddyl.CostModelResidual(state, 
-                                           crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
-                                           crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
-    print("[OCP] Created state reg cost.")
+    if('all' in which_costs or 'stateReg' in which_costs):
+      stateRegWeights = np.asarray(config['stateRegWeights'])
+      x_reg_ref = y0[:nq+nv]   
+      # print("x_reg_ref = ", x_reg_ref)  
+      xRegCost = crocoddyl.CostModelResidual(state, 
+                                            crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
+                                            crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
+      print('[OCP] Added state regularization cost.')
        # Control regularization
-    ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
-    u_grav = y0[-nq:] #pin.rnea(robot.model, robot.data, x_reg_ref[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
-    uRegCost = crocoddyl.CostModelResidual(state, 
-                                          crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
-                                          crocoddyl.ResidualModelControl(state, u_grav))
-    print("[OCP] Created ctrl reg cost.")
+    if('all' in which_costs or 'ctrlReg' in which_costs):
+      ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
+      u_grav = y0[-nq:] #pin.rnea(robot.model, robot.data, x_reg_ref[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
+      # print("u_reg_ref = ", u_grav)
+      uRegCost = crocoddyl.CostModelResidual(state, 
+                                            crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
+                                            crocoddyl.ResidualModelControl(state, u_grav))
+      print('[OCP] Added control regularization cost.')
       # State limits penalization
-    x_lim_ref  = np.zeros(nq+nv)
-    xLimitCost = crocoddyl.CostModelResidual(state, 
-                                             crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
-                                             crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
-    print("[OCP] Created state lim cost.")
+    if('all' in which_costs or 'stateLim' in which_costs):
+      x_lim_ref  = np.zeros(nq+nv)
+      xLimitCost = crocoddyl.CostModelResidual(state, 
+                                              crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
+                                              crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
+      print('[OCP] Added state limit cost.')
       # Control limits penalization
-    u_min = -np.asarray(config['u_lim']) 
-    u_max = +np.asarray(config['u_lim']) 
-    u_lim_ref = np.zeros(nq)
-    uLimitCost = crocoddyl.CostModelResidual(state, 
-                                             crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
-                                             crocoddyl.ResidualModelControl(state, u_lim_ref))
-    print("[OCP] Created ctrl lim cost.")
+    if('all' in which_costs or 'ctrlLim' in which_costs):
+      u_min = -np.asarray(config['u_lim']) 
+      u_max = +np.asarray(config['u_lim']) 
+      u_lim_ref = np.zeros(nq)
+      uLimitCost = crocoddyl.CostModelResidual(state, 
+                                              crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
+                                              crocoddyl.ResidualModelControl(state, u_lim_ref))
+      print('[OCP] Added control limit cost.')
       # End-effector placement 
-    p_target = np.asarray(config['p_des']) 
-    M_target = pin.SE3(M_ee.rotation.T, p_target)
-    desiredFramePlacement = M_target #M_ee.copy()
-    # desiredFramePlacement.translation[0] += 0.1
-    # desiredFramePlacement.translation[1] -= 0.2
-    framePlacementWeights = np.asarray(config['framePlacementWeights'])
-    framePlacementCost = crocoddyl.CostModelResidual(state, 
-                                                     crocoddyl.ActivationModelWeightedQuad(framePlacementWeights**2), 
-                                                     crocoddyl.ResidualModelFramePlacement(state, 
-                                                                                           id_endeff, 
-                                                                                           desiredFramePlacement, 
-                                                                                           actuation.nu)) 
-    print("[OCP] Created frame placement cost.")
+    if('all' in which_costs or 'placement' in which_costs):
+      # p_target = np.asarray(config['p_des']) 
+      # M_target = pin.SE3(M_ee.rotation.T, p_target)
+      desiredFramePlacement = M_ee.copy() #M_target #M_ee.copy()
+      desiredFramePlacement.translation[0] -= 0.1
+      # desiredFramePlacement.translation[1] -= 0.2
+      framePlacementWeights = np.asarray(config['framePlacementWeights'])
+      framePlacementCost = crocoddyl.CostModelResidual(state, 
+                                                      crocoddyl.ActivationModelWeightedQuad(framePlacementWeights**2), 
+                                                      crocoddyl.ResidualModelFramePlacement(state, 
+                                                                                            id_endeff, 
+                                                                                            desiredFramePlacement, 
+                                                                                            actuation.nu)) 
+      print('[OCP] Added frame placement cost.')
       # End-effector velocity 
-    desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
-    frameVelocityWeights = np.ones(6)
-    frameVelocityCost = crocoddyl.CostModelResidual(state, 
-                                                    crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
-                                                    crocoddyl.ResidualModelFrameVelocity(state, 
-                                                                                         id_endeff, 
-                                                                                         desiredFrameMotion, 
-                                                                                         pin.LOCAL, 
-                                                                                         actuation.nu)) 
-    print("[OCP] Created frame velocity cost.")
-    
+    if('all' in which_costs or 'velocity' in which_costs):
+      desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
+      frameVelocityWeights = np.ones(6)
+      frameVelocityCost = crocoddyl.CostModelResidual(state, 
+                                                      crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
+                                                      crocoddyl.ResidualModelFrameVelocity(state, 
+                                                                                          id_endeff, 
+                                                                                          desiredFrameMotion, 
+                                                                                          pin.LOCAL, 
+                                                                                          actuation.nu)) 
+      print('[OCP] Added frame velocity cost.')
     # LPF (CT) param   
     f_c = config['f_c']    
     if(lpf_type==0):
@@ -344,8 +351,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         y = np.cos(2*np.pi*f_c*dt)
         alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
     print("LOW-PASS FILTER : ")
-    print("f_c   = ", f_c)
-    print("alpha = ", alpha)
+    print("  f_c   = ", f_c)
+    print("  alpha = ", alpha)
     
     # Create IAMs
     runningModels = []
@@ -363,17 +370,17 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                               filter=lpf_type))
 
       # Add cost models
-      if('all' or 'placement' in which_costs):
-        runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight']) 
-      if('all' or 'velocity' in which_costs):
+      if('all' in which_costs or 'placement' in which_costs):
+        runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight'])
+      if('all' in which_costs or 'velocity' in which_costs):
         runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
-      if('all' or 'stateReg' in which_costs):
+      if('all' in which_costs or 'stateReg' in which_costs):
         runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['xRegWeight'])
-      if('all' or 'ctrlReg' in which_costs):
+      if('all' in which_costs or 'ctrlReg' in which_costs):
         runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['uRegWeight']) 
-      if('all' or 'stateLim' in which_costs):
+      if('all' in which_costs or 'stateLim' in which_costs):
         runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
-      if('all' or 'ctrlLim' in which_costs):
+      if('all' in which_costs or 'ctrlLim' in which_costs):
         runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
       # Add armature
       runningModels[i].differential.armature = np.asarray(config['armature'])
@@ -392,11 +399,11 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                       filter=lpf_type)
                                                             
     # Add cost models
-    if('all' or 'placement' in which_costs):
+    if('all' in which_costs or 'placement' in which_costs):
       terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
-    if('all' or 'velocity' in which_costs):
+    if('all' in which_costs or 'velocity' in which_costs):
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
-    if('all' or 'stateReg' in which_costs):
+    if('all' in which_costs or 'stateReg' in which_costs):
       terminalModel.differential.costs.addCost("stateReg", xRegCost, config['xRegWeightTerminal'])
     # Add armature
     terminalModel.differential.armature = np.asarray(config['armature'])
