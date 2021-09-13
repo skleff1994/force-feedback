@@ -198,7 +198,9 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all']):
                                                                                             id_endeff, 
                                                                                             desiredFramePlacement, 
                                                                                             actuation.nu)) 
-      print("[OCP] Added frame placement cost.")
+      print("[OCP] Added frame placement cost.\n")
+      print("[OCP]    Desired placement : \n") 
+      print(M_target) 
       # End-effector velocity
     if('all' in which_costs or 'velocity' in which_costs): 
       desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))

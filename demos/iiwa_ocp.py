@@ -33,13 +33,15 @@ x0 = np.concatenate([q0, v0])
 robot = IiwaConfig.buildRobotWrapper()
 # Get initial frame placement + dimensions of joint space
 id_endeff = robot.model.getFrameId('contact')
-M_ee = robot.data.oMf[id_endeff]
 nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv
 nu = nq
 # Update robot model with initial state
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
+M_ee = robot.data.oMf[id_endeff]
+print("Initial placement : \n")
+print(M_ee)
 
 #################
 ### OCP SETUP ###
@@ -48,13 +50,14 @@ N_h = config['N_h']
 dt = config['dt']
 
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                            which_costs=['ctrlReg', 'placement', 'velocity'] ) 
+                                            which_costs=['placement', 'ctrlReg', 'stateReg', 'velocity' ] ) 
 
-# for i in range(N_h-1):
-# #   if(i<=int(N_h/10)):
-# #     ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = 100
-#   if(i>=5*N_h/10):
-#     ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight /= 1.1
+for i in range(N_h-1):
+    ddp.problem.runningModels[i].differential.costs.costs['placement'].weight = ocp_utils.cost_weight_linear(i, N_h, min_weight=1., max_weight=10.)
+    # ddp.problem.runningModels[i].differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(i, N_h, max_weight=10., alpha=4., alpha_cut=0.1)
+    # ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight = 1./ocp_utils.cost_weight_linear(i, N_h, min_weight=10., max_weight=1000.)
+    ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = ocp_utils.cost_weight_parabolic(i, N_h, min_weight=0.03, max_weight=0.5)
+    ddp.problem.runningModels[i].differential.costs.costs['velocity'].weight = ocp_utils.cost_weight_parabolic(i, N_h, min_weight=0.001, max_weight=10.)
 
 ug = pin_utils.get_u_grav(q0, robot)
 
@@ -64,43 +67,36 @@ us_init = [ug  for i in range(N_h)]
 
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
 
-# import time
-# robot.initDisplay(loadModel=True)
-# robot.display(q0)
-# viewer = robot.viz.viewer
-# # viewer.gui.addFloor('world/floor')
-# # viewer.gui.refresh()
-# log_rate = int(N_h/10)
-# print("Visualizing...")
-# for i in range(N_h):
-#     # Iter log
-#     viewer.gui.refresh()
-#     robot.display(ddp.xs[i][:nq])
-#     if(i%log_rate==0):
-#       print("Display config n°"+str(i))
-#     time.sleep(.02)
+
+VISUALIZE = True
+pause = 0.05 # in s
+if(VISUALIZE):
+    import time
+    robot.initDisplay(loadModel=True)
+    robot.display(q0)
+    viewer = robot.viz.viewer
+    # viewer.gui.addFloor('world/floor')
+    # viewer.gui.refresh()
+    log_rate = int(N_h/10)
+    print("Visualizing...")
+    time.sleep(1.)
+    for i in range(N_h):
+        # Iter log
+        viewer.gui.refresh()
+        robot.display(ddp.xs[i][:nq])
+        if(i%log_rate==0):
+            print("Display config n°"+str(i))
+        time.sleep(pause)
 
 
 #  Plot
-fig, ax = plot_utils.plot_ddp_results(ddp, robot, which_plots=['x','u','p'])
+fig, ax = plot_utils.plot_ddp_results(ddp, robot, which_plots=['x','u','p'], SHOW=False)
 
-
-# # Debug by passing the unfiltered torque into the LPF
-# tau_s = np.array(ddp.xs)[:,:nu]
-# w_s = np.array(ddp.us)
-# tau_integrated_s = np.zeros(tau_s.shape)
-
-# # print()
-# tau_integrated_s[0,:] = ug 
-# for i in range(N_h):
-#     tau_integrated_s[i+1,:] = alpha*tau_integrated_s[i,:] + (1-alpha)*w_s[i,:]
-# for i in range(nq):
-#     # Plot a posteriori integration to check IAM
-#     ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), tau_integrated_s[:,i], 'r-', label='Integrated')
-#     # Plot gravity torque
-#     ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), ug[i]*np.ones(N_h+1), 'k--', label='Gravity')
-#     ax['w'][i].plot(np.linspace(0, N_h*dt, N_h), ug[i]*np.ones(N_h), 'k--', label='Gravity')
-# import matplotlib.pyplot as plt
-# handles_x, labels_x = ax['y'][i,2].get_legend_handles_labels()
-# fig['y'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-# plt.show()
+p_des = np.asarray(config['p_des']) 
+for i in range(3):
+    # Plot a posteriori integration to check IAM
+    ax['p'][i].plot(np.linspace(0, N_h*dt, N_h+1), [p_des[i]]*(N_h+1), 'r-.', label='Desired')
+import matplotlib.pyplot as plt
+handles_x, labels_x = ax['p'][i].get_legend_handles_labels()
+fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+plt.show()

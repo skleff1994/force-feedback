@@ -1349,7 +1349,7 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
 
 ### Plot from DDP solver 
-def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all'):
+def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=False):
     '''
     Plot ddp results from 1 or several DDP solvers
     X, U, EE trajs
@@ -1389,8 +1389,23 @@ def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all'):
             if('K' in which_plots or which_plots =='all'):
                 plot_ddp_ricatti_sv(ddp[k], fig=fig_K_sv, ax=ax_K_sv, SHOW=False)
                 plot_ddp_ricatti_eig(ddp[k], fig=fig_K_eig, ax=ax_K_eig, SHOW=False)
+
+    if(SHOW):
+      plt.show()
     
-    plt.show()
+    fig = {}
+    fig['p'] = fig_p
+    fig['x'] = fig_x
+    fig['u'] = fig_u
+
+    ax = {}
+    ax['p'] = ax_p
+    ax['x'] = ax_x
+    ax['u'] = ax_u
+
+    return fig, ax
+
+    
 
 def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True):
     '''
@@ -1485,7 +1500,7 @@ def plot_ddp_endeff(ddp, robot, name_endeff, fig=None, ax=None, label=None, SHOW
     ylabels = ['Px', 'Py', 'Pz']
     for i in range(3):
         # Positions
-        ax[i].plot(tspan, q[:,i], linestyle='-', marker='o', label=label)
+        ax[i].plot(tspan, p[:,i], linestyle='-', marker='o', label=label)
         ax[i].set_ylabel(ylabel=ylabels[i], fontsize=16)
         ax[i].grid(True)
     handles, labels = ax[i].get_legend_handles_labels()
