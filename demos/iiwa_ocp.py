@@ -50,26 +50,30 @@ N_h = config['N_h']
 dt = config['dt']
 
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                            which_costs=['placement', 'ctrlReg', 'stateReg', 'velocity' ] ) 
+                                            which_costs=['placement', 'ctrlReg', 'stateReg', 'velocity'] ) 
 
-for i in range(N_h-1):
-    ddp.problem.runningModels[i].differential.costs.costs['placement'].weight = ocp_utils.cost_weight_linear(i, N_h, min_weight=1., max_weight=10.)
-    # ddp.problem.runningModels[i].differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(i, N_h, max_weight=10., alpha=4., alpha_cut=0.1)
-    # ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight = 1./ocp_utils.cost_weight_linear(i, N_h, min_weight=10., max_weight=1000.)
-    ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = ocp_utils.cost_weight_parabolic(i, N_h, min_weight=0.03, max_weight=0.5)
-    ddp.problem.runningModels[i].differential.costs.costs['velocity'].weight = ocp_utils.cost_weight_parabolic(i, N_h, min_weight=0.001, max_weight=10.)
+# # Half reach time (in OCP nodes)
+# PHASE = 50
+# for i in range(N_h-1):
+#     ddp.problem.runningModels[i].differential.costs.costs['placement'].weight = ocp_utils.cost_weight_linear(i, PHASE, min_weight=.1, max_weight=10.)
+#     # ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_normal_clamped(i, PHASE, min_weight=0.01, max_weight=10., peak=2)
+#     # print(ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight)
+#     ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = ocp_utils.cost_weight_parabolic(i, PHASE, min_weight=0.05, max_weight=0.5)
+#     ddp.problem.runningModels[i].differential.costs.costs['velocity'].weight = ocp_utils.cost_weight_parabolic(i, PHASE, min_weight=0.001, max_weight=10.)
 
+# import time
+# time.sleep(1.)
 ug = pin_utils.get_u_grav(q0, robot)
 
 # Solve and extract solution trajectories
 xs_init = [x0 for i in range(N_h+1)]
 us_init = [ug  for i in range(N_h)]
 
-ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
+ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
-VISUALIZE = True
-pause = 0.05 # in s
+VISUALIZE = False
+pause = 0.01 # in s
 if(VISUALIZE):
     import time
     robot.initDisplay(loadModel=True)

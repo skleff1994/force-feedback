@@ -95,6 +95,19 @@ def cost_weight_parabolic(i, N, min_weight=0., max_weight=1.):
     return min_weight + 4.*(max_weight-min_weight)/float(N**2) * (i-N/2)**2
 
 
+def cost_weight_normal_clamped(i, N, min_weight=0.1, max_weight=1., peak=1.):
+    '''
+    Gaussian cost weight profile over [0,...,N] with max at i=N/2
+     INPUT: 
+       i          : current time step in the window (e.g. OCP horizon or sim horizon)
+       N          : total number of time steps
+       max_weight : maximum weight reached at t=N/2
+     OUPUT:
+       Cost weight at step i
+    '''
+    return min(max(peak*np.exp(-float(i-N/2)**2/2), min_weight), max_weight)
+
+
 def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5):
     '''
     Activation function of decreasing exponential clamped btw max and min 
@@ -121,7 +134,7 @@ def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5
 
 
 # Setup OCP and solver using Crocoddyl
-def init_DDP(robot, config, x0, callbacks=False, which_costs=['all']):
+def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N_h=None):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       - Running cost: EE placement (Mref) + x_reg (xref) + u_reg (uref)
@@ -141,9 +154,11 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all']):
         FDDP solver
     '''
     
-    # OCP parameters 
-    dt = config['dt']                   # OCP integration step (s)               
-    N_h = config['N_h']                 # Number of knots in the horizon 
+    # OCP parameters
+    if(dt is None):
+      dt = config['dt']                   # OCP integration step (s)    
+    if(N_h is None):
+      N_h = config['N_h']                 # Number of knots in the horizon 
     # Model params
     id_endeff = robot.model.getFrameId('contact')
     M_ee = robot.data.oMf[id_endeff]
@@ -188,7 +203,11 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all']):
       # End-effector placement 
     if('all' in which_costs or 'placement' in which_costs):
       p_target = np.asarray(config['p_des']) 
-      M_target = pin.SE3(M_ee.rotation.T, p_target)
+      # M_target = pin.SE3(M_ee.rotation, p_target)
+      rot = np.eye(3)
+      rot[2,2] = -1
+      rot[1,1] = -1
+      M_target = pin.SE3(rot, p_target)
       desiredFramePlacement = M_target
       # p_ref = desiredFramePlacement.translation.copy()
       framePlacementWeights = np.asarray(config['framePlacementWeights'])
