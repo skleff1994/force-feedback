@@ -2,34 +2,33 @@
 # Used for MPC simulations with and without torque tracking
 
 # OCP
-f_c: 50       # Low-pass filter cut-off frequency
 dt: 0.01        # OCP integration step 
 N_h: 100     # Horizon length in nodes
 maxiter: 100   # Max number of iterations in DDP
 # Initial robot state
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]
 dq0: [0.,0.,0.,0.,0.,0.,0.]
-tau0: [0., -2.3274, 0., 0.012262, 0., -0.010595, 0.]
 
 # State regularization 
 stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 4., 4., 4., 4., 4., 4., 4.]
-xRegWeight: 100
-xRegWeightTerminal: .1
+stateRegWeight: .1
+stateRegWeightTerminal: .1
 # Torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-uRegWeight: 1000.
+ctrlRegWeight: .01
 # State limits
-xLimWeight: 100.
-xLimWeightTerminal: 100.
+stateLimWeight: 10.
+stateLimWeightTerminal: 10.
 # Torque limits
-u_lim: [320, 320, 176, 176, 110, 40, 40]
-uLimWeight: 1.
+ctrl_lim: [320, 320, 176, 176, 110, 40, 40]
+ctrlLimWeight: 10.
 # Frame placement 
 p_des: [-0.5, -0.5, 0.7]  # Desired end-effector position
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-frameWeight: 0.
-framePlacementWeightTerminal: 100. #1000
+framePlacementWeight: 0.
+framePlacementWeightTerminal: 10. #1000
 # Frame velocity
+frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
 frameVelocityWeight: 0.
 frameVelocityWeightTerminal: 1. #1000
 # armature

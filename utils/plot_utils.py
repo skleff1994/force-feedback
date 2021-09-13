@@ -1349,14 +1349,14 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
 
 ### Plot from DDP solver 
-def plot_ddp_results(ddp, robot, id_endeff, which_plots='all'):
+def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all'):
     '''
     Plot ddp results from 1 or several DDP solvers
     X, U, EE trajs
     INPUT 
-      ddp       : DDP solver or list of ddp solvers
-      robot     : pinocchio robot wrapper
-      id_endeff : frame id of endeffector 
+      ddp         : DDP solver or list of ddp solvers
+      robot       : pinocchio robot wrapper
+      name_endeff : name of end-effector (in pin model) 
     '''
     if(type(ddp) != list):
         ddp = [ddp]
@@ -1368,7 +1368,7 @@ def plot_ddp_results(ddp, robot, id_endeff, which_plots='all'):
             if('u' in which_plots or which_plots =='all'):
                 fig_u, ax_u = plot_ddp_control(ddp[k], SHOW=False)
             if('p' in which_plots or which_plots =='all'):
-                fig_p, ax_p = plot_ddp_endeff(ddp[k], robot, id_endeff, SHOW=False)
+                fig_p, ax_p = plot_ddp_endeff(ddp[k], robot, name_endeff, SHOW=False)
             if('vxx' in which_plots or which_plots =='all'):
                 fig_vxx_sv, ax_vxx_sv = plot_ddp_vxx_sv(ddp[k], SHOW=False)
                 fig_vxx_eig, ax_vxx_eig = plot_ddp_vxx_eig(ddp[k], SHOW=False)
@@ -1382,7 +1382,7 @@ def plot_ddp_results(ddp, robot, id_endeff, which_plots='all'):
             if('u' in which_plots or which_plots =='all'):
                 plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u, SHOW=False)
             if('p' in which_plots or which_plots =='all'):
-                plot_ddp_endeff(ddp[k], robot, id_endeff, fig=fig_p, ax=ax_p, SHOW=False)
+                plot_ddp_endeff(ddp[k], robot, name_endeff, fig=fig_p, ax=ax_p, SHOW=False)
             if('vxx' in which_plots or which_plots =='all'):
                 plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv, SHOW=False)
                 plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig, SHOW=False)
@@ -1463,7 +1463,7 @@ def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True):
         plt.show()
     return fig, ax
 
-def plot_ddp_endeff(ddp, robot, id_endeff, fig=None, ax=None, label=None, SHOW=True):
+def plot_ddp_endeff(ddp, robot, name_endeff, fig=None, ax=None, label=None, SHOW=True):
     '''
     Plot ddp results (endeff)
     '''
@@ -1474,6 +1474,7 @@ def plot_ddp_endeff(ddp, robot, id_endeff, fig=None, ax=None, label=None, SHOW=T
     # Extract EE traj
     x = np.array(ddp.xs)
     q = x[:,:nq]
+    id_endeff = robot.model.getFrameId(name_endeff)
     p = pin_utils.get_p(q, robot, id_endeff)
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
