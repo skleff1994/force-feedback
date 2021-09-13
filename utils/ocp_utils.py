@@ -160,13 +160,14 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all']):
                                             crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                             crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
       print("[OCP] Added state reg cost.")
+       
        # Control regularization
     if('all' in which_costs or 'ctrlReg' in which_costs):
       ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
-      u_grav = pin.rnea(robot.model, robot.data, x_reg_ref[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
+      u_grav = pin.rnea(robot.model, robot.data, x0[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
       uRegCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
-                                            crocoddyl.ResidualModelControl(state, u_grav))
+                                            crocoddyl.ResidualModelControlGrav(state))
       print("[OCP] Added ctrl reg cost.")
       # State limits penalization
     if('all' in which_costs or 'stateLim' in which_costs):
@@ -186,9 +187,9 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all']):
       print("[OCP] Added ctrl lim cost.")
       # End-effector placement 
     if('all' in which_costs or 'placement' in which_costs):
-      # p_target = np.asarray(config['p_des']) 
-      # M_target = pin.SE3(M_ee.rotation.T, p_target)
-      desiredFramePlacement = M_ee.copy() # M_target
+      p_target = np.asarray(config['p_des']) 
+      M_target = pin.SE3(M_ee.rotation.T, p_target)
+      desiredFramePlacement = M_target
       # p_ref = desiredFramePlacement.translation.copy()
       framePlacementWeights = np.asarray(config['framePlacementWeights'])
       framePlacementCost = crocoddyl.CostModelResidual(state, 
@@ -259,9 +260,11 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all']):
     problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
     # Creating the DDP solver 
     ddp = crocoddyl.SolverFDDP(problem)
+
     if(callbacks):
       ddp.setCallbacks([crocoddyl.CallbackLogger(),
                         crocoddyl.CallbackVerbose()])
+    
     print("[OCP] OCP is ready.")
     print("-------------------------------------------------------------------")
     return ddp
@@ -276,25 +279,25 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                     which_costs=['all']):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
-     - Running cost: EE placement (Mref) + x_reg (xref) + u_reg (uref)
-     - Terminal cost: EE placement (Mref) + EE velocity (0) + x_reg (xref)
-    Mref = initial frame placement read in config
-    xref = initial state read in config
-    uref = initial gravity compensation torque (from xref)
-    INPUT: 
-        robot       : pinocchio robot wrapper
-        config      : dict from YAML config file describing task and MPC params
-        x0          : initial state of shooting problem
-        callbacks   : display Crocoddyl's DDP solver callbacks
-        cost_w_reg  : cost weight on reg. of unfiltered input w around u_grav
-        cost_w_lim  : cost weight on limit of unfiltered input w 
-        tau_plus    : use "tau_plus" integration if True, "tau" otherwise
-        lpf_type    : use expo moving avg (0), classical lpf (1) or exact (2)
-        which_costs : which cost terms in the running & terminal cost?
-                        'placement', 'velocity', 'stateReg', 'ctrlReg'
-                        'stateLim', 'ctrlLim'
-    OUTPUT:
-        FDDP solver
+      - Running cost: EE placement (Mref) + x_reg (xref) + u_reg (uref)
+      - Terminal cost: EE placement (Mref) + EE velocity (0) + x_reg (xref)
+      Mref = initial frame placement read in config
+      xref = initial state read in config
+      uref = initial gravity compensation torque (from xref)
+      INPUT: 
+          robot       : pinocchio robot wrapper
+          config      : dict from YAML config file describing task and MPC params
+          x0          : initial state of shooting problem
+          callbacks   : display Crocoddyl's DDP solver callbacks
+          cost_w_reg  : cost weight on reg. of unfiltered input w around u_grav
+          cost_w_lim  : cost weight on limit of unfiltered input w 
+          tau_plus    : use "tau_plus" integration if True, "tau" otherwise
+          lpf_type    : use expo moving avg (0), classical lpf (1) or exact (2)
+          which_costs : which cost terms in the running & terminal cost?
+                          'placement', 'velocity', 'stateReg', 'ctrlReg'
+                          'stateLim', 'ctrlLim'
+      OUTPUT:
+          FDDP solver
     '''
     
     # OCP parameters 
@@ -386,7 +389,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     # Create IAMs
     runningModels = []
     for i in range(N_h):
-      # Using pure python
       # if(i>=5*N_h/10):
       #   dt /= 1.1
       runningModels.append(crocoddyl.IntegratedActionModelLPF(
@@ -418,7 +420,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       runningModels[i].differential.armature = np.asarray(config['armature'])
 
     # Terminal IAM + set armature
-    # Using pure python
     terminalModel = crocoddyl.IntegratedActionModelLPF(
             crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                              actuation, 
@@ -450,6 +451,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     if(callbacks):
       ddp.setCallbacks([crocoddyl.CallbackLogger(),
                         crocoddyl.CallbackVerbose()])
+    
     print("[OCP] OCP is ready.")
     print("-------------------------------------------------------------------")
     return ddp

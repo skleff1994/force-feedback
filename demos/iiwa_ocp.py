@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_ocp_lpf.py
+@file iiwa_ocp.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -10,8 +10,8 @@
 
 '''
 The robot is tasked with reaching a static EE target 
-Trajectory optimization using Crocoddyl (feedback from stateLPF x=(q,v,tau))
-The goal of this script is to setup OCP (play with weights)
+Trajectory optimization using Crocoddyl
+The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
 
 import crocoddyl
@@ -48,7 +48,7 @@ N_h = config['N_h']
 dt = config['dt']
 
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                            which_costs=['stateReg', 'ctrlReg', 'placement'] ) 
+                                            which_costs=['ctrlReg', 'placement', 'velocity'] ) 
 
 # for i in range(N_h-1):
 # #   if(i<=int(N_h/10)):
@@ -62,7 +62,7 @@ ug = pin_utils.get_u_grav(q0, robot)
 xs_init = [x0 for i in range(N_h+1)]
 us_init = [ug  for i in range(N_h)]
 
-ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
 
 # import time
 # robot.initDisplay(loadModel=True)
@@ -104,36 +104,3 @@ fig, ax = plot_utils.plot_ddp_results(ddp, robot, which_plots=['x','u','p'])
 # handles_x, labels_x = ax['y'][i,2].get_legend_handles_labels()
 # fig['y'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
 # plt.show()
-
-
-
-# # Test integration (rollout)
-# xs = ddp.problem.rollout(us_init)
-# crocoddyl.plotOCSolution(xs, us_init)
-
-# Integrate with joint PD to reach q,v = 0
-# Kp = np.diag(np.array([1., 2., 1., 1., 1., 1., 1.]))*1.
-# Kd = np.diag(np.array([1., 1., 1., 1., 1., .5, .5]))*1.5
-# # Ku = np.diag(np.array([1., 1., 1., 1., 1., .5, .5]))*0.01
-# xref = np.zeros(nx+nq)
-# NSTEPS = 1000
-# xs = [y0]
-# us = []
-# for i in range(NSTEPS):
-#     x = xs[i]
-#     q = x[:nq]
-#     v = x[nq:nq+nv]
-#     tau = x[nx:]
-#     # print(q, v, tau)
-#     u = -Kp.dot(q) - Kd.dot(v) #- Ku.dot(tau - ug)
-#     us.append(u)
-#     m = ddp.problem.runningModels[0]
-#     d = m.createData()
-#     m.calc(d, x, u)
-#     xs.append(d.xnext.copy())
-# import matplotlib.pyplot as plt
-# plt.grid()
-# crocoddyl.plotOCSolution(xs, us)
-
-
-
