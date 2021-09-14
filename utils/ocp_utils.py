@@ -401,6 +401,10 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
             crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                              actuation, 
                                                              crocoddyl.CostModelSum(state, nu=actuation.nu)), dt ) )
+        # runningModels.append(crocoddyl.IntegratedActionModelRK4( 
+        #     crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
+        #                                                      actuation, 
+        #                                                      crocoddyl.CostModelSum(state, nu=actuation.nu)), dt ) )
         # Add cost models
         if('all' in which_costs or 'placement' in which_costs):
           runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
@@ -416,10 +420,10 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
           runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
         if('all' in which_costs or 'ctrlLim' in which_costs):
           runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
-        if('all' in which_costs or 'elbowLim' in which_costs):
-          runningModels[i].differential.costs.addCost("elbowLim", elbowTranslationLimitCost, config['frameTranslationElbowWeight'])
-        if('all' in which_costs or 'handLim' in which_costs):
-          runningModels[i].differential.costs.addCost("handLim", handTranslationLimitCost, config['frameTranslationHandWeight'])
+        # if('all' in which_costs or 'elbowLim' in which_costs):
+        #   runningModels[i].differential.costs.addCost("elbowLim", elbowTranslationLimitCost, config['frameTranslationElbowWeight'])
+        # if('all' in which_costs or 'handLim' in which_costs):
+        #   runningModels[i].differential.costs.addCost("handLim", handTranslationLimitCost, config['frameTranslationHandWeight'])
         # Add armature
         runningModels[i].differential.armature = np.asarray(config['armature'])
     
@@ -428,6 +432,11 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
         crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                             actuation, 
                                                             crocoddyl.CostModelSum(state, nu=actuation.nu) ) )
+    # terminalModel = crocoddyl.IntegratedActionModelRK4(
+    #     crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
+    #                                                         actuation, 
+    #                                                         crocoddyl.CostModelSum(state, nu=actuation.nu) ) )
+
     # # Add cost models
     # if('all' in which_costs or 'placement' in which_costs):
     #   terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])

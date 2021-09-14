@@ -34,7 +34,8 @@ nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv
 nu = nq
 INIT_STATES = []
-N_STATES = 200
+N_STATES = 500
+np.random.seed(1)
 state = crocoddyl.StateMultibody(robot.model)
 # np.random.seed(1)
 # low = [-2.9671, -2.0944 ,-2.9671 ,-2.0944 ,-2.9671, -2.0944, -3.0543]
@@ -52,7 +53,7 @@ def get_samples(nb_samples:int):
     '''
     samples = []
     q_max = 0.85*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
-    v_max = 0.95*np.ones(nv) #np.array([1.4835, 1.4835, 1.7453, 1.309 , 2.2689, 2.3562, 2.3562])  #np.zeros(nv) 
+    v_max = 0.9*np.ones(nv) #np.array([1.4835, 1.4835, 1.7453, 1.309 , 2.2689, 2.3562, 2.3562])  #np.zeros(nv) 
     x_max = np.concatenate([q_max, v_max])   
     for i in range(nb_samples):
         samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
