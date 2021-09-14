@@ -163,8 +163,33 @@ def cost_weight_parabolic(i, N, min_weight=0., max_weight=1.):
     '''
     return min_weight + 4.*(max_weight-min_weight)/float(N**2) * (i-N/2)**2
 
+def cost_weight_parabolic_demo():
+    '''
+     Demo of parabolic weight profile
+    '''
+    # Generate data if None provided
+    N = 200
+    weights_1 = np.zeros(N)
+    weights_2 = np.zeros(N)
+    weights_3 = np.zeros(N)
+    for i in range(N):
+      weights_1[i] = cost_weight_parabolic(i, N, min_weight=0., max_weight=4)
+      weights_2[i] = cost_weight_parabolic(i, N, min_weight=2., max_weight=4)
+      weights_3[i] = cost_weight_parabolic(i, N, min_weight=0, max_weight=2)
+    # Plot
+    import matplotlib.pyplot as plt
+    span = np.linspace(0, N-1, N)
+    p1, = plt.plot(span, weights_1, 'r-', label='min_weight=0, max_weight=4')
+    p2, = plt.plot(span, weights_2, 'g-', label='min_weight=2, max_weight=4')
+    p3, = plt.plot(span, weights_3, 'b-', label='min_weight=0, max_weight=2')
+    plt.legend(handles=[p1, p2, p3])
+    plt.xlabel('N')
+    plt.ylabel('Cost weight')
+    plt.grid()
+    plt.show()
 
-def cost_weight_normal_clamped(i, N, min_weight=0.1, max_weight=1., peak=1.):
+
+def cost_weight_normal_clamped(i, N, min_weight=0.1, max_weight=1., peak=1., alpha=0.01):
     '''
     Gaussian cost weight profile over [0,...,N] with max at i=N/2
      INPUT: 
@@ -174,7 +199,36 @@ def cost_weight_normal_clamped(i, N, min_weight=0.1, max_weight=1., peak=1.):
      OUPUT:
        Cost weight at step i
     '''
-    return min(max(peak*np.exp(-float(i-N/2)**2/2), min_weight), max_weight)
+    return min(max(peak*np.exp(-alpha*float(i-N/2)**2/2), min_weight), max_weight)
+
+def cost_weight_normal_clamped_demo():
+    '''
+     Demo of clamped normal (Gaussian) weight profile
+    '''
+    # Generate data if None provided
+    N = 500
+    weights_1 = np.zeros(N)
+    weights_2 = np.zeros(N)
+    weights_3 = np.zeros(N)
+    weights_4 = np.zeros(N)
+    for i in range(N):
+      weights_1[i] = cost_weight_normal_clamped(i, N, min_weight=0., max_weight=np.inf, peak=1, alpha=0.0001)
+      weights_2[i] = cost_weight_normal_clamped(i, N, min_weight=0., max_weight=np.inf, peak=1, alpha=0.01)
+      weights_3[i] = cost_weight_normal_clamped(i, N, min_weight=0.0, max_weight=0.8, peak=1, alpha=0.001)
+      weights_4[i] = cost_weight_normal_clamped(i, N, min_weight=0.2, max_weight=1.1, peak=1.2, alpha=0.002)
+    # Plot
+    import matplotlib.pyplot as plt
+    span = np.linspace(0, N-1, N)
+    p1, = plt.plot(span, weights_1, 'r-', label='min_weight=0., max_weight=np.inf, peak=1, alpha=0.0001')
+    p2, = plt.plot(span, weights_2, 'g-', label='min_weight=0., max_weight=np.inf, peak=1, alpha=0.01')
+    p3, = plt.plot(span, weights_3, 'b-', label='min_weight=0.0, max_weight=0.8, peak=1, alpha=0.001')
+    p4, = plt.plot(span, weights_4, 'y-', label='min_weight=0.2, max_weight=1.1, peak=1.2, alpha=0.002')
+    plt.legend(handles=[p1, p2, p3, p4])
+    plt.xlabel('N')
+    plt.ylabel('Cost weight')
+    plt.grid()
+    plt.show()
+
 
 
 def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5):
