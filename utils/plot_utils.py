@@ -1350,7 +1350,7 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
 
 ### Plot from DDP solver 
-def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=False):
+def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=False, sampling_plot=1):
     '''
     Plot ddp results from 1 or several DDP solvers
     X, U, EE trajs
@@ -1378,18 +1378,19 @@ def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=
                 fig_K_eig, ax_K_eig = plot_ddp_ricatti_eig(ddp[k], SHOW=False)
         # Overlay on top of first plot
         else:
-            if('x' in which_plots or which_plots =='all'):
-                plot_ddp_state(ddp[k], fig=fig_x, ax=ax_x, SHOW=False, marker=None)
-            if('u' in which_plots or which_plots =='all'):
-                plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u, SHOW=False, marker=None)
-            if('p' in which_plots or which_plots =='all'):
-                plot_ddp_endeff(ddp[k], robot, name_endeff, fig=fig_p, ax=ax_p, SHOW=False, marker=None)
-            if('vxx' in which_plots or which_plots =='all'):
-                plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv, SHOW=False)
-                plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig, SHOW=False)
-            if('K' in which_plots or which_plots =='all'):
-                plot_ddp_ricatti_sv(ddp[k], fig=fig_K_sv, ax=ax_K_sv, SHOW=False)
-                plot_ddp_ricatti_eig(ddp[k], fig=fig_K_eig, ax=ax_K_eig, SHOW=False)
+            if(k%sampling_plot==0):
+                if('x' in which_plots or which_plots =='all'):
+                    plot_ddp_state(ddp[k], fig=fig_x, ax=ax_x, SHOW=False, marker=None)
+                if('u' in which_plots or which_plots =='all'):
+                    plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u, SHOW=False, marker=None)
+                if('p' in which_plots or which_plots =='all'):
+                    plot_ddp_endeff(ddp[k], robot, name_endeff, fig=fig_p, ax=ax_p, SHOW=False, marker=None)
+                if('vxx' in which_plots or which_plots =='all'):
+                    plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv, SHOW=False)
+                    plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig, SHOW=False)
+                if('K' in which_plots or which_plots =='all'):
+                    plot_ddp_ricatti_sv(ddp[k], fig=fig_K_sv, ax=ax_K_sv, SHOW=False)
+                    plot_ddp_ricatti_eig(ddp[k], fig=fig_K_eig, ax=ax_K_eig, SHOW=False)
 
     if(SHOW):
       plt.show()

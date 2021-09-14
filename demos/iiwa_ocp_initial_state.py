@@ -25,7 +25,7 @@ np.set_printoptions(precision=4, linewidth=180)
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task_ocp')
+config = path_utils.load_config_file('static_reaching_task_ocp_good')
 # Get pin wrapper
 robot = IiwaConfig.buildRobotWrapper()
 # Get initial frame placement + dimensions of joint space
@@ -34,15 +34,16 @@ nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv
 nu = nq
 INIT_STATES = []
-N_STATES = 10
+N_STATES = 20
 state = crocoddyl.StateMultibody(robot.model)
-np.random.seed(12)
+# np.random.seed(1)
 # low = [-2.9671, -2.0944 ,-2.9671 ,-2.0944 ,-2.9671, -2.0944, -3.0543]
 # high = [2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543]
 # for i in range(10):
 #     q0 = np.random.uniform(low=low, high=high, size=(nq,))
 #     INIT_STATES.append(np.concatenate([q0, np.zeros(nv)]))
 
+# Sampling conservative range for the state : 95% q limits and [-0.5, +0.5] v limits
 def get_samples(nb_samples:int):
     '''
     Samples initial states x = (q,v)within conservative state range
@@ -50,14 +51,14 @@ def get_samples(nb_samples:int):
      [-1,+1] for v
     '''
     samples = []
-    q_max = 0.95*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
-    v_max = 0.5*np.ones(nv)
+    q_max = 0.85*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
+    v_max = 0.2*np.ones(nv) #np.zeros(nv) 
     x_max = np.concatenate([q_max, v_max])   
     for i in range(nb_samples):
         samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
     return samples
 
-INIT_STATES = get_samples(10)
+INIT_STATES = get_samples(N_STATES)
 
 #################
 ### OCP SETUP ###
@@ -68,14 +69,17 @@ DDPS = []
 COSTS = []
 N_h = config['N_h']
 dt = config['dt']
+rejected = 0
+sample_number = 0
 for x0 in INIT_STATES:
+    print("sample ", sample_number)
     q0 = x0[:nq]
     # Update robot model with initial state
     robot.framesForwardKinematics(q0)
     robot.computeJointJacobians(q0)
 
     # Create solver with custom horizon
-    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
+    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             which_costs=['translation', 
                                                          'ctrlReg', 
                                                          'stateReg', 
@@ -89,14 +93,29 @@ for x0 in INIT_STATES:
     # Solve
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
     # Print VF and record
-    print("q0   = ", q0)
-    print("v0   = ", x0[nq:])
-    print("COST = ", ddp.cost)
-    COSTS.append(ddp.cost)
-    DDPS.append(ddp)
+    # print("q0   = ", q0)
+    # print("v0   = ", x0[nq:])
+    # REGS.append(ddp.xreg)
+    print("REG = ", ddp.x_reg)
+    if(ddp.x_reg >= 1e-3 or ddp.u_reg >= 1e-3   ):
+        rejected+=1
+        print("Rejected !!!")
+    else:
+        print("Accept.")
+        print(" COST = ", ddp.cost)
+        COSTS.append(ddp.cost)
+        DDPS.append(ddp)
+    sample_number+=1
 
+print("Rejected : ", rejected)
 # Plot results
-fig, ax = plot_utils.plot_ddp_results(DDPS, robot, which_plots=['x','u','p'], SHOW=True)
+val_max = np.max(COSTS)
+index_max = COSTS.index(val_max)
+print("MAX COST = ", val_max, " at index ", index_max)
+
+fig, ax = plot_utils.plot_ddp_results(DDPS, robot, which_plots=['x','u','p'], SHOW=True, sampling_plot=2)
+# fig, ax = plot_utils.plot_ddp_results(DDPS[index_max], robot, which_plots=['x','u','p'], SHOW=True, sampling_plot=10)
+
 
 
 # Add ELBOW
@@ -112,29 +131,29 @@ fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
 plt.show()
 
 
-import time
-VISUALIZE = True
-pause = 0.01 # in s
-if(VISUALIZE):
-    n_ddp=0
-    for x0 in INIT_STATES:
-        q0 = x0[:nq]
-        robot.initDisplay(loadModel=True)
-        robot.display(q0)
-        viewer = robot.viz.viewer
-        # viewer.gui.addFloor('world/floor')
-        # viewer.gui.refresh()
-        log_rate = int(N_h/10)
-        print("Visualizing...")
-        time.sleep(1.)
-        for i in range(N_h):
-            # Iter log
-            viewer.gui.refresh()
-            robot.display(DDPS[n_ddp].xs[i][:nq])
-            if(i%log_rate==0):
-                print("Display config n°"+str(i))
-            time.sleep(pause)
-        n_ddp+=1
+# import time
+# VISUALIZE = True
+# pause = 0.01 # in s
+# if(VISUALIZE):
+#     n_ddp=0
+#     for x0 in INIT_STATES:
+#         q0 = x0[:nq]
+#         robot.initDisplay(loadModel=True)
+#         robot.display(q0)
+#         viewer = robot.viz.viewer
+#         # viewer.gui.addFloor('world/floor')
+#         # viewer.gui.refresh()
+#         log_rate = int(N_h/10)
+#         print("Visualizing...")
+#         time.sleep(1.)
+#         for i in range(N_h):
+#             # Iter log
+#             viewer.gui.refresh()
+#             robot.display(DDPS[n_ddp].xs[i][:nq])
+#             if(i%log_rate==0):
+#                 print("Display config n°"+str(i))
+#             time.sleep(pause)
+#         n_ddp+=1
 
 
 

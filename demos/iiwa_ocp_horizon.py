@@ -39,21 +39,18 @@ nu = nq
 # Update robot model with initial state
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
-M_ee = robot.data.oMf[id_endeff]
-print("Initial placement : \n")
-print(M_ee)
 
 #################
 ### OCP SETUP ###
 #################
 
 # Horizons to be tested
-HORIZONS = [50, 60, 70, 80, 90, 100, 300, 500, 800, 1000] #, 1500, 2000] #, 3000, 5000]
+HORIZONS = [100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 1000, 2000] #, 1500, 2000] #, 3000, 5000]
 DDPS = []
 COSTS = []
 for N_h in HORIZONS:
     # Create solver with custom horizon
-    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
+    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             which_costs=['translation', 
                                                          'ctrlReg', 
                                                          'stateReg', 
@@ -67,6 +64,7 @@ for N_h in HORIZONS:
     # Solve
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
     # Print VF and record
+    print("COST = ", ddp.cost)
     COSTS.append(ddp.cost)
     DDPS.append(ddp)
 
@@ -74,16 +72,16 @@ for N_h in HORIZONS:
 import matplotlib.pyplot as plt
 
 # Plot results
-fig, ax = plot_utils.plot_ddp_results(DDPS, robot, which_plots=['x','u','p'], SHOW=True)
+fig, ax = plot_utils.plot_ddp_results(DDPS, robot, which_plots=['x','u','p'], SHOW=False)
 
-# # Add ref pos EE
-# p_des = np.asarray(config['p_des']) 
-# for i in range(3):
-#     # Plot a posteriori integration to check IAM
-#     ax['p'][i].plot(np.linspace(0, N_h*config['dt'], N_h+1), [p_des[i]]*(N_h+1), 'r-.', label='Desired')
-# handles_x, labels_x = ax['p'][i].get_legend_handles_labels()
-# fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-# plt.show()
+# Add ref pos EE
+p_des = np.asarray(config['p_des']) 
+for i in range(3):
+    # Plot a posteriori integration to check IAM
+    ax['p'][i].plot(np.linspace(0, N_h*config['dt'], N_h+1), [p_des[i]]*(N_h+1), 'r-.', label='Desired')
+handles_x, labels_x = ax['p'][i].get_legend_handles_labels()
+fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+plt.show()
 
 # Plot VF
 fig, ax = plt.subplots(1, 1)

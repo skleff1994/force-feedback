@@ -298,7 +298,7 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
       xRegCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                             crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
-      print("[OCP] Added state reg cost.")  
+      # print("[OCP] Added state reg cost.")  
     # Control regularization
     if('all' in which_costs or 'ctrlReg' in which_costs):
       ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
@@ -306,17 +306,17 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
       uRegCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                             crocoddyl.ResidualModelControlGrav(state))
-      print("[OCP] Added ctrl reg cost.")
+      # print("[OCP] Added ctrl reg cost.")
     # State limits penalization
     if('all' in which_costs or 'stateLim' in which_costs):
       x_lim_ref  = np.zeros(nq+nv)
       q_max = 0.95*state.ub[:nq] # 95% percent of max q
-      v_max = np.ones(7)         # [-1,+1] for max v
+      v_max = np.ones(nv)         # [-1,+1] for max v
       x_max = np.concatenate([q_max, v_max]) # state.ub
       xLimitCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(-x_max, x_max)), 
                                             crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
-      print("[OCP] Added state lim cost.")
+      # print("[OCP] Added state lim cost.")
     # Control limits penalization
     if('all' in which_costs or 'ctrlLim' in which_costs):
       u_min = -np.asarray(config['u_lim']) 
@@ -325,7 +325,7 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
       uLimitCost = crocoddyl.CostModelResidual(state, 
                                               crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
                                               crocoddyl.ResidualModelControl(state, u_lim_ref))
-      print("[OCP] Added ctrl lim cost.")
+      # print("[OCP] Added ctrl lim cost.")
     # End-effector placement 
     if('all' in which_costs or 'placement' in which_costs):
       p_target = np.asarray(config['p_des']) 
@@ -337,7 +337,7 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                                                                             id_endeff, 
                                                                                             desiredFramePlacement, 
                                                                                             actuation.nu)) 
-      print("[OCP] Added frame placement cost.")
+      # print("[OCP] Added frame placement cost.")
     # End-effector velocity
     if('all' in which_costs or 'velocity' in which_costs): 
       desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
@@ -349,7 +349,7 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                                                                           desiredFrameMotion, 
                                                                                           pin.LOCAL, 
                                                                                           actuation.nu)) 
-      print("[OCP] Added frame velocity cost.")
+      # print("[OCP] Added frame velocity cost.")
     # Frame translation cost
     if('all' in which_costs or 'translation' in which_costs):
       desiredFrameTranslation = np.asarray(config['p_des']) 
@@ -360,37 +360,37 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                                                                             id_endeff, 
                                                                                             desiredFrameTranslation, 
                                                                                             actuation.nu)) 
-      print("[OCP] Added frame placement cost.")
-    # Elbow frame translation
-    if('all' in which_costs or 'elbowLim' in which_costs):
-      id_elbow = robot.model.getFrameId('A4')
-      d_min = -np.ones(3)*np.inf
-      d_min[2] = 0.
-      d_max = np.ones(3)*np.inf
-      frameTranslationGround = np.zeros(3)
-      elbowTranslationLimitCost = crocoddyl.CostModelResidual(state, 
-                                              crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(d_min, d_max),
-                                                                                        config['frameTranslationElbowWeights']),
-                                              crocoddyl.ResidualModelFrameTranslation(state, 
-                                                                                    id_elbow, 
-                                                                                    frameTranslationGround, 
-                                                                                    actuation.nu)) 
-      print("[OCP] Added translation ELBOW limit cost.")
-    # Hand frame translation
-    if('all' in which_costs or 'handLim' in which_costs):
-      d_min = 0.3*np.zeros(3)
-      d_max = np.ones(3)*np.inf
-      id_hand = robot.model.getFrameId('A6')
-      frameTranslationGround = robot.data.oMf[id_endeff].act(np.zeros(3))
-      handWeights = np.asarray(config['frameTranslationHandWeights'])
-      handTranslationLimitCost = crocoddyl.CostModelResidual(state, 
-                                              crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(d_min, d_max), 
-                                                                                                handWeights), 
-                                              crocoddyl.ResidualModelFrameTranslation(state, 
-                                                                                      id_hand, 
-                                                                                      frameTranslationGround, 
-                                                                                      actuation.nu)) 
-      print("[OCP] Added translation HAND limit cost.")
+      # print("[OCP] Added frame placement cost.")
+    # # Elbow frame translation
+    # if('all' in which_costs or 'elbowLim' in which_costs):
+    #   id_elbow = robot.model.getFrameId('A4')
+    #   d_min = -np.ones(3)*np.inf
+    #   d_min[2] = 0.
+    #   d_max = np.ones(3)*np.inf
+    #   frameTranslationGround = np.zeros(3)
+    #   elbowTranslationLimitCost = crocoddyl.CostModelResidual(state, 
+    #                                           crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(d_min, d_max),
+    #                                                                                     config['frameTranslationElbowWeights']),
+    #                                           crocoddyl.ResidualModelFrameTranslation(state, 
+    #                                                                                 id_elbow, 
+    #                                                                                 frameTranslationGround, 
+    #                                                                                 actuation.nu)) 
+    #   # print("[OCP] Added translation ELBOW limit cost.")
+    # # Hand frame translation
+    # if('all' in which_costs or 'handLim' in which_costs):
+    #   d_min = 0.3*np.zeros(3)
+    #   d_max = np.ones(3)*np.inf
+    #   id_hand = robot.model.getFrameId('A6')
+    #   frameTranslationGround = robot.data.oMf[id_endeff].act(np.zeros(3))
+    #   handWeights = np.asarray(config['frameTranslationHandWeights'])
+    #   handTranslationLimitCost = crocoddyl.CostModelResidual(state, 
+    #                                           crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(d_min, d_max), 
+    #                                                                                             handWeights), 
+    #                                           crocoddyl.ResidualModelFrameTranslation(state, 
+    #                                                                                   id_hand, 
+    #                                                                                   frameTranslationGround, 
+    #                                                                                   actuation.nu)) 
+      # print("[OCP] Added translation HAND limit cost.")
 
     # Create IAMs
     runningModels = []
@@ -444,7 +444,7 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
     #   terminalModel.differential.costs.addCost("handLim", handTranslationLimitCost, config['frameTranslationHandWeightTerminal'])
     # # Add armature
     # terminalModel.differential.armature = np.asarray(config['armature']) 
-    print("[OCP] Created IAMs.")
+    # print("[OCP] Created IAMs.")
     
     # Create the shooting problem
     problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
@@ -455,8 +455,8 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
       ddp.setCallbacks([crocoddyl.CallbackLogger(),
                         crocoddyl.CallbackVerbose()])
     
-    print("[OCP] OCP is ready.")
-    print("-------------------------------------------------------------------")
+    # print("[OCP] OCP is ready.")
+    # print("-------------------------------------------------------------------")
     return ddp
 
 
