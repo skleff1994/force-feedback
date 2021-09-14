@@ -2,28 +2,29 @@
 # Used for MPC simulations with and without torque tracking
 
 # OCP
-dt: 0.05          # OCP integration step 
-N_h: 300         # Horizon length in nodes
+dt: 0.01          # OCP integration step 
+N_h: 250         # Horizon length in nodes
 maxiter: 1000    # Max number of iterations in DDP
 # Initial robot state
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]
 dq0: [0.,0.,0.,0.,0.,0.,0.]
 
 # State regularization 
-stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 3., 3., 3., 3., 3., 2., 3.]
-stateRegWeight: 0.03 #.02
-stateRegWeightTerminal: 0.03 #.02
-# Torque regularization 
-ctrlRegWeights: [1., 1., 1., 2., 2., 1., 1.]
-ctrlRegWeight: 0.0001
+stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 6., 4., 6., 8., 3., 4., 3.]
+stateRegWeight: 0.1 #.02
+stateRegWeightTerminal: 0.1 #.02
+# Torque regularization
+ctrlRegWeights: [2., 3., 2., 3., 2., 3., 1.]
+ctrlRegWeight: 0.001
 
 
 # State limits
-stateLimWeight: 0.01
-stateLimWeightTerminal: 0.01
+stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 5., 5., 5., 5., 5., 5., 5.]
+stateLimWeight: 2.
+stateLimWeightTerminal: 2.
 # # Torque limits
 # ctrl_lim: [320, 320, 176, 176, 110, 40, 40]
-# ctrlLimWeight: 10.
+# ctrlLimWeight: 0.1
 
 
 # # Frame placement 
@@ -33,13 +34,13 @@ stateLimWeightTerminal: 0.01
 # framePlacementWeightTerminal: 1.5 
 # Frame translation 
 p_des: [-0.3, -0.4, 0.5]  
-frameTranslationWeights: [1., 1., 1.]
-frameTranslationWeight: 0.05
-frameTranslationWeightTerminal: 0.05 
-# Frame velocity
-frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: 0.01
-frameVelocityWeightTerminal: 0.01 
+frameTranslationWeights: [3., 3., 2.8]
+frameTranslationWeight: 12.
+frameTranslationWeightTerminal: 12. 
+# # Frame velocity
+# frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
+# frameVelocityWeight: 1.
+# frameVelocityWeightTerminal: 1. 
 
 
 # # Frame placement ELBOW # Positive distance to ground

@@ -34,7 +34,7 @@ nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv
 nu = nq
 INIT_STATES = []
-N_STATES = 20
+N_STATES = 200
 state = crocoddyl.StateMultibody(robot.model)
 # np.random.seed(1)
 # low = [-2.9671, -2.0944 ,-2.9671 ,-2.0944 ,-2.9671, -2.0944, -3.0543]
@@ -52,7 +52,7 @@ def get_samples(nb_samples:int):
     '''
     samples = []
     q_max = 0.85*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
-    v_max = 0.2*np.ones(nv) #np.zeros(nv) 
+    v_max = 0.95*np.ones(nv) #np.array([1.4835, 1.4835, 1.7453, 1.309 , 2.2689, 2.3562, 2.3562])  #np.zeros(nv) 
     x_max = np.concatenate([q_max, v_max])   
     for i in range(nb_samples):
         samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
@@ -63,6 +63,7 @@ INIT_STATES = get_samples(N_STATES)
 #################
 ### OCP SETUP ###
 #################
+
 
 # Horizons to be tested
 DDPS = []
@@ -82,8 +83,9 @@ for x0 in INIT_STATES:
     ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             which_costs=['translation', 
                                                          'ctrlReg', 
-                                                         'stateReg', 
-                                                         'velocity',
+                                                         'stateReg',
+                                                        #  'ctrlLim', 
+                                                        #  'velocity',
                                                          'stateLim'],
                                             dt = None, N_h=None) 
     # Warm-start
@@ -113,7 +115,7 @@ val_max = np.max(COSTS)
 index_max = COSTS.index(val_max)
 print("MAX COST = ", val_max, " at index ", index_max)
 
-fig, ax = plot_utils.plot_ddp_results(DDPS, robot, which_plots=['x','u','p'], SHOW=True, sampling_plot=2)
+fig, ax = plot_utils.plot_ddp_results(DDPS, robot, which_plots=['x','u','p'], SHOW=True, sampling_plot=10)
 # fig, ax = plot_utils.plot_ddp_results(DDPS[index_max], robot, which_plots=['x','u','p'], SHOW=True, sampling_plot=10)
 
 

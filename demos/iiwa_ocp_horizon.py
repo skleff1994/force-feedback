@@ -45,7 +45,7 @@ robot.computeJointJacobians(q0)
 #################
 
 # Horizons to be tested
-HORIZONS = [100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 1000, 2000] #, 1500, 2000] #, 3000, 5000]
+HORIZONS = [100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 1000] #, 2000] #, 1500, 2000] #, 3000, 5000]
 DDPS = []
 COSTS = []
 for N_h in HORIZONS:
@@ -53,9 +53,9 @@ for N_h in HORIZONS:
     ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             which_costs=['translation', 
                                                          'ctrlReg', 
-                                                         'stateReg', 
-                                                         'velocity', 
-                                                         'stateLim' ],
+                                                         'stateReg'], 
+                                                        #  'velocity', 
+                                                        #  'stateLim' ],
                                             dt = None, N_h=N_h) 
     # Warm-start
     ug = pin_utils.get_u_grav(q0, robot)

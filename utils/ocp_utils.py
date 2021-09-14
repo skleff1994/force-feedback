@@ -311,16 +311,17 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
     if('all' in which_costs or 'stateLim' in which_costs):
       x_lim_ref  = np.zeros(nq+nv)
       q_max = 0.95*state.ub[:nq] # 95% percent of max q
-      v_max = np.ones(nv)         # [-1,+1] for max v
+      v_max = np.ones(nv)        # [-1,+1] for max v
       x_max = np.concatenate([q_max, v_max]) # state.ub
+      stateLimWeights = np.asarray(config['stateLimWeights'])
       xLimitCost = crocoddyl.CostModelResidual(state, 
-                                            crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(-x_max, x_max)), 
+                                            crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(-x_max, x_max),stateLimWeights), 
                                             crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
       # print("[OCP] Added state lim cost.")
     # Control limits penalization
     if('all' in which_costs or 'ctrlLim' in which_costs):
-      u_min = -np.asarray(config['u_lim']) 
-      u_max = +np.asarray(config['u_lim']) 
+      u_min = -np.asarray(config['ctrl_lim']) 
+      u_max = +np.asarray(config['ctrl_lim']) 
       u_lim_ref = np.zeros(nq)
       uLimitCost = crocoddyl.CostModelResidual(state, 
                                               crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
