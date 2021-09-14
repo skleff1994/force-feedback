@@ -66,7 +66,7 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True,
                                                 cost_w_lim=1.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
-                                                which_costs=['stateReg']) #, 'ctrlReg'])#, 'placement'] ) 
+                                                which_costs=['stateReg', 'ctrlReg', 'placement'] ) 
 
 # for i in range(N_h-1):
 # #   if(i<=int(N_h/10)):

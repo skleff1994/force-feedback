@@ -35,16 +35,28 @@ def linear_interpolation(data, N):
         sample+=1
       interp[i] = data[sample]*(1-coef) + data[min(sample+1, n-1)]*coef
     return interp 
-        
-# # Check
-# X = np.ones((10,2))
-# for i in range(X.shape[0]):
-#     X[i] = i**2
-# interp = interpolate(X, 3)
-# import matplotlib.pyplot as plt
-# plt.plot(np.linspace(0,1,X.shape[0]), X[:,1], 'ro')
-# plt.plot(np.linspace(0,1,interp.shape[0]), interp[:,1], 'g*')
-# plt.show()
+
+def linear_interpolation_demo():
+    '''
+     Demo of linear interpolation of order N on example data
+    '''
+    # Generate data if None provided
+    data = np.ones((10,2))
+    for i in range(data.shape[0]):
+        data[i] = i**2
+    N = 5
+    print("Input data = \n")
+    print(data)
+    # Interpolate
+    print("Interpolate with "+str(N)+" intermediate knots")
+    interp = linear_interpolation(data, N)
+    # Plot
+    import matplotlib.pyplot as plt
+    input, = plt.plot(np.linspace(0, 1, data.shape[0]), data[:,1], 'ro', label='input data')
+    output, = plt.plot(np.linspace(0, 1, interp.shape[0]), interp[:,1], 'g*', label='interpolated')
+    plt.legend(handles=[input, output])
+    plt.grid()
+    plt.show()
 
 
 
@@ -66,6 +78,38 @@ def cost_weight_tanh(i, N, max_weight=1., alpha=1., alpha_cut=0.25):
     '''
     return 0.5*max_weight*( np.tanh(alpha*(i/N) -alpha*alpha_cut) + np.tanh(alpha*alpha_cut) )
 
+def cost_weight_tanh_demo():
+    '''
+     Demo of hyperbolic tangent profile
+    '''
+    # Generate data if None provided
+    N = 200
+    weights_1 = np.zeros(N)
+    weights_2 = np.zeros(N)
+    weights_3 = np.zeros(N)
+    weights_4 = np.zeros(N)
+    weights_5 = np.zeros(N)
+    for i in range(N):
+      weights_1[i] = cost_weight_tanh(i, N, alpha=4., alpha_cut=0.50)
+      weights_2[i] = cost_weight_tanh(i, N, alpha=10., alpha_cut=0.50)
+      weights_3[i] = cost_weight_tanh(i, N, alpha=4., alpha_cut=0.75)
+      weights_4[i] = cost_weight_tanh(i, N, alpha=10., alpha_cut=0.75)
+      weights_5[i] = cost_weight_tanh(i, N, alpha=10., alpha_cut=0.25)
+    # Plot
+    import matplotlib.pyplot as plt
+    span = np.linspace(0, N-1, N)
+    p0, = plt.plot(span, [1.]*N, 'k-.', label='max_weight=1')
+    p1, = plt.plot(span, weights_1, 'r-', label='alpha=4, cut=0.50')
+    p2, = plt.plot(span, weights_2, 'g-', label='alpha=10, cut=0.50')
+    p3, = plt.plot(span, weights_3, 'b-', label='alpha=4, cut=0.75')
+    p4, = plt.plot(span, weights_4, 'y-', label='alpha=10, cut=0.75')
+    p5, = plt.plot(span, weights_5, 'c-', label='alpha=10, cut=0.25')
+    plt.legend(handles=[p1, p2, p3, p4, p5])
+    plt.xlabel('N')
+    plt.ylabel('Cost weight')
+    plt.grid()
+    plt.show()
+
 
 def cost_weight_linear(i, N, min_weight=0., max_weight=1.):
     '''
@@ -79,6 +123,31 @@ def cost_weight_linear(i, N, min_weight=0., max_weight=1.):
        Cost weight at step i
     '''
     return (max_weight-min_weight)/N * i + min_weight
+
+def cost_weight_linear_demo():
+    '''
+     Demo of linear profile
+    '''
+    # Generate data if None provided
+    N = 200
+    weights_1 = np.zeros(N)
+    weights_2 = np.zeros(N)
+    weights_3 = np.zeros(N)
+    for i in range(N):
+      weights_1[i] = cost_weight_linear(i, N, min_weight=0., max_weight=1)
+      weights_2[i] = cost_weight_linear(i, N, min_weight=2., max_weight=4)
+      weights_3[i] = cost_weight_linear(i, N, min_weight=0, max_weight=2)
+    # Plot
+    import matplotlib.pyplot as plt
+    span = np.linspace(0, N-1, N)
+    p1, = plt.plot(span, weights_1, 'r-', label='min_weight=0, max_weight=1')
+    p2, = plt.plot(span, weights_2, 'g-', label='min_weight=2, max_weight=4')
+    p3, = plt.plot(span, weights_3, 'b-', label='min_weight=0, max_weight=2')
+    plt.legend(handles=[p1, p2, p3])
+    plt.xlabel('N')
+    plt.ylabel('Cost weight')
+    plt.grid()
+    plt.show()
 
 
 def cost_weight_parabolic(i, N, min_weight=0., max_weight=1.):
@@ -130,6 +199,7 @@ def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5
 # plt.plot(r, a)
 # plt.grid()
 # plt.show()
+
 
 
 
@@ -205,8 +275,11 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
       p_target = np.asarray(config['p_des']) 
       # M_target = pin.SE3(M_ee.rotation, p_target)
       rot = np.eye(3)
-      rot[2,2] = -1
-      rot[1,1] = -1
+      tx = np.pi/3
+      rot[1,1] = np.cos(tx)
+      rot[1,2] = -np.sin(tx)
+      rot[2,1] = np.sin(tx)
+      rot[2,2] = np.cos(tx)
       M_target = pin.SE3(rot, p_target)
       desiredFramePlacement = M_target
       # p_ref = desiredFramePlacement.translation.copy()
@@ -232,7 +305,59 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                                                                           pin.LOCAL, 
                                                                                           actuation.nu)) 
       print("[OCP] Added frame velocity cost.")
-    
+    if('all' in which_costs or 'translation' in which_costs):
+      p_target = np.asarray(config['p_des']) 
+      # M_target = pin.SE3(M_ee.rotation, p_target)
+      # rot = np.eye(3)
+      # tx = np.pi/3
+      # rot[1,1] = np.cos(tx)
+      # rot[1,2] = -np.sin(tx)
+      # rot[2,1] = np.sin(tx)
+      # rot[2,2] = np.cos(tx)
+      # M_target = pin.SE3(rot, p_target)
+      desiredFrameTranslation = p_target
+      # p_ref = desiredFramePlacement.translation.copy()
+      frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+      frameTranslationCost = crocoddyl.CostModelResidual(state, 
+                                                      crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
+                                                      crocoddyl.ResidualModelFrameTranslation(state, 
+                                                                                            id_endeff, 
+                                                                                            desiredFrameTranslation, 
+                                                                                            actuation.nu)) 
+      print("[OCP] Added frame placement cost.\n")
+      print("[OCP]    Desired placement : \n") 
+      # print(M_target) 
+    if('all' in which_costs or 'elbowLim' in which_costs):
+      id_elbow = robot.model.getFrameId('A4')
+      d_min = -np.ones(3)*np.inf
+      d_min[2] = 0.
+      d_max = np.ones(3)*np.inf
+      frameTranslationGround = np.zeros(3)
+      elbowTranslationLimitCost = crocoddyl.CostModelResidual(state, 
+                                              crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(d_min, d_max),
+                                                                                        config['frameTranslationElbowWeights']),
+                                              crocoddyl.ResidualModelFrameTranslation(state, 
+                                                                                    id_elbow, 
+                                                                                    frameTranslationGround, 
+                                                                                    actuation.nu)) 
+      print("[OCP] Added translation ELBOW limit cost.")
+
+    if('all' in which_costs or 'handLim' in which_costs):
+      d_min = 0.3*np.zeros(3)
+      d_max = np.ones(3)*np.inf
+      id_hand = robot.model.getFrameId('A6')
+      frameTranslationGround = robot.data.oMf[id_endeff].act(np.zeros(3))
+      handWeights = np.asarray(config['frameTranslationHandWeights'])
+      handTranslationLimitCost = crocoddyl.CostModelResidual(state, 
+                                              crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(d_min, d_max), 
+                                                                                                handWeights), 
+                                              crocoddyl.ResidualModelFrameTranslation(state, 
+                                                                                      id_hand, 
+                                                                                      frameTranslationGround, 
+                                                                                      actuation.nu)) 
+      print("[OCP] Added translation HAND limit cost.")
+
+
     # Create IAMs
     runningModels = []
     for i in range(N_h):
@@ -244,6 +369,8 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
         # Add cost models
         if('all' in which_costs or 'placement' in which_costs):
           runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
+        if('all' in which_costs or 'translation' in which_costs):
+          runningModels[i].differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeight'])
         if('all' in which_costs or 'velocity' in which_costs):
           runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
         if('all' in which_costs or 'stateReg' in which_costs):
@@ -254,6 +381,10 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
           runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
         if('all' in which_costs or 'ctrlLim' in which_costs):
           runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
+        if('all' in which_costs or 'elbowLim' in which_costs):
+          runningModels[i].differential.costs.addCost("elbowLim", elbowTranslationLimitCost, config['frameTranslationElbowWeight'])
+        if('all' in which_costs or 'handLim' in which_costs):
+          runningModels[i].differential.costs.addCost("handLim", handTranslationLimitCost, config['frameTranslationHandWeight'])
         # Add armature
         runningModels[i].differential.armature = np.asarray(config['armature'])
     
@@ -262,17 +393,21 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
         crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                             actuation, 
                                                             crocoddyl.CostModelSum(state, nu=actuation.nu) ) )
-    # Add cost models
-    if('all' in which_costs or 'placement' in which_costs):
-      terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
-    if('all' in which_costs or 'velocity' in which_costs):
-      terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
-    if('all' in which_costs or 'stateReg' in which_costs):
-      terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
-    if('all' in which_costs or 'velocity' in which_costs):
-      terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
-    if('all' in which_costs or 'stateLim' in which_costs):
-      terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
+    # # Add cost models
+    # if('all' in which_costs or 'placement' in which_costs):
+    #   terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
+    # if('all' in which_costs or 'velocity' in which_costs):
+    #   terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
+    # if('all' in which_costs or 'stateReg' in which_costs):
+    #   terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
+    # if('all' in which_costs or 'velocity' in which_costs):
+    #   terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
+    # if('all' in which_costs or 'stateLim' in which_costs):
+    #   terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
+    # if('all' in which_costs or 'elbowLim' in which_costs):
+    #   terminalModel.differential.costs.addCost("elbowLim", elbowTranslationLimitCost, config['frameTranslationElbowWeightTerminal'])
+    # if('all' in which_costs or 'handLim' in which_costs):
+    #   terminalModel.differential.costs.addCost("handLim", handTranslationLimitCost, config['frameTranslationHandWeightTerminal'])
     # Add armature
     terminalModel.differential.armature = np.asarray(config['armature']) 
     print("[OCP] Created IAMs.")
@@ -419,8 +554,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                               stepTime=dt, 
                                                               withCostResidual=True, 
                                                               fc=f_c, 
-                                                              cost_weight_w=cost_w_reg, 
-                                                              # cost_weight_w_lim=cost_w_lim,
+                                                              cost_weight_w_reg=cost_w_reg, 
+                                                              cost_weight_w_lim=cost_w_lim,
                                                               tau_plus_integration=tau_plus,
                                                               filter=lpf_type))
       # print("Node "+str(i)+" : "+str(dt))
@@ -448,8 +583,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                       stepTime=0., 
                                                       withCostResidual=True, 
                                                       fc=f_c, 
-                                                      cost_weight_w=cost_w_reg, 
-                                                      # cost_weight_w_lim=cost_w_lim,
+                                                      cost_weight_w_reg=cost_w_reg, 
+                                                      cost_weight_w_lim=cost_w_lim,
                                                       tau_plus_integration=tau_plus,
                                                       filter=lpf_type)
                                                             

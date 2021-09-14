@@ -50,7 +50,7 @@ N_h = config['N_h']
 dt = config['dt']
 
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                            which_costs=['placement', 'ctrlReg', 'stateReg', 'velocity'] ) 
+                                            which_costs=['placement', 'ctrlReg', 'stateReg', 'velocity','placement_elbow'] ) 
 
 # # Half reach time (in OCP nodes)
 # PHASE = 50
@@ -72,7 +72,7 @@ us_init = [ug  for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
-VISUALIZE = False
+VISUALIZE = True
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
