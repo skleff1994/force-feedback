@@ -50,7 +50,11 @@ N_h = config['N_h']
 dt = config['dt']
 
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                            which_costs=['placement', 'ctrlReg', 'stateReg', 'velocity','placement_elbow'] ) 
+                                            which_costs=['translation', 
+                                                         'ctrlReg', 
+                                                         'stateReg', 
+                                                         'velocity',
+                                                         'stateLim'] ) 
 
 # # Half reach time (in OCP nodes)
 # PHASE = 50

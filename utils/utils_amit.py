@@ -84,19 +84,18 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
     M_ee = robot.data.oMf[id_endeff]
     nq, nv = robot.model.nq, robot.model.nv
     # Construct cost function terms
-      # State and actuation models
+    # State and actuation models
     state = crocoddyl.StateMultibody(robot.model)
     actuation = crocoddyl.ActuationModelFull(state)
-      # State regularization
+    # State regularization
     if('all' in which_costs or 'stateReg' in which_costs):
       stateRegWeights = np.asarray(config['stateRegWeights'])
       x_reg_ref = np.concatenate([np.asarray(config['q0']), np.asarray(config['dq0'])]) #np.zeros(nq+nv)     
       xRegCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                             crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
-      print("[OCP] Added state reg cost.")
-       
-       # Control regularization
+      print("[OCP] Added state reg cost.")  
+    # Control regularization
     if('all' in which_costs or 'ctrlReg' in which_costs):
       ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
       u_grav = pin.rnea(robot.model, robot.data, x0[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
@@ -104,14 +103,17 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                             crocoddyl.ResidualModelControlGrav(state))
       print("[OCP] Added ctrl reg cost.")
-      # State limits penalization
+    # State limits penalization
     if('all' in which_costs or 'stateLim' in which_costs):
       x_lim_ref  = np.zeros(nq+nv)
+      q_max = 0.95*state.ub[:nq] # 95% percent of max q
+      v_max = np.ones(7)         # [-1,+1] for max v
+      x_max = np.concatenate([q_max, v_max]) # state.ub
       xLimitCost = crocoddyl.CostModelResidual(state, 
-                                            crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
+                                            crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(-x_max, x_max)), 
                                             crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
-      print("[OCP] Added state lim cost.")
-      # Control limits penalization
+      print("[OCP] Added state lim cost.\n")
+    # Control limits penalization
     if('all' in which_costs or 'ctrlLim' in which_costs):
       u_min = -np.asarray(config['u_lim']) 
       u_max = +np.asarray(config['u_lim']) 
@@ -120,7 +122,7 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                               crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
                                               crocoddyl.ResidualModelControl(state, u_lim_ref))
       print("[OCP] Added ctrl lim cost.")
-      # End-effector placement 
+    # End-effector placement 
     if('all' in which_costs or 'placement' in which_costs):
       p_target = np.asarray(config['p_des']) 
       # M_target = pin.SE3(M_ee.rotation, p_target)
@@ -143,7 +145,7 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
       print("[OCP] Added frame placement cost.\n")
       print("[OCP]    Desired placement : \n") 
       print(M_target) 
-      # End-effector velocity
+    # End-effector velocity
     if('all' in which_costs or 'velocity' in which_costs): 
       desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
       frameVelocityWeights = np.ones(6)
@@ -155,6 +157,7 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                                                                           pin.LOCAL, 
                                                                                           actuation.nu)) 
       print("[OCP] Added frame velocity cost.")
+    # Frame translation cost
     if('all' in which_costs or 'translation' in which_costs):
       p_target = np.asarray(config['p_des']) 
       desiredFrameTranslation = p_target
@@ -201,6 +204,8 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
     # Add cost models
     if('all' in which_costs or 'placement' in which_costs):
       terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
+    if('all' in which_costs or 'translation' in which_costs):
+      terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal'])
     if('all' in which_costs or 'velocity' in which_costs):
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
     if('all' in which_costs or 'stateReg' in which_costs):
@@ -248,12 +253,6 @@ def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=
                 fig_u, ax_u = plot_ddp_control(ddp[k], SHOW=False)
             if('p' in which_plots or which_plots =='all'):
                 fig_p, ax_p = plot_ddp_endeff(ddp[k], robot, name_endeff, SHOW=False)
-            if('vxx' in which_plots or which_plots =='all'):
-                fig_vxx_sv, ax_vxx_sv = plot_ddp_vxx_sv(ddp[k], SHOW=False)
-                fig_vxx_eig, ax_vxx_eig = plot_ddp_vxx_eig(ddp[k], SHOW=False)
-            if('K' in which_plots or which_plots =='all'):
-                fig_K_sv, ax_K_sv = plot_ddp_ricatti_sv(ddp[k], SHOW=False)
-                fig_K_eig, ax_K_eig = plot_ddp_ricatti_eig(ddp[k], SHOW=False)
         # Overlay on top of first plot
         else:
             if('x' in which_plots or which_plots =='all'):
@@ -262,12 +261,6 @@ def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=
                 plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u, SHOW=False, marker='x')
             if('p' in which_plots or which_plots =='all'):
                 plot_ddp_endeff(ddp[k], robot, name_endeff, fig=fig_p, ax=ax_p, SHOW=False, marker='x')
-            if('vxx' in which_plots or which_plots =='all'):
-                plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv, SHOW=False)
-                plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig, SHOW=False)
-            if('K' in which_plots or which_plots =='all'):
-                plot_ddp_ricatti_sv(ddp[k], fig=fig_K_sv, ax=ax_K_sv, SHOW=False)
-                plot_ddp_ricatti_eig(ddp[k], fig=fig_K_eig, ax=ax_K_eig, SHOW=False)
 
     if(SHOW):
       plt.show()
@@ -284,7 +277,7 @@ def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=
 
     return fig, ax
  
-def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True, marker='o'):
+def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True, marker=None):
     '''
     Plot ddp results (state)
     '''
@@ -322,7 +315,7 @@ def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True, marker='o'):
         plt.show()
     return fig, ax
 
-def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True, marker='o'):
+def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True, marker=None):
     '''
     Plot ddp results (control)
     '''
@@ -355,7 +348,7 @@ def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True, marker='o'):
         plt.show()
     return fig, ax
 
-def plot_ddp_endeff(ddp, robot, name_endeff, fig=None, ax=None, label=None, SHOW=True, marker='o'):
+def plot_ddp_endeff(ddp, robot, name_endeff, fig=None, ax=None, label=None, SHOW=True, marker=None):
     '''
     Plot ddp results (endeff)
     '''

@@ -288,19 +288,18 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
     M_ee = robot.data.oMf[id_endeff]
     nq, nv = robot.model.nq, robot.model.nv
     # Construct cost function terms
-      # State and actuation models
+    # State and actuation models
     state = crocoddyl.StateMultibody(robot.model)
     actuation = crocoddyl.ActuationModelFull(state)
-      # State regularization
+    # State regularization
     if('all' in which_costs or 'stateReg' in which_costs):
       stateRegWeights = np.asarray(config['stateRegWeights'])
       x_reg_ref = np.concatenate([np.asarray(config['q0']), np.asarray(config['dq0'])]) #np.zeros(nq+nv)     
       xRegCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                             crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
-      print("[OCP] Added state reg cost.")
-       
-       # Control regularization
+      print("[OCP] Added state reg cost.")  
+    # Control regularization
     if('all' in which_costs or 'ctrlReg' in which_costs):
       ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
       u_grav = pin.rnea(robot.model, robot.data, x0[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
@@ -308,14 +307,17 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                             crocoddyl.ResidualModelControlGrav(state))
       print("[OCP] Added ctrl reg cost.")
-      # State limits penalization
+    # State limits penalization
     if('all' in which_costs or 'stateLim' in which_costs):
       x_lim_ref  = np.zeros(nq+nv)
+      q_max = 0.95*state.ub[:nq] # 95% percent of max q
+      v_max = np.ones(7)         # [-1,+1] for max v
+      x_max = np.concatenate([q_max, v_max]) # state.ub
       xLimitCost = crocoddyl.CostModelResidual(state, 
-                                            crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
+                                            crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(-x_max, x_max)), 
                                             crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
       print("[OCP] Added state lim cost.")
-      # Control limits penalization
+    # Control limits penalization
     if('all' in which_costs or 'ctrlLim' in which_costs):
       u_min = -np.asarray(config['u_lim']) 
       u_max = +np.asarray(config['u_lim']) 
@@ -324,19 +326,10 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                               crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
                                               crocoddyl.ResidualModelControl(state, u_lim_ref))
       print("[OCP] Added ctrl lim cost.")
-      # End-effector placement 
+    # End-effector placement 
     if('all' in which_costs or 'placement' in which_costs):
       p_target = np.asarray(config['p_des']) 
-      # M_target = pin.SE3(M_ee.rotation, p_target)
-      rot = np.eye(3)
-      tx = np.pi/3
-      rot[1,1] = np.cos(tx)
-      rot[1,2] = -np.sin(tx)
-      rot[2,1] = np.sin(tx)
-      rot[2,2] = np.cos(tx)
-      M_target = pin.SE3(rot, p_target)
-      desiredFramePlacement = M_target
-      # p_ref = desiredFramePlacement.translation.copy()
+      M_target = pin.SE3(M_ee.rotation, p_target)
       framePlacementWeights = np.asarray(config['framePlacementWeights'])
       framePlacementCost = crocoddyl.CostModelResidual(state, 
                                                       crocoddyl.ActivationModelWeightedQuad(framePlacementWeights**2), 
@@ -344,10 +337,8 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                                                                             id_endeff, 
                                                                                             desiredFramePlacement, 
                                                                                             actuation.nu)) 
-      print("[OCP] Added frame placement cost.\n")
-      print("[OCP]    Desired placement : \n") 
-      print(M_target) 
-      # End-effector velocity
+      print("[OCP] Added frame placement cost.")
+    # End-effector velocity
     if('all' in which_costs or 'velocity' in which_costs): 
       desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
       frameVelocityWeights = np.ones(6)
@@ -359,18 +350,9 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                                                                           pin.LOCAL, 
                                                                                           actuation.nu)) 
       print("[OCP] Added frame velocity cost.")
+    # Frame translation cost
     if('all' in which_costs or 'translation' in which_costs):
-      p_target = np.asarray(config['p_des']) 
-      # M_target = pin.SE3(M_ee.rotation, p_target)
-      # rot = np.eye(3)
-      # tx = np.pi/3
-      # rot[1,1] = np.cos(tx)
-      # rot[1,2] = -np.sin(tx)
-      # rot[2,1] = np.sin(tx)
-      # rot[2,2] = np.cos(tx)
-      # M_target = pin.SE3(rot, p_target)
-      desiredFrameTranslation = p_target
-      # p_ref = desiredFramePlacement.translation.copy()
+      desiredFrameTranslation = np.asarray(config['p_des']) 
       frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
       frameTranslationCost = crocoddyl.CostModelResidual(state, 
                                                       crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
@@ -378,9 +360,8 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                                                                             id_endeff, 
                                                                                             desiredFrameTranslation, 
                                                                                             actuation.nu)) 
-      print("[OCP] Added frame placement cost.\n")
-      print("[OCP]    Desired placement : \n") 
-      # print(M_target) 
+      print("[OCP] Added frame placement cost.")
+    # Elbow frame translation
     if('all' in which_costs or 'elbowLim' in which_costs):
       id_elbow = robot.model.getFrameId('A4')
       d_min = -np.ones(3)*np.inf
@@ -395,7 +376,7 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                                                                     frameTranslationGround, 
                                                                                     actuation.nu)) 
       print("[OCP] Added translation ELBOW limit cost.")
-
+    # Hand frame translation
     if('all' in which_costs or 'handLim' in which_costs):
       d_min = 0.3*np.zeros(3)
       d_max = np.ones(3)*np.inf
@@ -410,7 +391,6 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
                                                                                       frameTranslationGround, 
                                                                                       actuation.nu)) 
       print("[OCP] Added translation HAND limit cost.")
-
 
     # Create IAMs
     runningModels = []
@@ -452,18 +432,18 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
     #   terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
     # if('all' in which_costs or 'velocity' in which_costs):
     #   terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
+    # if('all' in which_costs or 'translation' in which_costs):
+    #   terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal'])
     # if('all' in which_costs or 'stateReg' in which_costs):
     #   terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
-    # if('all' in which_costs or 'velocity' in which_costs):
-    #   terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
     # if('all' in which_costs or 'stateLim' in which_costs):
     #   terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
     # if('all' in which_costs or 'elbowLim' in which_costs):
     #   terminalModel.differential.costs.addCost("elbowLim", elbowTranslationLimitCost, config['frameTranslationElbowWeightTerminal'])
     # if('all' in which_costs or 'handLim' in which_costs):
     #   terminalModel.differential.costs.addCost("handLim", handTranslationLimitCost, config['frameTranslationHandWeightTerminal'])
-    # Add armature
-    terminalModel.differential.armature = np.asarray(config['armature']) 
+    # # Add armature
+    # terminalModel.differential.armature = np.asarray(config['armature']) 
     print("[OCP] Created IAMs.")
     
     # Create the shooting problem
@@ -489,11 +469,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                     which_costs=['all']):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
-      - Running cost: EE placement (Mref) + x_reg (xref) + u_reg (uref)
-      - Terminal cost: EE placement (Mref) + EE velocity (0) + x_reg (xref)
-      Mref = initial frame placement read in config
-      xref = initial state read in config
-      uref = initial gravity compensation torque (from xref)
       INPUT: 
           robot       : pinocchio robot wrapper
           config      : dict from YAML config file describing task and MPC params
@@ -518,20 +493,18 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     M_ee = robot.data.oMf[id_endeff]
     nq, nv = robot.model.nq, robot.model.nv
     nx = nq+nv
-    # Construct cost function terms
-      # State and actuation models
+    # State and actuation models
     state = crocoddyl.StateMultibody(robot.model)
     actuation = crocoddyl.ActuationModelFull(state)
-      # State regularization
+    # State regularization
     if('all' in which_costs or 'stateReg' in which_costs):
       stateRegWeights = np.asarray(config['stateRegWeights'])
       x_reg_ref = y0[:nq+nv]   
-      # print("x_reg_ref = ", x_reg_ref)  
       xRegCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                             crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
       print('[OCP] Added state regularization cost.')
-       # Control regularization
+    # Control regularization
     if('all' in which_costs or 'ctrlReg' in which_costs):
       ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
       u_grav = y0[-nq:] #pin.rnea(robot.model, robot.data, x_reg_ref[:nq], np.zeros((nv,1)), np.zeros((nq,1))) #
@@ -540,14 +513,14 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                             crocoddyl.ResidualModelControl(state, u_grav))
       print('[OCP] Added control regularization cost.')
-      # State limits penalization
+    # State limits penalization
     if('all' in which_costs or 'stateLim' in which_costs):
       x_lim_ref  = np.zeros(nq+nv)
       xLimitCost = crocoddyl.CostModelResidual(state, 
                                               crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
                                               crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
       print('[OCP] Added state limit cost.')
-      # Control limits penalization
+    # Control limits penalization
     if('all' in which_costs or 'ctrlLim' in which_costs):
       u_min = -np.asarray(config['u_lim']) 
       u_max = +np.asarray(config['u_lim']) 
@@ -556,12 +529,12 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                               crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
                                               crocoddyl.ResidualModelControl(state, u_lim_ref))
       print('[OCP] Added control limit cost.')
-      # End-effector placement 
+    # End-effector placement 
     if('all' in which_costs or 'placement' in which_costs):
-      # p_target = np.asarray(config['p_des']) 
-      # M_target = pin.SE3(M_ee.rotation.T, p_target)
-      desiredFramePlacement = M_ee.copy() #M_target #M_ee.copy()
-      desiredFramePlacement.translation[0] -= 0.1
+      p_target = np.asarray(config['p_des']) 
+      M_target = pin.SE3(M_ee.rotation.T, p_target)
+      desiredFramePlacement = M_target #M_ee.copy()
+      # desiredFramePlacement.translation[0] -= 0.1
       # desiredFramePlacement.translation[1] -= 0.2
       framePlacementWeights = np.asarray(config['framePlacementWeights'])
       framePlacementCost = crocoddyl.CostModelResidual(state, 
@@ -571,7 +544,19 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                                             desiredFramePlacement, 
                                                                                             actuation.nu)) 
       print('[OCP] Added frame placement cost.')
-      # End-effector velocity 
+    # End-effector translation
+    if('all' in which_costs or 'translation' in which_costs):
+      desiredFrameTranslation = np.asarray(config['p_des']) 
+      frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+      frameTranslationCost = crocoddyl.CostModelResidual(state, 
+                                                      crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
+                                                      crocoddyl.ResidualModelFrameTranslation(state, 
+                                                                                            id_endeff, 
+                                                                                            desiredFrameTranslation, 
+                                                                                            actuation.nu)) 
+      print("[OCP] Added frame translation cost.\n")
+      print("[OCP]    Desired translation : ", desiredFrameTranslation) 
+    # End-effector velocity 
     if('all' in which_costs or 'velocity' in which_costs):
       desiredFrameMotion = pin.Motion(np.array([0.,0.,0.,0.,0.,0.]))
       frameVelocityWeights = np.ones(6)
@@ -583,12 +568,16 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                                           pin.LOCAL, 
                                                                                           actuation.nu)) 
       print('[OCP] Added frame velocity cost.')
-    # LPF (CT) param   
+    
+    # LPF parameters (a.k.a simplified actuation model)
     f_c = config['f_c']    
+    # Approx. LPF obtained from Z.O.H. discretization on CT LPF 
     if(lpf_type==0):
         alpha = np.exp(-2*np.pi*f_c*dt)
+    # Approx. LPF obtained from 1st order Euler int. on CT LPF
     if(lpf_type==1):
         alpha = 1./float(1+2*np.pi*f_c*dt)
+    # Exact LPF obtained from E.M.A model (IIR)
     if(lpf_type==2):
         y = np.cos(2*np.pi*f_c*dt)
         alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
@@ -599,8 +588,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     # Create IAMs
     runningModels = []
     for i in range(N_h):
-      # if(i>=5*N_h/10):
-      #   dt /= 1.1
       runningModels.append(crocoddyl.IntegratedActionModelLPF(
                   crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                                    actuation, 
@@ -612,20 +599,21 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                               cost_weight_w_lim=cost_w_lim,
                                                               tau_plus_integration=tau_plus,
                                                               filter=lpf_type))
-      # print("Node "+str(i)+" : "+str(dt))
       # Add cost models
       if('all' in which_costs or 'placement' in which_costs):
-        runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['frameWeight'])
+        runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
+      if('all' in which_costs or 'translation' in which_costs):
+        runningModels[i].differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeight'])
       if('all' in which_costs or 'velocity' in which_costs):
         runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
       if('all' in which_costs or 'stateReg' in which_costs):
-        runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['xRegWeight'])
+        runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['stateRegWeight'])
       if('all' in which_costs or 'ctrlReg' in which_costs):
-        runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['uRegWeight']) 
+        runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeight']) 
       if('all' in which_costs or 'stateLim' in which_costs):
-        runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['xLimWeight'])
+        runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
       if('all' in which_costs or 'ctrlLim' in which_costs):
-        runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['uLimWeight'])
+        runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
       # Add armature
       runningModels[i].differential.armature = np.asarray(config['armature'])
 
@@ -645,10 +633,12 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     # Add cost models
     if('all' in which_costs or 'placement' in which_costs):
       terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
+    if('all' in which_costs or 'translation' in which_costs):
+      terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal'])
     if('all' in which_costs or 'velocity' in which_costs):
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
     if('all' in which_costs or 'stateReg' in which_costs):
-      terminalModel.differential.costs.addCost("stateReg", xRegCost, config['xRegWeightTerminal'])
+      terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
     # Add armature
     terminalModel.differential.armature = np.asarray(config['armature'])
     

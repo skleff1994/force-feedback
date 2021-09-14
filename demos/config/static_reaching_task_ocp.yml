@@ -11,33 +11,36 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]
 
 # State regularization 
 stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 1., 1., 2., 3., 2., 3.]
-stateRegWeight: 0.02 #0.1
-stateRegWeightTerminal: 0.02 #0.1 #1000.
+stateRegWeight: 0.2 #.02
+stateRegWeightTerminal: 0.2 #.02
 # Torque regularization 
 ctrlRegWeights: [1., 1., 1., 2., 2., 1., 1.]
 ctrlRegWeight: 0.01
+
+
 # State limits
-stateLimWeight: 10.
-stateLimWeightTerminal: 10.
+stateLimWeight: 1.
+stateLimWeightTerminal: 1.
 # Torque limits
 ctrl_lim: [320, 320, 176, 176, 110, 40, 40]
 ctrlLimWeight: 10.
+
+
 # Frame placement 
 p_des: [-0.3, -0.4, 0.5]  # Desired end-effector position
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
 framePlacementWeight: 1.5
 framePlacementWeightTerminal: 1.5 
-# Frame velocity
-frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: 0.5
-frameVelocityWeightTerminal: 0.5 
-
-
 # Frame translation 
 p_des: [-0.3, -0.4, 0.5]  
 frameTranslationWeights: [1., 1., 1.]
 frameTranslationWeight: 1.5
 frameTranslationWeightTerminal: 1.5 
+# Frame velocity
+frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
+frameVelocityWeight: 0.5
+frameVelocityWeightTerminal: 0.5 
+
 
 # Frame placement ELBOW # Positive distance to ground
 frameTranslationElbowWeights:  [1., 1., 1.]

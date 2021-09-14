@@ -52,24 +52,26 @@ y0 = np.concatenate([x0, ug])
 print("Gravity torque = ", ug)
 
 LPF_TYPE = 2
-
+# Approx. LPF obtained from Z.O.H. discretization on CT LPF 
 if(LPF_TYPE==0):
     alpha = np.exp(-2*np.pi*config['f_c']*dt)
+# Approx. LPF obtained from 1st order Euler int. on CT LPF
 if(LPF_TYPE==1):
     alpha = 1./float(1+2*np.pi*config['f_c']*dt)
+# Exact LPF obtained from E.M.A model (IIR)
 if(LPF_TYPE==2):
     y = np.cos(2*np.pi*config['f_c']*dt)
     alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
 
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-12, 
-                                                cost_w_lim=1.,
+                                                cost_w_reg=0., 
+                                                cost_w_lim=0.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
-                                                which_costs=['stateReg', 'ctrlReg', 'placement'] ) 
+                                                which_costs=['translation', 'ctrlReg'] ) 
 
 # for i in range(N_h-1):
-# #   if(i<=int(N_h/10)):
+# #   if(i<=int(N_h/10))
 # #     ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = 100
 #   if(i>=5*N_h/10):
 #     ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight /= 1.1
@@ -85,9 +87,43 @@ print("  w0    = ", ug)
 print("Quasi-static torque ws =\n ")
 us_qs = [ddp.problem.runningModels[0].quasiStatic(ddp.problem.runningDatas[0], y0)] * N_h
 print("  ", us_qs[0])
-ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+# ddp.set_reg_max(1e-3)
+ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
+
+#  Plot
+fig, ax = plot_utils.plot_ddp_results_LPF(ddp, robot, SHOW=False)
+
+import matplotlib.pyplot as plt 
+
+# Add ref pos EE
+p_des = np.asarray(config['p_des']) 
+for i in range(3):
+    # Plot a posteriori integration to check IAM
+    ax['p'][i].plot(np.linspace(0, N_h*config['dt'], N_h+1), [p_des[i]]*(N_h+1), 'r-.', label='Desired')
+handles_x, labels_x = ax['p'][i].get_legend_handles_labels()
+fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+plt.show()
 
 
+# Debug by passing the unfiltered torque into the LPF
+tau_s = np.array(ddp.xs)[:,:nu]
+w_s = np.array(ddp.us)
+tau_integrated_s = np.zeros(tau_s.shape)
+
+# print()
+tau_integrated_s[0,:] = ug 
+for i in range(N_h):
+    tau_integrated_s[i+1,:] = alpha*tau_integrated_s[i,:] + (1-alpha)*w_s[i,:]
+    # print(tau_integrated_s[i+1,:])
+for i in range(nq):
+    # Plot a posteriori integration to check IAM
+    ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), tau_integrated_s[:,i], 'r-', label='Integrated')
+    # Plot gravity torque
+    ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), ug[i]*np.ones(N_h+1), 'k--', label='Gravity')
+    ax['w'][i].plot(np.linspace(0, N_h*dt, N_h), ug[i]*np.ones(N_h), 'k--', label='Gravity')
+handles_x, labels_x = ax['y'][i,2].get_legend_handles_labels()
+fig['y'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+plt.show()
 
 
 
@@ -109,29 +145,6 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
 
-#  Plot
-fig, ax = plot_utils.plot_ddp_results_LPF(ddp, robot, SHOW=False)
-
-
-# Debug by passing the unfiltered torque into the LPF
-tau_s = np.array(ddp.xs)[:,:nu]
-w_s = np.array(ddp.us)
-tau_integrated_s = np.zeros(tau_s.shape)
-
-# print()
-tau_integrated_s[0,:] = ug 
-for i in range(N_h):
-    tau_integrated_s[i+1,:] = alpha*tau_integrated_s[i,:] + (1-alpha)*w_s[i,:]
-for i in range(nq):
-    # Plot a posteriori integration to check IAM
-    ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), tau_integrated_s[:,i], 'r-', label='Integrated')
-    # Plot gravity torque
-    ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), ug[i]*np.ones(N_h+1), 'k--', label='Gravity')
-    ax['w'][i].plot(np.linspace(0, N_h*dt, N_h), ug[i]*np.ones(N_h), 'k--', label='Gravity')
-import matplotlib.pyplot as plt
-handles_x, labels_x = ax['y'][i,2].get_legend_handles_labels()
-fig['y'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-plt.show()
 
 
 

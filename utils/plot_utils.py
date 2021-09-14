@@ -328,7 +328,7 @@ def plot_mpc_results_lpf(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
     plt.close('all')
 
 
-
+### Plot DDP (Crocoddyl) results (LPF)
 def plot_ddp_results_LPF(ddp, robot, name_endeff='contact', SHOW=True):
     '''
     Plot results of DDP solver with stateLPF
@@ -438,6 +438,7 @@ def plot_ddp_results_LPF(ddp, robot, name_endeff='contact', SHOW=True):
     ax['w'] = ax_w
 
     return fig, ax
+
 
 
 
@@ -1378,11 +1379,11 @@ def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=
         # Overlay on top of first plot
         else:
             if('x' in which_plots or which_plots =='all'):
-                plot_ddp_state(ddp[k], fig=fig_x, ax=ax_x, SHOW=False, marker='x')
+                plot_ddp_state(ddp[k], fig=fig_x, ax=ax_x, SHOW=False, marker=None)
             if('u' in which_plots or which_plots =='all'):
-                plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u, SHOW=False, marker='x')
+                plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u, SHOW=False, marker=None)
             if('p' in which_plots or which_plots =='all'):
-                plot_ddp_endeff(ddp[k], robot, name_endeff, fig=fig_p, ax=ax_p, SHOW=False, marker='x')
+                plot_ddp_endeff(ddp[k], robot, name_endeff, fig=fig_p, ax=ax_p, SHOW=False, marker=None)
             if('vxx' in which_plots or which_plots =='all'):
                 plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv, SHOW=False)
                 plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig, SHOW=False)
@@ -1405,9 +1406,7 @@ def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=
 
     return fig, ax
 
-    
-
-def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True, marker='o'):
+def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
     '''
     Plot ddp results (state)
     '''
@@ -1428,11 +1427,11 @@ def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True, marker='o'):
         label='State'
     for i in range(nq):
         # Positions
-        ax[i,0].plot(tspan, q[:,i], linestyle='-', marker=marker, label=label)
+        ax[i,0].plot(tspan, q[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
         ax[i,0].set_ylabel('$q_%s$'%i, fontsize=16)
         ax[i,0].grid(True)
         # Velocities
-        ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label)
+        ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
         ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
         ax[i,1].grid(True)
 
@@ -1445,7 +1444,7 @@ def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True, marker='o'):
         plt.show()
     return fig, ax
 
-def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True, marker='o'):
+def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
     '''
     Plot ddp results (control)
     '''
@@ -1463,7 +1462,7 @@ def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True, marker='o'):
         label='Control'    
     for i in range(nu):
         # Positions
-        ax[i].plot(tspan, u[:,i], linestyle='-', marker=marker, label=label)
+        ax[i].plot(tspan, u[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
         ax[i].set_ylabel('$u_%s$'%i, fontsize=16)
         ax[i].grid(True)
         # Set xlabel on bottom plot
@@ -1478,7 +1477,7 @@ def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True, marker='o'):
         plt.show()
     return fig, ax
 
-def plot_ddp_endeff(ddp, robot, name_endeff, fig=None, ax=None, label=None, SHOW=True, marker='o'):
+def plot_ddp_endeff(ddp, robot, name_endeff, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
     '''
     Plot ddp results (endeff)
     '''
@@ -1500,7 +1499,7 @@ def plot_ddp_endeff(ddp, robot, name_endeff, fig=None, ax=None, label=None, SHOW
     ylabels = ['Px', 'Py', 'Pz']
     for i in range(3):
         # Positions
-        ax[i].plot(tspan, p[:,i], linestyle='-', marker=marker, label=label)
+        ax[i].plot(tspan, p[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
         ax[i].set_ylabel(ylabel=ylabels[i], fontsize=16)
         ax[i].grid(True)
     handles, labels = ax[i].get_legend_handles_labels()

@@ -36,39 +36,51 @@ nu = nq
 INIT_STATES = []
 N_STATES = 10
 state = crocoddyl.StateMultibody(robot.model)
-np.random.seed(1)
-low = [-2.9671, -2.0944 ,-2.9671 ,-2.0944 ,-2.9671, -2.0944, -3.0543]
-high = [2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543]
-for i in range(10):
-    q0 = np.random.uniform(low=low, high=high, size=(nq,))
-    INIT_STATES.append(np.concatenate([q0, np.zeros(nv)]))
+np.random.seed(12)
+# low = [-2.9671, -2.0944 ,-2.9671 ,-2.0944 ,-2.9671, -2.0944, -3.0543]
+# high = [2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543]
+# for i in range(10):
+#     q0 = np.random.uniform(low=low, high=high, size=(nq,))
+#     INIT_STATES.append(np.concatenate([q0, np.zeros(nv)]))
+
+def get_samples(nb_samples:int):
+    '''
+    Samples initial states x = (q,v)within conservative state range
+     95% of q limits
+     [-1,+1] for v
+    '''
+    samples = []
+    q_max = 0.95*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
+    v_max = 0.5*np.ones(nv)
+    x_max = np.concatenate([q_max, v_max])   
+    for i in range(nb_samples):
+        samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
+    return samples
+
+INIT_STATES = get_samples(10)
 
 #################
 ### OCP SETUP ###
 #################
 
 # Horizons to be tested
- #, 1500, 2000] #, 3000, 5000]
 DDPS = []
 COSTS = []
 N_h = config['N_h']
 dt = config['dt']
-for x0 in INIT_STATES[-1:]:
+for x0 in INIT_STATES:
     q0 = x0[:nq]
     # Update robot model with initial state
     robot.framesForwardKinematics(q0)
     robot.computeJointJacobians(q0)
-    M_ee = robot.data.oMf[id_endeff]
-    print("Initial placement : \n")
-    print(M_ee)
 
     # Create solver with custom horizon
     ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                            which_costs=['placement', 
+                                            which_costs=['translation', 
                                                          'ctrlReg', 
                                                          'stateReg', 
-                                                         'velocity', 
-                                                         'handLim'],
+                                                         'velocity',
+                                                         'stateLim'],
                                             dt = None, N_h=None) 
     # Warm-start
     ug = pin_utils.get_u_grav(q0, robot)
@@ -77,6 +89,9 @@ for x0 in INIT_STATES[-1:]:
     # Solve
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
     # Print VF and record
+    print("q0   = ", q0)
+    print("v0   = ", x0[nq:])
+    print("COST = ", ddp.cost)
     COSTS.append(ddp.cost)
     DDPS.append(ddp)
 
@@ -97,29 +112,29 @@ fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
 plt.show()
 
 
-# import time
-# VISUALIZE = True
-# pause = 0.01 # in s
-# if(VISUALIZE):
-#     n_ddp=0
-#     for x0 in INIT_STATES:
-#         q0 = x0[:nq]
-#         robot.initDisplay(loadModel=True)
-#         robot.display(q0)
-#         viewer = robot.viz.viewer
-#         # viewer.gui.addFloor('world/floor')
-#         # viewer.gui.refresh()
-#         log_rate = int(N_h/10)
-#         print("Visualizing...")
-#         time.sleep(1.)
-#         for i in range(N_h):
-#             # Iter log
-#             viewer.gui.refresh()
-#             robot.display(DDPS[n_ddp].xs[i][:nq])
-#             if(i%log_rate==0):
-#                 print("Display config n°"+str(i))
-#             time.sleep(pause)
-#         n_ddp+=1
+import time
+VISUALIZE = True
+pause = 0.01 # in s
+if(VISUALIZE):
+    n_ddp=0
+    for x0 in INIT_STATES:
+        q0 = x0[:nq]
+        robot.initDisplay(loadModel=True)
+        robot.display(q0)
+        viewer = robot.viz.viewer
+        # viewer.gui.addFloor('world/floor')
+        # viewer.gui.refresh()
+        log_rate = int(N_h/10)
+        print("Visualizing...")
+        time.sleep(1.)
+        for i in range(N_h):
+            # Iter log
+            viewer.gui.refresh()
+            robot.display(DDPS[n_ddp].xs[i][:nq])
+            if(i%log_rate==0):
+                print("Display config n°"+str(i))
+            time.sleep(pause)
+        n_ddp+=1
 
 
 

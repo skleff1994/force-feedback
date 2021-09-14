@@ -54,7 +54,11 @@ COSTS = []
 for N_h in HORIZONS:
     # Create solver with custom horizon
     ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                            which_costs=['placement', 'ctrlReg', 'stateReg', 'velocity', 'placement_elbow' ],
+                                            which_costs=['translation', 
+                                                         'ctrlReg', 
+                                                         'stateReg', 
+                                                         'velocity', 
+                                                         'stateLim' ],
                                             dt = None, N_h=N_h) 
     # Warm-start
     ug = pin_utils.get_u_grav(q0, robot)
