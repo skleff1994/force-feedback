@@ -107,3 +107,55 @@ def get_u_mea(q, v, pin_robot):
     Return gravity torque at q
     '''
     return pin.rnea(pin_robot.model, pin_robot.data, q, v, np.zeros((pin_robot.model.nq,1)))
+
+from numpy.linalg import pinv
+
+def get_q(p_ee, model, frame_id):
+    '''
+    Returns configurations corresponding to p_ee end-effector
+    '''
+    IT_MAX = 100
+    DT     = 1e-1
+    data = model.createData()
+    oMgoal = pin.SE3(np.eye(3), p_ee)
+    q = pin.neutral(model).copy()
+    herr = [] # Log the value of the error between tool and goal.
+    # Loop on an inverse kinematics for 200 iterations.
+    for i in range(IT_MAX):  # Integrate over 2 second of robot life
+        pin.framesForwardKinematics(model, data, q)  # Compute frame placements
+        oMtool = data.oMf[frame_id]                  # Placement from world frame o to frame f oMtool
+        oRtool = oMtool.rotation                     # Rotation from world axes to tool axes oRtool 
+        tool_Jtool = pin.computeFrameJacobian(model, data, q, frame_id)  # 6D jacobian in local frame
+        o_Jtool3 = oRtool.dot(tool_Jtool[:3,:])          # 3D jacobian in world frame
+        o_TG = oMtool.translation-oMgoal.translation  # vector from tool to goal, in world frame
+        vq = -pinv(o_Jtool3).dot(o_TG)
+        q = pin.integrate(model, q, vq * DT)
+        herr.append(o_TG)
+    return q,vq
+
+    
+    # oMdes = pinocchio.SE3(np.eye(3), np.array([1., 0., 1.]))
+    
+    # q      = pinocchio.neutral(model)
+    # eps    = 1e-4
+    # IT_MAX = 1000
+    # DT     = 1e-1
+    # damp   = 1e-12
+    
+    # i=0
+    # while True:
+    #     pinocchio.framesForwardKinematics(model,data,q)
+    #     dMi = oMdes.actInv(data.oMi[frame_id])
+    #     err = pinocchio.log(dMi).vector
+    #     if norm(err) < eps:
+    #         success = True
+    #         break
+    #     if i >= IT_MAX:
+    #         success = False
+    #         break
+    #     J = pinocchio.computeFramesJacobian(model, data, q, frame_id, )
+    #     v = - J.T.dot(solve(J.dot(J.T) + damp * np.eye(6), err))
+    #     q = pinocchio.integrate(model,q,v*DT)
+    #     if not i % 10:
+    #         print('%d: error = %s' % (i, err.T))
+    #     i += 1

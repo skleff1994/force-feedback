@@ -57,7 +57,6 @@ for N_h in HORIZONS:
                                             which_costs=['translation', 
                                                          'ctrlReg', 
                                                          'stateReg',
-                                                        #  'velocity', 
                                                          'stateLim' ],
                                             dt = None, N_h=N_h) 
     # Warm-start
@@ -98,7 +97,6 @@ ax['vf'].plot(HORIZONS, COSTS, 'ro', label='integral cost')
 ax['vf'].set_yscale('log')
 handles, labels = ax['vf'].get_legend_handles_labels()
 fig['vf'].legend(handles, labels, loc='upper right', prop={'size': 16})
-plt.show()
 
 # Plot residuals
 fig['res'], ax['res'] = plt.subplots(1, 1)
@@ -106,4 +104,5 @@ ax['res'].plot(HORIZONS, RESIDUALS, 'ro', label='end residual')
 ax['res'].set_yscale('log')
 handles, labels = ax['res'].get_legend_handles_labels()
 fig['res'].legend(handles, labels, loc='upper right', prop={'size': 16})
+plt.grid()
 plt.show()

@@ -1350,7 +1350,7 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
 
 ### Plot from DDP solver 
-def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=False, sampling_plot=1):
+def plot_ddp_results(ddp, which_plots='all', SHOW=False, sampling_plot=1):
     '''
     Plot ddp results from 1 or several DDP solvers
         X, U, EE trajs
@@ -1369,7 +1369,7 @@ def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=
             if('u' in which_plots or which_plots =='all'):
                 fig_u, ax_u = plot_ddp_control(ddp[k], SHOW=False)
             if('p' in which_plots or which_plots =='all'):
-                fig_p, ax_p = plot_ddp_endeff(ddp[k], robot, name_endeff, SHOW=False)
+                fig_p, ax_p = plot_ddp_endeff(ddp[k], SHOW=False)
             if('vxx' in which_plots or which_plots =='all'):
                 fig_vxx_sv, ax_vxx_sv = plot_ddp_vxx_sv(ddp[k], SHOW=False)
                 fig_vxx_eig, ax_vxx_eig = plot_ddp_vxx_eig(ddp[k], SHOW=False)
@@ -1384,7 +1384,7 @@ def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=
                 if('u' in which_plots or which_plots =='all'):
                     plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u, SHOW=False, marker=None)
                 if('p' in which_plots or which_plots =='all'):
-                    plot_ddp_endeff(ddp[k], robot, name_endeff, fig=fig_p, ax=ax_p, SHOW=False, marker=None)
+                    plot_ddp_endeff(ddp[k], fig=fig_p, ax=ax_p, SHOW=False, marker=None)
                 if('vxx' in which_plots or which_plots =='all'):
                     plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv, SHOW=False)
                     plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig, SHOW=False)
@@ -1529,7 +1529,7 @@ def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=
         plt.show()
     return fig, ax
 
-def plot_ddp_endeff(ddp_data, robot, name_endeff, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
+def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
     '''
     Plot ddp results (endeff)
     '''

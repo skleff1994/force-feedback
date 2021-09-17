@@ -37,9 +37,9 @@ frameTranslationWeights: [1., 1., 1.]
 frameTranslationWeight: 2.
 frameTranslationWeightTerminal: 2.
 # Frame velocity
-frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: .01
-frameVelocityWeightTerminal: .01
+# frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
+# frameVelocityWeight: .01
+# frameVelocityWeightTerminal: .01
 
 
 # # Frame placement ELBOW # Positive distance to ground
