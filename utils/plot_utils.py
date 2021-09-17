@@ -1353,11 +1353,11 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=False, sampling_plot=1):
     '''
     Plot ddp results from 1 or several DDP solvers
-    X, U, EE trajs
-    INPUT 
-      ddp         : DDP solver or list of ddp solvers
-      robot       : pinocchio robot wrapper
-      name_endeff : name of end-effector (in pin model) 
+        X, U, EE trajs
+        INPUT 
+        ddp         : DDP data or list of ddp data (cf. data_utils.extract_ddp_data())
+        robot       : pinocchio robot wrapper
+        name_endeff : name of end-effector (in pin model) 
     '''
     if(type(ddp) != list):
         ddp = [ddp]
@@ -1395,31 +1395,45 @@ def plot_ddp_results(ddp, robot, name_endeff='contact', which_plots='all', SHOW=
     if(SHOW):
       plt.show()
     
+    # Record and return if user needs to overlay stuff
     fig = {}
-    fig['p'] = fig_p
-    fig['x'] = fig_x
-    fig['u'] = fig_u
-
     ax = {}
-    ax['p'] = ax_p
-    ax['x'] = ax_x
-    ax['u'] = ax_u
+    if('p' in which_plots or which_plots =='all'):
+        fig['p'] = fig_p
+        ax['p'] = ax_p
+    if('x' in which_plots or which_plots =='all'):
+        fig['x'] = fig_x
+        ax['x'] = ax_x
+    if('u' in which_plots or which_plots =='all'):
+        fig['u'] = fig_u
+        ax['u'] = ax_u
 
     return fig, ax
 
-def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
+def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
     '''
     Plot ddp results (state)
     '''
     # Parameters
-    N = ddp.problem.T
-    dt = ddp.problem.runningModels[0].dt
-    nq = ddp.problem.runningModels[0].state.nq
-    nv = ddp.problem.runningModels[0].state.nv
+    N = ddp_data['T'] 
+    dt = ddp_data['dt']
+    nq = ddp_data['nq'] 
+    nv = ddp_data['nv'] 
     # Extract pos, vel trajs
-    x = np.array(ddp.xs)
+    x = np.array(ddp_data['xs'])
     q = x[:,:nq]
     v = x[:,nv:]
+    if('stateLim' in ddp_data['active_costs']):
+        xlim_ub = np.array(ddp_data['stateLim_ub'])
+        xlim_lb = np.array(ddp_data['stateLim_lb'])
+        qlim_ub = xlim_ub[:,:nq]
+        vlim_ub = xlim_ub[:,nv:]
+        qlim_lb = xlim_lb[:,:nq]
+        vlim_lb = xlim_lb[:,nv:]
+    if('stateReg' in ddp_data['active_costs']):
+        xreg_ref = np.array(ddp_data['stateReg_ref'])
+        qreg_ref = xreg_ref[:,:nq]
+        vreg_ref = xreg_ref[:,nv:]
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
@@ -1432,12 +1446,36 @@ def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True, marker=None, a
         ax[i,0].set_ylabel('$q_%s$'%i, fontsize=16)
         ax[i,0].grid(True)
         # Velocities
-        ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
+        ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)  
         ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
         ax[i,1].grid(True)
-
+        #  Add limits (avoidind duplicates if overlaying axes)
+        if('stateLim' in ddp_data['active_costs']):
+            handles_q, labels_q = ax[i, 0].get_legend_handles_labels()
+            handles_v, labels_v = ax[i, 1].get_legend_handles_labels()
+            indices_q = [idx for idx, elt in enumerate(labels_q) if elt == 'lim']
+            indices_v = [idx for idx, elt in enumerate(labels_v) if elt == 'lim']
+            # Remove old plot if necessary
+            if('lim' in labels_q or 'lim' in labels_v):
+                # Get indices of occurence of the existing label
+                indices_q = [idx for idx, elt in enumerate(labels_q) if elt == 'lim']
+                indices_v = [idx for idx, elt in enumerate(labels_v) if elt == 'lim']
+                # Remove the correspinding lines
+                ax[i,0].lines = [elt for k, elt in enumerate(ax[i,0].lines) if k not in indices_q]
+                ax[i,1].lines = [elt for k, elt in enumerate(ax[i,1].lines) if k not in indices_v]
+                handles_q = [elt for k, elt in enumerate(handles_q) if k not in indices_q]
+                handles_v = [elt for k, elt in enumerate(handles_v) if k not in indices_v]
+                # Remove indices
+                labels_q = list(filter(('lim').__ne__, labels_q))
+                labels_v = list(filter(('lim').__ne__, labels_v))
+                # labels_q.pop(labels_q.index('lim'))
+            # Plot limits
+            ax[i,0].plot(tspan[:-1], qlim_ub[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
+            ax[i,0].plot(tspan[:-1], qlim_lb[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
+            ax[i,1].plot(tspan[:-1], vlim_ub[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
+            ax[i,1].plot(tspan[:-1], vlim_lb[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)      
     # Legend
-    handles, labels = ax[i,0].get_legend_handles_labels()
+    handles, labels = ax[0,0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('State trajectories', size=16)
@@ -1445,16 +1483,22 @@ def plot_ddp_state(ddp, fig=None, ax=None, label=None, SHOW=True, marker=None, a
         plt.show()
     return fig, ax
 
-def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
+def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
     '''
     Plot ddp results (control)
     '''
     # Parameters
-    N = ddp.problem.T
-    dt = ddp.problem.runningModels[0].dt
-    nu = ddp.problem.runningModels[0].nu
+    N = ddp_data['T'] 
+    dt = ddp_data['dt']
+    nu = ddp_data['nu'] 
+    nq = ddp_data['nq'] 
     # Extract pos, vel trajs
-    u = np.array(ddp.us)
+    u = np.array(ddp_data['us'])
+    q = np.array(ddp_data['xs'])[:,:nq]
+    ureg_ref = np.zeros((N,nu))
+    if('ctrlReg' in ddp_data['active_costs']):
+        for i in range(N):
+            ureg_ref[i,:] = pin_utils.get_u_grav_(q[i,:], ddp_data['pin_model'])
     # Plots
     tspan = np.linspace(0, N*dt-dt, N)
     if(ax is None or fig is None):
@@ -1464,6 +1508,13 @@ def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True, marker=None,
     for i in range(nu):
         # Positions
         ax[i].plot(tspan, u[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
+        # if('ctrlReg' in ddp_data['active_costs']):
+        #     handles, labels = ax[i].get_legend_handles_labels()
+        #     if('u_grav(q)' in labels):
+        #         handles.pop(labels.index('u_grav(q)'))
+        #         ax[i].lines.pop(labels.index('u_grav(q)'))
+        #         labels.remove('u_grav(q)')
+        #     ax[i].plot(tspan, ureg_ref[:,i], linestyle='-.', color='k', marker=marker, label='u_grav(q)', alpha=0.5)
         ax[i].set_ylabel('$u_%s$'%i, fontsize=16)
         ax[i].grid(True)
         # Set xlabel on bottom plot
@@ -1478,19 +1529,20 @@ def plot_ddp_control(ddp, fig=None, ax=None, label=None, SHOW=True, marker=None,
         plt.show()
     return fig, ax
 
-def plot_ddp_endeff(ddp, robot, name_endeff, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
+def plot_ddp_endeff(ddp_data, robot, name_endeff, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
     '''
     Plot ddp results (endeff)
     '''
     # Parameters
-    N = ddp.problem.T
-    dt = ddp.problem.runningModels[0].dt
-    nq = ddp.problem.runningModels[0].state.nq
+    N = ddp_data['T'] 
+    dt = ddp_data['dt']
+    nq = ddp_data['nq'] 
     # Extract EE traj
-    x = np.array(ddp.xs)
+    x = np.array(ddp_data['xs'])
     q = x[:,:nq]
-    id_endeff = robot.model.getFrameId(name_endeff)
-    p = pin_utils.get_p(q, robot, id_endeff)
+    p = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
+    if('translation' in ddp_data['active_costs']):
+        p_ref = ddp_data['translation_ref']
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
@@ -1501,6 +1553,13 @@ def plot_ddp_endeff(ddp, robot, name_endeff, fig=None, ax=None, label=None, SHOW
     for i in range(3):
         # Positions
         ax[i].plot(tspan, p[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
+        # if('translation_ref' in ddp_data['active_costs']):
+        #     handles, labels = ax[i].get_legend_handles_labels()
+        #     if('p_ref' in labels):
+        #         handles.pop(labels.index('p_ref'))
+        #         ax[i].lines.pop(labels.index('p_ref'))
+        #         labels.remove('p_ref')
+        # ax[i].plot(tspan, p_ref[:,i], linestyle='-.', color='k', marker=marker, label='p_ref', alpha=0.5)
         ax[i].set_ylabel(ylabel=ylabels[i], fontsize=16)
         ax[i].grid(True)
     handles, labels = ax[i].get_legend_handles_labels()
@@ -1511,6 +1570,9 @@ def plot_ddp_endeff(ddp, robot, name_endeff, fig=None, ax=None, label=None, SHOW
     if(SHOW):
         plt.show()
     return fig, ax
+
+
+
 
 def plot_ddp_vxx_sv(ddp, fig=None, ax=None, label=None, SHOW=True):
     '''

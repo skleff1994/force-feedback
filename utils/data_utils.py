@@ -264,3 +264,46 @@ def extract_plot_data(input_data):
     else:
         TypeError("Input data must be a Python dict or a path to .npz archive")
     return extract_plot_data_from_sim_data(sim_data)
+
+
+def extract_ddp_data(ddp):
+    '''
+    Record relevant data from ddp solver in order to plot 
+    '''
+    # Store data
+    ddp_data = {}
+    # OCP params
+    ddp_data['T'] = ddp.problem.T
+    ddp_data['dt'] = ddp.problem.runningModels[0].dt
+    ddp_data['nq'] = ddp.problem.runningModels[0].state.nq
+    ddp_data['nv'] = ddp.problem.runningModels[0].state.nv
+    ddp_data['nu'] = ddp.problem.runningModels[0].differential.actuation.nu
+    ddp_data['nx'] = ddp.problem.runningModels[0].state.nx
+    # Pin model
+    ddp_data['pin_model'] = ddp.problem.runningModels[0].differential.pinocchio
+    # Solution trajectories
+    ddp_data['xs'] = ddp.xs
+    ddp_data['us'] = ddp.us
+    # Extract refs for active costs 
+    ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
+    if('stateReg' in ddp_data['active_costs']):
+        ddp_data['stateReg_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['stateReg'].cost.residual.reference for i in range(ddp.problem.T)]
+    ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
+    if('placement' in ddp_data['active_costs']):
+        ddp_data['placement_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['placement'].cost.residual.reference for i in range(ddp.problem.T)]
+        ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['placement'].cost.residual.id
+    if('translation' in ddp_data['active_costs']):
+        ddp_data['translation_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['translation'].cost.residual.reference for i in range(ddp.problem.T)]
+        ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['translation'].cost.residual.id
+    if('velocity' in ddp_data['active_costs']):
+        ddp_data['velocity_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['velocity'].cost.residual.reference for i in range(ddp.problem.T)]
+        ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['velocity'].cost.residual.id
+    if('stateLim' in ddp_data['active_costs']):
+        ddp_data['stateLim_ub'] = [ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.ub for i in range(ddp.problem.T)]
+        ddp_data['stateLim_lb'] = [ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.lb for i in range(ddp.problem.T)]
+    if('ctrlLim' in ddp_data['active_costs']):
+        ddp_data['ctrlLim_ub'] = [ddp.problem.runningModels[i].differential.costs.costs['ctrlLim'].cost.activation.bounds.ub for i in range(ddp.problem.T)]
+        ddp_data['ctrlLim_lb'] = [ddp.problem.runningModels[i].differential.costs.costs['ctrlLim'].cost.activation.bounds.lb for i in range(ddp.problem.T)]
+    # Can also extract eigenvalues / singular values of Hessian and Ricatti
+    # Extract solver data
+    return ddp_data

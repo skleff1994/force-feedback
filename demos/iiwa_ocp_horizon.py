@@ -16,7 +16,7 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 
 import crocoddyl
 import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils
+from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
 
 np.set_printoptions(precision=4, linewidth=180)
@@ -45,34 +45,44 @@ robot.computeJointJacobians(q0)
 #################
 
 # Horizons to be tested
-HORIZONS = [100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 1000] #, 2000] #, 1500, 2000] #, 3000, 5000]
-DDPS = []
+HORIZONS = [100, 150, 200, 250, 300, 350, 400, 450, 500]# 600, 700, 800, 1000] #, 2000] #, 1500, 2000] #, 3000, 5000]
+DDP_DATA = []
 COSTS = []
+RESIDUALS = []
+WARM_START = False # warm start each OCP with previous OCP solution (duplicate last state)
+i = 0
 for N_h in HORIZONS:
     # Create solver with custom horizon
     ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             which_costs=['translation', 
                                                          'ctrlReg', 
-                                                         'stateReg'], 
+                                                         'stateReg', 
                                                         #  'velocity', 
-                                                        #  'stateLim' ],
+                                                         'stateLim' ],
                                             dt = None, N_h=N_h) 
     # Warm-start
-    ug = pin_utils.get_u_grav(q0, robot)
-    xs_init = [x0 for i in range(N_h+1)]
-    us_init = [ug  for i in range(N_h)]
+    if(WARM_START==True and i>0):
+        xs_init = list(DDP_DATA[i-1]['xs'])+[DDP_DATA[i-1]['xs'][-1]]*(N_h-HORIZONS[i-1])
+        us_init = list(DDP_DATA[i-1]['us'])+[DDP_DATA[i-1]['us'][-1]]*(N_h-HORIZONS[i-1])
+    else:
+        ug = pin_utils.get_u_grav(q0, robot)
+        xs_init = [x0 for i in range(N_h+1)]
+        us_init = [ug  for i in range(N_h)]
     # Solve
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
     # Print VF and record
-    print("COST = ", ddp.cost)
+    print("Cost = ", ddp.cost, " | Residual = ", ddp.problem.runningDatas[-1].cost)
     COSTS.append(ddp.cost)
-    DDPS.append(ddp)
+    RESIDUALS.append(ddp.problem.runningDatas[-1].cost)
+    ddp_data = data_utils.extract_ddp_data(ddp)
+    DDP_DATA.append(ddp_data)
+    i+=1
 
 
 import matplotlib.pyplot as plt
 
 # Plot results
-fig, ax = plot_utils.plot_ddp_results(DDPS, robot, which_plots=['x','u','p'], SHOW=False)
+fig, ax = plot_utils.plot_ddp_results(DDP_DATA, robot, which_plots=['x','u','p'], SHOW=False)
 
 # Add ref pos EE
 p_des = np.asarray(config['p_des']) 
@@ -81,11 +91,19 @@ for i in range(3):
     ax['p'][i].plot(np.linspace(0, N_h*config['dt'], N_h+1), [p_des[i]]*(N_h+1), 'r-.', label='Desired')
 handles_x, labels_x = ax['p'][i].get_legend_handles_labels()
 fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-plt.show()
 
 # Plot VF
-fig, ax = plt.subplots(1, 1)
-ax.plot(HORIZONS, COSTS, 'ro', label='V.F.')
-handles, labels = ax.get_legend_handles_labels()
-fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+fig['vf'], ax['vf'] = plt.subplots(1, 1)
+ax['vf'].plot(HORIZONS, COSTS, 'ro', label='integral cost')
+ax['vf'].set_yscale('log')
+handles, labels = ax['vf'].get_legend_handles_labels()
+fig['vf'].legend(handles, labels, loc='upper right', prop={'size': 16})
+plt.show()
+
+# Plot residuals
+fig['res'], ax['res'] = plt.subplots(1, 1)
+ax['res'].plot(HORIZONS, RESIDUALS, 'ro', label='end residual')
+ax['res'].set_yscale('log')
+handles, labels = ax['res'].get_legend_handles_labels()
+fig['res'].legend(handles, labels, loc='upper right', prop={'size': 16})
 plt.show()

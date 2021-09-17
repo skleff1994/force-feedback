@@ -18,6 +18,24 @@ def get_p(q, pin_robot, id_endeff):
         p[i,:] = pin_robot.data.oMf[id_endeff].translation.T
     return p
 
+# Post-process trajectories with pinocchio
+def get_p_(q, model, id_endeff):
+    '''
+    Returns end-effector positions given q trajectory 
+        q         : joint positions
+        model     : pinocchio model
+        id_endeff : id of EE frame
+    '''
+    N = np.shape(q)[0]
+    p = np.empty((N,3))
+    data = model.createData()
+    for i in range(N):
+        pin.forwardKinematics(model, data, q[i])
+        pin.updateFramePlacements(model, data)
+        p[i,:] = data.oMf[id_endeff].translation.T
+    return p
+
+
 def get_v(q, dq, pin_robot, id_endeff):
     '''
     Returns end-effector velocities given q,dq trajectory 
@@ -75,6 +93,14 @@ def get_u_grav(q, pin_robot):
     '''
     return pin.computeGeneralizedGravity(pin_robot.model, pin_robot.data, q)
     # return pin.rnea(pin_robot.model, pin_robot.data, q, np.zeros((pin_robot.model.nv,1)), np.zeros((pin_robot.model.nq,1)))
+
+def get_u_grav_(q, model):
+    '''
+    Return gravity torque at q (from model, not pin)
+    '''
+    data = model.createData()
+    return pin.computeGeneralizedGravity(model, data, q)
+
 
 def get_u_mea(q, v, pin_robot):
     '''

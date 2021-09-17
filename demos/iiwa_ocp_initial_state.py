@@ -34,7 +34,7 @@ nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv
 nu = nq
 INIT_STATES = []
-N_STATES = 500
+N_STATES = 100
 np.random.seed(1)
 state = crocoddyl.StateMultibody(robot.model)
 # np.random.seed(1)

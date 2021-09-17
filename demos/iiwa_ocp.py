@@ -16,7 +16,7 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 
 import crocoddyl
 import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils
+from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
 
 np.set_printoptions(precision=4, linewidth=180)
@@ -25,7 +25,7 @@ np.set_printoptions(precision=4, linewidth=180)
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task_ocp')
+config = path_utils.load_config_file('static_reaching_task_ocp_good')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
@@ -53,7 +53,7 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
                                             which_costs=['translation', 
                                                          'ctrlReg', 
                                                          'stateReg', 
-                                                         'velocity',
+                                                        #  'velocity',
                                                          'stateLim'] ) 
 
 # # Half reach time (in OCP nodes)
@@ -76,7 +76,7 @@ us_init = [ug  for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
-VISUALIZE = True
+VISUALIZE = False
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
@@ -98,7 +98,8 @@ if(VISUALIZE):
 
 
 #  Plot
-fig, ax = plot_utils.plot_ddp_results(ddp, robot, which_plots=['x','u','p'], SHOW=False)
+ddp_data = data_utils.extract_ddp_data(ddp)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, robot, which_plots=['x','u','p'], SHOW=False)
 
 p_des = np.asarray(config['p_des']) 
 for i in range(3):
