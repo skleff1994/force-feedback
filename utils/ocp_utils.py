@@ -296,6 +296,8 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
       stateRegWeights = np.asarray(config['stateRegWeights'])
       x_reg_ref = np.concatenate([np.asarray(config['q0']), np.asarray(config['dq0'])]) #np.zeros(nq+nv)     
       xRegCost = crocoddyl.CostModelResidual(state, 
+                                            # crocoddyl.ActivationModelSmooth2Norm(nr=14,eps=.001),
+                                            # crocoddyl.ActivationModelQuadFlatExp(nr=14,alpha=10),
                                             crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                             crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
       # print("[OCP] Added state reg cost.")  
@@ -315,6 +317,7 @@ def init_DDP(robot, config, x0, callbacks=False, which_costs=['all'], dt=None, N
       x_max = np.concatenate([q_max, v_max]) # state.ub
       stateLimWeights = np.asarray(config['stateLimWeights'])
       xLimitCost = crocoddyl.CostModelResidual(state, 
+                                            # crocoddyl.ActivationModelSmooth1Norm(nr=14,eps=10.),
                                             crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(-x_max, x_max),stateLimWeights), 
                                             crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
       # print("[OCP] Added state lim cost.")

@@ -1423,17 +1423,17 @@ def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=No
     x = np.array(ddp_data['xs'])
     q = x[:,:nq]
     v = x[:,nv:]
-    if('stateLim' in ddp_data['active_costs']):
-        xlim_ub = np.array(ddp_data['stateLim_ub'])
-        xlim_lb = np.array(ddp_data['stateLim_lb'])
-        qlim_ub = xlim_ub[:,:nq]
-        vlim_ub = xlim_ub[:,nv:]
-        qlim_lb = xlim_lb[:,:nq]
-        vlim_lb = xlim_lb[:,nv:]
-    if('stateReg' in ddp_data['active_costs']):
-        xreg_ref = np.array(ddp_data['stateReg_ref'])
-        qreg_ref = xreg_ref[:,:nq]
-        vreg_ref = xreg_ref[:,nv:]
+    # if('stateLim' in ddp_data['active_costs']):
+    #     xlim_ub = np.array(ddp_data['stateLim_ub'])
+    #     xlim_lb = np.array(ddp_data['stateLim_lb'])
+    #     qlim_ub = xlim_ub[:,:nq]
+    #     vlim_ub = xlim_ub[:,nv:]
+    #     qlim_lb = xlim_lb[:,:nq]
+    #     vlim_lb = xlim_lb[:,nv:]
+    # if('stateReg' in ddp_data['active_costs']):
+    #     xreg_ref = np.array(ddp_data['stateReg_ref'])
+    #     qreg_ref = xreg_ref[:,:nq]
+    #     vreg_ref = xreg_ref[:,nv:]
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
@@ -1449,31 +1449,31 @@ def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=No
         ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)  
         ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
         ax[i,1].grid(True)
-        #  Add limits (avoidind duplicates if overlaying axes)
-        if('stateLim' in ddp_data['active_costs']):
-            handles_q, labels_q = ax[i, 0].get_legend_handles_labels()
-            handles_v, labels_v = ax[i, 1].get_legend_handles_labels()
-            indices_q = [idx for idx, elt in enumerate(labels_q) if elt == 'lim']
-            indices_v = [idx for idx, elt in enumerate(labels_v) if elt == 'lim']
-            # Remove old plot if necessary
-            if('lim' in labels_q or 'lim' in labels_v):
-                # Get indices of occurence of the existing label
-                indices_q = [idx for idx, elt in enumerate(labels_q) if elt == 'lim']
-                indices_v = [idx for idx, elt in enumerate(labels_v) if elt == 'lim']
-                # Remove the correspinding lines
-                ax[i,0].lines = [elt for k, elt in enumerate(ax[i,0].lines) if k not in indices_q]
-                ax[i,1].lines = [elt for k, elt in enumerate(ax[i,1].lines) if k not in indices_v]
-                handles_q = [elt for k, elt in enumerate(handles_q) if k not in indices_q]
-                handles_v = [elt for k, elt in enumerate(handles_v) if k not in indices_v]
-                # Remove indices
-                labels_q = list(filter(('lim').__ne__, labels_q))
-                labels_v = list(filter(('lim').__ne__, labels_v))
-                # labels_q.pop(labels_q.index('lim'))
-            # Plot limits
-            ax[i,0].plot(tspan[:-1], qlim_ub[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
-            ax[i,0].plot(tspan[:-1], qlim_lb[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
-            ax[i,1].plot(tspan[:-1], vlim_ub[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
-            ax[i,1].plot(tspan[:-1], vlim_lb[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)      
+        # #  Add limits (avoidind duplicates if overlaying axes)
+        # if('stateLim' in ddp_data['active_costs']):
+        #     handles_q, labels_q = ax[i, 0].get_legend_handles_labels()
+        #     handles_v, labels_v = ax[i, 1].get_legend_handles_labels()
+        #     indices_q = [idx for idx, elt in enumerate(labels_q) if elt == 'lim']
+        #     indices_v = [idx for idx, elt in enumerate(labels_v) if elt == 'lim']
+        #     # Remove old plot if necessary
+        #     if('lim' in labels_q or 'lim' in labels_v):
+        #         # Get indices of occurence of the existing label
+        #         indices_q = [idx for idx, elt in enumerate(labels_q) if elt == 'lim']
+        #         indices_v = [idx for idx, elt in enumerate(labels_v) if elt == 'lim']
+        #         # Remove the correspinding lines
+        #         ax[i,0].lines = [elt for k, elt in enumerate(ax[i,0].lines) if k not in indices_q]
+        #         ax[i,1].lines = [elt for k, elt in enumerate(ax[i,1].lines) if k not in indices_v]
+        #         handles_q = [elt for k, elt in enumerate(handles_q) if k not in indices_q]
+        #         handles_v = [elt for k, elt in enumerate(handles_v) if k not in indices_v]
+        #         # Remove indices
+        #         labels_q = list(filter(('lim').__ne__, labels_q))
+        #         labels_v = list(filter(('lim').__ne__, labels_v))
+        #         # labels_q.pop(labels_q.index('lim'))
+        #     # Plot limits
+        #     ax[i,0].plot(tspan[:-1], qlim_ub[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
+        #     ax[i,0].plot(tspan[:-1], qlim_lb[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
+        #     ax[i,1].plot(tspan[:-1], vlim_ub[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
+        #     ax[i,1].plot(tspan[:-1], vlim_lb[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)      
     # Legend
     handles, labels = ax[0,0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
@@ -1508,13 +1508,13 @@ def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=
     for i in range(nu):
         # Positions
         ax[i].plot(tspan, u[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
-        # if('ctrlReg' in ddp_data['active_costs']):
-        #     handles, labels = ax[i].get_legend_handles_labels()
-        #     if('u_grav(q)' in labels):
-        #         handles.pop(labels.index('u_grav(q)'))
-        #         ax[i].lines.pop(labels.index('u_grav(q)'))
-        #         labels.remove('u_grav(q)')
-        #     ax[i].plot(tspan, ureg_ref[:,i], linestyle='-.', color='k', marker=marker, label='u_grav(q)', alpha=0.5)
+        if('ctrlReg' in ddp_data['active_costs']):
+            handles, labels = ax[i].get_legend_handles_labels()
+            if('u_grav(q)' in labels):
+                handles.pop(labels.index('u_grav(q)'))
+                ax[i].lines.pop(labels.index('u_grav(q)'))
+                labels.remove('u_grav(q)')
+            ax[i].plot(tspan, ureg_ref[:,i], linestyle='-.', color='k', marker=marker, label='u_grav(q)', alpha=0.5)
         ax[i].set_ylabel('$u_%s$'%i, fontsize=16)
         ax[i].grid(True)
         # Set xlabel on bottom plot
@@ -1541,8 +1541,8 @@ def plot_ddp_endeff(ddp_data, robot, name_endeff, fig=None, ax=None, label=None,
     x = np.array(ddp_data['xs'])
     q = x[:,:nq]
     p = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
-    if('translation' in ddp_data['active_costs']):
-        p_ref = ddp_data['translation_ref']
+    # if('translation' in ddp_data['active_costs']):
+    #     p_ref = ddp_data['translation_ref']
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):

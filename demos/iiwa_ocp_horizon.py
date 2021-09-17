@@ -45,7 +45,7 @@ robot.computeJointJacobians(q0)
 #################
 
 # Horizons to be tested
-HORIZONS = [100, 150, 200, 250, 300, 350, 400, 450, 500]# 600, 700, 800, 1000] #, 2000] #, 1500, 2000] #, 3000, 5000]
+HORIZONS = [200, 250, 300, 350, 400, 425, 450, 475, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]#, 1000] #, 2000] #, 1500, 2000] #, 3000, 5000]
 DDP_DATA = []
 COSTS = []
 RESIDUALS = []
@@ -56,7 +56,7 @@ for N_h in HORIZONS:
     ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             which_costs=['translation', 
                                                          'ctrlReg', 
-                                                         'stateReg', 
+                                                         'stateReg',
                                                         #  'velocity', 
                                                          'stateLim' ],
                                             dt = None, N_h=N_h) 
@@ -71,7 +71,7 @@ for N_h in HORIZONS:
     # Solve
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
     # Print VF and record
-    print("Cost = ", ddp.cost, " | Residual = ", ddp.problem.runningDatas[-1].cost)
+    print("T=", N_h, " : cost = ", ddp.cost, " | Residual = ", ddp.problem.runningDatas[-1].cost)
     COSTS.append(ddp.cost)
     RESIDUALS.append(ddp.problem.runningDatas[-1].cost)
     ddp_data = data_utils.extract_ddp_data(ddp)
