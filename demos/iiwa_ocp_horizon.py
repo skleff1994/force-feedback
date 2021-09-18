@@ -46,7 +46,7 @@ robot.computeJointJacobians(q0)
 
 # Horizons to be tested
 # HORIZONS = [200, 250, 300, 350, 400, 425, 450, 475, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]
-HORIZONS = [200, 250, 300, 350, 400, 425, 450, 475, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]
+HORIZONS = [200]#, 250, 300, 350, 400, 425, 450, 475, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]
 DDP_DATA = []
 COSTS = []
 RESIDUALS = []
@@ -82,15 +82,30 @@ for N_h in HORIZONS:
 import matplotlib.pyplot as plt
 
 # Plot results
-fig, ax = plot_utils.plot_ddp_results(DDP_DATA, robot, which_plots=['x','u','p'], SHOW=False)
+fig, ax = plot_utils.plot_ddp_results(DDP_DATA, which_plots=['x','u','p'], SHOW=False)
 
 # Add ref pos EE
 p_des = np.asarray(config['p_des']) 
 for i in range(3):
     # Plot a posteriori integration to check IAM
-    ax['p'][i].plot(np.linspace(0, N_h*config['dt'], N_h+1), [p_des[i]]*(N_h+1), 'r-.', label='Desired')
-handles_x, labels_x = ax['p'][i].get_legend_handles_labels()
+    ax['p'][i,0].plot(np.linspace(0, N_h*config['dt'], N_h+1), [p_des[i]]*(N_h+1), 'r-.', label='Desired')
+    ax['p'][i,1].plot(np.linspace(0, N_h*config['dt'], N_h+1), [0.]*(N_h+1), 'r-.', label='Desired')
+handles_x, labels_x = ax['p'][i,0].get_legend_handles_labels()
 fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+
+# Plot inverse kinematics to check
+# x = np.array(DDP_DATA[0]['xs'])
+# q_IK = np.zeros((N_h+1, nq))
+# v_IK = np.zeros((N_h+1, nv))
+# print("Compute IK to check ")
+# for i in range(N_h+1):
+#     q, v, _ = pin_utils.IK_position(robot, q0, id_endeff, p_des, DT=1e-1, IT_MAX=1000, EPS=1e-6)
+#     q_IK[i,:] = q
+#     v_IK[i,:] = v
+# q_IK, v_IK, _ = pin_utils.IK_position(robot, q0, id_endeff, p_des, DT=1e-1, IT_MAX=1000, EPS=1e-6)
+# for i in range(nq):
+#     ax['x'][i,0].plot(N_h*config['dt'], q_IK[i], 'go', label='IK', alpha=1.)
+#     ax['x'][i,1].plot(N_h*config['dt'], v_IK[i], 'go', label='IK', alpha=1.)
 
 # Plot VF
 fig['vf'], ax['vf'] = plt.subplots(1, 1)

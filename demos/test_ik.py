@@ -54,49 +54,110 @@ print("q0     = ", q0)
 print("v0     = ", v0)
 robot.initDisplay(loadModel=True)
 robot.display(q0)
-# Add marker for desired position in Gepetto
 
-# Solve IK
-q1, v1, errs1 = pin_utils.IK_position(robot, q0, id_endeff, M_des.translation,
-                                      DT=1e-1, IT_MAX=1000, EPS=1e-6)
-print("qdes = ", q1)
-print("vdes = ", v1)
+TEST_IK = False
+DISPLAY_SAMPLING = False
 
-# Check that the solution works
-print("Reached p_EE   = ", robot.data.oMf[id_endeff].translation)
-J = pin.computeFrameJacobian(robot.model, robot.data, q1, id_endeff)
-print("Jacobian(qdes) = \n", J)
-print("J(qdes) * vdes = ", J.dot(v1))
-# Find joint vel corresponding to some small 
+if(TEST_IK):
+    # Solve IK
+    q1, v1, errs1 = pin_utils.IK_position(robot, q0, id_endeff, M_des.translation,
+                                          DT=1e-1, IT_MAX=1000, EPS=1e-6)
+    print("qdes = ", q1)
+    print("vdes = ", v1)
+    # Check that the solution works
+    print("Reached p_EE   = ", robot.data.oMf[id_endeff].translation)
+    J = pin.computeFrameJacobian(robot.model, robot.data, q1, id_endeff)
+    print("Jacobian(qdes) = \n", J)
+    print("J(qdes) * vdes = ", J.dot(v1))
+
+
 
 # Sample several states 
 N_SAMPLES = 100
-
 TSK_SPACE_SAMPLES = []
 JNT_SPACE_SAMPLES = []
+# Define bounds in cartesian space to sample (p_EE,v_EE) around (p_des,0)
 p_des = np.asarray(config['p_des'])
 v_des = np.zeros(3)
-eps_p = 0.2 # 20cm
+eps_p = 0.1  # +/- 10   cm
 eps_v = 0.1 # +/- 0.1 rad/s
-p_min = 
-px_des = p_des[0]; py_des = p_des[1]; pz_des = p_des[2]
-px_min = 0.9*np.asarray(config['p_des'])
-p_max = np.asarray(config['p_des'])
-q_max = 0.85*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
-v_max = 0.1*np.ones(nv) #np.array([1.4835, 1.4835, 1.7453, 1.309 , 2.2689, 2.3562, 2.3562])  #np.zeros(nv) 
-x_max = np.concatenate([q_max, v_max])   
+p_min = p_des - eps_p; p_max = p_des + eps_p
+v_min = v_des - eps_v; v_max = v_des + eps_v
+y_min = np.concatenate([p_min, v_min])
+y_max = np.concatenate([p_max, v_max])
+# Generate samples (uniform)
 for i in range(N_SAMPLES):
-    samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
+    # Sample
+    y_EE = np.random.uniform(low=y_min, high=y_max, size=(6,))
+    TSK_SPACE_SAMPLES.append( y_EE )
+    # print(" Task sample  = ", y_EE, " \n")
+    # IK
+    q, _, _ = pin_utils.IK_position(robot, q0, id_endeff, y_EE[:3],
+                                     DISPLAY=False, LOGS=False, DT=1e-1, IT_MAX=1000, EPS=1e-6)
+    pin.computeJointJacobians(robot.model, robot.data, q)
+    J_q = pin.getFrameJacobian(robot.model, robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
+    vq = np.linalg.pinv(J_q)[:,3:].dot(y_EE[3:])
+    x = np.concatenate([q, vq])
+    JNT_SPACE_SAMPLES.append( x )
+    # print(" Joint sample = ", x, " \n")
 
-# Display robot in the right config
-# robot.display(q1)
+# Display EE target + box in which we sample p
+if(DISPLAY_SAMPLING):
+    viewer = robot.viz.viewer
+    gui = viewer.gui
+    gui.addSphere('world/p_des', .02, [1. ,0 ,0, 1.])  
+    gui.addBox('world/p_bounds',   2*eps_p, 2*eps_p, 2*eps_p,  [1., 1., 1., 0.3]) # depth(x),length(y),height(z), color
+    tf_des = pin.utils.se3ToXYZQUAT(M_des)
+    gui.applyConfiguration('world/p_des', tf_des)
+    gui.applyConfiguration('world/p_bounds', tf_des)
+    # Check samples
+    for k,sample in enumerate(JNT_SPACE_SAMPLES):
+        # q = sample[:nq]
+        robot.display(sample[:nq])
+        # Update model and display sample
+        robot.framesForwardKinematics(sample[:nq])
+        robot.computeJointJacobians(sample[:nq])
+        M_ = robot.data.oMf[id_endeff]
+        gui.addSphere('world/sample'+str(k), .01, [0. ,0 ,1., .8])  
+        tf_ = pin.utils.se3ToXYZQUAT(M_)
+        gui.applyConfiguration('world/sample'+str(k), tf_)
+        gui.refresh()
+        time.sleep(0.5)
 
+
+# Compare sampled points in task space with FK(IK)
+fig, ax = plt.subplots(3, 2, sharex='col')   
+# Get FK of samples
+pEE = np.array(TSK_SPACE_SAMPLES)[:,:3]
+vEE = np.array(TSK_SPACE_SAMPLES)[:,3:]
+q = np.array(JNT_SPACE_SAMPLES)[:,:nq]
+v = np.array(JNT_SPACE_SAMPLES)[:,nv:]
+pEE_FK = pin_utils.get_p_(q, robot.model, id_endeff)
+vEE_FK = pin_utils.get_v_(q, v, robot.model, id_endeff) 
+for i in range(3):
+    # Positions
+    ax[i,0].plot(np.linspace(0., 1., N_SAMPLES), pEE[:,i], 'bo', color='b', label='task space sample ')
+    ax[i,0].plot(np.linspace(0., 1., N_SAMPLES), pEE_FK[:,i], 'gx', label='FK reconstruct ')
+    ax[i,1].plot(np.linspace(0., 1., N_SAMPLES), vEE[:,i], 'bo',  label='task space sample ')
+    ax[i,1].plot(np.linspace(0., 1., N_SAMPLES), vEE_FK[:,i], 'gx', label='FK reconstruct ')
+# Legend
+handles, labels = ax[i,0].get_legend_handles_labels()
+fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+fig.align_ylabels()
+fig.suptitle('Sampled points in task space', size=16)
+plt.show()
+
+# Plot 
+# viewer.gui.crre
+# viewer.gui.addLandmark('p_des', .5)
+
+# viewer.gui.refresh()
 # Check velocities 
 
 
-plt.plot(errs1)
-plt.grid()
-plt.show()
+# plt.plot(errs1)
+# plt.grid()
+# plt.show()
 
 # q2, v2, errs2 = pin_utils.IK_placement(robot, q0, id_endeff, M_des, DT=1e-2, IT_MAX=1000)
 # print("q2 = \n")

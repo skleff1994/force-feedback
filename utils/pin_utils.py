@@ -58,7 +58,7 @@ def get_v_(q, dq, model, id_endeff):
     Returns end-effector velocities given q,dq trajectory 
         q         : joint positions
         dq        : joint velocities
-        pin_robot : pinocchio wrapper
+        model     : pinocchio model
         id_endeff : id of EE frame
     '''
     N = np.shape(q)[0]
@@ -67,7 +67,8 @@ def get_v_(q, dq, model, id_endeff):
     jac = np.zeros((6,model.nv))
     for i in range(N):
         # Get jacobian + compute vel
-        jac = pin.computeFrameJacobians(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
+        pin.computeJointJacobians(model, data, q[i,:])
+        jac = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
         v[i,:] = jac.dot(dq[i])[:3]
     return v
 
@@ -130,13 +131,13 @@ from numpy.linalg import pinv
 import time
 import matplotlib.pyplot as plt
 
-def IK_position(robot, q, frame_id, p_des, DT=1e-2, IT_MAX=1000, EPS=1e-6, sleep=0.01):
+def IK_position(robot, q, frame_id, p_des, LOGS=False, DISPLAY=False, DT=1e-2, IT_MAX=1000, EPS=1e-6, sleep=0.01):
     '''
     Inverse kinematics: returns q, v to reach desired position p
     '''
     errs =[]
     for i in range(IT_MAX):  
-        if(i%10 == 0):
+        if(i%10 == 0 and LOGS==True):
             print("Step "+str(i)+"/"+str(IT_MAX))
         pin.framesForwardKinematics(robot.model, robot.data, q)  
         oMtool = robot.data.oMf[frame_id]          
@@ -146,10 +147,11 @@ def IK_position(robot, q, frame_id, p_des, DT=1e-2, IT_MAX=1000, EPS=1e-6, sleep
         o_TG = oMtool.translation - p_des                 # translation err in W frame 
         vq = -pinv(o_Jtool3).dot(o_TG)                    # vel in negative err dir
         q = pin.integrate(robot.model,q, vq * DT)         # take step
-        robot.display(q)                                   
-        time.sleep(sleep)
+        if(DISPLAY):
+            robot.display(q)                                   
+            time.sleep(sleep)
         errs.append(o_TG)
-        if(i%10 == 0):
+        if(i%10 == 0 and LOGS==True):
             print(np.linalg.norm(o_TG))
         if np.linalg.norm(o_TG) < EPS:
             break    
