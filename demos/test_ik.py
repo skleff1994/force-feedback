@@ -95,8 +95,13 @@ for i in range(N_SAMPLES):
     q, _, _ = pin_utils.IK_position(robot, q0, id_endeff, y_EE[:3],
                                      DISPLAY=False, LOGS=False, DT=1e-1, IT_MAX=1000, EPS=1e-6)
     pin.computeJointJacobians(robot.model, robot.data, q)
+    robot.framesForwardKinematics(q)
     J_q = pin.getFrameJacobian(robot.model, robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
-    vq = np.linalg.pinv(J_q)[:,3:].dot(y_EE[3:])
+    vq = np.linalg.pinv(J_q)[:,:3].dot(y_EE[3:]) 
+    J_orthogonal = (np.eye(7) - np.linalg.pinv(J_q).dot(J_q))
+    # Check that ortho space doesnt explode
+    # vq_o = J_orthogonal[:,:3].dot(y_EE[3:]) 
+    # print(vq_o)
     x = np.concatenate([q, vq])
     JNT_SPACE_SAMPLES.append( x )
     # print(" Joint sample = ", x, " \n")
