@@ -1536,23 +1536,29 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=N
     # Parameters
     N = ddp_data['T'] 
     dt = ddp_data['dt']
-    nq = ddp_data['nq'] 
+    nq = ddp_data['nq']
+    nv = ddp_data['nv'] 
     # Extract EE traj
     x = np.array(ddp_data['xs'])
     q = x[:,:nq]
-    p = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
+    v = x[:,nv:]
+    p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
+    v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
+    v_ee2 = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
+
     # if('translation' in ddp_data['active_costs']):
     #     p_ref = ddp_data['translation_ref']
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
-        fig, ax = plt.subplots(3, 1, sharex='col')
+        fig, ax = plt.subplots(3, 2, sharex='col')
     if(label is None):
         label='End-effector'
-    ylabels = ['Px', 'Py', 'Pz']
+    ylabels_pos = ['Px', 'Py', 'Pz']
+    ylabels_vel = ['Vx', 'Vy', 'Vz']
     for i in range(3):
         # Positions
-        ax[i].plot(tspan, p[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
+        ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
         # if('translation_ref' in ddp_data['active_costs']):
         #     handles, labels = ax[i].get_legend_handles_labels()
         #     if('p_ref' in labels):
@@ -1560,10 +1566,22 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=N
         #         ax[i].lines.pop(labels.index('p_ref'))
         #         labels.remove('p_ref')
         # ax[i].plot(tspan, p_ref[:,i], linestyle='-.', color='k', marker=marker, label='p_ref', alpha=0.5)
-        ax[i].set_ylabel(ylabel=ylabels[i], fontsize=16)
-        ax[i].grid(True)
-    handles, labels = ax[i].get_legend_handles_labels()
-    ax[i].set_xlabel('t (s)', fontsize=16)
+        ax[i,0].set_ylabel(ylabel=ylabels_pos[i], fontsize=16)
+        ax[i,0].grid(True)
+        # Velocities
+        ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
+        ax[i,1].plot(tspan, v_ee2[:,i], linestyle='-.', marker=marker, label=label, alpha=0.5)
+        # if('translation_ref' in ddp_data['active_costs']):
+        #     handles, labels = ax[i].get_legend_handles_labels()
+        #     if('p_ref' in labels):
+        #         handles.pop(labels.index('p_ref'))
+        #         ax[i].lines.pop(labels.index('p_ref'))
+        #         labels.remove('p_ref')
+        # ax[i].plot(tspan, p_ref[:,i], linestyle='-.', color='k', marker=marker, label='p_ref', alpha=0.5)
+        ax[i,1].set_ylabel(ylabel=ylabels_vel[i], fontsize=16)
+        ax[i,1].grid(True)
+    handles, labels = ax[i,0].get_legend_handles_labels()
+    ax[i,0].set_xlabel('t (s)', fontsize=16)
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
     fig.suptitle('Endeffector trajectories', size=16)

@@ -114,46 +114,6 @@ val_max = np.max(COSTS)
 index_max = COSTS.index(val_max)
 print("MAX COST = ", val_max, " at index ", index_max)
 
-fig, ax = plot_utils.plot_ddp_results(DDP_DATA, which_plots=['x','u','p'], SHOW=True, sampling_plot=int(N_STATES/20))
-if(rejected!=0):
-    fig, ax = plot_utils.plot_ddp_results(REJECTED_DATA, which_plots=['x','u','p'], SHOW=True, sampling_plot=10)
-
-
-
-# # Add ELBOW
-# import matplotlib.pyplot as plt
-# id_hand = robot.model.getFrameId('A6')
-# frameTranslationGround = robot.data.oMf[id_endeff].act(np.zeros(3))
-# p_des = np.asarray(config['p_des']) 
-# for i in range(3):
-#     # Plot a posteriori integration to check IAM
-#     ax['p'][i].plot(np.linspace(0, N_h*config['dt'], N_h+1), [p_des[i]]*(N_h+1), 'r-.', label='Desired')
-# handles_x, labels_x = ax['p'][i].get_legend_handles_labels()
-# fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-# plt.show()
-
-
-# import time
-# VISUALIZE = True
-# pause = 0.01 # in s
-# if(VISUALIZE):
-#     n_ddp=0
-#     for x0 in INIT_STATES:
-#         q0 = x0[:nq]
-#         robot.initDisplay(loadModel=True)
-#         robot.display(q0)
-#         viewer = robot.viz.viewer
-#         # viewer.gui.addFloor('world/floor')
-#         # viewer.gui.refresh()
-#         log_rate = int(N_h/10)
-#         print("Visualizing...")
-#         time.sleep(1.)
-#         for i in range(N_h):
-#             # Iter log
-#             viewer.gui.refresh()
-#             robot.display(DDPS[n_ddp].xs[i][:nq])
-#             if(i%log_rate==0):
-#                 print("Display config n°"+str(i))
-#             time.sleep(pause)
-#         n_ddp+=1
-
+fig, ax = plot_utils.plot_ddp_results(DDP_DATA, which_plots=['x','u','p'], SHOW=True, sampling_plot=1)
+# if(rejected!=0):
+#     fig, ax = plot_utils.plot_ddp_results(REJECTED_DATA, which_plots=['x','u','p'], SHOW=True, sampling_plot=10)
