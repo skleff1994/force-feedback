@@ -14,7 +14,6 @@ Trajectory optimization using Crocoddyl
 The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
 
-import crocoddyl
 import numpy as np  
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
@@ -25,7 +24,7 @@ np.set_printoptions(precision=4, linewidth=180)
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task_ocp_good')
+config = path_utils.load_config_file('static_reaching_task_ocp')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
@@ -49,12 +48,7 @@ print(M_ee)
 N_h = config['N_h']
 dt = config['dt']
 
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                            which_costs=['translation', 
-                                                         'ctrlReg', 
-                                                         'stateReg', 
-                                                        #  'velocity',
-                                                         'stateLim'] ) 
+ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, WHICH_COSTS=config['WHICH_COSTS']) 
 
 # # Half reach time (in OCP nodes)
 # PHASE = 50
@@ -99,13 +93,13 @@ if(VISUALIZE):
 
 #  Plot
 ddp_data = data_utils.extract_ddp_data(ddp)
-fig, ax = plot_utils.plot_ddp_results(ddp_data, robot, which_plots=['x','u','p'], SHOW=False)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['x','u','p'], SHOW=False)
 
 p_des = np.asarray(config['p_des']) 
 for i in range(3):
     # Plot a posteriori integration to check IAM
-    ax['p'][i].plot(np.linspace(0, N_h*dt, N_h+1), [p_des[i]]*(N_h+1), 'r-.', label='Desired')
+    ax['p'][i,0].plot(np.linspace(0, N_h*dt, N_h+1), [p_des[i]]*(N_h+1), 'r-.', label='Desired')
 import matplotlib.pyplot as plt
-handles_x, labels_x = ax['p'][i].get_legend_handles_labels()
+handles_x, labels_x = ax['p'][i,0].get_legend_handles_labels()
 fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
 plt.show()

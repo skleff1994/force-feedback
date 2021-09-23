@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_ocp.py
+@file iiwa_ocp_initial_state.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -11,7 +11,8 @@
 '''
 The robot is tasked with reaching a static EE target 
 Trajectory optimization using Crocoddyl
-The goal of this script is to setup OCP (a.k.a. play with weights)
+The goal of this script is to sample initial states
+and solve OCPs from those states, plot and animate in gepetto-viewer
 '''
 
 import crocoddyl
@@ -94,8 +95,6 @@ INIT_STATES = get_samples_IK(N_STATES, q0, p_des, v_des, id_endeff, eps_p=0.05, 
 ### OCP SETUP ###
 #################
 
-
-# Horizons to be tested
 COSTS = []
 REJECTED_DATA = []
 DDP_DATA = []

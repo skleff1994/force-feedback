@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_ocp.py
+@file iiwa_ocp_horizon.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -11,10 +11,9 @@
 '''
 The robot is tasked with reaching a static EE target 
 Trajectory optimization using Crocoddyl
-The goal of this script is to setup OCP (a.k.a. play with weights)
+The goal of this script is solve the same OCP for different horizons and plot the result
 '''
 
-import crocoddyl
 import numpy as np  
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig

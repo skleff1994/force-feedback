@@ -1589,6 +1589,41 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=N
         plt.show()
     return fig, ax
 
+def plot_refs(fig, ax, config, SHOW=True):
+    '''
+    Overlay references on top of existing plots
+    '''
+
+    dt = config['dt']; N_h = config['N_h']
+    nq = len(config['q0']); nu = nq
+    # Add EE refs
+    xyz = ['x','y','z']
+    for i in range(3):
+        ax['p'][i,0].plot(np.linspace(0, N_h*dt, N_h+1), [np.asarray(config['p_des']) [i]]*(N_h+1), 'r-.', label='Desired')
+        ax['p'][i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+        ax['p'][i,1].plot(np.linspace(0, N_h*dt, N_h+1), [np.asarray(config['v_des']) [i]]*(N_h+1), 'r-.', label='Desired')
+        ax['p'][i,1].set_ylabel('$V^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+    handles_x, labels_x = ax['p'][i,0].get_legend_handles_labels()
+    fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+
+    # Add vel refs
+    for i in range(nq):
+        # ax['x'][i,0].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['q0'])[i]]*(N_h+1), 'r-.', label='Desired')
+        ax['x'][i,1].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['dq0'])[i]]*(N_h+1), 'r-.', label='Desired')
+
+    if(SHOW):
+        plt.show()
+    
+    return fig, ax
+    
+    # # Add torque refs
+    # q = np.array(ddp_data['xs'])[:,:nq]
+    # ureg_ref = np.zeros((N_h, nu))
+    # for i in range(N_h):
+    #     ureg_ref[i,:] = utils.pin_utils.get_u_grav_(q[i,:], ddp_data['pin_model'])
+    # for i in range(nu):
+    #     ax['u'][i].plot(np.linspace(0*dt, N_h*dt, N_h), ureg_ref[:,i], 'r-.', label='Desired')
+
 
 
 
