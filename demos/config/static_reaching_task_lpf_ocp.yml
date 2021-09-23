@@ -1,7 +1,7 @@
 # OCP parameters for static end-effector pose reaching task
 
 # General
-f_c: 0.00001                                              # Low-pass filter cut-off frequency
+f_c: 50                                         # Low-pass filter cut-off frequency
 dt: 0.01                                             # OCP integration step 
 N_h: 100                                             # Horizon length in nodes
 maxiter: 100                                         # Max number of iterations in DDP
@@ -10,41 +10,41 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint veloc
 tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initial robot joint torque
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
-WHICH_COSTS: ['translation', 'stateReg'] # 'ctrlReg'] # 'stateLim'] # ctrlLim, velocity, placement, etc.
+WHICH_COSTS: ['ctrlReg'] # 'ctrlReg'] # 'stateLim'] # ctrlLim, velocity, placement, etc.
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
 stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
-stateRegWeight: .01
-stateRegWeightTerminal: 0.1
+stateRegWeight: .0
+stateRegWeightTerminal: 0.
 
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.001
+ctrlRegWeight: 0.
 
  # 'stateLim' : state limits
-stateLimWeight: 100.
-stateLimWeightTerminal: 100.
+stateLimWeight: 0.
+stateLimWeightTerminal: 0.
 
  # 'ctrlLim' : torque limits
 u_lim: [320, 320, 176, 176, 110, 40, 40]
-ctrlLimWeight: 1.
+ctrlLimWeight: 0.
 
  # 'placement' : end-effector frame placement (translation + rotation)
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0.1
-framePlacementWeightTerminal: 1. #1000
+framePlacementWeight: 0.0
+framePlacementWeightTerminal: 0. #1000
 
 p_des: [-0.5, -0.5, 0.7]  # both translation and placement
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 1.
-frameTranslationWeightTerminal: 1. #1000
+frameTranslationWeight: 0.
+frameTranslationWeightTerminal: 0. #1000
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeight: 0.
-frameVelocityWeightTerminal: 1. #1000
+frameVelocityWeightTerminal: 0. #1000
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .01]

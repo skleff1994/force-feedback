@@ -58,7 +58,7 @@ ug = pin_utils.get_u_grav(q0, robot)
 y0 = np.concatenate([x0, ug])
 # print("Gravity torque = ", ug)
 
-LPF_TYPE = 0
+LPF_TYPE = 2
 # Approx. LPF obtained from Z.O.H. discretization on CT LPF 
 if(LPF_TYPE==0):
     alpha = np.exp(-2*np.pi*config['f_c']*dt)
@@ -73,7 +73,7 @@ print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-9, 
+                                                cost_w_reg=100., 
                                                 cost_w_lim=0.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
@@ -106,11 +106,33 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 print("--------------------------------------")
 print("              ANALYSIS                ")
 print("--------------------------------------")
-print("Average error w.r.t. warm start : ")
-print("q_err   = ", np.linalg.norm(np.array(ddp.xs)[:,:nq] - y0[:nq]))#/N_h)
-print("v_err   = ", np.linalg.norm(np.array(ddp.xs)[:,nq:nx] - y0[nq:nx]))#/N_h)
-print("tau_err = ", np.linalg.norm(np.array(ddp.xs)[:,-nu:] - ug))#/N_h)
-print("w_err   = ", np.linalg.norm(np.array(ddp.us - ug)))#/N_h)
+print("Cumulative absolute error w.r.t. warm start : ")
+print("norm(qs-q_0)   = ", np.linalg.norm(np.array(ddp.xs)[:,:nq] - y0[:nq]))#/N_h)
+print("norm(vs-q_0)   = ", np.linalg.norm(np.array(ddp.xs)[:,nq:nx] - y0[nq:nx]))#/N_h)
+print("norm(taus-u_g) = ", np.linalg.norm(np.array(ddp.xs)[:,-nu:] - ug))#/N_h)
+print("norm(us-u_g)   = ", np.linalg.norm(np.array(ddp.us - ug)))#/N_h)
+
+VISUALIZE = True
+if(VISUALIZE):
+    print("--------------------------------------")
+    print("              VISUALIZE               ")
+    print("--------------------------------------")
+    robot.initDisplay(loadModel=True)
+    robot.display(q0)
+    viewer = robot.viz.viewer
+    # viewer.gui.addFloor('world/floor')
+    # viewer.gui.refresh()
+    log_rate = int(N_h/10)
+    print("Visualizing...")
+    for i in range(N_h):
+        # Iter log
+        viewer.gui.refresh()
+        robot.display(ddp.xs[i][:nq])
+        if(i%log_rate==0):
+            print("Display config n°"+str(i))
+        time.sleep(.05)
+
+
 
 PLOT = True
 if(PLOT):
@@ -145,26 +167,6 @@ if(PLOT):
     fig['y'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
     plt.show()
 
-
-VISUALIZE = False
-if(VISUALIZE):
-    print("--------------------------------------")
-    print("              VISUALIZE               ")
-    print("--------------------------------------")
-    robot.initDisplay(loadModel=True)
-    robot.display(q0)
-    viewer = robot.viz.viewer
-    # viewer.gui.addFloor('world/floor')
-    # viewer.gui.refresh()
-    log_rate = int(N_h/10)
-    print("Visualizing...")
-    for i in range(N_h):
-        # Iter log
-        viewer.gui.refresh()
-        robot.display(ddp.xs[i][:nq])
-        if(i%log_rate==0):
-            print("Display config n°"+str(i))
-        time.sleep(.05)
 
 
 

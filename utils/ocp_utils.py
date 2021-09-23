@@ -582,26 +582,26 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                              actuation, 
                                                              crocoddyl.CostModelSum(state, nu=actuation.nu)),
                                                       stepTime=0., 
-                                                      withCostResidual=True, 
+                                                      withCostResidual=False, 
                                                       fc=f_c, 
                                                       cost_weight_w_reg=cost_w_reg, 
                                                       cost_weight_w_lim=cost_w_lim,
                                                       tau_plus_integration=tau_plus,
                                                       filter=lpf_type)
                                                             
-    # Add cost models
-    if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
-    if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal'])
-    if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
-    if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
-    if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("stateLim", xRegCost, config['stateLimWeightTerminal'])
-    # Add armature
-    terminalModel.differential.armature = np.asarray(config['armature'])
+    # # Add cost models
+    # if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
+    #   terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
+    # if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
+    #   terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal'])
+    # if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
+    #   terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
+    # if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
+    #   terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
+    # if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
+    #   terminalModel.differential.costs.addCost("stateLim", xRegCost, config['stateLimWeightTerminal'])
+    # # Add armature
+    # terminalModel.differential.armature = np.asarray(config['armature'])
     
     print("[OCP] Created IAMs.")
 
