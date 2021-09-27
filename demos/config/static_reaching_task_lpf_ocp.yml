@@ -10,17 +10,17 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint veloc
 tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initial robot joint torque
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
-WHICH_COSTS: ['ctrlReg'] # 'ctrlReg'] # 'stateLim'] # ctrlLim, velocity, placement, etc.
+WHICH_COSTS: ['translation', 'stateReg', 'ctrlReg'] # 'stateLim'] # ctrlLim, velocity, placement, etc.
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
-stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
-stateRegWeight: .0
-stateRegWeightTerminal: 0.
+stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 2., 2., 2., 2., 2., 2., 2.]
+stateRegWeight: .01
+stateRegWeightTerminal: .1
 
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.
+ctrlRegWeight: 0.001
 
  # 'stateLim' : state limits
 stateLimWeight: 0.
@@ -32,19 +32,20 @@ ctrlLimWeight: 0.
 
  # 'placement' : end-effector frame placement (translation + rotation)
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0.0
+framePlacementWeight: 0
 framePlacementWeightTerminal: 0. #1000
 
 p_des: [-0.5, -0.5, 0.7]  # both translation and placement
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 0.
-frameTranslationWeightTerminal: 0. #1000
+frameTranslationWeight: 1.
+frameTranslationWeightTerminal: 10. #1000
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeight: 0.
 frameVelocityWeightTerminal: 0. #1000
+v_des: [0., 0., 0.]       
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .01]

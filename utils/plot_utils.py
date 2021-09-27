@@ -5,6 +5,7 @@ import matplotlib
 import numpy as np
 from utils import pin_utils
 
+
 ### Plot from MPC simulation (LPF)
 # Plot state data
 def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False, 
@@ -328,116 +329,268 @@ def plot_mpc_results_lpf(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
     plt.close('all')
 
 
-### Plot DDP (Crocoddyl) results (LPF)
-def plot_ddp_results_LPF(ddp, robot, name_endeff='contact', SHOW=True):
+
+### Plot from DDP solver (LPF)
+def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None, colors=None, sampling_plot=1, SHOW=False):
     '''
-    Plot results of DDP solver with stateLPF
+    Plot ddp results from 1 or several DDP solvers
+        X, U, EE trajs
+        INPUT 
+        DDP_DATA    : DDP data or list of ddp data (cf. data_utils.extract_ddp_data())
+    '''
+    if(type(DDP_DATA) != list):
+        DDP_DATA = [DDP_DATA]
+    if(labels==None):
+        labels=[None for k in range(len(DDP_DATA))]
+    if(markers==None):
+        markers=[None for k in range(len(DDP_DATA))]
+    if(colors==None):
+        colors=[None for k in range(len(DDP_DATA))]
+    for k,d in enumerate(DDP_DATA):
+        # Return figs and axes object in case need to overlay new plots
+        if(k==0):
+            if('x' in which_plots or which_plots =='all'):
+                fig_x, ax_x = plot_ddp_state_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], SHOW=False)
+            if('u' in which_plots or which_plots =='all'):
+                fig_u, ax_u = plot_ddp_control_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], SHOW=False)
+            if('p' in which_plots or which_plots =='all'):
+                fig_p, ax_p = plot_ddp_endeff_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], SHOW=False)
+        # Overlay on top of first plot
+        else:
+            if(k%sampling_plot==0):
+                # If last plot, make legend
+                make_legend = False
+                if(k+sampling_plot > len(DDP_DATA)-1):
+                    make_legend=True
+                if('x' in which_plots or which_plots =='all'):
+                    plot_ddp_state_LPF(DDP_DATA[k], fig=fig_x, ax=ax_x, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('u' in which_plots or which_plots =='all'):
+                    plot_ddp_control_LPF(DDP_DATA[k], fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('p' in which_plots or which_plots =='all'):
+                    plot_ddp_endeff_LPF(DDP_DATA[k], fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+    if(SHOW):
+      plt.show()
+    
+    # Record and return if user needs to overlay stuff
+    fig = {}
+    ax = {}
+    if('p' in which_plots or which_plots =='all'):
+        fig['p'] = fig_p
+        ax['p'] = ax_p
+    if('x' in which_plots or which_plots =='all'):
+        fig['y'] = fig_x
+        ax['y'] = ax_x
+    if('u' in which_plots or which_plots =='all'):
+        fig['w'] = fig_u
+        ax['w'] = ax_u
+
+    return fig, ax
+
+def plot_ddp_state_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
+    '''
+    Plot ddp results (state)
     '''
     # Parameters
-    id_endeff = robot.model.getFrameId(name_endeff)
-    N_h = ddp.problem.T
-    dt = ddp.problem.runningModels[0].dt
-    nq = ddp.problem.runningModels[0].state.nq
-    nv = ddp.problem.runningModels[0].state.nv
-    nu = nq
-    # Extract solution trajectories
-    xs = np.array(ddp.xs)
-    us = np.array(ddp.us)
-    q = np.empty((N_h+1, nq))
-    v = np.empty((N_h+1, nv))
-    u = np.empty((N_h+1, nq))
-    for i in range(N_h+1):
-        q[i,:] = xs[i][:nq].T
-        v[i,:] = xs[i][nv:nv+nq].T
-        u[i,:] = xs[i][nv+nq:].T
-    p_ee = pin_utils.get_p(q, robot, id_endeff)
-    w = np.empty((N_h, nu))
-    for i in range(N_h):
-        w[i,:] = us[i].T
-    print("Plot results...")
-    # Create time spans for X and U + figs and subplots
-    tspan_x = np.linspace(0, N_h*dt, N_h+1)
-    tspan_w = np.linspace(0, N_h*dt, N_h)
-    fig_x, ax_x = plt.subplots(nq, 3, sharex='col')
-    fig_w, ax_w = plt.subplots(nq, 1, sharex='col')
-    fig_p, ax_p = plt.subplots(3, 1, sharex='col')
-    # Plot joints pos, vel , acc, torques
+    N = ddp_data['T'] 
+    dt = ddp_data['dt']
+    nq = ddp_data['nq'] 
+    nv = ddp_data['nv'] 
+    nu = ddp_data['nu'] 
+    # Extract pos, vel trajs
+    x = np.array(ddp_data['xs'])
+    q = x[:,:nq]
+    v = x[:,nq:nq+nv]
+    tau = x[:,-nu:]
+    # If tau reg cost, compute gravity torque
+    if('ctrlReg' in ddp_data['active_costs']):
+        tau_reg_ref = np.zeros((N+1,nu))
+        for i in range(N+1):
+            tau_reg_ref[i,:] = pin_utils.get_u_grav_(q[i,:], ddp_data['pin_model'])
+    # If state reg cost, 
+    if('stateReg' in ddp_data['active_costs']):
+        x_reg_ref = np.array(ddp_data['stateReg_ref'])
+    # Plots
+    tspan = np.linspace(0, N*dt, N+1)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nq, 3, sharex='col') 
+    if(label is None):
+        label='State'
     for i in range(nq):
         # Positions
-        ax_x[i,0].plot(tspan_x, q[:,i], 'b.', label='Optimal trajectory')
-        ax_x[i,0].plot(tspan_x[-1], q[-1,i], 'ro', alpha=0.5)
-        ax_x[i,0].set_ylabel('$q_%s$'%i, fontsize=16)
-        ax_x[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax_x[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-        ax_x[i,0].grid()
+        ax[i,0].plot(tspan, q[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        # If tau reg cost, plot gravity torque
+        if('stateReg' in ddp_data['active_costs']):
+            handles, labels = ax[i,0].get_legend_handles_labels()
+            if('reg_ref' in labels):
+                handles.pop(labels.index('reg_ref'))
+                ax[i,0].lines.pop(labels.index('reg_ref'))
+                labels.remove('reg_ref')
+            ax[i,0].plot(tspan, x_reg_ref[:,i], linestyle='-.', color='k', marker=marker, label='reg_ref', alpha=0.5)
+        ax[i,0].set_ylabel('$q_%s$'%i, fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,0].grid(True)
         # Velocities
-        ax_x[i,1].plot(tspan_x, v[:,i], 'b.', label='Optimal trajectory')
-        ax_x[i,1].plot(tspan_x[-1], v[-1,i], 'ro', alpha=0.5)
-        ax_x[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
-        ax_x[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax_x[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-        ax_x[i,1].grid()
+        ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)  
+        # If tau reg cost, plot gravity torque
+        if('stateReg' in ddp_data['active_costs']):
+            handles, labels = ax[i,1].get_legend_handles_labels()
+            if('reg_ref' in labels):
+                handles.pop(labels.index('reg_ref'))
+                ax[i,1].lines.pop(labels.index('reg_ref'))
+                labels.remove('reg_ref')
+            ax[i,1].plot(tspan, x_reg_ref[:,nq+i], linestyle='-.', color='k', marker=marker, label='reg_ref', alpha=0.5)
+        ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,1].grid(True)  
         # Torques
-        ax_x[i,2].plot(tspan_x, u[:,i], 'b.', label='Optimal trajectory')
-        ax_x[i,2].plot(tspan_x[-1], u[-1,i], 'ro', alpha=0.5)
-        ax_x[i,2].set_ylabel('$u_%s$'%i, fontsize=16)
-        ax_x[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax_x[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-        ax_x[i,2].grid()
-        # Input (w)
-        ax_w[i].plot(tspan_w, w[:,i], 'b.', label='input_des') 
-        ax_w[i].set_ylabel(ylabel='$w_%d$'%i, fontsize=16)
-        ax_w[i].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax_w[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-        ax_w[i].grid()
-        # Remove xticks labels for clarity 
-        if(i != nq-1):
-            for j in range(3):
-                ax_x[i,j].set_xticklabels([])
-            ax_w[i].set_xticklabels([])
-        # Set xlabel on bottom plot
-        if(i == nq-1):
-            for j in range(3):
-                ax_x[i,j].set_xlabel('t (s)', fontsize=16)
-            ax_w[i].set_xlabel('t (s)', fontsize=16)
-        # Legend
-        handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
-        fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-        handles_w, labels_w = ax_w[i].get_legend_handles_labels()
-        fig_w.legend(handles_w, labels_w, loc='upper right', prop={'size': 16})
-    # Plot EE
-    ylabels_p = ['Px', 'Py', 'Pz']
+        ax[i,2].plot(tspan, tau[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        # If tau reg cost, plot gravity torque
+        if('ctrlReg' in ddp_data['active_costs']):
+            handles, labels = ax[i,2].get_legend_handles_labels()
+            if('reg_ref' in labels):
+                handles.pop(labels.index('reg_ref'))
+                ax[i,2].lines.pop(labels.index('reg_ref'))
+                labels.remove('reg_ref')
+            ax[i,2].plot(tspan, tau_reg_ref[:,i], linestyle='-.', color='k', marker=marker, label='reg_ref', alpha=0.5)
+        ax[i,2].set_ylabel('$\\tau_{}$'.format(i), fontsize=16)
+        ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,2].grid()
+    # Common x-labels
+    ax[-1,0].set_xlabel('Time (s)', fontsize=16)
+    ax[-1,1].set_xlabel('Time (s)', fontsize=16)
+    ax[-1,2].set_xlabel('Time (s)', fontsize=16)
+    fig.align_ylabels(ax[:, 0])
+    fig.align_ylabels(ax[:, 1])
+    fig.align_ylabels(ax[:, 2])
+    # Legend
+    if(MAKE_LEGEND):
+        handles, labels = ax[0,0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.suptitle('State trajectories : joint positions and velocities', size=18)
+    plt.subplots_adjust(wspace=0.3)
+    if(SHOW):
+        plt.show()
+    return fig, ax
+
+def plot_ddp_control_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
+    '''
+    Plot ddp results (control)
+    '''
+    # Parameters
+    N = ddp_data['T'] 
+    dt = ddp_data['dt']
+    nu = ddp_data['nu'] 
+    nq = ddp_data['nq'] 
+    # Extract pos, vel trajs
+    w = np.array(ddp_data['us'])
+    x = np.array(ddp_data['xs'])
+    q = x[:,:nq]
+
+    # Plots
+    tspan = np.linspace(0, N*dt-dt, N)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(nu, 1, sharex='col') 
+    if(label is None):
+        label='Control'    
+    for i in range(nu):
+        # Positions
+        ax[i].plot(tspan, w[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        ax[i].set_ylabel('$w_%s$'%i, fontsize=16)
+        ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i].grid(True)
+    ax[-1].set_xlabel('Time (s)', fontsize=16)
+    fig.align_ylabels(ax[:])
+    # Legend
+    if(MAKE_LEGEND):
+        handles, labels = ax[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.suptitle('Control trajectories: unfiltered joint torques', size=18)
+    if(SHOW):
+        plt.show()
+    return fig, ax
+
+def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
+    '''
+    Plot ddp results (endeff)
+    '''
+    # Parameters
+    N = ddp_data['T'] 
+    dt = ddp_data['dt']
+    nq = ddp_data['nq']
+    nv = ddp_data['nv'] 
+    # Extract EE traj
+    x = np.array(ddp_data['xs'])
+    q = x[:,:nq]
+    v = x[:,nq:nq+nv]
+    p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
+    v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
+    # Plots
+    tspan = np.linspace(0, N*dt, N+1)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(3, 2, sharex='col')
+    if(label is None):
+        label='End-effector'
+    xyz = ['x', 'y', 'z']
     for i in range(3):
-        ax_p[i].plot(tspan_x, p_ee[:,i], 'b.', label='desired')
-        ax_p[i].set_ylabel(ylabel=ylabels_p[i], fontsize=16)
-        ax_p[i].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax_p[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-        ax_p[i].grid()
-        handles_p, labels_p = ax_p[i].get_legend_handles_labels()
-        fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
-    ax_p[-1].set_xlabel('t (s)', fontsize=16)
-    # Align labels + set titles
-    fig_x.align_ylabels()
-    fig_w.align_ylabels()
-    fig_p.align_ylabels()
-    fig_x.suptitle('Joint trajectories', size=16)
-    fig_w.suptitle('Joint input', size=16)
-    fig_p.suptitle('End-effector trajectory', size=16)
+        # Positions
+        ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,0].grid(True)
+        # Velocities
+        ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,1].grid(True)
+    fig.align_ylabels(ax[:,0])
+    fig.align_ylabels(ax[:,1])
+    ax[i,0].set_xlabel('t (s)', fontsize=16)
+    if(MAKE_LEGEND):
+        handles, labels = ax[0,0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.suptitle('End-effector trajectories: position and velocity', size=18)
+    if(SHOW):
+        plt.show()
+    return fig, ax
+
+
+def plot_refs_LPF(fig, ax, ddp_data, config, SHOW=True):
+    '''
+    Overlay references on top of existing plots
+    '''
+
+    dt = config['dt']; N_h = config['N_h']
+    nq = len(config['q0']); nu = nq
+    # Add EE refs
+    xyz = ['x','y','z']
+    for i in range(3):
+        ax['p'][i,0].plot(np.linspace(0, N_h*dt, N_h+1), [np.asarray(config['p_des'])[i]]*(N_h+1), 'r-.', label='Desired')
+        ax['p'][i,1].plot(np.linspace(0, N_h*dt, N_h+1), [np.asarray(config['v_des']) [i]]*(N_h+1), 'r-.', label='Desired')
+    handles, labels = ax['p'][i,0].get_legend_handles_labels()
+    fig['p'].legend(handles, labels)
+        # handles.pop(labels.index('Desired'))
+        # ax[i,2].lines.pop(labels.index('u_grav(q)'))
+        # labels.remove('u_grav(q)')
+
+
+    # Add vel refs
+    for i in range(nq):
+        ax['y'][i,0].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['q0'])[i]]*(N_h+1), 'r-.', label='Desired')
+        ax['y'][i,1].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['dq0'])[i]]*(N_h+1), 'r-.', label='Desired')
 
     if(SHOW):
         plt.show()
-
-    fig = {}
-    fig['p'] = fig_p
-    fig['y'] = fig_x
-    fig['w'] = fig_w
-
-    ax = {}
-    ax['p'] = ax_p
-    ax['y'] = ax_x
-    ax['w'] = ax_w
-
+    
     return fig, ax
+
+
+
 
 
 
@@ -1423,17 +1576,6 @@ def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=No
     x = np.array(ddp_data['xs'])
     q = x[:,:nq]
     v = x[:,nv:]
-    # if('stateLim' in ddp_data['active_costs']):
-    #     xlim_ub = np.array(ddp_data['stateLim_ub'])
-    #     xlim_lb = np.array(ddp_data['stateLim_lb'])
-    #     qlim_ub = xlim_ub[:,:nq]
-    #     vlim_ub = xlim_ub[:,nv:]
-    #     qlim_lb = xlim_lb[:,:nq]
-    #     vlim_lb = xlim_lb[:,nv:]
-    # if('stateReg' in ddp_data['active_costs']):
-    #     xreg_ref = np.array(ddp_data['stateReg_ref'])
-    #     qreg_ref = xreg_ref[:,:nq]
-    #     vreg_ref = xreg_ref[:,nv:]
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
@@ -1448,32 +1590,7 @@ def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=No
         # Velocities
         ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)  
         ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
-        ax[i,1].grid(True)
-        # #  Add limits (avoidind duplicates if overlaying axes)
-        # if('stateLim' in ddp_data['active_costs']):
-        #     handles_q, labels_q = ax[i, 0].get_legend_handles_labels()
-        #     handles_v, labels_v = ax[i, 1].get_legend_handles_labels()
-        #     indices_q = [idx for idx, elt in enumerate(labels_q) if elt == 'lim']
-        #     indices_v = [idx for idx, elt in enumerate(labels_v) if elt == 'lim']
-        #     # Remove old plot if necessary
-        #     if('lim' in labels_q or 'lim' in labels_v):
-        #         # Get indices of occurence of the existing label
-        #         indices_q = [idx for idx, elt in enumerate(labels_q) if elt == 'lim']
-        #         indices_v = [idx for idx, elt in enumerate(labels_v) if elt == 'lim']
-        #         # Remove the correspinding lines
-        #         ax[i,0].lines = [elt for k, elt in enumerate(ax[i,0].lines) if k not in indices_q]
-        #         ax[i,1].lines = [elt for k, elt in enumerate(ax[i,1].lines) if k not in indices_v]
-        #         handles_q = [elt for k, elt in enumerate(handles_q) if k not in indices_q]
-        #         handles_v = [elt for k, elt in enumerate(handles_v) if k not in indices_v]
-        #         # Remove indices
-        #         labels_q = list(filter(('lim').__ne__, labels_q))
-        #         labels_v = list(filter(('lim').__ne__, labels_v))
-        #         # labels_q.pop(labels_q.index('lim'))
-        #     # Plot limits
-        #     ax[i,0].plot(tspan[:-1], qlim_ub[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
-        #     ax[i,0].plot(tspan[:-1], qlim_lb[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
-        #     ax[i,1].plot(tspan[:-1], vlim_ub[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)
-        #     ax[i,1].plot(tspan[:-1], vlim_lb[:,i], linestyle='-.', color='k', marker=marker, label='lim', alpha=0.3)      
+        ax[i,1].grid(True)  
     # Legend
     handles, labels = ax[0,0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
@@ -1541,13 +1658,9 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=N
     # Extract EE traj
     x = np.array(ddp_data['xs'])
     q = x[:,:nq]
-    v = x[:,nv:]
+    v = x[:,nq:nq+nv]
     p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
     v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
-    v_ee2 = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
-
-    # if('translation' in ddp_data['active_costs']):
-    #     p_ref = ddp_data['translation_ref']
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
@@ -1559,25 +1672,10 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=N
     for i in range(3):
         # Positions
         ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
-        # if('translation_ref' in ddp_data['active_costs']):
-        #     handles, labels = ax[i].get_legend_handles_labels()
-        #     if('p_ref' in labels):
-        #         handles.pop(labels.index('p_ref'))
-        #         ax[i].lines.pop(labels.index('p_ref'))
-        #         labels.remove('p_ref')
-        # ax[i].plot(tspan, p_ref[:,i], linestyle='-.', color='k', marker=marker, label='p_ref', alpha=0.5)
         ax[i,0].set_ylabel(ylabel=ylabels_pos[i], fontsize=16)
         ax[i,0].grid(True)
         # Velocities
         ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
-        ax[i,1].plot(tspan, v_ee2[:,i], linestyle='-.', marker=marker, label=label, alpha=0.5)
-        # if('translation_ref' in ddp_data['active_costs']):
-        #     handles, labels = ax[i].get_legend_handles_labels()
-        #     if('p_ref' in labels):
-        #         handles.pop(labels.index('p_ref'))
-        #         ax[i].lines.pop(labels.index('p_ref'))
-        #         labels.remove('p_ref')
-        # ax[i].plot(tspan, p_ref[:,i], linestyle='-.', color='k', marker=marker, label='p_ref', alpha=0.5)
         ax[i,1].set_ylabel(ylabel=ylabels_vel[i], fontsize=16)
         ax[i,1].grid(True)
     handles, labels = ax[i,0].get_legend_handles_labels()
@@ -1602,7 +1700,7 @@ def plot_refs(fig, ax, config, SHOW=True):
         ax['p'][i,0].plot(np.linspace(0, N_h*dt, N_h+1), [np.asarray(config['p_des']) [i]]*(N_h+1), 'r-.', label='Desired')
         ax['p'][i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
         ax['p'][i,1].plot(np.linspace(0, N_h*dt, N_h+1), [np.asarray(config['v_des']) [i]]*(N_h+1), 'r-.', label='Desired')
-        ax['p'][i,1].set_ylabel('$V^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+        ax['p'][i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
     handles_x, labels_x = ax['p'][i,0].get_legend_handles_labels()
     fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
 

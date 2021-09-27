@@ -115,7 +115,6 @@ def init_sim_data_lpf(config, robot, y0):
     
     return sim_data
 
-
 # Extract MPC simu-specific plotting data from sim data (LPF)
 def extract_plot_data_from_sim_data_lpf(sim_data):
     '''
@@ -266,6 +265,8 @@ def extract_plot_data(input_data):
     return extract_plot_data_from_sim_data(sim_data)
 
 
+
+# Extract DDP data (classic or LPF)
 def extract_ddp_data(ddp):
     '''
     Record relevant data from ddp solver in order to plot 
@@ -286,8 +287,9 @@ def extract_ddp_data(ddp):
     ddp_data['us'] = ddp.us
     # Extract refs for active costs 
     ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
-    # if('stateReg' in ddp_data['active_costs']):
-    #     ddp_data['stateReg_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['stateReg'].cost.residual.reference for i in range(ddp.problem.T)]
+    if('stateReg' in ddp_data['active_costs']):
+        ddp_data['stateReg_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['stateReg'].cost.residual.reference for i in range(ddp.problem.T)]
+        ddp_data['stateReg_ref'].append(ddp.problem.terminalModel.differential.costs.costs['stateReg'].cost.residual.reference)
     # ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
     # if('placement' in ddp_data['active_costs']):
     #     ddp_data['placement_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['placement'].cost.residual.reference for i in range(ddp.problem.T)]
@@ -295,6 +297,8 @@ def extract_ddp_data(ddp):
     if('translation' in ddp_data['active_costs']):
         ddp_data['translation_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['translation'].cost.residual.reference for i in range(ddp.problem.T)]
         ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['translation'].cost.residual.id
+    else:
+       ddp_data['frame_id'] = ddp_data['pin_model'].getFrameId('contact')
     # if('velocity' in ddp_data['active_costs']):
     #     ddp_data['velocity_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['velocity'].cost.residual.reference for i in range(ddp.problem.T)]
     #     ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['velocity'].cost.residual.id
