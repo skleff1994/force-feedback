@@ -2,6 +2,9 @@ import time
 import numpy as np
 import os 
 
+
+
+
 # Save data (dict) into compressed npz
 def save_data(sim_data, save_name=None, save_dir=None):
     '''
@@ -25,6 +28,11 @@ def load_data(npz_file):
     d = np.load(npz_file, allow_pickle=True)
     return d['data'][()]
 
+
+
+
+
+
 # Initialize simulation data for MPC simulation
 def init_sim_data(config, robot, y0):
     '''
@@ -38,12 +46,66 @@ def extract_plot_data_from_sim_data(sim_data):
     '''
     Extract plot data from simu data
     '''
-    # TO BE IMPLEMENTED (like in /impedance_mpc repo)
-    pass
+    print('Extracting plotting data from simulation data...')
+    plot_data = {}
+    nq = sim_data['nq']
+    nv = sim_data['nv']
+    nx = sim_data['nx']
+    plot_data['nx'] = nx   
+    plot_data['nq'] = nq
+    plot_data['nv'] = nv
+    nu = nq
+    # State data 
+      # MPC predictions
+    plot_data['q_pred'] = sim_data['X_pred'][:,:,:nq]
+    plot_data['v_pred'] = sim_data['X_pred'][:,:,nq:nq+nv]
+      # Measurements
+    plot_data['q_mea'] = sim_data['X_mea'][:,:nq]
+    plot_data['v_mea'] = sim_data['X_mea'][:,nq:nq+nv]
+    plot_data['q_mea_no_noise'] = sim_data['X_mea_no_noise'][:,:nq]
+    plot_data['v_mea_no_noise'] = sim_data['X_mea_no_noise'][:,nq:nq+nv]
+      # Desired states (1st prediction of MPC horizon)
+    plot_data['q_des'] = np.vstack([plot_data['q_mea'][0], sim_data['X_pred'][:,1,:nq]])
+    plot_data['v_des'] = np.vstack([plot_data['v_mea'][0], sim_data['X_pred'][:,1,nq:nq+nv]])
+
+    # EE data
+      # Measurements
+    plot_data['p_mea'] = sim_data['P_mea_SIMU']
+    plot_data['p_mea_no_noise'] = sim_data['P_mea_no_noise_SIMU']
+      # MPC predictions
+    plot_data['p_pred'] = sim_data['P_pred']
+    plot_data['p_des'] = sim_data['P_des_PLAN'] 
+
+    # Control data 
+      # Predictions
+    plot_data['u_pred'] = sim_data['U_pred']
+      # Desired
+    plot_data['u_des'] = sim_data['U_pred'][:,0,:]
+      # Measured
+    plot_data['u_mea'] = sim_data['U_mea']
+
+# Same giving npz path OR dict as argument
+def extract_plot_data(input_data):
+    '''
+    Extract plot data from npz archive or sim_data
+    '''
+    if(type(input_data)==str):
+        sim_data = load_data(input_data)
+    elif(type(input_data)==dict):
+        sim_data = input_data
+    else:
+        TypeError("Input data must be a Python dict or a path to .npz archive")
+    return extract_plot_data_from_sim_data(sim_data)
+
+
+
+
+
+
 
 
 # Initialize MPC simulation with torque feedback based on Low-Pass-Filter (LPF) Actuation Model
-def init_sim_data_lpf(config, robot, y0):
+def init_sim_data_LPF(config, robot, y0):
     '''
     Initialize simulation data from config file (for torque feedback MPC based on LPF)
     '''
@@ -116,7 +178,7 @@ def init_sim_data_lpf(config, robot, y0):
     return sim_data
 
 # Extract MPC simu-specific plotting data from sim data (LPF)
-def extract_plot_data_from_sim_data_lpf(sim_data):
+def extract_plot_data_from_sim_data_LPF(sim_data):
     '''
     Extract plot data from simu data (for torque feedback MPC based on LPF)
     '''
@@ -133,68 +195,23 @@ def extract_plot_data_from_sim_data_lpf(sim_data):
     plot_data['nq'] = nq
     plot_data['nv'] = nv
     nu = nq
-    # State data 
-    if('X_pred' in sim_data.keys()):
-        # MPC predictions
-        plot_data['q_pred'] = sim_data['X_pred'][:,:,:nq]
-        plot_data['v_pred'] = sim_data['X_pred'][:,:,nq:nq+nv]
-        # Measurements
-        plot_data['q_mea'] = sim_data['X_mea'][:,:nq]
-        plot_data['v_mea'] = sim_data['X_mea'][:,nq:nq+nv]
-        plot_data['q_mea_no_noise'] = sim_data['X_mea_no_noise'][:,:nq]
-        plot_data['v_mea_no_noise'] = sim_data['X_mea_no_noise'][:,nq:nq+nv]
-        # Desired states (1st prediction of MPC horizon)
-        plot_data['q_des'] = np.vstack([plot_data['q_mea'][0], sim_data['X_pred'][:,1,:nq]])
-        plot_data['v_des'] = np.vstack([plot_data['v_mea'][0], sim_data['X_pred'][:,1,nq:nq+nv]])
-    if('Y_pred_PLAN' in sim_data.keys()):
-        # Predictions at PLAN freq
-        plot_data['q_pred'] = sim_data['Y_pred'][:,:,:nq]
-        plot_data['v_pred'] = sim_data['Y_pred'][:,:,nq:nq+nv]
-        plot_data['tau_pred'] = sim_data['Y_pred'][:,:,-nu:]
-    
-        # Measurements at SIMU freq
-        plot_data['q_mea'] = sim_data['Y_mea_SIMU'][:,:nq]
-        plot_data['v_mea'] = sim_data['Y_mea_SIMU'][:,nq:nq+nv]
-        plot_data['tau_mea'] = sim_data['Y_mea_SIMU'][:,-nu:]
-    
-        plot_data['q_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,:nq]
-        plot_data['v_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,nq:nq+nv]
-        plot_data['tau_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,-nu:]
-    
-        # References at PLAN freq
-        plot_data['q_des_PLAN'] = sim_data['Y_pred_PLAN'][:,:nq] 
-        # plot_data['q_des_CTRL'] = sim_data['Y_pred_CTRL'][:,:nq] 
-        # plot_data['q_des_SIMU'] = sim_data['Y_pred_SIMU'][:,:nq]
-
-        plot_data['v_des_PLAN'] = sim_data['Y_pred_PLAN'][:,nq:nq+nv] 
-        # plot_data['v_des_CTRL'] = sim_data['Y_pred_CTRL'][:,nq:nq+nv] 
-        # plot_data['v_des_SIMU'] = sim_data['Y_pred_SIMU'][:,nq:nq+nv]
-
-        plot_data['tau_des_PLAN'] = sim_data['Y_pred_PLAN'][:,-nu:]
-        # plot_data['tau_des_CTRL'] = sim_data['Y_pred_CTRL'][:,-nu:]
-        # plot_data['tau_des_SIMU'] = sim_data['Y_pred_SIMU'][:,-nu:]
-
-        plot_data['tau_des'] = sim_data['Tau_des']
-
+    # Predictions at PLAN freq
+    plot_data['q_pred'] = sim_data['Y_pred'][:,:,:nq]
+    plot_data['v_pred'] = sim_data['Y_pred'][:,:,nq:nq+nv]
+    plot_data['tau_pred'] = sim_data['Y_pred'][:,:,-nu:]
+    # Measurements at SIMU freq
+    plot_data['q_mea'] = sim_data['Y_mea_SIMU'][:,:nq]
+    plot_data['v_mea'] = sim_data['Y_mea_SIMU'][:,nq:nq+nv]
+    plot_data['tau_mea'] = sim_data['Y_mea_SIMU'][:,-nu:]
+    plot_data['q_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,:nq]
+    plot_data['v_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,nq:nq+nv]
+    plot_data['tau_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,-nu:]
     # end-eff position
     plot_data['p_mea'] = sim_data['P_mea_SIMU']
     plot_data['p_mea_no_noise'] = sim_data['P_mea_no_noise_SIMU']
     plot_data['p_pred'] = sim_data['P_pred']
-    plot_data['p_des'] = sim_data['P_des_PLAN'] 
     # control
-    if('U_pred' in sim_data.keys()):
-        plot_data['u_pred'] = sim_data['U_pred']
-        plot_data['u_des'] = sim_data['U_pred'][:,0,:]
-        plot_data['u_mea'] = sim_data['U_mea']
-    if('W_pred_PLAN' in sim_data.keys()):
-        plot_data['w_pred'] = sim_data['W_pred']
-        plot_data['w_des_PLAN'] = sim_data['W_pred_PLAN']
-        # plot_data['w_des_CTRL'] = sim_data['W_pred_CTRL']
-        # plot_data['w_des_SIMU'] = sim_data['W_pred_SIMU']
-        plot_data['w_mea_PLAN'] = sim_data['W_pred'][:,0,:]
-    # acc error
-    if('A_err' in sim_data.keys()):
-        plot_data['a_err'] = sim_data['A_err']
+    plot_data['w_pred'] = sim_data['W_pred']
     # Misc. params
     plot_data['T_tot'] = sim_data['T_tot']
     plot_data['N_simu'] = sim_data['N_simu']
@@ -208,61 +225,11 @@ def extract_plot_data_from_sim_data_lpf(sim_data):
     plot_data['p_ref'] = sim_data['p_ref']
     plot_data['alpha'] = sim_data['alpha']
     plot_data['beta'] = sim_data['beta']
-    # Get SVD & diagonal of Ricatti + record in sim data
-    if('K' in sim_data.keys()):
-      plot_data['K_svd'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
-      plot_data['Kp_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
-      plot_data['Kv_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nv))
-      for i in range(sim_data['N_plan']):
-        for j in range(sim_data['N_h']):
-          plot_data['Kp_diag'][i, j, :] = sim_data['K'][i, j, :, :nq].diagonal()
-          plot_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nq:nx].diagonal()
-          _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
-          plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
-    # Get diagonal and eigenvals of Vxx + record in sim data
-    if('Vxx' in sim_data.keys()):
-      plot_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, nx))
-      plot_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, nx))
-      for i in range(sim_data['N_plan']):
-        for j in range(sim_data['N_h']+1):
-          plot_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
-          plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
-    # Get diagonal and eigenvals of Quu + record in sim data
-    if('Quu' in sim_data.keys()):
-      plot_data['Quu_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h'], nu))
-      plot_data['Quu_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
-      for i in range(sim_data['N_plan']):
-        for j in range(sim_data['N_h']):
-          plot_data['Quu_diag'][i, j, :] = sim_data['Quu'][i, j, :, :].diagonal()
-          plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
-    if('J_rank' in sim_data.keys()):
-        plot_data['J_rank'] = sim_data['J_rank']
-    if('xreg' in sim_data.keys()):
-        plot_data['xreg'] = sim_data['xreg']
-    if('ureg' in sim_data.keys()):
-        plot_data['ureg'] = sim_data['ureg']
-    # Cost weighs 
-    if('ee_weight' in sim_data.keys() and
-       'x_reg_weight' in sim_data.keys() and
-       'u_reg_weight' in sim_data.keys()):
-       plot_data['ee_weight'] = sim_data['ee_weight']
-       plot_data['x_reg_weight'] = sim_data['x_reg_weight']
-       plot_data['u_reg_weight'] = sim_data['u_reg_weight']
 
     return plot_data
 
-# Same giving npz path OR dict as argument
-def extract_plot_data(input_data):
-    '''
-    Extract plot data from npz archive or sim_data
-    '''
-    if(type(input_data)==str):
-        sim_data = load_data(input_data)
-    elif(type(input_data)==dict):
-        sim_data = input_data
-    else:
-        TypeError("Input data must be a Python dict or a path to .npz archive")
-    return extract_plot_data_from_sim_data(sim_data)
+
+
 
 
 

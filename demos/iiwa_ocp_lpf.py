@@ -77,32 +77,36 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True,
 #   if(i>=5*N_h/10):
 #     ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight /= 1.1
 
+
 # Solve and extract solution trajectories
 xs_init = [y0 for i in range(N_h+1)]
-us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
-print("--------------------------------------")
-print("              WARM START              ")
-print("--------------------------------------")
-print("Warm start (ys, ws) with : ")
-print("  y_0 : q_0    = ", y0[:nq])
-print("        v_0    = ", y0[nq:nq+nv])
-print("        tau_0  = ", y0[nu:])
-print("  w_0 :        = ", ug)
-# print("Quasi-static torque ws = ")
-# us_qs = [ddp.problem.runningModels[0].quasiStatic(ddp.problem.runningDatas[0], y0)] * N_h
-# print("  ", us_qs[0])
-print("--------------------------------------")
-print("              DDP SOLVE               ")
-print("--------------------------------------")
-ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-print("--------------------------------------")
-print("              ANALYSIS                ")
-print("--------------------------------------")
-print("Cumulative absolute error w.r.t. warm start : ")
-print("norm(qs-q_0)   = ", np.linalg.norm(np.array(ddp.xs)[:,:nq] - y0[:nq]))#/N_h)
-print("norm(vs-q_0)   = ", np.linalg.norm(np.array(ddp.xs)[:,nq:nx] - y0[nq:nx]))#/N_h)
-print("norm(taus-u_g) = ", np.linalg.norm(np.array(ddp.xs)[:,-nu:] - ug))#/N_h)
-print("norm(us-u_g)   = ", np.linalg.norm(np.array(ddp.us - ug)))#/N_h)
+us_init = [ug for i in range(N_h)]
+
+INIT_LOGS = False
+if(INIT_LOGS):
+    print("--------------------------------------")
+    print("              WARM START              ")
+    print("--------------------------------------")
+    print("Warm start (ys, ws) with : ")
+    print("  y_0 : q_0    = ", y0[:nq])
+    print("        v_0    = ", y0[nq:nq+nv])
+    print("        tau_0  = ", y0[nu:])
+    print("  w_0 :        = ", ug)
+    # print("Quasi-static torque ws = ")
+    # us_qs = [ddp.problem.runningModels[0].quasiStatic(ddp.problem.runningDatas[0], y0)] * N_h
+    # print("  ", us_qs[0])
+    print("--------------------------------------")
+    print("              DDP SOLVE               ")
+    print("--------------------------------------")
+    ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+    print("--------------------------------------")
+    print("              ANALYSIS                ")
+    print("--------------------------------------")
+    print("Cumulative absolute error w.r.t. warm start : ")
+    print("norm(qs-q_0)   = ", np.linalg.norm(np.array(ddp.xs)[:,:nq] - y0[:nq]))#/N_h)
+    print("norm(vs-q_0)   = ", np.linalg.norm(np.array(ddp.xs)[:,nq:nx] - y0[nq:nx]))#/N_h)
+    print("norm(taus-u_g) = ", np.linalg.norm(np.array(ddp.xs)[:,-nu:] - ug))#/N_h)
+    print("norm(us-u_g)   = ", np.linalg.norm(np.array(ddp.us - ug)))#/N_h)
 
 VISUALIZE = True
 if(VISUALIZE):
@@ -124,7 +128,6 @@ if(VISUALIZE):
             print("Display config n°"+str(i))
         time.sleep(.05)
 
-
 PLOT = True
 if(PLOT):
     print("-----------------------------------")
@@ -133,33 +136,6 @@ if(PLOT):
     #  Plot
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
     fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
-
-    # # Debug by passing the unfiltered torque into the LPF
-    # tau_s = np.array(ddp.xs)[:,:nu]
-    # w_s = np.array(ddp.us)
-    # tau_integrated_s = np.zeros(tau_s.shape)
-    # tau_integrated_s[0,:] = ug 
-    # ureg_ref = np.zeros((N_h,nu))
-    # for i in range(N_h):
-    #     ureg_ref[i,:] = pin_utils.get_u_grav_(np.array(ddp.xs)[i,:nq], robot.model)
-    # for i in range(N_h):
-    #     tau_integrated_s[i+1,:] = alpha*tau_integrated_s[i,:] + (1-alpha)*w_s[i,:]
-    # for i in range(nq):
-    #     # Plot a posteriori integration to check IAM
-    #     ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), tau_integrated_s[:,i], 'r-', label='Integrated')
-    #     # Plot gravity torque
-    #     ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h), ureg_ref[:,i], 'k--', label='Gravity')
-    #     ax['w'][i].plot(np.linspace(0, N_h*dt, N_h), ureg_ref[:,i], 'k--', label='Gravity')
-    #     ax['w'][i]
-    # handles_x, labels_x = ax['y'][i,2].get_legend_handles_labels()
-    # fig['y'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-    # plt.show()
-
-
-
-
-
-
 
 # # Test integration (rollout)
 # xs = ddp.problem.rollout(us_init)

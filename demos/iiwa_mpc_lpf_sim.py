@@ -32,7 +32,7 @@ import time
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task_lpf')
+config = path_utils.load_config_file('static_reaching_task_lpf_mpc')
 # Create a Pybullet simulation environment + set simu freq
 dt_simu = 1./float(config['simu_freq'])  
 q0 = np.asarray(config['q0'])
@@ -42,9 +42,7 @@ pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
 # Get pin wrapper
 robot = pybullet_simulator.pin_robot
 # Get dimensions 
-nq, nv = robot.model.nq, robot.model.nv
-ny = nq+nv+nq
-nu = nq
+nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
 print("-------------------------------------------------------------------")
 print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
 print("-------------------------------------------------------------------")
@@ -55,11 +53,30 @@ print("-------------------------------------------------------------------")
 #################
 N_h = config['N_h']
 dt = config['dt']
-# u0 = np.asarray(config['tau0'])
 ug = pin_utils.get_u_grav(q0, robot)
 y0 = np.concatenate([x0, ug])
-which_costs = ['all']
-ddp = ocp_utils.init_DDP_LPF(robot, config, y0, cost_w=1e-3, tau_plus=True)
+
+
+LPF_TYPE = 1
+# Approx. LPF obtained from Z.O.H. discretization on CT LPF 
+if(LPF_TYPE==0):
+    alpha = np.exp(-2*np.pi*config['f_c']*dt)
+# Approx. LPF obtained from 1st order Euler int. on CT LPF
+if(LPF_TYPE==1):
+    alpha = 1./float(1+2*np.pi*config['f_c']*dt)
+# Exact LPF obtained from E.M.A model (IIR)
+if(LPF_TYPE==2):
+    y = np.cos(2*np.pi*config['f_c']*dt)
+    alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
+print("--------------------------------------")
+print("              INIT OCP                ")
+print("--------------------------------------")
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
+                                                cost_w_reg=0., 
+                                                cost_w_lim=1.,
+                                                tau_plus=True, 
+                                                lpf_type=LPF_TYPE,
+                                                WHICH_COSTS=config['WHICH_COSTS'] ) 
 
 WEIGHT_PROFILE = False
 SOLVE_AND_PLOT_INIT = False
@@ -78,13 +95,13 @@ if(SOLVE_AND_PLOT_INIT):
   xs_init = [y0 for i in range(N_h+1)]
   us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
   ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-  plot_utils.plot_ddp_results_LPF(ddp, robot)
-
+  ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+  fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
-sim_data = data_utils.init_sim_data_lpf(config, robot, y0)
+sim_data = data_utils.init_sim_data_LPF(config, robot, y0)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
 freq_CTRL = sim_data['ctrl_freq']
@@ -120,7 +137,7 @@ dt_sim = float(1./sim_data['simu_freq'])  # sampling rate
 scaling_plan = dt_mpc / dt_ocp
 scaling_ctrl = dt_ctr / dt_ocp
 scaling_simu = dt_sim / dt_ocp
-EPSILON = 1./scaling_simu
+EPSILON = 1.#/scaling_simu
 
 print("Scaling SIM : ", scaling_simu)
 print("Scaling CTR : ", scaling_ctrl)
@@ -259,7 +276,7 @@ for i in range(sim_data['N_simu']):
   # Simulate actuation with PI torque tracking controller (low-level control frequency)
 
     # Interpolate to SIMU frequency
-    coef_simu = scaling_simu * float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
+    coef_simu = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
     # y_pred_simu = y_curr + coef_simu*(y_pred - y_curr)
     # w_pred_simu = w_pred_prev + coef_simu*(w_curr - w_pred_prev)
     # # First prediction = measurement = initialization of MPC
@@ -270,7 +287,7 @@ for i in range(sim_data['N_simu']):
     # sim_data['Y_pred_SIMU'][i+1, :] = y_pred_simu # predicted state   y* = y1*
 
     # Reference torque sent to actuator by motor (SIMU frequency)
-    tau_ref_SIMU = y_curr[-nu:]+ coef_simu * EPSILON * (y_pred[-nu:] - y_curr[-nu:]) 
+    tau_ref_SIMU = y_curr[-nu:]+ coef_simu * (dt_sim/dt_mpc) * (y_pred[-nu:] - y_curr[-nu:]) 
     if(i==0):
       sim_data['Tau_des'][i,:] = y_curr[-nu:]
     sim_data['Tau_des'][i+1, :] = tau_ref_SIMU  
@@ -355,11 +372,11 @@ sim_data['P_mea_no_noise_SIMU'] = pin_utils.get_p(sim_data['Y_mea_no_noise_SIMU'
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/force-feedback/data'
-save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(freq_PLAN)+'Hz'
+save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(freq_PLAN)+'Hz_LPF'
 # Extract plot data from sim data
-plot_data = data_utils.extract_plot_data_from_sim_data_lpf(sim_data)
+plot_data = data_utils.extract_plot_data_from_sim_data_LPF(sim_data)
 # Plot results
-plot_utils.plot_mpc_results_lpf(plot_data, which_plots=WHICH_PLOTS,
+plot_utils.plot_mpc_results_LPF(plot_data, which_plots=WHICH_PLOTS,
                                 PLOT_PREDICTIONS=True, 
                                 pred_plot_sampling=int(freq_PLAN/10),
                                 SAVE=True,

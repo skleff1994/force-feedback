@@ -10,7 +10,7 @@ from utils import pin_utils
 
 ### Plot from MPC simulation (LPF)
 # Plot state data
-def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False, 
+def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False, 
                           pred_plot_sampling=100, 
                           SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                           SHOW=True):
@@ -89,36 +89,27 @@ def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False,
                 ax_x[i,2].scatter(tspan_x_pred, tau_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
 
         # Joint position
-        ax_x[i,0].plot(t_span_plan_x, plot_data['q_des_PLAN'][:,i], 'g-', label='Desired (MPC rate)', alpha=0.4)
-        # ax_x[i,0].plot(t_span_ctrl_x, plot_data['q_des_CTRL'][:,i], 'y-', label='Desired (CTRL rate)', alpha=0.7)
-        # ax_x[i,0].plot(t_span_simu_x, plot_data['q_des_SIMU'][:,i], 'b-', label='Desired (SIMU rate)', alpha=0.9)
+        ax_x[i,0].plot(t_span_plan_x[:-1], plot_data['q_pred'][:,1,i], color='b', marker=None, linestyle='-.', label='Desired (PLAN rate)', alpha=0.3)
         # ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], 'r-', label='Measured (SIMU rate)')
+        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured (SIMU rate)', alpha=0.6)
         ax_x[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
         ax_x[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax_x[i,0].grid(True)
         
-
         # Joint velocity 
-        ax_x[i,1].plot(t_span_plan_x, plot_data['v_des_PLAN'][:,i], 'g-', label='Desired (MPC rate)', alpha=0.4)
-        # ax_x[i,1].plot(t_span_ctrl_x, plot_data['v_des_CTRL'][:,i], 'y-', label='Desired (CTRL rate)', alpha=0.7)
-        # ax_x[i,1].plot(t_span_simu_x, plot_data['v_des_SIMU'][:,i], 'b-', label='Desired (SIMU rate)', alpha=0.9)
+        ax_x[i,1].plot(t_span_plan_x[:-1], plot_data['v_pred'][:,1,i], color='b', marker=None, linestyle='-.', label='Desired (PLAN rate)', alpha=0.3)
         # ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], 'r-', label='Measured (SIMU)')
+        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured (SIMU rate)', alpha=0.6)
         ax_x[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
         ax_x[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax_x[i,1].grid(True)
 
-
         # Joint torques
-        ax_x[i,2].plot(t_span_plan_x, plot_data['tau_des_PLAN'][:,i], 'g-', label='Desired (MPC rate)', alpha=0.4)
-        # ax_x[i,2].plot(t_span_ctrl_x, plot_data['tau_des_CTRL'][:,i], 'y-', label='Desired (CTRL rate)', alpha=0.7)
-        # ax_x[i,2].plot(t_span_simu_x, plot_data['tau_des_SIMU'][:,i], 'b-', label='Desired (SIMU rate)', alpha=0.9)
-        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_des'][:,i], color=[.5, .5,.5, .5], linestyle='-', label='Torque sent (Simu rate)', alpha=0.9)
+        ax_x[i,2].plot(t_span_plan_x[:-1], plot_data['tau_pred'][:,1,i], color='b', marker=None, linestyle='-.', label='Desired (PLAN rate)', alpha=0.3)
         # ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea_no_noise'][:,i], 'r-', label='Measured (SIMU rate)')
+        ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured (SIMU rate)', alpha=0.6)
         ax_x[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
         ax_x[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -155,7 +146,7 @@ def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False,
     return fig_x
 
 # Plot control data
-def plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=False, 
+def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False, 
                             pred_plot_sampling=100, 
                             SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                             SHOW=True,
@@ -219,10 +210,7 @@ def plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=False,
                 ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
 
         # Joint torques
-        ax_u[i].plot(t_span_plan_u, plot_data['w_des_PLAN'][:,i], 'g-', label='Desired (MPC rate)', alpha=.4)
-        # ax_u[i].plot(t_span_ctrl_u, plot_data['w_des_CTRL'][:,i], 'y-', label='Desired (CTRL rate)', alpha=.7)
-        # ax_u[i].plot(t_span_simu_u, plot_data['w_des_SIMU'][:,i], 'b-', label='Desired (SIMU rate)', alpha=.9)
-        ax_u[i].plot(t_span_plan_u, plot_data['w_mea_PLAN'][:,i], 'r-', label='Optimal control w0* (PLAN rate)', alpha=.9)
+        ax_u[i].plot(t_span_plan_u, plot_data['w_pred'][:,0,i], color='r', marker=None, linestyle='-', label='Optimal control w0* (PLAN rate)', alpha=0.6)
         ax_u[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
         ax_u[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_u[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -252,8 +240,130 @@ def plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=False,
 
     return fig_u
 
+# Plot end-eff data
+def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False, 
+                           pred_plot_sampling=100, 
+                           SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                           SHOW=True,
+                           AUTOSCALE=False):
+    '''
+    Plot endeff data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+      AUTOSCALE                 : rescale y-axis of endeff plot 
+                                  based on maximum value taken
+    '''
+    print('Plotting end-eff data...')
+    T_tot = plot_data['T_tot']
+    N_simu = plot_data['N_simu']
+    N_ctrl = plot_data['N_ctrl']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    T_h = plot_data['T_h']
+    N_h = plot_data['N_h']
+    p_ref = plot_data['p_ref']
+    # Create time spans for X and U + Create figs and subplots
+    t_span_simu_x = np.linspace(0, T_tot, N_simu+1)
+    t_span_ctrl_x = np.linspace(0, T_tot, N_ctrl+1)
+    t_span_plan_x = np.linspace(0, T_tot, N_plan+1)
+    fig_p, ax_p = plt.subplots(3,1, figsize=(19.2,10.8), sharex='col') 
+    # Plot endeff
+    # x
+    ax_p[0].plot(t_span_plan_x, plot_data['p_des'][:,0]-p_ref[0], 'b-.', label='p_des - p_ref', alpha=0.5)
+    # ax_p[0].plot(t_span_simu_x, plot_data['p_mea'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref (WITH noise)', linewidth=1, alpha=0.3)
+    ax_p[0].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref (SIMU rate)', linewidth=2)
+    ax_p[0].set_title('x-position-ERROR')
+    ax_p[0].set_ylabel('x (m)', fontsize=16)
+    ax_p[0].yaxis.set_major_locator(plt.MaxNLocator(2))
+    ax_p[0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+    ax_p[0].grid(True)
+    # y
+    ax_p[1].plot(t_span_plan_x, plot_data['p_des'][:,1]-p_ref[1], 'b-.', label='py_des - py_ref', alpha=0.5)
+    # ax_p[1].plot(t_span_simu_x, plot_data['p_mea'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (WITH noise)', linewidth=1, alpha=0.3)
+    ax_p[1].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref (SIMU rate)', linewidth=2)
+    ax_p[1].set_title('y-position-ERROR')
+    ax_p[1].set_ylabel('y (m)', fontsize=16)
+    ax_p[1].yaxis.set_major_locator(plt.MaxNLocator(2))
+    ax_p[1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+    ax_p[1].grid(True)
+    # z
+    ax_p[2].plot(t_span_plan_x, plot_data['p_des'][:,2]-p_ref[2], 'b-.', label='pz_des - pz_ref', alpha=0.5)
+    # ax_p[2].plot(t_span_simu_x, plot_data['p_mea'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (WITH noise)', linewidth=1, alpha=0.3)
+    ax_p[2].plot(t_span_simu_x, plot_data['p_mea_no_noise'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref (SIMU rate)', linewidth=2)
+    ax_p[2].set_title('z-position-ERROR')
+    ax_p[2].set_ylabel('z (m)', fontsize=16)
+    ax_p[2].yaxis.set_major_locator(plt.MaxNLocator(2))
+    ax_p[2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+    ax_p[2].set_xlabel('t (s)', fontsize=16)
+    ax_p[2].grid(True)
+    # Add frame ref if any
+    ax_p[0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., label='err=0', alpha=0.5)
+    ax_p[1].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., label='err=0', alpha=0.5)
+    ax_p[2].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., label='err=0', alpha=0.5)
+    # Set ylim if any
+    if(AUTOSCALE):
+        ax_p_ylim = np.max(np.abs(plot_data['p_mea']-plot_data['p_ref']))
+        ax_p[0].set_ylim(-ax_p_ylim, ax_p_ylim) 
+        ax_p[1].set_ylim(-ax_p_ylim, ax_p_ylim) 
+        ax_p[2].set_ylim(-ax_p_ylim, ax_p_ylim) 
+
+    if(PLOT_PREDICTIONS):
+        # For each component (x,y,z)
+        for i in range(3):
+            p_pred_i = plot_data['p_pred'][:, :, i]
+            # For each planning step in the trajectory
+            for j in range(0, N_plan, pred_plot_sampling):
+                # Receding horizon = [j,j+N_h]
+                t0_horizon = j*dt_plan
+                tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+                # Set up lists of (x,y) points for predicted positions
+                points_p = np.array([tspan_x_pred, p_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                # Set up lists of segments
+                segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
+                # Make collections segments
+                cm = plt.get_cmap('Greys_r') 
+                lc_p = LineCollection(segs_p, cmap=cm, zorder=-1)
+                lc_p.set_array(tspan_x_pred)
+                # Customize
+                lc_p.set_linestyle('-')
+                lc_p.set_linewidth(1)
+                # Plot collections
+                ax_p[i].add_collection(lc_p)
+                # Scatter to highlight points
+                colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+                my_colors = cm(colors)
+                ax_p[i].scatter(tspan_x_pred, p_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+
+    handles_p, labels_p = ax_p[0].get_legend_handles_labels()
+    fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
+
+    # Titles
+    fig_p.suptitle('End-effector trajectories errors', size=16)
+
+    # Save figs
+    if(SAVE):
+        figs = {'p': fig_p}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_p
+
+
 # Plot data
-def plot_mpc_results_lpf(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
+def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
                                               pred_plot_sampling=100, 
                                               SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                                               SHOW=True,
@@ -275,57 +385,23 @@ def plot_mpc_results_lpf(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
     plots = {}
 
     if('y' in which_plots or which_plots is None or which_plots =='all'):
-        plots['y'] = plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        plots['y'] = plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                            pred_plot_sampling=pred_plot_sampling, 
                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                            SHOW=False)
     
     if('w' in which_plots or which_plots is None or which_plots =='all'):
-        plots['w'] = plot_mpc_control_lpf(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        plots['w'] = plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                              pred_plot_sampling=pred_plot_sampling, 
                                              SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
 
     if('p' in which_plots or which_plots is None or which_plots =='all'):
-        plots['p'] = plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        plots['p'] = plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
-
-    if('K' in which_plots or which_plots is None or which_plots =='all'):
-        if('K_diag' in plot_data.keys()):
-            plots['K_diag'] = plot_mpc_ricatti_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-        if('K_svd' in plot_data.keys()):
-            plots['K_svd'] = plot_mpc_ricatti_svd(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-
-    if('V' in which_plots or which_plots is None or which_plots =='all'):
-        if('V_diag' in plot_data.keys()):
-            plots['V_diag'] = plot_mpc_Vxx_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-        if('V_eig' in plot_data.keys()):
-            plots['V_eig'] = plot_mpc_Vxx_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-
-    if('S' in which_plots or which_plots is None or which_plots =='all'):
-        if('S' in plot_data.keys()):
-            plots['S'] = plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-
-    if('J' in which_plots or which_plots is None or which_plots =='all'):
-        if('J' in plot_data.keys()):
-            plots['J'] = plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-
-    if('Q' in which_plots or which_plots is None or which_plots =='all'):
-        if('Q_diag' in plot_data.keys()):
-            plots['Q_diag'] = plot_mpc_Quu_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-        if('Q_eig' in plot_data.keys()):
-            plots['Q_eig'] = plot_mpc_Quu_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-    
+  
     if(SHOW):
         plt.show() 
     plt.close('all')
