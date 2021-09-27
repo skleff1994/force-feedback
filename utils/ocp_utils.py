@@ -601,7 +601,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
       terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("stateLim", xRegCost, config['stateLimWeightTerminal'])
+      terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
     # Add armature
     terminalModel.differential.armature = np.asarray(config['armature'])
     

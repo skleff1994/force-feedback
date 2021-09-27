@@ -51,7 +51,7 @@ dt = config['dt']
 ug = pin_utils.get_u_grav(q0, robot) 
 y0 = np.concatenate([x0, ug])
 
-LPF_TYPE = 0
+LPF_TYPE = 1
 # Approx. LPF obtained from Z.O.H. discretization on CT LPF 
 if(LPF_TYPE==0):
     alpha = np.exp(-2*np.pi*config['f_c']*dt)
@@ -66,7 +66,7 @@ print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-4, 
+                                                cost_w_reg=0., 
                                                 cost_w_lim=1.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
@@ -104,7 +104,7 @@ print("norm(vs-q_0)   = ", np.linalg.norm(np.array(ddp.xs)[:,nq:nx] - y0[nq:nx])
 print("norm(taus-u_g) = ", np.linalg.norm(np.array(ddp.xs)[:,-nu:] - ug))#/N_h)
 print("norm(us-u_g)   = ", np.linalg.norm(np.array(ddp.us - ug)))#/N_h)
 
-VISUALIZE = False
+VISUALIZE = True
 if(VISUALIZE):
     print("--------------------------------------")
     print("              VISUALIZE               ")
@@ -132,16 +132,7 @@ if(PLOT):
     print("-----------------------------------")
     #  Plot
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
-    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, SHOW=True)
-    # fig, ax = plot_utils.plot_ddp_results_LPF(ddp, robot, SHOW=False)
-    
-    # plot_utils.plot_refs_LPF(fig, ax, ddp_data, config, SHOW=True)
-    # p_des = np.asarray(config['p_des'])  #M_ee.translation.copy() #
-    # for i in range(3):
-    #     ax['p'][i,0].plot(np.linspace(0, N_h*config['dt'], N_h+1), [p_des[i]]*(N_h+1), 'k-.', label='Desired', alpha=0.5)
-    #     ax['p'][i,1].plot(np.linspace(0, N_h*config['dt'], N_h+1), [0.]*(N_h+1), 'k-.', label='Desired', alpha=0.5)
-    # handles_x, labels_x = ax['p'][0,0].get_legend_handles_labels()
-    # fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
     # # Debug by passing the unfiltered torque into the LPF
     # tau_s = np.array(ddp.xs)[:,:nu]

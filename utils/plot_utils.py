@@ -431,7 +431,7 @@ def plot_ddp_state_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
                 handles.pop(labels.index('reg_ref'))
                 ax[i,0].lines.pop(labels.index('reg_ref'))
                 labels.remove('reg_ref')
-            ax[i,0].plot(tspan, x_reg_ref[:,i], linestyle='-.', color='k', marker=marker, label='reg_ref', alpha=0.5)
+            ax[i,0].plot(tspan, x_reg_ref[:,i], linestyle='-.', color='k', marker=None, label='reg_ref', alpha=0.5)
         ax[i,0].set_ylabel('$q_%s$'%i, fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -445,7 +445,7 @@ def plot_ddp_state_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
                 handles.pop(labels.index('reg_ref'))
                 ax[i,1].lines.pop(labels.index('reg_ref'))
                 labels.remove('reg_ref')
-            ax[i,1].plot(tspan, x_reg_ref[:,nq+i], linestyle='-.', color='k', marker=marker, label='reg_ref', alpha=0.5)
+            ax[i,1].plot(tspan, x_reg_ref[:,nq+i], linestyle='-.', color='k', marker=None, label='reg_ref', alpha=0.5)
         ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -459,7 +459,7 @@ def plot_ddp_state_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
                 handles.pop(labels.index('reg_ref'))
                 ax[i,2].lines.pop(labels.index('reg_ref'))
                 labels.remove('reg_ref')
-            ax[i,2].plot(tspan, tau_reg_ref[:,i], linestyle='-.', color='k', marker=marker, label='reg_ref', alpha=0.5)
+            ax[i,2].plot(tspan, tau_reg_ref[:,i], linestyle='-.', color='k', marker=None, label='reg_ref', alpha=0.5)
         ax[i,2].set_ylabel('$\\tau_{}$'.format(i), fontsize=16)
         ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -513,7 +513,7 @@ def plot_ddp_control_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, c
             handles.pop(labels.index('reg_ref'))
             ax[i].lines.pop(labels.index('reg_ref'))
             labels.remove('reg_ref')
-        ax[i].plot(tspan, w_reg_ref[:,i], linestyle='-.', color='k', marker=marker, label='reg_ref', alpha=0.5)
+        ax[i].plot(tspan, w_reg_ref[:,i], linestyle='-.', color='k', marker=None, label='reg_ref', alpha=0.5)
         ax[i].set_ylabel('$w_%s$'%i, fontsize=16)
         ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -564,7 +564,7 @@ def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, co
                 handles.pop(labels.index('reference'))
                 ax[i,0].lines.pop(labels.index('reference'))
                 labels.remove('reference')
-            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='-.', color='k', marker=marker, label='reference', alpha=0.5)
+            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
         ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -577,7 +577,7 @@ def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, co
                 handles.pop(labels.index('reference'))
                 ax[i,1].lines.pop(labels.index('reference'))
                 labels.remove('reference')
-            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='-.', color='k', marker=marker, label='reference', alpha=0.5)
+            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
         ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -594,34 +594,11 @@ def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, co
     return fig, ax
 
 
-def plot_refs_LPF(fig, ax, ddp_data, config, SHOW=True):
-    '''
-    Overlay references on top of existing plots
-    '''
-
-    dt = config['dt']; N_h = config['N_h']
-    nq = len(config['q0']); nu = nq
-    # Add EE refs
-    xyz = ['x','y','z']
-    for i in range(3):
-        ax['p'][i,0].plot(np.linspace(0, N_h*dt, N_h+1), [np.asarray(config['p_des'])[i]]*(N_h+1), 'r-.', label='Desired')
-        ax['p'][i,1].plot(np.linspace(0, N_h*dt, N_h+1), [np.asarray(config['v_des']) [i]]*(N_h+1), 'r-.', label='Desired')
-    handles, labels = ax['p'][i,0].get_legend_handles_labels()
-    fig['p'].legend(handles, labels)
-        # handles.pop(labels.index('Desired'))
-        # ax[i,2].lines.pop(labels.index('u_grav(q)'))
-        # labels.remove('u_grav(q)')
 
 
-    # Add vel refs
-    for i in range(nq):
-        ax['y'][i,0].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['q0'])[i]]*(N_h+1), 'r-.', label='Desired')
-        ax['y'][i,1].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['dq0'])[i]]*(N_h+1), 'r-.', label='Desired')
 
-    if(SHOW):
-        plt.show()
-    
-    return fig, ax
+
+
 
 
 
@@ -744,17 +721,6 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
         plt.show() 
     
     return fig_x
-
-
-
-
-
-
-
-
-
-
-
 
 # Plot control data
 def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False, 
