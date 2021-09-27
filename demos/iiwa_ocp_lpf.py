@@ -71,22 +71,6 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
-
-ddp2 = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-4, 
-                                                cost_w_lim=1.,
-                                                tau_plus=True, 
-                                                lpf_type=LPF_TYPE,
-                                                WHICH_COSTS=config['WHICH_COSTS'] ) 
-
-
-ddp3 = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-4, 
-                                                cost_w_lim=1.,
-                                                tau_plus=True, 
-                                                lpf_type=LPF_TYPE,
-                                                WHICH_COSTS=config['WHICH_COSTS'] ) 
-
 # for i in range(N_h-1):
 #   if(i<=int(N_h/10)):
 #     ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = 100
@@ -111,10 +95,6 @@ print("--------------------------------------")
 print("              DDP SOLVE               ")
 print("--------------------------------------")
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-
-ddp3.solve([np.zeros(nx+nu) for i in range(N_h+1)], [np.zeros(nu) for i in range(N_h)], maxiter=config['maxiter'], isFeasible=False)
-
-ddp2.solve([np.ones(nx+nu) for i in range(N_h+1)], [np.ones(nu) for i in range(N_h)], maxiter=config['maxiter'], isFeasible=False)
 print("--------------------------------------")
 print("              ANALYSIS                ")
 print("--------------------------------------")
@@ -144,9 +124,6 @@ if(VISUALIZE):
             print("Display config n°"+str(i))
         time.sleep(.05)
 
-DDP_DATA = [data_utils.extract_ddp_data(ddp),
-            data_utils.extract_ddp_data(ddp2),
-            data_utils.extract_ddp_data(ddp3)]
 
 PLOT = True
 if(PLOT):
@@ -154,8 +131,8 @@ if(PLOT):
     print("              PLOTS                ")
     print("-----------------------------------")
     #  Plot
-    # ddp_data = data_utils.extract_ddp_data()
-    fig, ax = plot_utils.plot_ddp_results_LPF(DDP_DATA, SHOW=True)
+    ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, SHOW=True)
     # fig, ax = plot_utils.plot_ddp_results_LPF(ddp, robot, SHOW=False)
     
     # plot_utils.plot_refs_LPF(fig, ax, ddp_data, config, SHOW=True)

@@ -6,6 +6,8 @@ import numpy as np
 from utils import pin_utils
 
 
+
+
 ### Plot from MPC simulation (LPF)
 # Plot state data
 def plot_mpc_state_lpf(plot_data, PLOT_PREDICTIONS=False, 
@@ -330,6 +332,10 @@ def plot_mpc_results_lpf(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
 
 
+
+
+
+
 ### Plot from DDP solver (LPF)
 def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None, colors=None, sampling_plot=1, SHOW=False):
     '''
@@ -347,21 +353,21 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
     if(colors==None):
         colors=[None for k in range(len(DDP_DATA))]
     for k,d in enumerate(DDP_DATA):
+        # If last plot, make legend
+        make_legend = False
+        if(k+sampling_plot > len(DDP_DATA)-1):
+            make_legend=True
         # Return figs and axes object in case need to overlay new plots
         if(k==0):
             if('x' in which_plots or which_plots =='all'):
-                fig_x, ax_x = plot_ddp_state_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], SHOW=False)
+                fig_x, ax_x = plot_ddp_state_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('u' in which_plots or which_plots =='all'):
-                fig_u, ax_u = plot_ddp_control_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], SHOW=False)
+                fig_u, ax_u = plot_ddp_control_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('p' in which_plots or which_plots =='all'):
-                fig_p, ax_p = plot_ddp_endeff_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], SHOW=False)
+                fig_p, ax_p = plot_ddp_endeff_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
         # Overlay on top of first plot
         else:
             if(k%sampling_plot==0):
-                # If last plot, make legend
-                make_legend = False
-                if(k+sampling_plot > len(DDP_DATA)-1):
-                    make_legend=True
                 if('x' in which_plots or which_plots =='all'):
                     plot_ddp_state_LPF(DDP_DATA[k], fig=fig_x, ax=ax_x, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('u' in which_plots or which_plots =='all'):
@@ -488,7 +494,10 @@ def plot_ddp_control_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, c
     w = np.array(ddp_data['us'])
     x = np.array(ddp_data['xs'])
     q = x[:,:nq]
-
+    # If tau reg cost, compute gravity torque
+    w_reg_ref = np.zeros((N,nu))
+    for i in range(N):
+        w_reg_ref[i,:] = pin_utils.get_u_grav_(q[i,:], ddp_data['pin_model'])
     # Plots
     tspan = np.linspace(0, N*dt-dt, N)
     if(ax is None or fig is None):
@@ -498,6 +507,13 @@ def plot_ddp_control_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, c
     for i in range(nu):
         # Positions
         ax[i].plot(tspan, w[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        # If tau reg cost, plot gravity torque
+        handles, labels = ax[i].get_legend_handles_labels()
+        if('reg_ref' in labels):
+            handles.pop(labels.index('reg_ref'))
+            ax[i].lines.pop(labels.index('reg_ref'))
+            labels.remove('reg_ref')
+        ax[i].plot(tspan, w_reg_ref[:,i], linestyle='-.', color='k', marker=marker, label='reg_ref', alpha=0.5)
         ax[i].set_ylabel('$w_%s$'%i, fontsize=16)
         ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -528,6 +544,10 @@ def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, co
     v = x[:,nq:nq+nv]
     p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
     v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
+    if('translation' in ddp_data['active_costs']):
+        p_ee_ref = np.array(ddp_data['translation_ref'])
+    if('velocity' in ddp_data['active_costs']):
+        v_ee_ref = np.array(ddp_data['velocity_ref'])
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
@@ -538,12 +558,26 @@ def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, co
     for i in range(3):
         # Positions
         ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        if('translation' in ddp_data['active_costs']):
+            handles, labels = ax[i,0].get_legend_handles_labels()
+            if('reference' in labels):
+                handles.pop(labels.index('reference'))
+                ax[i,0].lines.pop(labels.index('reference'))
+                labels.remove('reference')
+            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='-.', color='k', marker=marker, label='reference', alpha=0.5)
         ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
         # Velocities
         ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        if('velocity' in ddp_data['active_costs']):
+            handles, labels = ax[i,1].get_legend_handles_labels()
+            if('reference' in labels):
+                handles.pop(labels.index('reference'))
+                ax[i,1].lines.pop(labels.index('reference'))
+                labels.remove('reference')
+            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='-.', color='k', marker=marker, label='reference', alpha=0.5)
         ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -710,6 +744,17 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
         plt.show() 
     
     return fig_x
+
+
+
+
+
+
+
+
+
+
+
 
 # Plot control data
 def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False, 
@@ -1502,6 +1547,16 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
 
 
+
+
+
+
+
+
+
+
+
+
 ### Plot from DDP solver 
 def plot_ddp_results(ddp, which_plots='all', SHOW=False, sampling_plot=1):
     '''
@@ -1661,6 +1716,8 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=N
     v = x[:,nq:nq+nv]
     p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
     v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
+    if('translation' in ddp_data['active_costs']):
+        p_ee_ref = np.array(ddp_data['translation_ref'])
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
@@ -1672,6 +1729,8 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=N
     for i in range(3):
         # Positions
         ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
+        if('translation' in ddp_data['active_costs']):
+            ax[i,0].plot(np.linspace(0, N*dt, N+1), p_ee_ref[:,i], 'k-.', label='Desired')
         ax[i,0].set_ylabel(ylabel=ylabels_pos[i], fontsize=16)
         ax[i,0].grid(True)
         # Velocities
@@ -1721,6 +1780,12 @@ def plot_refs(fig, ax, config, SHOW=True):
     #     ureg_ref[i,:] = utils.pin_utils.get_u_grav_(q[i,:], ddp_data['pin_model'])
     # for i in range(nu):
     #     ax['u'][i].plot(np.linspace(0*dt, N_h*dt, N_h), ureg_ref[:,i], 'r-.', label='Desired')
+
+
+
+
+
+
 
 
 
@@ -1958,6 +2023,13 @@ def plot_ddp_ricatti_diag(ddp, fig=None, ax=None, label=None, SHOW=True):
 
 
 
+
+
+
+
+
+
+
 # OLD
 
 # Animate and plot point mass from X,U trajs 
@@ -2027,7 +2099,7 @@ def plotPointMass(xs, us, dt=1e-2, ref=None):
         x3 = np.zeros(len(xs)) 
         for i in range(len(xs)):
             x3[i] = xs[i][2]
-    # Is there a reference to plot as well?
+    # Is there a 'reference' to plot as well?
     if(ref is not None):
         with_ref = True
     else:
