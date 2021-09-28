@@ -135,13 +135,14 @@ dt_ocp = dt                               # OCP sampling rate
 dt_mpc = float(1./sim_data['plan_freq'])  # planning rate
 dt_ctr = float(1./sim_data['ctrl_freq'])  # control rate 
 dt_sim = float(1./sim_data['simu_freq'])  # sampling rate 
-scaling_plan = dt_mpc / dt_ocp
-scaling_ctrl = dt_ctr / dt_ocp
-scaling_simu = dt_sim / dt_ocp
-EPSILON = 1.#/scaling_simu
+OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp
+OCP_TO_CTRL_RATIO = dt_ctr / dt_ocp
+OCP_TO_SIMU_RATIO = dt_sim / dt_ocp
 
-print("Scaling SIM : ", scaling_simu)
-print("Scaling CTR : ", scaling_ctrl)
+print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO)
+print("Scaling OCP-->CTRL : ", OCP_TO_CTRL_RATIO)
+print("Scaling OCP-->SIMU : ", OCP_TO_SIMU_RATIO)
+
 
 buffer_Y_PLAN_TO_CTRL = []
 buffer_W_PLAN_TO_CTRL = []
@@ -242,22 +243,13 @@ for i in range(sim_data['N_simu']):
         sim_data['W_pred'][nb_plan, :, :] = np.array(ddp.us)
         # Extract relevant predictions for interpolations
         y_curr = sim_data['Y_pred'][nb_plan, 0, :]  # y0* = measured state    (q^,  v^ , tau^ )
-        y_pred = sim_data['Y_pred'][nb_plan, 1, :]  # y1* = predicted state   (q1*, v1*, tau1*)
+        y_pred = sim_data['Y_pred'][nb_plan, 1, :]  # y1* = predicted state   (q1*, v1*, tau1*) 
         w_curr = sim_data['W_pred'][nb_plan, 0, :]  # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
-        # w_pred = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted control (w1*) !! UNFILTERED TORQUE !! 
         # Initialize control prediction
         if(nb_plan==0):
           w_pred_prev = w_curr
         else:
           w_pred_prev = sim_data['W_pred'][nb_plan-1, 1, :]
-
-        # # Interpolate the prediction (OCP sampling rate) to MPC frequency (PLAN rate) 
-        #   # First prediction = measurement = initialization of MPC
-        # if(nb_plan==0):
-        #   sim_data['Y_pred_PLAN'][nb_plan, :] = y_curr  
-        #   # Record predictions at PLAN rate 
-        # sim_data['W_pred_PLAN'][nb_plan, :]   = w_pred_prev + scaling_plan*(w_curr - w_pred_prev) # predicted control w* = w0*
-        # sim_data['Y_pred_PLAN'][nb_plan+1, :] = y_curr + scaling_plan*(y_pred - y_curr)           # predicted state   y* = y1*
 
         # Optionally delay due to OCP resolution time 
         if(DELAY_OCP):
@@ -272,22 +264,14 @@ for i in range(sim_data['N_simu']):
           else:
             w_curr = w_buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
 
-        # Interpolate predictions to higher frequencies
-        y_data_OCP = np.vstack([y_curr, y_pred])
-        w_data_OCP = np.vstack([w_pred_prev, w_curr])
-        # y_interp_OCP_TO_PLAN = ocp_utils.linear_interpolation(y_data_OCP, int(freq_PLAN*dt_ocp))
-        # y_interp_OCP_TO_CTRL = ocp_utils.linear_interpolation(y_data_OCP, int(freq_CTRL*dt_ocp))
-        # y_interp_OCP_TO_SIMU = ocp_utils.linear_interpolation(y_data_OCP, int(freq_SIMU*dt_ocp))
-        # w_interp_OCP_TO_PLAN = ocp_utils.linear_interpolation(w_data_OCP, int(freq_PLAN*dt_ocp))
-        # w_interp_OCP_TO_CTRL = ocp_utils.linear_interpolation(w_data_OCP, int(freq_CTRL*dt_ocp))
-        # w_interp_OCP_TO_SIMU = ocp_utils.linear_interpolation(w_data_OCP, int(freq_SIMU*dt_ocp))
-        
-        # # Select ref at MPC freq
-        # print("Select PLAN n°", i%int(freq_PLAN*dt_ocp))
-        # if(nb_plan==0):
-        #   sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
-        # sim_data['Y_des_PLAN'][nb_plan+1,:] = y_interp_OCP_TO_PLAN[i%int(freq_PLAN*dt_ocp)]
-        # y_ref_PLAN = y_interp_OCP_TO_PLAN[]
+        # Select reference control and state for the current PLAN cycle
+        y_ref_PLAN          = y_curr      + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+        w_ref_PLAN          = w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        if(nb_plan==0):
+          sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
+        sim_data['W_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
+        sim_data['Y_des_PLAN'][nb_plan+1, :] = y_ref_PLAN    
+
         # Increment planning counter
         nb_plan += 1
 
@@ -297,21 +281,15 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_CTRL) == 0):        
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
 
-        # Select ref control and state
-        # y_ref_CTRL
-        # # Interpolate to CTRL frequency
-        # interp = ocp_utils.linear_interpolation(np.concatenate([y_curr, y_pred]), int(freq_CTRL/freq_PLAN))
-        # coef_ctrl   = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        # y_pred_ctrl = y_curr + coef_ctrl*(y_pred - y_curr)
-        # w_pred_ctrl = w_pred_prev + coef_ctrl*(w_curr - w_pred_prev)
-        # # First prediction = measurement = initialization of MPC
-        # if(nb_ctrl==0):
-        #   sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
-        # print("Select CTRL n°", i%int(freq_CTRL*dt_ocp))
-        # sim_data['Y_des_CTRL'][nb_ctrl+1,:] = y_interp_OCP_TO_CTRL[i%int(freq_CTRL*dt_ocp)]
-        # # Record predictions at CTRL rate 
-        # sim_data['W_pred_CTRL'][nb_ctrl, :] = w_pred_ctrl   # predicted control w* = w0*
-        # sim_data['Y_pred_CTRL'][nb_ctrl+1, :] = y_pred_ctrl # predicted state   y* = y1*
+        # Select reference control and state for the current CTRL cycle
+        COEF                = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
+        y_ref_CTRL          = y_curr      + COEF * OCP_TO_CTRL_RATIO * (y_pred - y_curr)
+        w_ref_CTRL          = w_pred_prev + COEF * OCP_TO_CTRL_RATIO * (w_curr - w_pred_prev)
+        # First prediction = measurement = initialization of MPC
+        if(nb_ctrl==0):
+          sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
+        sim_data['W_des_CTRL'][nb_ctrl, :]   = w_ref_CTRL  
+        sim_data['Y_des_CTRL'][nb_ctrl+1, :] = y_ref_CTRL   
 
         # Increment control counter
         nb_ctrl += 1
@@ -319,22 +297,19 @@ for i in range(sim_data['N_simu']):
 
   # Simulate actuation with PI torque tracking controller (low-level control frequency)
 
-    # Interpolate to SIMU frequency
-    coef_simu = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    # y_pred_simu = y_curr + coef_simu*(y_pred - y_curr)
-    # w_pred_simu = w_pred_prev + coef_simu*(w_curr - w_pred_prev)
-    # # First prediction = measurement = initialization of MPC
-    # if(i==0):
-    #   sim_data['Y_pred_SIMU'][i, :] = y_curr  
-    # # Record predictions at CTRL rate 
-    # sim_data['W_pred_SIMU'][i, :] = w_pred_simu   # predicted control w* = w0*
-    # sim_data['Y_pred_SIMU'][i+1, :] = y_pred_simu # predicted state   y* = y1*
+    # Select reference control and state for the current SIMU cycle
+    COEF = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
+    y_ref_SIMU         = y_curr      + COEF * OCP_TO_SIMU_RATIO * (y_pred - y_curr)
+    w_ref_SIMU         = w_pred_prev + COEF * OCP_TO_SIMU_RATIO * (w_curr - w_pred_prev)
+    # First prediction = measurement = initialization of MPC
+    if(i==0):
+      sim_data['Y_des_SIMU'][i, :] = y_curr  
+    sim_data['W_des_SIMU'][i, :]   = w_ref_SIMU  
+    sim_data['Y_des_SIMU'][i+1, :] = y_ref_SIMU 
 
-    # Torque applied by motor on actuator (SIMU frequency)
-    tau_ref_SIMU = y_curr[-nu:]+ coef_simu * (dt_sim/dt_mpc) * (y_pred[-nu:] - y_curr[-nu:]) 
-    # if(i==0):
-    #   sim_data['Tau_des'][i,:] = y_curr[-nu:]
-    # sim_data['Tau_des'][i+1, :] = tau_ref_SIMU  
+    # Torque applied by motor on actuator : interpolate current torque and predicted torque 
+    tau_ref_SIMU = y_ref_SIMU[-nu:] # y_curr[-nu:]+ COEF * (y_pred[-nu:] - y_curr[-nu:]) # (dt_sim/dt_mpc) *
+
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
     tau_mea_SIMU = tau_ref_SIMU 
 

@@ -203,15 +203,23 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     # Control predictions
     plot_data['w_pred'] = sim_data['W_pred']
       # Extract 1st prediction
-    # plot_data['w_des']
+    plot_data['w_des_PLAN'] = sim_data['W_des_PLAN']
+    plot_data['w_des_CTRL'] = sim_data['W_des_CTRL']
+    plot_data['w_des_SIMU'] = sim_data['W_des_SIMU']
     # State predictions (at PLAN freq)
     plot_data['q_pred'] = sim_data['Y_pred'][:,:,:nq]
     plot_data['v_pred'] = sim_data['Y_pred'][:,:,nq:nq+nv]
     plot_data['tau_pred'] = sim_data['Y_pred'][:,:,-nu:]
       # Extract 1st prediction + shift 1 planning cycle
-    plot_data['q_des'] = sim_data['Y_des_CTRL'][:,:nq] #np.zeros((plot_data['N_plan']+1,nq))
-    plot_data['v_des'] = sim_data['Y_des_CTRL'][:,nq:nq+nv] #np.zeros((plot_data['N_plan']+1,nv))
-    plot_data['tau_des'] = sim_data['Y_des_CTRL'][:,-nu:] #np.zeros((plot_data['N_plan']+1,nq))
+    plot_data['q_des_PLAN'] = sim_data['Y_des_PLAN'][:,:nq] #np.zeros((plot_data['N_plan']+1,nq))
+    plot_data['v_des_PLAN'] = sim_data['Y_des_PLAN'][:,nq:nq+nv] #np.zeros((plot_data['N_plan']+1,nv))
+    plot_data['tau_des_PLAN'] = sim_data['Y_des_PLAN'][:,-nu:] #np.zeros((plot_data['N_plan']+1,nq))
+    plot_data['q_des_CTRL'] = sim_data['Y_des_CTRL'][:,:nq] #np.zeros((plot_data['N_plan']+1,nq))
+    plot_data['v_des_CTRL'] = sim_data['Y_des_CTRL'][:,nq:nq+nv] #np.zeros((plot_data['N_plan']+1,nv))
+    plot_data['tau_des_CTRL'] = sim_data['Y_des_CTRL'][:,-nu:] #np.zeros((plot_data['N_plan']+1,nq))
+    plot_data['q_des_SIMU'] = sim_data['Y_des_SIMU'][:,:nq] #np.zeros((plot_data['N_plan']+1,nq))
+    plot_data['v_des_SIMU'] = sim_data['Y_des_SIMU'][:,nq:nq+nv] #np.zeros((plot_data['N_plan']+1,nv))
+    plot_data['tau_des_SIMU'] = sim_data['Y_des_SIMU'][:,-nu:] #np.zeros((plot_data['N_plan']+1,nq))
     # State measurements (at SIMU freq)
     plot_data['q_mea'] = sim_data['Y_mea_SIMU'][:,:nq]
     plot_data['v_mea'] = sim_data['Y_mea_SIMU'][:,nq:nq+nv]
@@ -231,8 +239,12 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     plot_data['p_ee_mea_no_noise'] = pin_utils.get_p_(plot_data['q_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
     plot_data['v_ee_mea_no_noise'] = pin_utils.get_v_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
     # EE des
-    plot_data['p_ee_des'] = pin_utils.get_p_(plot_data['q_des'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_des'] = pin_utils.get_v_(plot_data['q_des'], plot_data['v_des'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['p_ee_des_PLAN'] = pin_utils.get_p_(plot_data['q_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['v_ee_des_PLAN'] = pin_utils.get_v_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['p_ee_des_CTRL'] = pin_utils.get_p_(plot_data['q_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['v_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['p_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['v_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     return plot_data
 
 

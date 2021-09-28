@@ -90,7 +90,9 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
                 ax[i,2].scatter(tspan_x_pred, tau_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
 
         # Joint position
-        ax[i,0].plot(t_span_ctrl, plot_data['q_des'][:,i], color='b', marker=None, linestyle='-.', label='Predicted', alpha=0.3)
+        ax[i,0].plot(t_span_plan, plot_data['q_des_PLAN'][:,i], color='b', marker=None, linestyle='-.', label='Predicted (PLAN)', alpha=0.3)
+        ax[i,0].plot(t_span_ctrl, plot_data['q_des_CTRL'][:,i], color='g', marker=None, linestyle='-.', label='Predicted (CTRL)', alpha=0.3)
+        ax[i,0].plot(t_span_simu, plot_data['q_des_SIMU'][:,i], color='y', marker=None, linestyle='-.', label='Predicted (SIMU)', alpha=0.3)
         # ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,0].plot(t_span_simu, plot_data['q_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         ax[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
@@ -99,7 +101,9 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,0].grid(True)
         
         # Joint velocity 
-        ax[i,1].plot(t_span_ctrl, plot_data['v_des'][:,i], color='b', marker=None, linestyle='-.', label='Desired', alpha=0.3)
+        ax[i,1].plot(t_span_plan, plot_data['v_des_PLAN'][:,i], color='b', marker=None, linestyle='-.', label='Desired (PLAN)', alpha=0.3)
+        ax[i,1].plot(t_span_ctrl, plot_data['v_des_CTRL'][:,i], color='g', marker=None, linestyle='-.', label='Desired (CTRL)', alpha=0.3)
+        ax[i,1].plot(t_span_simu, plot_data['v_des_SIMU'][:,i], color='y', marker=None, linestyle='-.', label='Desired (SIMU)', alpha=0.3)
         # ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,1].plot(t_span_simu, plot_data['v_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         ax[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
@@ -108,7 +112,9 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,1].grid(True)
 
         # Joint torques
-        ax[i,2].plot(t_span_ctrl, plot_data['tau_des'][:,i], color='b', marker=None, linestyle='-.', label='Predicted', alpha=0.3)
+        ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', marker=None, linestyle='-.', label='Predicted (PLAN)', alpha=0.3)
+        ax[i,2].plot(t_span_ctrl, plot_data['tau_des_CTRL'][:,i], color='g', marker=None, linestyle='-.', label='Predicted (CTRL)', alpha=0.3)
+        ax[i,2].plot(t_span_simu, plot_data['tau_des_SIMU'][:,i], color='y', marker=None, linestyle='-.', label='Predicted (SIMU)', alpha=0.3)
         # ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         ax[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
@@ -174,10 +180,10 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
     T_h = plot_data['T_h']
     N_h = plot_data['N_h']
     # Create time spans for X and U + Create figs and subplots
-    t_span_simu_u = np.linspace(0, T_tot-dt_simu, N_simu)
-    t_span_ctrl_u = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
-    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
-    fig_u, ax_u = plt.subplots(nq, 1, figsize=(19.2,10.8), sharex='col') 
+    t_span_simu = np.linspace(0, T_tot-dt_simu, N_simu)
+    t_span_ctrl = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
+    t_span_plan = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig, ax = plt.subplots(nq, 1, figsize=(19.2,10.8), sharex='col') 
     # For each joint
     for i in range(nq):
 
@@ -203,31 +209,34 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
                 lc_u.set_linestyle('-')
                 lc_u.set_linewidth(1)
                 # Plot collections
-                ax_u[i].add_collection(lc_u)
+                ax[i].add_collection(lc_u)
                 # Scatter to highlight points
                 colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
                 my_colors = cm(colors)
-                ax_u[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
+                ax[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
 
         # Joint torques
-        ax_u[i].plot(t_span_plan_u, plot_data['w_pred'][:,0,i], color='r', marker=None, linestyle='-', label='Optimal control w0*', alpha=0.6)
-        ax_u[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
-        ax_u[i].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax_u[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
-        ax_u[i].grid(True)
+        ax[i].plot(t_span_plan, plot_data['w_pred'][:,0,i], color='r', marker=None, linestyle='-', label='Optimal control w0*', alpha=0.6)
+        ax[i].plot(t_span_plan, plot_data['w_des_PLAN'][:,i], color='b', marker=None, linestyle='-', label='Prediction (PLAN)', alpha=0.6)
+        ax[i].plot(t_span_ctrl, plot_data['w_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Prediction (CTRL)', alpha=0.6)
+        ax[i].plot(t_span_simu, plot_data['w_des_SIMU'][:,i], color='y', marker=None, linestyle='-', label='Prediction (SIMU)', alpha=0.6)
+        ax[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
+        ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax[i].grid(True)
         # Last x axis label
         if(i == nq-1):
-            ax_u[i].set_xlabel('t (s)', fontsize=16)
+            ax[i].set_xlabel('t (s)', fontsize=16)
         # LEgend
-        handles_u, labels_u = ax_u[i].get_legend_handles_labels()
-        fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
+        handles_u, labels_u = ax[i].get_legend_handles_labels()
+        fig.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
     # Sup-y label
-    fig_u.text(0.04, 0.5, 'Joint torque (Nm)', va='center', rotation='vertical', fontsize=16)
+    fig.text(0.04, 0.5, 'Joint torque (Nm)', va='center', rotation='vertical', fontsize=16)
     # Titles
-    fig_u.suptitle('Control = unfiltered joint torques', size=16)
+    fig.suptitle('Control = unfiltered joint torques', size=16)
     # Save figs
     if(SAVE):
-        figs = {'u': fig_u}
+        figs = {'u': fig}
         if(SAVE_DIR is None):
             SAVE_DIR = '/home/skleff/force-feedback/data'
         if(SAVE_NAME is None):
@@ -238,7 +247,7 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
     if(SHOW):
         plt.show() 
 
-    return fig_u
+    return fig
 
 # Plot end-eff data
 def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False, 
@@ -310,7 +319,9 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
                 ax[i,0].scatter(tspan_x_pred, p_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
                 ax[i,1].scatter(tspan_x_pred, v_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
         # EE position
-        ax[i,0].plot(t_span_ctrl, plot_data['p_ee_des'][:,i]-plot_data['p_ee_ref'][0], 'b-.', label='Predicted', alpha=0.5)
+        ax[i,0].plot(t_span_plan, plot_data['p_ee_des_PLAN'][:,i]-plot_data['p_ee_ref'][0], 'b-.', label='Predicted (PLAN)', alpha=0.5)
+        ax[i,0].plot(t_span_ctrl, plot_data['p_ee_des_CTRL'][:,i]-plot_data['p_ee_ref'][0], 'g-.', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['p_ee_des_SIMU'][:,i]-plot_data['p_ee_ref'][0], 'y-.', label='Predicted (SIMU)', alpha=0.5)
         # ax[0].plot(t_span_simu, plot_data['p_mea'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,0].plot(t_span_simu, plot_data['p_ee_mea_no_noise'][:,0]-[plot_data['p_ee_ref'][0]]*(N_simu+1), 'r-', label='measured', linewidth=2)
         ax[i,0].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='err=0', alpha=0.5)
@@ -319,7 +330,9 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax[i,0].grid(True)
         # EE velocity
-        ax[i,1].plot(t_span_ctrl, plot_data['v_ee_des'][:,i]-plot_data['v_ee_ref'][0], 'b-.', label='Predicted', alpha=0.5)
+        ax[i,1].plot(t_span_plan, plot_data['v_ee_des_PLAN'][:,i]-plot_data['v_ee_ref'][0], 'b-.', label='Predicted (PLAN)', alpha=0.5)
+        ax[i,1].plot(t_span_ctrl, plot_data['v_ee_des_CTRL'][:,i]-plot_data['v_ee_ref'][0], 'g-.', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['v_ee_des_SIMU'][:,i]-plot_data['v_ee_ref'][0], 'y-.', label='Predicted (SIMU)', alpha=0.5)
         # ax[0].plot(t_span_simu, plot_data['p_mea'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,1].plot(t_span_simu, plot_data['v_ee_mea_no_noise'][:,0]-[plot_data['v_ee_ref'][0]]*(N_simu+1), 'r-', label='Measured', linewidth=2)
         ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='err=0', alpha=0.5)
