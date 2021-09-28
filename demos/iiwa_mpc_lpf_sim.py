@@ -127,25 +127,11 @@ NOISE_TORQUES = config['NOISE_TORQUES']                       # Add Gaussian noi
 FILTER_TORQUES = config['FILTER_TORQUES']                     # Moving average smoothing of reference torques
 NOISE_STATE = config['NOISE_STATE']                           # Add Gaussian noise on the measured state 
 FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
-INTERPOLATE_PLAN_TO_CTRL = config['INTERPOLATE_PLAN_TO_CTRL'] # Interpolate MPC prediction to control frequency
-INTERPOLATE_CTRL_TO_SIMU = config['INTERPOLATE_CTRL_TO_SIMU'] # Interpolate motor driver reference torque to low-level frequency 
-# INTERPOLATE_PLAN_TO_SIMU = config['INTERPOLATE_PLAN_TO_SIMU'] # Interpolate MPC prediction to low-level frequency 
-#                                                               # !!! automatically sets to True *_PLAN_TO_CTRL and *_CTRL_TO_SIMU
-dt_ocp = dt                               # OCP sampling rate 
-dt_mpc = float(1./sim_data['plan_freq'])  # planning rate
-dt_ctr = float(1./sim_data['ctrl_freq'])  # control rate 
-dt_sim = float(1./sim_data['simu_freq'])  # sampling rate 
-OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp
-OCP_TO_CTRL_RATIO = dt_ctr / dt_ocp
-OCP_TO_SIMU_RATIO = dt_sim / dt_ocp
+dt_ocp = dt                                                   # OCP sampling rate 
+dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
+OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
+print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
 
-print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO)
-print("Scaling OCP-->CTRL : ", OCP_TO_CTRL_RATIO)
-print("Scaling OCP-->SIMU : ", OCP_TO_SIMU_RATIO)
-
-
-buffer_Y_PLAN_TO_CTRL = []
-buffer_W_PLAN_TO_CTRL = []
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -187,7 +173,6 @@ if(config['INIT_LOG']):
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
 
-
 #      y_0         y_1         y_2                     --> pred(MPC=O) size N_h
 # OCP : O           O           O                           ref_O = y_1
 # MPC : M     M     M     M     M                           ref_M = y_0 + Interp_[O->M] (y_1 - y_0)
@@ -205,7 +190,6 @@ if(config['INIT_LOG']):
 #                         M     M     M     M     M
 #                         C  C  C  C  C  C  C  C  C
 #                         SSSSSSSSSSSSSSSSSSSSSSSSS  
-
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -245,6 +229,7 @@ for i in range(sim_data['N_simu']):
         y_curr = sim_data['Y_pred'][nb_plan, 0, :]  # y0* = measured state    (q^,  v^ , tau^ )
         y_pred = sim_data['Y_pred'][nb_plan, 1, :]  # y1* = predicted state   (q1*, v1*, tau1*) 
         w_curr = sim_data['W_pred'][nb_plan, 0, :]  # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
+        w_pred = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
         # Initialize control prediction
         if(nb_plan==0):
           w_pred_prev = w_curr
@@ -265,8 +250,8 @@ for i in range(sim_data['N_simu']):
             w_curr = w_buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
 
         # Select reference control and state for the current PLAN cycle
-        y_ref_PLAN          = y_curr      + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        w_ref_PLAN          = w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+        w_ref_PLAN  = w_curr + OCP_TO_PLAN_RATIO * (w_curr - w_pred)
         if(nb_plan==0):
           sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
         sim_data['W_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
@@ -282,9 +267,9 @@ for i in range(sim_data['N_simu']):
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
 
         # Select reference control and state for the current CTRL cycle
-        COEF                = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        y_ref_CTRL          = y_curr      + COEF * OCP_TO_CTRL_RATIO * (y_pred - y_curr)
-        w_ref_CTRL          = w_pred_prev + COEF * OCP_TO_CTRL_RATIO * (w_curr - w_pred_prev)
+        COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
+        y_ref_CTRL = y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+        w_ref_CTRL = w_curr + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
@@ -298,9 +283,9 @@ for i in range(sim_data['N_simu']):
   # Simulate actuation with PI torque tracking controller (low-level control frequency)
 
     # Select reference control and state for the current SIMU cycle
-    COEF = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    y_ref_SIMU         = y_curr      + COEF * OCP_TO_SIMU_RATIO * (y_pred - y_curr)
-    w_ref_SIMU         = w_pred_prev + COEF * OCP_TO_SIMU_RATIO * (w_curr - w_pred_prev)
+    COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
+    y_ref_SIMU  = y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+    w_ref_SIMU  = w_curr + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred)
     # First prediction = measurement = initialization of MPC
     if(i==0):
       sim_data['Y_des_SIMU'][i, :] = y_curr  

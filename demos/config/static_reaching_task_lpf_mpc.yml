@@ -6,7 +6,7 @@
 simu_freq: 5000        # Simulation frequency in Hz
 ctrl_freq: 1000         # Control frequency
 plan_freq: 500          # Planning frequency
-T_tot: 1.               # Simu duration (s)
+T_tot: .3               # Simu duration (s)
 # Simulation options
 TORQUE_TRACKING: False          # Activate low-level reference torque tracking (PID) 
 DELAY_SIM: False                # Add delay in reference torques (low-level)
@@ -16,8 +16,6 @@ NOISE_TORQUES: False            # Add Gaussian noise on reference torques
 FILTER_TORQUES: False           # Moving average smoothing of reference torques
 NOISE_STATE: False              # Add Gaussian noise on the measured state 
 FILTER_STATE: False             # Moving average smoothing of reference torques
-INTERPOLATE_PLAN_TO_CTRL: False # Interpolate DDP desired feedforward torque to control frequency
-INTERPOLATE_CTRL_TO_SIMU: False # Interpolate motor driver reference torque and time-derivatives to low-level frequency 
 SAVE_DATA: True                 # Save plot_data to npz
 INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
