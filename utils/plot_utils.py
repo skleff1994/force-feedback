@@ -90,10 +90,10 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
                 ax[i,2].scatter(tspan_x_pred, tau_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
 
         # Joint position
-        ax[i,0].plot(t_span_plan, plot_data['q_des_PLAN'][:,i], color='b', marker=None, linestyle='-', label='Predicted (PLAN)', alpha=0.3)
-        ax[i,0].plot(t_span_ctrl, plot_data['q_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Predicted (CTRL)', alpha=0.3)
-        ax[i,0].plot(t_span_simu, plot_data['q_des_SIMU'][:,i], color='y', marker=None, linestyle='-', label='Predicted (SIMU)', alpha=0.3)
-        # ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,0].plot(t_span_plan, plot_data['q_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,0].plot(t_span_ctrl, plot_data['q_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Predicted (CTRL)', alpha=0.3)
+        ax[i,0].plot(t_span_simu, plot_data['q_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,0].plot(t_span_simu, plot_data['q_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         ax[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -101,10 +101,10 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,0].grid(True)
         
         # Joint velocity 
-        ax[i,1].plot(t_span_plan, plot_data['v_des_PLAN'][:,i], color='b', marker=None, linestyle='-', label='Desired (PLAN)', alpha=0.3)
-        ax[i,1].plot(t_span_ctrl, plot_data['v_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Desired (CTRL)', alpha=0.3)
-        ax[i,1].plot(t_span_simu, plot_data['v_des_SIMU'][:,i], color='y', marker=None, linestyle='-', label='Desired (SIMU)', alpha=0.3)
-        # ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,1].plot(t_span_plan, plot_data['v_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN)', alpha=0.5)
+        # ax[i,1].plot(t_span_ctrl, plot_data['v_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Desired (CTRL)', alpha=0.3)
+        ax[i,1].plot(t_span_simu, plot_data['v_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,1].plot(t_span_simu, plot_data['v_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         ax[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -112,10 +112,10 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,1].grid(True)
 
         # Joint torques
-        ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', marker=None, linestyle='-', label='Predicted (PLAN)', alpha=0.3)
-        ax[i,2].plot(t_span_ctrl, plot_data['tau_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Predicted (CTRL)', alpha=0.3)
-        ax[i,2].plot(t_span_simu, plot_data['tau_des_SIMU'][:,i], color='y', marker=None, linestyle='-', label='Predicted (SIMU)', alpha=0.3)
-        # ax_x[i,2].plot(t_span_simu_x, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,2].plot(t_span_ctrl, plot_data['tau_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Predicted (CTRL)', alpha=0.3)
+        ax[i,2].plot(t_span_simu, plot_data['tau_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         ax[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
         ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -130,6 +130,15 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         # Legend
         handles_x, labels_x = ax[i,0].get_legend_handles_labels()
         fig.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+    TOL = 1e-5; 
+    for i in range(nq):
+        ax_q_ylim = 1.1*max(np.max(np.abs(plot_data['q_mea_no_noise'][:,i])), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['v_mea_no_noise'][:,i])), TOL)
+        ax_tau_ylim = 1.1*max(np.max(np.abs(plot_data['tau_mea_no_noise'][:,i])), TOL)
+        ax[i,0].set_ylim(-ax_q_ylim, ax_q_ylim) 
+        ax[i,1].set_ylim(-ax_v_ylim, ax_v_ylim) 
+        ax[i,2].set_ylim(-ax_tau_ylim, ax_tau_ylim) 
+
     # y axis labels
     fig.text(0.06, 0.5, 'Joint position (rad)', va='center', rotation='vertical', fontsize=12)
     fig.text(0.345, 0.5, 'Joint velocity (rad/s)', va='center', rotation='vertical', fontsize=12)
@@ -217,9 +226,9 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
 
         # Joint torques
         ax[i].plot(t_span_plan, plot_data['w_pred'][:,0,i], color='r', marker=None, linestyle='-', label='Optimal control w0*', alpha=0.6)
-        ax[i].plot(t_span_plan, plot_data['w_des_PLAN'][:,i], color='b', marker=None, linestyle='-', label='Prediction (PLAN)', alpha=0.6)
-        ax[i].plot(t_span_ctrl, plot_data['w_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Prediction (CTRL)', alpha=0.6)
-        ax[i].plot(t_span_simu, plot_data['w_des_SIMU'][:,i], color='y', marker=None, linestyle='-', label='Prediction (SIMU)', alpha=0.6)
+        ax[i].plot(t_span_plan, plot_data['w_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Prediction (PLAN)', alpha=0.6)
+        # ax[i].plot(t_span_ctrl, plot_data['w_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Prediction (CTRL)', alpha=0.6)
+        ax[i].plot(t_span_simu, plot_data['w_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Prediction (SIMU)', alpha=0.6)
         ax[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
         ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -230,6 +239,10 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
         # LEgend
         handles_u, labels_u = ax[i].get_legend_handles_labels()
         fig.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
+    TOL = 1e-5
+    for i in range(nq):
+        ax_u_ylim = 1.1*max(np.max(np.abs(plot_data['w_pred'][:,0,i])), TOL)
+        ax[i].set_ylim(-ax_u_ylim, ax_u_ylim) 
     # Sup-y label
     fig.text(0.04, 0.5, 'Joint torque (Nm)', va='center', rotation='vertical', fontsize=16)
     # Titles
@@ -320,10 +333,10 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
                 ax[i,1].scatter(tspan_x_pred, v_ee_pred_i[j,:]-plot_data['v_ee_ref'][i], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
        
         # EE position
-        ax[i,0].plot(t_span_plan, plot_data['p_ee_des_PLAN'][:,i]-plot_data['p_ee_ref'][i], 'b-', label='Predicted (PLAN)', alpha=0.5)
-        ax[i,0].plot(t_span_ctrl, plot_data['p_ee_des_CTRL'][:,i]-plot_data['p_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
-        ax[i,0].plot(t_span_simu, plot_data['p_ee_des_SIMU'][:,i]-plot_data['p_ee_ref'][i], 'y-', label='Predicted (SIMU)', alpha=0.5)
-        # ax[i,0].plot(t_span_simu, plot_data['p_ee_mea'][:,i]-plot_data['p_ee_ref'][i], 'r-', label='p_mea - p_ref (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,0].plot(t_span_plan, plot_data['p_ee_des_PLAN'][:,i]-plot_data['p_ee_ref'][i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,0].plot(t_span_ctrl, plot_data['p_ee_des_CTRL'][:,i]-plot_data['p_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['p_ee_des_SIMU'][:,i]-plot_data['p_ee_ref'][i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['p_ee_mea'][:,i]-plot_data['p_ee_ref'][i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,0].plot(t_span_simu, plot_data['p_ee_mea_no_noise'][:,i]-[plot_data['p_ee_ref'][i]]*(N_simu+1), 'r-', label='measured', linewidth=2)
         ax[i,0].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='err=0', alpha=0.5)
         ax[i,0].set_ylabel('$\\Delta P^{EE}_%s$  (m)'%xyz[i], fontsize=16)
@@ -331,10 +344,10 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax[i,0].grid(True)
         # EE velocity
-        ax[i,1].plot(t_span_plan, plot_data['v_ee_des_PLAN'][:,i]-plot_data['v_ee_ref'][i], 'b-', label='Predicted (PLAN)', alpha=0.5)
-        ax[i,1].plot(t_span_ctrl, plot_data['v_ee_des_CTRL'][:,i]-plot_data['v_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
-        ax[i,1].plot(t_span_simu, plot_data['v_ee_des_SIMU'][:,i]-plot_data['v_ee_ref'][i], 'y-', label='Predicted (SIMU)', alpha=0.5)
-        # ax[i,1].plot(t_span_simu, plot_data['v_ee_mea'][:,i]-plot_data['v_ee_ref'][i], 'r-', label='p_mea - p_ref (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,1].plot(t_span_plan, plot_data['v_ee_des_PLAN'][:,i]-plot_data['v_ee_ref'][i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,1].plot(t_span_ctrl, plot_data['v_ee_des_CTRL'][:,i]-plot_data['v_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['v_ee_des_SIMU'][:,i]-plot_data['v_ee_ref'][i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['v_ee_mea'][:,i]-plot_data['v_ee_ref'][i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,1].plot(t_span_simu, plot_data['v_ee_mea_no_noise'][:,i]-[plot_data['v_ee_ref'][i]]*(N_simu+1), 'r-', label='Measured', linewidth=2)
         ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='err=0', alpha=0.5)
         ax[i,1].set_ylabel('$\\Delta V^{EE}_%s$  (m)'%xyz[i], fontsize=16)
@@ -347,9 +360,10 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
     ax[i,0].set_xlabel('t (s)', fontsize=16)
     ax[i,1].set_xlabel('t (s)', fontsize=16)
     # Set ylim if any
+    TOL = 1e-3
     if(AUTOSCALE):
-        ax_p_ylim = np.max(np.abs(plot_data['p_ee_mea']-plot_data['p_ee_ref']))
-        ax_v_ylim = np.max(np.abs(plot_data['v_ee_mea']-plot_data['v_ee_ref']))
+        ax_p_ylim = 1.1*max(np.max(np.abs(plot_data['p_ee_mea']-plot_data['p_ee_ref'])), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['v_ee_mea']-plot_data['v_ee_ref'])), TOL)
         for i in range(3):
             ax[i,0].set_ylim(-ax_p_ylim, ax_p_ylim) 
             ax[i,1].set_ylim(-ax_v_ylim, ax_v_ylim) 

@@ -174,7 +174,7 @@ def init_sim_data_LPF(config, robot, y0):
     # White noise on desired torque and measured state
     sim_data['var_q'] = np.asarray(config['var_q'])
     sim_data['var_v'] = np.asarray(config['var_v'])
-    sim_data['var_u'] = 0.001*(2*np.asarray(config['u_lim'])) #u_np.asarray(config['var_u']) 0.5% of range on the joint
+    sim_data['var_u'] = 0.1*2*np.asarray(config['var_u']) #0.5% of range on the joint
     # White noise on desired torque and measured state
     sim_data['gain_P'] = config['Kp']*np.eye(sim_data['nq'])
     sim_data['gain_I'] = config['Ki']*np.eye(sim_data['nq'])
