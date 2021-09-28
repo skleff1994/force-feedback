@@ -80,7 +80,7 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False,
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 
 WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = True
+SOLVE_AND_PLOT_INIT = False
 
 if(WEIGHT_PROFILE):
   #  Schedule weights for target reaching
@@ -144,7 +144,7 @@ if(config['INIT_LOG']):
   print('- Simulation frequency                 : f_simu = '+str(float(freq_SIMU/1000.))+' kHz')
   print('- Control frequency                    : f_ctrl = '+str(float(freq_CTRL/1000.))+' kHz')
   print('- Replanning frequency                 : f_plan = '+str(float(freq_PLAN/1000.))+' kHz')
-  print('- Total # of simulation steps          : N_ctrl = '+str(sim_data['N_simu']))
+  print('- Total # of simulation steps          : N_simu = '+str(sim_data['N_simu']))
   print('- Total # of control steps             : N_ctrl = '+str(sim_data['N_ctrl']))
   print('- Total # of planning steps            : N_plan = '+str(sim_data['N_plan']))
   print('- Duration of MPC horizon              : T_ocp  = '+str(sim_data['T_h'])+' s')
@@ -164,23 +164,33 @@ if(config['INIT_LOG']):
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
 
-#      y_0         y_1         y_2                     --> pred(MPC=O) size N_h
-# OCP : O           O           O                           ref_O = y_1
-# MPC : M     M     M     M     M                           ref_M = y_0 + Interp_[O->M] (y_1 - y_0)
-# CTR : C  C  C  C  C  C  C  C  C                           ref_C = y_0 + Interp_[O->C] (y_1 - y_0)
-# SIM : SSSSSSSSSSSSSSSSSSSSSSSSS                           ref_S = y_0 + Interp_[O->S] (y_1 - y_0)
-#
-#            y_0         y_1         y_2               --> pred(MPC=1) size N_h
-#             O           O           O 
-#             M     M     M     M     M
-#             C  C  C  C  C  C  C  C  C
-#             SSSSSSSSSSSSSSSSSSSSSSSSS  
-#
-#                        y_0         y_1         y_2   --> pred(MPC=2) size N_h
-#                         O           O           O 
-#                         M     M     M     M     M
-#                         C  C  C  C  C  C  C  C  C
-#                         SSSSSSSSSSSSSSSSSSSSSSSSS  
+# Interpolation  
+
+ # ^ := MPC computations
+ # | := current MPC computation
+
+ # MPC ITER #1
+  #      y_0         y_1         y_2 ...                    --> pred(MPC=O) size N_h
+  # OCP : O           O           O                           ref_O = y_1
+  # MPC : M     M     M     M     M                           ref_M = y_0 + Interp_[O->M] (y_1 - y_0)
+  # CTR : C  C  C  C  C  C  C  C  C                           ref_C = y_0 + Interp_[O->C] (y_1 - y_0)
+  # SIM : SSSSSSSSSSSSSSSSSSSSSSSSS                           ref_S = y_0 + Interp_[O->S] (y_1 - y_0)
+  #       |     ^     ^     ^     ^  ...
+ # MPC ITER #2
+  #            y_0         y_1         y_2 ...              --> pred(MPC=1) size N_h
+  #             O           O           O                     ...
+  #             M     M     M     M     M
+  #             C  C  C  C  C  C  C  C  C
+  #             SSSSSSSSSSSSSSSSSSSSSSSSS  
+  #             |     ^     ^     ^     ^  ...
+ # MPC ITER #3
+  #                        y_0         y_1         y_2 ...  --> pred(MPC=2) size N_h
+  #                         O           O           O         ...
+  #                         M     M     M     M     M
+  #                         C  C  C  C  C  C  C  C  C
+  #                         SSSSSSSSSSSSSSSSSSSSSSSSS  
+  #                         |     ^     ^     ^     ^  ...
+ # ...
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
