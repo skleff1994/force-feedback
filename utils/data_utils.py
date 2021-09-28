@@ -128,7 +128,8 @@ def init_sim_data_LPF(config, robot, y0):
     sim_data['nq'] = sim_data['pin_model'].nq
     sim_data['nv'] = sim_data['pin_model'].nv
     sim_data['nu'] = sim_data['pin_model'].nq
-    sim_data['ny'] = sim_data['nq'] + sim_data['nv'] + sim_data['nu']
+    sim_data['nx'] = sim_data['nq'] + sim_data['nv']
+    sim_data['ny'] = sim_data['nx'] + sim_data['nu']
     sim_data['id_endeff'] = sim_data['pin_model'].getFrameId('contact')
     # Target translation
     if(config['p_des']=='None'):
@@ -180,8 +181,16 @@ def init_sim_data_LPF(config, robot, y0):
     sim_data['gain_D'] = config['Kd']*np.eye(sim_data['nq'])
     # Delays
     sim_data['delay_OCP_cycle'] = int(config['delay_OCP_ms'] * 1e-3 * sim_data['plan_freq']) # in planning cycles
-    sim_data['delay_sim_cycle'] = int(config['delay_sim_cycle'])                           # in simu cycles
-
+    sim_data['delay_sim_cycle'] = int(config['delay_sim_cycle'])                             # in simu cycles
+    # Other stuff
+    sim_data['RECORD_SOLVER_DATA'] = config['RECORD_SOLVER_DATA']
+    if(sim_data['RECORD_SOLVER_DATA']):
+      sim_data['K'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nq'], sim_data['ny']))     # Ricatti gains (K_0)
+      sim_data['Vxx'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'], sim_data['ny'])) # Hessian of the Value Function  
+      sim_data['Quu'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu'], sim_data['nu']))   # Hessian of the Value Function 
+      sim_data['xreg'] = np.zeros(sim_data['N_plan'])                                                   # State reg in solver (diag of Vxx)
+      sim_data['ureg'] = np.zeros(sim_data['N_plan'])                                                   # Control reg in solver (diag of Quu)
+      sim_data['J_rank'] = np.zeros(sim_data['N_plan'])                                                 # Rank of Jacobian
     return sim_data
 
 # Extract MPC simu-specific plotting data from sim data (LPF)
@@ -251,6 +260,41 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     plot_data['v_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['p_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['v_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
+
+    # Solver data (optional)
+    if(sim_data['RECORD_SOLVER_DATA']):
+      # Get SVD & diagonal of Ricatti + record in sim data
+      plot_data['K_svd'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
+      plot_data['Kp_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nq))
+      plot_data['Kv_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nv))
+      plot_data['Ktau_diag'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
+      for i in range(sim_data['N_plan']):
+        for j in range(sim_data['N_h']):
+          plot_data['Kp_diag'][i, j, :] = sim_data['K'][i, j, :, :nq].diagonal()
+          plot_data['Kv_diag'][i, j, :] = sim_data['K'][i, j, :, nq:nq+nv].diagonal()
+          plot_data['Ktau_diag'][i, j, :] = sim_data['K'][i, j, :, -nu:].diagonal()
+          _, sv, _ = np.linalg.svd(sim_data['K'][i, j, :, :])
+          plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
+      # Get diagonal and eigenvals of Vxx + record in sim data
+      plot_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, ny))
+      plot_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, ny))
+      for i in range(sim_data['N_plan']):
+        for j in range(sim_data['N_h']+1):
+          plot_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
+          plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
+      # Get diagonal and eigenvals of Quu + record in sim data
+      plot_data['Quu_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h'], nu))
+      plot_data['Quu_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h'], nu))
+      for i in range(sim_data['N_plan']):
+        for j in range(sim_data['N_h']):
+          plot_data['Quu_diag'][i, j, :] = sim_data['Quu'][i, j, :, :].diagonal()
+          plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Quu'][i, j, :, :]))[::-1]
+      # Get Jacobian
+      plot_data['J_rank'] = sim_data['J_rank']
+      # Get solve regs
+      plot_data['xreg'] = sim_data['xreg']
+      plot_data['ureg'] = sim_data['ureg']
+
     return plot_data
 
 

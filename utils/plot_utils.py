@@ -7,8 +7,8 @@ from utils import pin_utils
 
 
 
-
 ### Plot from MPC simulation (LPF)
+
 # Plot state data
 def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False, 
                                   pred_plot_sampling=100, 
@@ -324,7 +324,7 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,0].plot(t_span_ctrl, plot_data['p_ee_des_CTRL'][:,i]-plot_data['p_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
         ax[i,0].plot(t_span_simu, plot_data['p_ee_des_SIMU'][:,i]-plot_data['p_ee_ref'][i], 'y-', label='Predicted (SIMU)', alpha=0.5)
         # ax[i,0].plot(t_span_simu, plot_data['p_ee_mea'][:,i]-plot_data['p_ee_ref'][i], 'r-', label='p_mea - p_ref (WITH noise)', linewidth=1, alpha=0.3)
-        ax[i,0].plot(t_span_simu, plot_data['p_ee_mea_no_noise'][:,i]-[plot_data['p_ee_ref'][0]]*(N_simu+1), 'r-', label='measured', linewidth=2)
+        ax[i,0].plot(t_span_simu, plot_data['p_ee_mea_no_noise'][:,i]-[plot_data['p_ee_ref'][i]]*(N_simu+1), 'r-', label='measured', linewidth=2)
         ax[i,0].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='err=0', alpha=0.5)
         ax[i,0].set_ylabel('$\\Delta P^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -335,7 +335,7 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,1].plot(t_span_ctrl, plot_data['v_ee_des_CTRL'][:,i]-plot_data['v_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
         ax[i,1].plot(t_span_simu, plot_data['v_ee_des_SIMU'][:,i]-plot_data['v_ee_ref'][i], 'y-', label='Predicted (SIMU)', alpha=0.5)
         # ax[i,1].plot(t_span_simu, plot_data['v_ee_mea'][:,i]-plot_data['v_ee_ref'][i], 'r-', label='p_mea - p_ref (WITH noise)', linewidth=1, alpha=0.3)
-        ax[i,1].plot(t_span_simu, plot_data['v_ee_mea_no_noise'][:,i]-[plot_data['v_ee_ref'][0]]*(N_simu+1), 'r-', label='Measured', linewidth=2)
+        ax[i,1].plot(t_span_simu, plot_data['v_ee_mea_no_noise'][:,i]-[plot_data['v_ee_ref'][i]]*(N_simu+1), 'r-', label='Measured', linewidth=2)
         ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='err=0', alpha=0.5)
         ax[i,1].set_ylabel('$\\Delta V^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -372,6 +372,287 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
         plt.show() 
     
     return fig
+
+# Plot Ricatti SVD
+def plot_mpc_ricatti_svd_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                            SHOW=True):
+    '''
+    Plot ricatti data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    return plot_mpc_ricatti_svd(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME, SHOW=SHOW)
+
+# Plot Ricatti Diagonal
+def plot_mpc_ricatti_diag_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                            SHOW=True):
+    '''
+    Plot ricatti data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting Ricatti diagonal...')
+    T_tot = plot_data['T_tot']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    nq = plot_data['nq']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_K, ax_K = plt.subplots(nq, 3, figsize=(19.2,10.8), sharex='col') 
+    # For each joint
+    for i in range(nq):
+        # Diagonal terms
+        ax_K[i,0].plot(t_span_plan_u, plot_data['Kp_diag'][:, 0, i], 'b-', label='Diag of Ricatti (Kp)')
+        ax_K[i,0].set_ylabel('$Kp_{}$'.format(i)+"$_{}$".format(i), fontsize=12)
+        ax_K[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_K[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_K[i,0].grid(True)
+        # Diagonal terms
+        ax_K[i,1].plot(t_span_plan_u, plot_data['Kv_diag'][:, 0, i], 'b-', label='Diag of Ricatti (Kv)')
+        ax_K[i,1].set_ylabel('$Kv_{}$'.format(i)+"$_{}$".format(i), fontsize=12)
+        ax_K[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_K[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_K[i,1].grid(True)
+        # Diagonal terms
+        ax_K[i,2].plot(t_span_plan_u, plot_data['Ktau_diag'][:, 0, i], 'b-', label='Diag of Ricatti (K\\tau)')
+        ax_K[i,2].set_ylabel('$K\\tau_{}$'.format(i)+"$_{}$".format(i), fontsize=12)
+        ax_K[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_K[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_K[i,2].grid(True)
+
+    # labels and stuff
+    ax_K[-1,0].set_xlabel('t (s)', fontsize=16)
+    ax_K[-1,1].set_xlabel('t (s)', fontsize=16)
+    ax_K[-1,2].set_xlabel('t (s)', fontsize=16)
+    ax_K[0,0].set_title('$K_p$', fontsize=16)
+    ax_K[0,1].set_title('$K_v$', fontsize=16)
+    ax_K[0,2].set_title('$K_\\tau$', fontsize=16)
+    # Titles
+    fig_K.suptitle('Diagonal Ricatti feedback gains K', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'K_diag': fig_K}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_K
+
+# Plot Vxx eig
+def plot_mpc_Vxx_eig_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                        SHOW=True):
+    '''
+    Plot Vxx eigenvalues
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting Vxx eigenvalues...')
+    T_tot = plot_data['T_tot']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    nq = plot_data['nq']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_V, ax_V = plt.subplots(nq, 3, figsize=(19.2,10.8), sharex='col') 
+    # For each state
+    for i in range(nq):
+        # Vxx eigenvals
+        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_eig'][:, 0, i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,0].set_ylabel('$\lambda_{}$'.format(i), fontsize=12)
+        ax_V[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_V[i,0].grid(True)
+        # Vxx eigenvals
+        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_eig'][:, 0, nq+i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,1].set_ylabel('$\lambda_{%s}$'%str(nq+i), fontsize=12)
+        ax_V[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_V[i,1].grid(True)
+        # Vxx eigenvals
+        ax_V[i,2].plot(t_span_plan_u, plot_data['Vxx_eig'][:, 0, nq+nq+i], 'b-', label='Vxx eigenvalue')
+        ax_V[i,2].set_ylabel('$\lambda_{%s}$'%str(nq+nq+i), fontsize=12)
+        ax_V[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_V[i,2].grid(True)
+    # labels and stuff
+    ax_V[-1,0].set_xlabel('t (s)', fontsize=16)
+    ax_V[-1,1].set_xlabel('t (s)', fontsize=16)
+    ax_V[-1,2].set_xlabel('t (s)', fontsize=16)
+    ax_V[0,0].set_title('$Vxx_q$', fontsize=16)
+    ax_V[0,1].set_title('$Vxx_v$', fontsize=16)
+    ax_V[0,2].set_title('$Vxx_\\tau$', fontsize=16)
+    fig_V.suptitle('Eigenvalues of Value Function Hessian Vxx', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'V_eig': fig_V}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_V
+
+# Plot Vxx diag
+def plot_mpc_Vxx_diag_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                        SHOW=True):
+    '''
+    Plot Vxx diagonal terms
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    print('Plotting Vxx diagonal...')
+    T_tot = plot_data['T_tot']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    nq = plot_data['nq']
+
+    # Create time spans for X and U + Create figs and subplots
+    t_span_plan_u = np.linspace(0, T_tot-dt_plan, N_plan)
+    fig_V, ax_V = plt.subplots(nq, 3, figsize=(19.2,10.8), sharex='col') 
+    # For each state
+    for i in range(nq):
+        # Vxx diag
+        ax_V[i,0].plot(t_span_plan_u, plot_data['Vxx_diag'][:, 0, i], 'b-', label='Vxx diagonal')
+        ax_V[i,0].set_ylabel('$Vxx_{}$'.format(i), fontsize=12)
+        ax_V[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_V[i,0].grid(True)
+        # Vxx diag
+        ax_V[i,1].plot(t_span_plan_u, plot_data['Vxx_diag'][:, 0, nq+i], 'b-', label='Vxx diagonal')
+        ax_V[i,1].set_ylabel('$Vxx_{%s}$'%str(nq+i), fontsize=12)
+        ax_V[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_V[i,1].grid(True)
+        # Vxx diag
+        ax_V[i,2].plot(t_span_plan_u, plot_data['Vxx_diag'][:, 0, nq+nq+i], 'b-', label='Vxx diagonal')
+        ax_V[i,2].set_ylabel('$Vxx_{%s}$'%str(nq+nq+i), fontsize=12)
+        ax_V[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_V[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_V[i,2].grid(True)
+    # labels and stuff
+    ax_V[-1,0].set_xlabel('t (s)', fontsize=16)
+    ax_V[-1,1].set_xlabel('t (s)', fontsize=16)
+    ax_V[-1,2].set_xlabel('t (s)', fontsize=16)
+    ax_V[0,0].set_title('$Diag Vxx_q$', fontsize=16)
+    ax_V[0,1].set_title('$Diag Vxx_v$', fontsize=16)
+    ax_V[0,2].set_title('$Diag Vxx_\\tau$', fontsize=16) 
+    # Titles
+    fig_V.suptitle('Diagonal of Value Function Hessian Vxx', size=16)
+    # Save figs
+    if(SAVE):
+        figs = {'V_diag': fig_V}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig_V
+
+# Plot Quu eig
+def plot_mpc_Quu_eig_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                        SHOW=True):
+    '''
+    Plot Quu eigenvalues
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    return plot_mpc_Quu_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME, SHOW=SHOW)
+
+# Plot Quu diag
+def plot_mpc_Quu_diag_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                        SHOW=True):
+    '''
+    Plot Quu diagonal terms
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    return plot_mpc_Quu_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME, SHOW=SHOW)
+
+# Plot Solver regs
+def plot_mpc_solver_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                           SHOW=True):
+    '''
+    Plot solver data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    return plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME, SHOW=SHOW)
+
+# Plot rank of Jacobian
+def plot_mpc_jacobian_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                             SHOW=True):
+    '''
+    Plot jacobian data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+    '''
+    return plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME, SHOW=SHOW)
 
 # Plot data
 def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
@@ -412,9 +693,44 @@ def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
-  
+
+    if('K' in which_plots or which_plots is None or which_plots =='all'):
+        if('K_diag' in plot_data.keys()):
+            plots['K_diag'] = plot_mpc_ricatti_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+        if('K_svd' in plot_data.keys()):
+            plots['K_svd'] = plot_mpc_ricatti_svd_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('V' in which_plots or which_plots is None or which_plots =='all'):
+        if('V_diag' in plot_data.keys()):
+            plots['V_diag'] = plot_mpc_Vxx_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+        if('V_eig' in plot_data.keys()):
+            plots['V_eig'] = plot_mpc_Vxx_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+
+    if('S' in which_plots or which_plots is None or which_plots =='all'):
+        if('S' in plot_data.keys()):
+            plots['S'] = plot_mpc_solver_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('J' in which_plots or which_plots is None or which_plots =='all'):
+        if('J' in plot_data.keys()):
+            plots['J'] = plot_mpc_jacobian_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('Q' in which_plots or which_plots is None or which_plots =='all'):
+        if('Q_diag' in plot_data.keys()):
+            plots['Q_diag'] = plot_mpc_Quu_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+        if('Q_eig' in plot_data.keys()):
+            plots['Q_eig'] = plot_mpc_Quu_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+    
     if(SHOW):
         plt.show() 
+    
     plt.close('all')
 
 
@@ -423,7 +739,10 @@ def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
 
 
+
+
 ### Plot from DDP solver (LPF)
+
 def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None, colors=None, sampling_plot=1, SHOW=False):
     '''
     Plot ddp results from 1 or several DDP solvers
@@ -680,10 +999,6 @@ def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, co
     if(SHOW):
         plt.show()
     return fig, ax
-
-
-
-
 
 
 
@@ -1401,7 +1716,7 @@ def plot_mpc_Quu_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     for i in range(nq):
         # Quu diag
         ax_Q[i].plot(t_span_plan_u, plot_data['Quu_diag'][:, 0, i], 'b-', label='Quu diagonal')
-        ax_Q[i].set_ylabel('$Vxx_{}$'.format(i), fontsize=12)
+        ax_Q[i].set_ylabel('$Quu_{}$'.format(i), fontsize=12)
         ax_Q[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_Q[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax_Q[i].grid(True)
@@ -1836,13 +2151,7 @@ def plot_refs(fig, ax, config, SHOW=True):
     #     ax['u'][i].plot(np.linspace(0*dt, N_h*dt, N_h), ureg_ref[:,i], 'r-.', label='Desired')
 
 
-
-
-
-
-
-
-
+# DEPRECATED
 
 def plot_ddp_vxx_sv(ddp, fig=None, ax=None, label=None, SHOW=True):
     '''
@@ -2074,17 +2383,6 @@ def plot_ddp_ricatti_diag(ddp, fig=None, ax=None, label=None, SHOW=True):
         plt.show()
     return fig, ax
 
-
-
-
-
-
-
-
-
-
-
-# OLD
 
 # Animate and plot point mass from X,U trajs 
 def animatePointMass(xs, sleep=1):

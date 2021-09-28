@@ -80,7 +80,7 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False,
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 
 WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = False
+SOLVE_AND_PLOT_INIT = True
 
 if(WEIGHT_PROFILE):
   #  Schedule weights for target reaching
@@ -95,8 +95,8 @@ if(SOLVE_AND_PLOT_INIT):
   xs_init = [y0 for i in range(N_h+1)]
   us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
   ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-  ddp_data = data_utils.extract_ddp_data_LPF(ddp)
-  fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
+  # ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+  # fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
@@ -224,6 +224,14 @@ for i in range(sim_data['N_simu']):
         y_pred = sim_data['Y_pred'][nb_plan, 1, :]  # y1* = predicted state   (q1*, v1*, tau1*) 
         w_curr = sim_data['W_pred'][nb_plan, 0, :]  # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
         # w_pred = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
+        # Record solver data (optional)
+        if(config['RECORD_SOLVER_DATA']):
+          sim_data['K'][nb_plan, :, :, :] = np.array(ddp.K)         # Ricatti gains
+          sim_data['Vxx'][nb_plan, :, :, :] = np.array(ddp.Vxx)     # Hessians of V.F. 
+          sim_data['Quu'][nb_plan, :, :, :] = np.array(ddp.Quu)     # Hessians of Q 
+          sim_data['xreg'][nb_plan] = ddp.x_reg                     # Reg solver on x
+          sim_data['ureg'][nb_plan] = ddp.u_reg                     # Reg solver on u
+          sim_data['J_rank'][nb_plan] = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
         # Initialize control prediction
         if(nb_plan==0):
           w_pred_prev = w_curr
