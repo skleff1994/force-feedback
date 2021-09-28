@@ -32,7 +32,8 @@ import time
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task_lpf_mpc')
+config_name = 'static_reaching_task_lpf_mpc'
+config = path_utils.load_config_file(config_name)
 # Create a Pybullet simulation environment + set simu freq
 dt_simu = 1./float(config['simu_freq'])  
 q0 = np.asarray(config['q0'])
@@ -117,8 +118,7 @@ y_buffer_OCP = []                                             # buffer for desi
 w_buffer_OCP = []                                             # buffer for desired states delayed by OCP computation time
 buffer_sim = []                                               # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
-WHICH_PLOTS = ['y','w', 'p']                                       # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
-TORQUE_TRACKING = config['TORQUE_TRACKING']                   # Activate low-level reference torque tracking (PID) 
+WHICH_PLOTS = ['y','w', 'p']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 DELAY_SIM = config['DELAY_SIM']                               # Add delay in reference torques (low-level)
 DELAY_OCP = config['DELAY_OCP']                               # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES = config['SCALE_TORQUES']                       # Affine scaling of reference torque
@@ -150,12 +150,6 @@ if(config['INIT_LOG']):
   print('- Duration of MPC horizon              : T_ocp  = '+str(sim_data['T_h'])+' s')
   print('- OCP integration step                 : dt     = '+str(config['dt'])+' s')
   print("-------------------------------------------------------------------")
-  print('- Simulate low-level torque control?   : TORQUE_TRACKING          = '+str(TORQUE_TRACKING))
-  if(TORQUE_TRACKING):
-    print('    - PID gains = \n'
-        +'      Kp ='+str(sim_data['gain_P'])+'\n'
-        +'      Ki ='+str(sim_data['gain_I'])+'\n'
-        +'      Kd ='+str(sim_data['gain_D'])+'\n')
   print('- Simulate delay in low-level torque?  : DELAY_SIM                = '+str(DELAY_SIM)+' ('+str(sim_data['delay_sim_cycle'])+' cycles)')
   print('- Simulate delay in OCP solution?      : DELAY_OCP                = '+str(DELAY_OCP)+' ('+str(config['delay_OCP_ms'])+' ms)')
   print('- Affine scaling of ref. ctrl torque?  : SCALE_TORQUES            = '+str(SCALE_TORQUES))
@@ -282,12 +276,8 @@ for i in range(sim_data['N_simu']):
     tau_ref_SIMU = y_ref_SIMU[-nu:] # y_curr[-nu:]+ COEF * (y_pred[-nu:] - y_curr[-nu:]) # (dt_sim/dt_mpc) *
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
     tau_mea_SIMU = tau_ref_SIMU 
-    if(TORQUE_TRACKING):
-      tau_mea_SIMU = tau_ref_SIMU - sim_data['gain_P'].dot(err_u_P) - sim_data['gain_I'].dot(err_u_I) - sim_data['gain_D'].dot(err_u_D)
-    else:
-      tau_mea_SIMU = tau_ref_SIMU 
     if(SCALE_TORQUES):
-      tau_mea_SIMU = sim_data['alpha']*tau_mea_SIMU + sim_data['beta']
+      tau_mea_SIMU = sim_data['alpha'] * tau_mea_SIMU + sim_data['beta']
     if(FILTER_TORQUES):
       n_sum = min(i, config['u_avg_filter_length'])
       for k in range(n_sum):
@@ -325,15 +315,6 @@ for i in range(sim_data['N_simu']):
       y_mea_SIMU = y_mea_SIMU / (n_sum + 1)
     # Record noised data
     sim_data['Y_mea_SIMU'][i+1, :] = y_mea_SIMU 
-    # # Estimate torque time-derivative
-    # if(i>=1):
-    #   sim_data['dY_mea_SIMU'][i, :] = (y_mea_SIMU - sim_data['dY_mea_SIMU'][i-1, :]) / (dt_simu)
-      # vel_u_mea = (Tau_mea[i-4, :] - 8*Tau_mea[i-3, :] + Tau_mea[i-1, :] - Tau_mea[i, :]) / (12*dt_simu)
-    # Update PID errors
-    if(TORQUE_TRACKING):
-      err_u_P = sim_data['Y_mea_SIMU'][i, -nu:] - tau_ref_SIMU              
-      err_u_I += err_u_P                             
-      err_u_D = sim_data['dY_mea_SIMU'][i, :] #- vel_u_ref_HF #vel_u_ref_HF # vs vel_u_ref  
 
 print('--------------------------------')
 print('Simulation exited successfully !')
@@ -343,7 +324,10 @@ print('--------------------------------')
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/force-feedback/data'
-save_name = 'tracking='+str(TORQUE_TRACKING)+'_'+str(freq_PLAN)+'Hz_LPF'
+save_name = config_name+'_BIAS='+str(SCALE_TORQUES)+\
+                        '_NOISE='+str(NOISE_STATE or NOISE_TORQUES)+\
+                        '_DELAY='+str(DELAY_OCP or DELAY_SIM)+\
+                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
 # Extract plot data from sim data
 plot_data = data_utils.extract_plot_data_from_sim_data_LPF(sim_data)
 # Plot results

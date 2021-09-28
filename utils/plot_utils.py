@@ -316,8 +316,9 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
                 # Scatter to highlight points
                 colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
                 my_colors = cm(colors)
-                ax[i,0].scatter(tspan_x_pred, p_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
-                ax[i,1].scatter(tspan_x_pred, v_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+                ax[i,0].scatter(tspan_x_pred, p_ee_pred_i[j,:]-plot_data['p_ee_ref'][i], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+                ax[i,1].scatter(tspan_x_pred, v_ee_pred_i[j,:]-plot_data['v_ee_ref'][i], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+       
         # EE position
         ax[i,0].plot(t_span_plan, plot_data['p_ee_des_PLAN'][:,i]-plot_data['p_ee_ref'][i], 'b-', label='Predicted (PLAN)', alpha=0.5)
         ax[i,0].plot(t_span_ctrl, plot_data['p_ee_des_CTRL'][:,i]-plot_data['p_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
@@ -371,7 +372,6 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
         plt.show() 
     
     return fig
-
 
 # Plot data
 def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 

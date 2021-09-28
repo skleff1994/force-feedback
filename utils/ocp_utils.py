@@ -505,14 +505,17 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       print('[OCP] Added frame placement cost.')
     # End-effector translation
     if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
-      desiredFrameTranslation = M_ee.translation.copy() #np.asarray(config['p_des']) # M_ee.translation.copy() #
+      if(config['p_des']=='None'):
+        desiredFrameTranslation = M_ee.translation.copy()
+      else:
+        desiredFrameTranslation = np.asarray(config['p_des'])
       frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
       frameTranslationCost = crocoddyl.CostModelResidual(state, 
                                                       crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
                                                       crocoddyl.ResidualModelFrameTranslation(state, 
-                                                                                            id_endeff, 
-                                                                                            desiredFrameTranslation, 
-                                                                                            actuation.nu)) 
+                                                                                              id_endeff, 
+                                                                                              desiredFrameTranslation, 
+                                                                                              actuation.nu)) 
       # print("[OCP] Desired frame translation = ", desiredFrameTranslation)
       print("[OCP] Added frame translation cost.")
     # End-effector velocity 

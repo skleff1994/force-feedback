@@ -6,12 +6,11 @@
 simu_freq: 4000        # Simulation frequency in Hz
 ctrl_freq: 2000         # Control frequency
 plan_freq: 1000          # Planning frequency
-T_tot: 1.               # Simu duration (s)
+T_tot: .1               # Simu duration (s)
 # Simulation options
-TORQUE_TRACKING: False          # Activate low-level reference torque tracking (PID) 
 DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
-SCALE_TORQUES: False            # Affine scaling of reference torque
+SCALE_TORQUES: False             # Affine scaling of reference torque
 NOISE_TORQUES: False            # Add Gaussian noise on reference torques
 FILTER_TORQUES: False           # Moving average smoothing of reference torques
 NOISE_STATE: False              # Add Gaussian noise on the measured state 
@@ -36,7 +35,7 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint veloc
 tau0: [0., -2.3274, 0., 0.012262, 0., -0.010595, 0.] # Initial robot joint torque
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
-WHICH_COSTS: ['translation', 'ctrlReg', 'stateReg'] #, 'stateLim'] # placement, etc.
+WHICH_COSTS: ['translation', 'velocity', 'ctrlReg', 'stateReg'] #, 'stateLim'] # placement, etc.
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
@@ -61,7 +60,8 @@ framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
 framePlacementWeight: 0
 framePlacementWeightTerminal: 0. 
 
-p_des: [-0.5, -0.5, 0.7]  # both translation and placement
+p_des: [-0.5, -0.5, 0.7] #'None' #  # both translation and placement
+                          # 'None' = set automatically to initial EE frame position
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
@@ -83,10 +83,10 @@ armature: [.1, .1, .1, .1, .1, .1, .01]
 # Low-level simulation (actuation model)  #
 # # # # # # # # # # # # # # # # # # # # # #
   # Scaling of desired torque
-alpha_min: 0.90
-alpha_max: 1.10
-beta_min: -0.5
-beta_max: 0.5
+alpha_min: 0.95
+alpha_max: 1.05
+beta_min: -0.1
+beta_max: 0.1
   # White noise on desired torque and measured state
 # var_u: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1, 0.1]
 var_q: 0.028 #x10

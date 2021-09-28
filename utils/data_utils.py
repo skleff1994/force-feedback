@@ -130,7 +130,13 @@ def init_sim_data_LPF(config, robot, y0):
     sim_data['nu'] = sim_data['pin_model'].nq
     sim_data['ny'] = sim_data['nq'] + sim_data['nv'] + sim_data['nu']
     sim_data['id_endeff'] = sim_data['pin_model'].getFrameId('contact')
-    sim_data['p_ee_ref'] = config['p_des']
+    # Target translation
+    if(config['p_des']=='None'):
+      robot.framesForwardKinematics(y0[:sim_data['nq']])
+      robot.computeJointJacobians(y0[:sim_data['nq']])
+      sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
+    else:
+      sim_data['p_ee_ref'] = config['p_des']
     sim_data['v_ee_ref'] = config['v_des']
     # Predictions
     sim_data['Y_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'])) # Predicted states  ( ddp.xs : {y* = (q*, v*, tau*)} )
