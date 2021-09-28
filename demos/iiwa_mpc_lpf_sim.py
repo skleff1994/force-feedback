@@ -79,17 +79,16 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False,
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 
 WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = False
+SOLVE_AND_PLOT_INIT = True
 
 if(WEIGHT_PROFILE):
   #  Schedule weights for target reaching
   for k,m in enumerate(ddp.problem.runningModels):
-      m.differential.costs.costs['placement'].weight = 10. + ocp_utils.cost_weight_tanh(k, N_h, max_weight=10., alpha=5., alpha_cut=0.65)
-      m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.01, max_weight=config['xRegWeight'])
-      m.differential.costs.costs['ctrlReg'].weight  = 10./(k**2+1)
+      m.differential.costs.costs['translation'].weight = ocp_utils.cost_weight_tanh(k, N_h, max_weight=10., alpha=5., alpha_cut=0.65)
+      m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
+      m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
       # print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
       # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
-
 
 if(SOLVE_AND_PLOT_INIT):
   xs_init = [y0 for i in range(N_h+1)]
@@ -167,8 +166,6 @@ if(config['INIT_LOG']):
   print('- Filter torques?                      : FILTER_TORQUES           = '+str(FILTER_TORQUES))
   print('- Noise on state?                      : NOISE_STATE              = '+str(NOISE_STATE))
   print('- Filter state?                        : FILTER_STATE             = '+str(FILTER_STATE))
-  print('- Interpolate planned torque?          : INTERPOLATE_PLAN_TO_CTRL = '+str(INTERPOLATE_PLAN_TO_CTRL))
-  print('- Interpolate control torque?          : INTERPOLATE_CTRL_TO_SIMU = '+str(INTERPOLATE_CTRL_TO_SIMU))
   print("-------------------------------------------------------------------")
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
@@ -200,22 +197,15 @@ for i in range(sim_data['N_simu']):
 
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
-        
-        print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
-
-        # reg_u_factor = 1e4/float(i+1) # decreases throughout simulation 
-        # reg_x_factor = 1e4/float(i+1) # decreases throughout simulation 
-        # coef = float(i+1)/sim_data['N_simu']
+        # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
         # for k,m in enumerate(ddp.problem.runningModels):
-        #   # m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=config['frameWeight'], alpha=1., alpha_cut=0.65)
-        #   # m.differential.costs.costs['stateReg'].weight = max(10/float(i+1), config['xRegWeight'])
-        #   m.differential.costs.costs['ctrlReg'].weight = max(1e3/float(i+1), config['uRegWeight'])
-
+          # m.differential.costs.costs['translation'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=10., alpha=5., alpha_cut=0.65)
+          # m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(i, sim_data['N_simu'], min_weight=0.001, max_weight=0.1)
+          # m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(i, sim_data['N_simu'], min_weight=0.001, max_weight=0.1)
         # if(i%1000==0):
-          # print("Placement = ", ddp.problem.runningModels[0].differential.costs.costs['placement'].weight )
-          # print("stateReg  = ", ddp.problem.runningModels[0].differential.costs.costs['stateReg'].weight )
-          # print("ctrlReg decreasing from ", ddp.problem.runningModels[0].differential.costs.costs['ctrlReg'].weight, " to ", ddp.problem.runningModels[-1].differential.costs.costs['ctrlReg'].weight )
-
+        #   print("Placement = ", ddp.problem.runningModels[0].differential.costs.costs['translation'].weight )
+        #   print("stateReg  = ", ddp.problem.runningModels[0].differential.costs.costs['stateReg'].weight )
+        #   print("ctrlReg decreasing from ", ddp.problem.runningModels[0].differential.costs.costs['ctrlReg'].weight, " to ", ddp.problem.runningModels[-1].differential.costs.costs['ctrlReg'].weight )
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['Y_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -229,13 +219,12 @@ for i in range(sim_data['N_simu']):
         y_curr = sim_data['Y_pred'][nb_plan, 0, :]  # y0* = measured state    (q^,  v^ , tau^ )
         y_pred = sim_data['Y_pred'][nb_plan, 1, :]  # y1* = predicted state   (q1*, v1*, tau1*) 
         w_curr = sim_data['W_pred'][nb_plan, 0, :]  # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
-        w_pred = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
+        # w_pred = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
         # Initialize control prediction
         if(nb_plan==0):
           w_pred_prev = w_curr
         else:
           w_pred_prev = sim_data['W_pred'][nb_plan-1, 1, :]
-
         # Optionally delay due to OCP resolution time 
         if(DELAY_OCP):
           y_buffer_OCP.append(y_pred)
@@ -248,10 +237,10 @@ for i in range(sim_data['N_simu']):
             pass
           else:
             w_curr = w_buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
-
         # Select reference control and state for the current PLAN cycle
         y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        w_ref_PLAN  = w_curr + OCP_TO_PLAN_RATIO * (w_curr - w_pred)
+        # w_ref_PLAN  = w_curr + OCP_TO_PLAN_RATIO * (w_pred - w_curr)
+        w_ref_PLAN  = w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
         if(nb_plan==0):
           sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
         sim_data['W_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
@@ -260,32 +249,29 @@ for i in range(sim_data['N_simu']):
         # Increment planning counter
         nb_plan += 1
 
-
-
   # If we are in a control cycle select reference torque to send to the actuator
     if(i%int(freq_SIMU/freq_CTRL) == 0):        
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
-
         # Select reference control and state for the current CTRL cycle
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
         y_ref_CTRL = y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        w_ref_CTRL = w_curr + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred)
+        # w_ref_CTRL = w_curr + COEF * OCP_TO_PLAN_RATIO * (w_pred - w_curr)
+        w_ref_CTRL = w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
         sim_data['W_des_CTRL'][nb_ctrl, :]   = w_ref_CTRL  
         sim_data['Y_des_CTRL'][nb_ctrl+1, :] = y_ref_CTRL   
-
         # Increment control counter
         nb_ctrl += 1
         
-
   # Simulate actuation with PI torque tracking controller (low-level control frequency)
 
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
     y_ref_SIMU  = y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-    w_ref_SIMU  = w_curr + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred)
+    # w_ref_SIMU  = w_curr + COEF * OCP_TO_PLAN_RATIO * (w_pred - w_curr)
+    w_ref_SIMU  = w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
     # First prediction = measurement = initialization of MPC
     if(i==0):
       sim_data['Y_des_SIMU'][i, :] = y_curr  
@@ -294,10 +280,8 @@ for i in range(sim_data['N_simu']):
 
     # Torque applied by motor on actuator : interpolate current torque and predicted torque 
     tau_ref_SIMU = y_ref_SIMU[-nu:] # y_curr[-nu:]+ COEF * (y_pred[-nu:] - y_curr[-nu:]) # (dt_sim/dt_mpc) *
-
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
     tau_mea_SIMU = tau_ref_SIMU 
-
     if(TORQUE_TRACKING):
       tau_mea_SIMU = tau_ref_SIMU - sim_data['gain_P'].dot(err_u_P) - sim_data['gain_I'].dot(err_u_I) - sim_data['gain_D'].dot(err_u_D)
     else:
@@ -315,11 +299,9 @@ for i in range(sim_data['N_simu']):
         pass
       else:                          
         tau_mea_SIMU = buffer_sim.pop(-sim_data['delay_sim_cycle'])
-
     # # Actuation model = LPF on interpolated values?
     # alpha = float(1./(1+2*np.pi*5e-5*config['f_c']))
     # tau_mea_SIMU = alpha*tau_mea_SIMU + (1-alpha)*w_curr # in fact u_des as long as old actuation model is desactivated
-    
     # Send output of actuation torque to the RBD simulator 
     pybullet_simulator.send_joint_command(tau_mea_SIMU)  
     p.stepSimulation()
@@ -330,7 +312,6 @@ for i in range(sim_data['N_simu']):
     # Record data (unnoised)
     y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
     sim_data['Y_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
-
     # Optional noise + filtering
     if(NOISE_STATE): # and float(i)/freq_SIMU <= time_stop_noise):
       noise_q = np.random.normal(0., sim_data['var_q'], nq)
@@ -357,20 +338,6 @@ for i in range(sim_data['N_simu']):
 print('--------------------------------')
 print('Simulation exited successfully !')
 print('--------------------------------')
-
-# # # # # # # # # # # #
-# PROCESS SIM RESULTS #
-# # # # # # # # # # # #
-# Post-process EE trajectories + record in sim data
-# print('Post-processing end-effector trajectories...')
-# id_endeff = robot.model.getFrameId('contact')
-# sim_data['P_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, 3))
-# for node_id in range(config['N_h']+1):
-#   sim_data['P_pred'][:, node_id, :] = pin_utils.get_p(sim_data['Y_pred'][:, node_id, :nq], robot, id_endeff) - np.array([sim_data['p_ref']]*sim_data['N_plan'])
-# sim_data['P_mea_SIMU'] = pin_utils.get_p(sim_data['Y_mea_SIMU'][:,:nq], robot, id_endeff)
-# q_des = np.vstack([y0[:nq], sim_data['Y_pred'][:,1,:nq]])
-# sim_data['P_des_PLAN'] = pin_utils.get_p(q_des, robot, id_endeff)
-# sim_data['P_mea_no_noise_SIMU'] = pin_utils.get_p(sim_data['Y_mea_no_noise_SIMU'][:,:nq], robot, id_endeff)
 
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
