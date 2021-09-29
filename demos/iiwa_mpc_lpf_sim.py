@@ -129,8 +129,11 @@ FILTER_STATE = config['FILTER_STATE']                         # Moving average s
 dt_ocp = dt                                                   # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
+EPS = 5.  # number of MPC cycles over which the sim torque spans in the interpolated prediction interval
+SHIFT = 2. # number of MPC cycles from which the sim torque starts in the interpolated prediction interval
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
-
+print("EPS                : ", EPS)
+print("SHIFT              : ", SHIFT)
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -281,9 +284,15 @@ for i in range(sim_data['N_simu']):
 
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    y_ref_SIMU  = y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-    # w_ref_SIMU  = w_curr + COEF * OCP_TO_PLAN_RATIO * (w_pred - w_curr)
-    w_ref_SIMU  = w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+
+    y_curr_shifted = y_curr + SHIFT * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+    w_pred_prev_shifted = w_pred_prev + SHIFT * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+
+    # y_ref_SIMU  = y_curr + COEF * EPS * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+    y_ref_SIMU  = y_curr_shifted + COEF * EPS * OCP_TO_PLAN_RATIO * (y_pred - y_curr_shifted)
+    # w_ref_SIMU  = w_pred_prev + COEF * EPS * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+    w_ref_SIMU  = w_pred_prev_shifted + COEF * EPS * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev_shifted)
+
     # First prediction = measurement = initialization of MPC
     if(i==0):
       sim_data['Y_des_SIMU'][i, :] = y_curr  
@@ -291,7 +300,7 @@ for i in range(sim_data['N_simu']):
     sim_data['Y_des_SIMU'][i+1, :] = y_ref_SIMU 
 
     # Torque applied by motor on actuator : interpolate current torque and predicted torque 
-    tau_ref_SIMU = y_ref_SIMU[-nu:] # y_curr[-nu:]+ COEF * (y_pred[-nu:] - y_curr[-nu:]) # (dt_sim/dt_mpc) *
+    tau_ref_SIMU =  y_ref_SIMU[-nu:] # y_curr[-nu:]+ COEF * EPS * (y_pred[-nu:] - y_curr[-nu:]) # (dt_sim/dt_mpc) # 
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
     tau_mea_SIMU = tau_ref_SIMU 
     if(SCALE_TORQUES):
@@ -308,10 +317,10 @@ for i in range(sim_data['N_simu']):
       else:                          
         tau_mea_SIMU = buffer_sim.pop(-sim_data['delay_sim_cycle'])
     # # Actuation model = LPF on interpolated values?
-    # alpha = float(1./(1+2*np.pi*5e-5*config['f_c']))
-    # tau_mea_SIMU = alpha*tau_mea_SIMU + (1-alpha)*w_curr # in fact u_des as long as old actuation model is desactivated
-    # Send output of actuation torque to the RBD simulator 
-    pybullet_simulator.send_joint_command(tau_mea_SIMU)  
+    # alpha_ = 1./float(1+2*np.pi*config['f_c']*dt)
+    # tau_mea_SIMU = alpha_*tau_mea_SIMU + (1-alpha_)*w_curr # in fact u_des as long as old actuation model is desactivated
+    #  Send output of actuation torque to the RBD simulator 
+    pybullet_simulator.send_joint_command(tau_mea_SIMU)#w_curr)  #y_ref_CTRL[-nu:]
     p.stepSimulation()
     # Measure new state from simulation :
     q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
@@ -321,7 +330,7 @@ for i in range(sim_data['N_simu']):
     y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
     sim_data['Y_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
     # Optional noise + filtering
-    if(NOISE_STATE): # and float(i)/freq_SIMU <= time_stop_noise):
+    if(NOISE_STATE):# and float(i)/freq_SIMU <= 0.2):
       noise_q = np.random.normal(0., sim_data['var_q'], nq)
       noise_v = np.random.normal(0., sim_data['var_v'], nv)
       noise_tau = np.random.normal(0., sim_data['var_u'], nu)
