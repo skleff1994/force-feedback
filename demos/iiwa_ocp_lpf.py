@@ -82,7 +82,7 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True,
 xs_init = [y0 for i in range(N_h+1)]
 us_init = [ug for i in range(N_h)]
 
-INIT_LOGS = False
+INIT_LOGS = True
 if(INIT_LOGS):
     print("--------------------------------------")
     print("              WARM START              ")
@@ -98,7 +98,6 @@ if(INIT_LOGS):
     print("--------------------------------------")
     print("              DDP SOLVE               ")
     print("--------------------------------------")
-    ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
     print("--------------------------------------")
     print("              ANALYSIS                ")
     print("--------------------------------------")
@@ -108,7 +107,9 @@ if(INIT_LOGS):
     print("norm(taus-u_g) = ", np.linalg.norm(np.array(ddp.xs)[:,-nu:] - ug))#/N_h)
     print("norm(us-u_g)   = ", np.linalg.norm(np.array(ddp.us - ug)))#/N_h)
 
-VISUALIZE = True
+ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+
+VISUALIZE = False
 if(VISUALIZE):
     print("--------------------------------------")
     print("              VISUALIZE               ")

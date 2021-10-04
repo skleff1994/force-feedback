@@ -73,14 +73,14 @@ print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                cost_w_reg=0., 
+                                                cost_w_reg=1e-6, 
                                                 cost_w_lim=1.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 
 WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = True
+SOLVE_AND_PLOT_INIT = False
 
 if(WEIGHT_PROFILE):
   #  Schedule weights for target reaching
@@ -90,6 +90,9 @@ if(WEIGHT_PROFILE):
       m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
       # print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
       # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
+
+xs_init = [y0 for i in range(N_h+1)]
+us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
 
 if(SOLVE_AND_PLOT_INIT):
   xs_init = [y0 for i in range(N_h+1)]
@@ -129,8 +132,8 @@ FILTER_STATE = config['FILTER_STATE']                         # Moving average s
 dt_ocp = dt                                                   # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
-EPS = 5.  # number of MPC cycles over which the sim torque spans in the interpolated prediction interval
-SHIFT = 2. # number of MPC cycles from which the sim torque starts in the interpolated prediction interval
+EPS = 1.#/OCP_TO_PLAN_RATIO  # number of MPC cycles over which the sim torque spans in the interpolated prediction interval
+SHIFT = 0.# number of MPC cycles from which the sim torque starts in the interpolated prediction interval
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
 print("EPS                : ", EPS)
 print("SHIFT              : ", SHIFT)
@@ -285,13 +288,13 @@ for i in range(sim_data['N_simu']):
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
 
-    y_curr_shifted = y_curr + SHIFT * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-    w_pred_prev_shifted = w_pred_prev + SHIFT * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+    # y_curr_shifted = y_curr + SHIFT * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+    # w_pred_prev_shifted = w_pred_prev + SHIFT * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
 
-    # y_ref_SIMU  = y_curr + COEF * EPS * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-    y_ref_SIMU  = y_curr_shifted + COEF * EPS * OCP_TO_PLAN_RATIO * (y_pred - y_curr_shifted)
-    # w_ref_SIMU  = w_pred_prev + COEF * EPS * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
-    w_ref_SIMU  = w_pred_prev_shifted + COEF * EPS * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev_shifted)
+    y_ref_SIMU  = y_curr + COEF * EPS * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+    # y_ref_SIMU  = y_curr_shifted + COEF * EPS * OCP_TO_PLAN_RATIO * (y_pred - y_curr_shifted)
+    w_ref_SIMU  = w_pred_prev + COEF * EPS * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+    # w_ref_SIMU  = w_pred_prev_shifted + COEF * EPS * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev_shifted)
 
     # First prediction = measurement = initialization of MPC
     if(i==0):
