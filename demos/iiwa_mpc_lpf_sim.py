@@ -132,11 +132,7 @@ FILTER_STATE = config['FILTER_STATE']                         # Moving average s
 dt_ocp = dt                                                   # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
-EPS = 1.#/OCP_TO_PLAN_RATIO  # number of MPC cycles over which the sim torque spans in the interpolated prediction interval
-SHIFT = 0.# number of MPC cycles from which the sim torque starts in the interpolated prediction interval
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
-print("EPS                : ", EPS)
-print("SHIFT              : ", SHIFT)
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -226,9 +222,9 @@ for i in range(sim_data['N_simu']):
         sim_data['Y_pred'][nb_plan, :, :] = np.array(ddp.xs)
         sim_data['W_pred'][nb_plan, :, :] = np.array(ddp.us)
         # Extract relevant predictions for interpolations
-        y_curr = sim_data['Y_pred'][nb_plan, 0, :]  # y0* = measured state    (q^,  v^ , tau^ )
-        y_pred = sim_data['Y_pred'][nb_plan, 1, :]  # y1* = predicted state   (q1*, v1*, tau1*) 
-        w_curr = sim_data['W_pred'][nb_plan, 0, :]  # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
+        y_curr = sim_data['Y_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
+        y_pred = sim_data['Y_pred'][nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
+        w_curr = sim_data['W_pred'][nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
         # w_pred = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
         # Record solver data (optional)
         if(config['RECORD_SOLVER_DATA']):
@@ -256,9 +252,8 @@ for i in range(sim_data['N_simu']):
           else:
             w_curr = w_buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
         # Select reference control and state for the current PLAN cycle
-        y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        # w_ref_PLAN  = w_curr + OCP_TO_PLAN_RATIO * (w_pred - w_curr)
-        w_ref_PLAN  = w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        y_ref_PLAN  = y_pred# y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+        w_ref_PLAN  = w_curr# w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
         if(nb_plan==0):
           sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
         sim_data['W_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
@@ -272,9 +267,8 @@ for i in range(sim_data['N_simu']):
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
         # Select reference control and state for the current CTRL cycle
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        y_ref_CTRL = y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        # w_ref_CTRL = w_curr + COEF * OCP_TO_PLAN_RATIO * (w_pred - w_curr)
-        w_ref_CTRL = w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        y_ref_CTRL = y_pred# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+        w_ref_CTRL = w_curr #w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
@@ -287,14 +281,8 @@ for i in range(sim_data['N_simu']):
 
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-
-    # y_curr_shifted = y_curr + SHIFT * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-    # w_pred_prev_shifted = w_pred_prev + SHIFT * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
-
-    y_ref_SIMU  = y_curr + COEF * EPS * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-    # y_ref_SIMU  = y_curr_shifted + COEF * EPS * OCP_TO_PLAN_RATIO * (y_pred - y_curr_shifted)
-    w_ref_SIMU  = w_pred_prev + COEF * EPS * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
-    # w_ref_SIMU  = w_pred_prev_shifted + COEF * EPS * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev_shifted)
+    y_ref_SIMU  = y_pred# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+    w_ref_SIMU  = w_curr# w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
 
     # First prediction = measurement = initialization of MPC
     if(i==0):

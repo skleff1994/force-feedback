@@ -387,6 +387,8 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
     
     return fig
 
+
+
 # Plot Ricatti SVD
 def plot_mpc_ricatti_svd_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                             SHOW=True):
