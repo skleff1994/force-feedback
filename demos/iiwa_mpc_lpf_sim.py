@@ -73,11 +73,11 @@ print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                cost_w_reg=1e-6, 
+                                                cost_w_reg=0., 
                                                 cost_w_lim=1.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
-                                                WHICH_COSTS=config['WHICH_COSTS'] ) 
+                                                WHICH_COSTS=config['WHICH_COSTS']) 
 
 WEIGHT_PROFILE = False
 SOLVE_AND_PLOT_INIT = False
@@ -205,9 +205,9 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
         # for k,m in enumerate(ddp.problem.runningModels):
-          # m.differential.costs.costs['translation'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=10., alpha=5., alpha_cut=0.65)
+        #   m.differential.costs.costs['translation'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=1., alpha=5., alpha_cut=0.65)
           # m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(i, sim_data['N_simu'], min_weight=0.001, max_weight=0.1)
-          # m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(i, sim_data['N_simu'], min_weight=0.001, max_weight=0.1)
+          # m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(i, sim_data['N_simu'], min_weight=0.01, max_weight=0.1)
         # if(i%1000==0):
         #   print("Placement = ", ddp.problem.runningModels[0].differential.costs.costs['translation'].weight )
         #   print("stateReg  = ", ddp.problem.runningModels[0].differential.costs.costs['stateReg'].weight )
@@ -252,8 +252,8 @@ for i in range(sim_data['N_simu']):
           else:
             w_curr = w_buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
         # Select reference control and state for the current PLAN cycle
-        y_ref_PLAN  = y_pred# y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        w_ref_PLAN  = w_curr# w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+        w_ref_PLAN  = w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
         if(nb_plan==0):
           sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
         sim_data['W_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
@@ -267,8 +267,8 @@ for i in range(sim_data['N_simu']):
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
         # Select reference control and state for the current CTRL cycle
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        y_ref_CTRL = y_pred# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        w_ref_CTRL = w_curr #w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+        w_ref_CTRL = w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev) #w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
@@ -281,8 +281,8 @@ for i in range(sim_data['N_simu']):
 
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    y_ref_SIMU  = y_pred# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-    w_ref_SIMU  = w_curr# w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+    y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+    w_ref_SIMU  = w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)# w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
 
     # First prediction = measurement = initialization of MPC
     if(i==0):

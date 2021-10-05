@@ -117,6 +117,7 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,2].plot(t_span_simu, plot_data['tau_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
         ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
+        ax[i,2].plot(t_span_simu, plot_data['grav'][:,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
         ax[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
         ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -229,6 +230,7 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i].plot(t_span_plan, plot_data['w_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Prediction (PLAN)', alpha=0.6)
         # ax[i].plot(t_span_ctrl, plot_data['w_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Prediction (CTRL)', alpha=0.6)
         ax[i].plot(t_span_simu, plot_data['w_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Prediction (SIMU)', alpha=0.6)
+        ax[i].plot(t_span_plan, plot_data['grav'][:-1,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
         ax[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
         ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -692,25 +694,25 @@ def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
     plots = {}
 
-    if('y' in which_plots or which_plots is None or which_plots =='all'):
+    if('y' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         plots['y'] = plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                            pred_plot_sampling=pred_plot_sampling, 
                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                            SHOW=False)
     
-    if('w' in which_plots or which_plots is None or which_plots =='all'):
+    if('w' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         plots['w'] = plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                              pred_plot_sampling=pred_plot_sampling, 
                                              SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
 
-    if('p' in which_plots or which_plots is None or which_plots =='all'):
+    if('p' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         plots['p'] = plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
 
-    if('K' in which_plots or which_plots is None or which_plots =='all'):
+    if('K' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('K_diag' in plot_data.keys()):
             plots['K_diag'] = plot_mpc_ricatti_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
@@ -718,7 +720,7 @@ def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
             plots['K_svd'] = plot_mpc_ricatti_svd_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
 
-    if('V' in which_plots or which_plots is None or which_plots =='all'):
+    if('V' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('V_diag' in plot_data.keys()):
             plots['V_diag'] = plot_mpc_Vxx_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
@@ -726,17 +728,17 @@ def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
             plots['V_eig'] = plot_mpc_Vxx_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
 
-    if('S' in which_plots or which_plots is None or which_plots =='all'):
+    if('S' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('S' in plot_data.keys()):
             plots['S'] = plot_mpc_solver_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
 
-    if('J' in which_plots or which_plots is None or which_plots =='all'):
+    if('J' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('J' in plot_data.keys()):
             plots['J'] = plot_mpc_jacobian_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
 
-    if('Q' in which_plots or which_plots is None or which_plots =='all'):
+    if('Q' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('Q_diag' in plot_data.keys()):
             plots['Q_diag'] = plot_mpc_Quu_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
@@ -781,20 +783,20 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
             make_legend=True
         # Return figs and axes object in case need to overlay new plots
         if(k==0):
-            if('x' in which_plots or which_plots =='all'):
+            if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
                 fig_x, ax_x = plot_ddp_state_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-            if('u' in which_plots or which_plots =='all'):
+            if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
                 fig_u, ax_u = plot_ddp_control_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-            if('p' in which_plots or which_plots =='all'):
+            if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
                 fig_p, ax_p = plot_ddp_endeff_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
         # Overlay on top of first plot
         else:
             if(k%sampling_plot==0):
-                if('x' in which_plots or which_plots =='all'):
+                if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
                     plot_ddp_state_LPF(DDP_DATA[k], fig=fig_x, ax=ax_x, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-                if('u' in which_plots or which_plots =='all'):
+                if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
                     plot_ddp_control_LPF(DDP_DATA[k], fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-                if('p' in which_plots or which_plots =='all'):
+                if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
                     plot_ddp_endeff_LPF(DDP_DATA[k], fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
     if(SHOW):
       plt.show()
@@ -802,13 +804,13 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
     # Record and return if user needs to overlay stuff
     fig = {}
     ax = {}
-    if('p' in which_plots or which_plots =='all'):
+    if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
         fig['p'] = fig_p
         ax['p'] = ax_p
-    if('x' in which_plots or which_plots =='all'):
+    if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
         fig['y'] = fig_x
         ax['y'] = ax_x
-    if('u' in which_plots or which_plots =='all'):
+    if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
         fig['w'] = fig_u
         ax['w'] = ax_u
 
@@ -1870,29 +1872,29 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
     plots = {}
 
-    if('x' in which_plots or which_plots is None or which_plots =='all'):
+    if('x' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         plots['x'] = plot_mpc_state(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                            pred_plot_sampling=pred_plot_sampling, 
                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                            SHOW=False)
     
-    if('u' in which_plots or which_plots is None or which_plots =='all'):
+    if('u' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         plots['u'] = plot_mpc_control(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                              pred_plot_sampling=pred_plot_sampling, 
                                              SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
     
-    if('a' in which_plots or which_plots is None or which_plots =='all'):
+    if('a' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         plots['a'] = plot_mpc_acc_err(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=SHOW)
 
-    if('p' in which_plots or which_plots is None or which_plots =='all'):
+    if('p' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         plots['p'] = plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
 
-    if('K' in which_plots or which_plots is None or which_plots =='all'):
+    if('K' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('K_diag' in plot_data.keys()):
             plots['K_diag'] = plot_mpc_ricatti_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
@@ -1900,7 +1902,7 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
             plots['K_svd'] = plot_mpc_ricatti_svd(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
 
-    if('V' in which_plots or which_plots is None or which_plots =='all'):
+    if('V' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('V_diag' in plot_data.keys()):
             plots['V_diag'] = plot_mpc_Vxx_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
@@ -1908,17 +1910,17 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
             plots['V_eig'] = plot_mpc_Vxx_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
 
-    if('S' in which_plots or which_plots is None or which_plots =='all'):
+    if('S' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('S' in plot_data.keys()):
             plots['S'] = plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
 
-    if('J' in which_plots or which_plots is None or which_plots =='all'):
+    if('J' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('J' in plot_data.keys()):
             plots['J'] = plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
 
-    if('Q' in which_plots or which_plots is None or which_plots =='all'):
+    if('Q' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('Q_diag' in plot_data.keys()):
             plots['Q_diag'] = plot_mpc_Quu_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
@@ -1957,31 +1959,31 @@ def plot_ddp_results(ddp, which_plots='all', SHOW=False, sampling_plot=1):
     for k,d in enumerate(ddp):
         # Return figs and axes object in case need to overlay new plots
         if(k==0):
-            if('x' in which_plots or which_plots =='all'):
+            if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
                 fig_x, ax_x = plot_ddp_state(ddp[k], SHOW=False)
-            if('u' in which_plots or which_plots =='all'):
+            if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
                 fig_u, ax_u = plot_ddp_control(ddp[k], SHOW=False)
-            if('p' in which_plots or which_plots =='all'):
+            if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
                 fig_p, ax_p = plot_ddp_endeff(ddp[k], SHOW=False)
-            if('vxx' in which_plots or which_plots =='all'):
+            if('vxx' in which_plots or which_plots =='all' or 'all' in which_plots):
                 fig_vxx_sv, ax_vxx_sv = plot_ddp_vxx_sv(ddp[k], SHOW=False)
                 fig_vxx_eig, ax_vxx_eig = plot_ddp_vxx_eig(ddp[k], SHOW=False)
-            if('K' in which_plots or which_plots =='all'):
+            if('K' in which_plots or which_plots =='all' or 'all' in which_plots):
                 fig_K_sv, ax_K_sv = plot_ddp_ricatti_sv(ddp[k], SHOW=False)
                 fig_K_eig, ax_K_eig = plot_ddp_ricatti_eig(ddp[k], SHOW=False)
         # Overlay on top of first plot
         else:
             if(k%sampling_plot==0):
-                if('x' in which_plots or which_plots =='all'):
+                if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
                     plot_ddp_state(ddp[k], fig=fig_x, ax=ax_x, SHOW=False, marker=None)
-                if('u' in which_plots or which_plots =='all'):
+                if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
                     plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u, SHOW=False, marker=None)
-                if('p' in which_plots or which_plots =='all'):
+                if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
                     plot_ddp_endeff(ddp[k], fig=fig_p, ax=ax_p, SHOW=False, marker=None)
-                if('vxx' in which_plots or which_plots =='all'):
+                if('vxx' in which_plots or which_plots =='all' or 'all' in which_plots):
                     plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv, SHOW=False)
                     plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig, SHOW=False)
-                if('K' in which_plots or which_plots =='all'):
+                if('K' in which_plots or which_plots =='all' or 'all' in which_plots):
                     plot_ddp_ricatti_sv(ddp[k], fig=fig_K_sv, ax=ax_K_sv, SHOW=False)
                     plot_ddp_ricatti_eig(ddp[k], fig=fig_K_eig, ax=ax_K_eig, SHOW=False)
 
@@ -1991,13 +1993,13 @@ def plot_ddp_results(ddp, which_plots='all', SHOW=False, sampling_plot=1):
     # Record and return if user needs to overlay stuff
     fig = {}
     ax = {}
-    if('p' in which_plots or which_plots =='all'):
+    if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
         fig['p'] = fig_p
         ax['p'] = ax_p
-    if('x' in which_plots or which_plots =='all'):
+    if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
         fig['x'] = fig_x
         ax['x'] = ax_x
-    if('u' in which_plots or which_plots =='all'):
+    if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
         fig['u'] = fig_u
         ax['u'] = ax_u
 

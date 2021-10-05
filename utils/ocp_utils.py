@@ -8,10 +8,11 @@
 @brief Initializes the OCP + DDP solver
 """
 
+from os import POSIX_FADV_NOREUSE
 import crocoddyl
 import numpy as np
 import pinocchio as pin
-
+from utils import pin_utils
 
 # Interpolator
 def linear_interpolation(data, N):
@@ -617,6 +618,9 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     if(callbacks):
       ddp.setCallbacks([crocoddyl.CallbackLogger(),
                         crocoddyl.CallbackVerbose()])
+    # Warm start yb default
+    ddp.xs = [y0 for i in range(N_h+1)]
+    ddp.us = [pin_utils.get_u_grav_(y0[:nq], robot.model) for i in range(N_h)]
     
     print("[OCP] OCP is ready.")
     return ddp

@@ -1,4 +1,6 @@
 import time
+
+from matplotlib.pyplot import plot
 import numpy as np
 import os 
 from utils import pin_utils
@@ -242,6 +244,10 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     plot_data['q_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,:nq]
     plot_data['v_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,nq:nq+nv]
     plot_data['tau_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,-nu:]
+    # Extract gravity torques
+    plot_data['grav'] = np.zeros((sim_data['N_simu']+1, plot_data['nq']))
+    for i in range(plot_data['N_simu']+1):
+      plot_data['grav'][i,:] = pin_utils.get_u_grav_(plot_data['q_mea'][i,:], plot_data['pin_model'])
     # EE predictions (at PLAN freq)
     plot_data['p_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
     plot_data['v_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
