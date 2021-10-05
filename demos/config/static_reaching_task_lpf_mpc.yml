@@ -6,11 +6,11 @@
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 1000        # Control frequency
 plan_freq: 1000        # Planning frequency
-T_tot: .5              # Simu duration (s)
+T_tot: 2.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
-SCALE_TORQUES: False             # Affine scaling of reference torque
+SCALE_TORQUES: True             # Affine scaling of reference torque
 NOISE_TORQUES: False            # Add Gaussian noise on reference torques
 FILTER_TORQUES: False           # Moving average smoothing of reference torques
 NOISE_STATE: False             # Add Gaussian noise on the measured state 
@@ -26,10 +26,10 @@ log_rate: 500                  # Display sim status once very 'log_rate' sim cyc
 
 
 # General
-f_c: 25                                             # Low-pass filter cut-off frequency
-dt: 0.03                                             # OCP integration step 
+f_c: 10                                             # Low-pass filter cut-off frequency
+dt: 0.02                                             # OCP integration step 
 N_h: 50                                              # Horizon length in nodes
-maxiter: 5                                           # Max number of iterations in DDP
+maxiter: 10                                           # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 tau0: [0., -2.3274, 0., 0.012262, 0., -0.010595, 0.] # Initial robot joint torque
@@ -45,7 +45,7 @@ stateRegWeightTerminal: .1
 
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.1
+ctrlRegWeight: 0.01
 
  # 'stateLim' : state limits
 stateLimWeight: 1.
@@ -66,8 +66,8 @@ p_des: [-0.5, -0.5, 0.7]  #'None'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 1.
-frameTranslationWeightTerminal: 1. 
+frameTranslationWeight: 50.
+frameTranslationWeightTerminal: 0. 
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
