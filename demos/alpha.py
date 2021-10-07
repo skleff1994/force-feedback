@@ -16,9 +16,9 @@ alpha_1 = 1./(1+2*np.pi*fc*dt)   # Wiki
 y = np.cos(2*np.pi*fc*dt)
 alpha_2 = 1-(y-1+np.sqrt(y**2 - 4*y +3)) # Stack
 fig = plt.figure()
-plt.plot(fc, 1-alpha_0, label="EMA", linewidth=2.)
-plt.plot(fc, 1-alpha_1, label="Euler", linewidth=2.)
-plt.plot(fc, 1-alpha_2, label="Exact", linewidth=2.)
+plt.plot(fc, alpha_0, label="EMA", linewidth=2.)
+plt.plot(fc, alpha_1, label="Euler", linewidth=2.)
+plt.plot(fc, alpha_2, label="Exact", linewidth=2.)
 plt.xlabel('Cut-off frequency $f_s$ ($Hz$)', size=16)
 plt.ylabel('Smoothing coefficient '+r'$\alpha$', size=16)
 plt.title(r'$\alpha$'+' coefficient vs cut-off frequency at $f_s = 1000Hz$', size=16)

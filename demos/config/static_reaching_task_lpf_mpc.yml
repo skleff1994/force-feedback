@@ -6,11 +6,11 @@
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 1000        # Control frequency
 plan_freq: 1000        # Planning frequency
-T_tot: 2.              # Simu duration (s)
+T_tot: .5              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
-SCALE_TORQUES: True             # Affine scaling of reference torque
+SCALE_TORQUES: False             # Affine scaling of reference torque
 NOISE_TORQUES: False            # Add Gaussian noise on reference torques
 FILTER_TORQUES: False           # Moving average smoothing of reference torques
 NOISE_STATE: False             # Add Gaussian noise on the measured state 
@@ -26,26 +26,27 @@ log_rate: 500                  # Display sim status once very 'log_rate' sim cyc
 
 
 # General
-f_c: 10                                             # Low-pass filter cut-off frequency
-dt: 0.02                                             # OCP integration step 
-N_h: 50                                              # Horizon length in nodes
-maxiter: 10                                           # Max number of iterations in DDP
+f_c: 5                                               # Low-pass filter cut-off frequency
+dt: 0.01                                             # OCP integration step 
+N_h: 100                                              # Horizon length in nodes
+maxiter: 5                                          # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 tau0: [0., -2.3274, 0., 0.012262, 0., -0.010595, 0.] # Initial robot joint torque
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
-WHICH_COSTS: ['translation', 'stateReg' ,'stateLim', 'ctrlLim', 'ctrlReg'] #placement, etc.
+WHICH_COSTS: ['translation', 'velocity', 'stateReg' ,'stateLim', 'ctrlReg'] #placement, etc.
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
 stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: .001
-stateRegWeightTerminal: .1
+stateRegWeight: .01
+stateRegWeightTerminal: 10.
 
  # 'ctrlReg' : torque regularization 
-ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.01
+ctrlRegWeights: [1., 1., 1., 1., 1., 1., 5.]
+ctrlRegWeight: 0.05
+ctrlRegWeightTerminal: 0.
 
  # 'stateLim' : state limits
 stateLimWeight: 1.
@@ -53,11 +54,11 @@ stateLimWeightTerminal: 1.
 
  # 'ctrlLim' : torque limits
 u_lim: [320, 320, 176, 176, 110, 40, 40]
-ctrlLimWeight: 10.
+ctrlLimWeight: 0.
 
  # 'placement' : end-effector frame placement (translation + rotation)
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0
+framePlacementWeight: 0.
 framePlacementWeightTerminal: 0. 
 
 # Reference (for 'translation' and/or 'placement' cost)
@@ -66,13 +67,13 @@ p_des: [-0.5, -0.5, 0.7]  #'None'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 50.
-frameTranslationWeightTerminal: 0. 
+frameTranslationWeight: 1.
+frameTranslationWeightTerminal: 10. 
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
-frameVelocityWeight: 0.1
-frameVelocityWeightTerminal: 1.
+frameVelocityWeight: 0.00
+frameVelocityWeightTerminal: 10.
 v_des: [0., 0., 0.]       
 
 # armature

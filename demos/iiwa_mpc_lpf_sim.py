@@ -58,7 +58,7 @@ ug = pin_utils.get_u_grav(q0, robot)
 y0 = np.concatenate([x0, ug])
 
 
-LPF_TYPE = 1
+LPF_TYPE = 0
 # Approx. LPF obtained from Z.O.H. discretization on CT LPF 
 if(LPF_TYPE==0):
     alpha = np.exp(-2*np.pi*config['f_c']*dt)
@@ -73,14 +73,14 @@ print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                cost_w_reg=1e-5, 
-                                                cost_w_lim=1.,
+                                                cost_w_reg=1e-6, 
+                                                cost_w_lim=10.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
                                                 WHICH_COSTS=config['WHICH_COSTS']) 
 
 WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = False
+SOLVE_AND_PLOT_INIT = True
 
 if(WEIGHT_PROFILE):
   #  Schedule weights for target reaching
@@ -98,8 +98,11 @@ if(SOLVE_AND_PLOT_INIT):
   xs_init = [y0 for i in range(N_h+1)]
   us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
   ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-  # ddp_data = data_utils.extract_ddp_data_LPF(ddp)
-  # fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
+  # for i in range(N_h):
+  #   print(ddp.problem.runningDatas[i].differential.costs.costs['ctrlReg'].activation.a_value)
+  # print(ddp.problem.terminalData.differential.costs.costs['ctrlReg'].activation.a_value)
+  ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+  fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
@@ -253,7 +256,7 @@ for i in range(sim_data['N_simu']):
             w_curr = w_buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
         # Select reference control and state for the current PLAN cycle
         y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        w_ref_PLAN  = w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        w_ref_PLAN  = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
         if(nb_plan==0):
           sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
         sim_data['W_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
@@ -268,7 +271,7 @@ for i in range(sim_data['N_simu']):
         # Select reference control and state for the current CTRL cycle
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
         y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        w_ref_CTRL = w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev) #w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        w_ref_CTRL = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev) #w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
@@ -282,7 +285,7 @@ for i in range(sim_data['N_simu']):
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
     y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-    w_ref_SIMU  = w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)# w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+    w_ref_SIMU  = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)# w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
 
     # First prediction = measurement = initialization of MPC
     if(i==0):
