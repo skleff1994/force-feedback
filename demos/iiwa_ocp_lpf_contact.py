@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_ocp_lpf.py
+@file iiwa_ocp_lpf_contact.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -9,7 +9,7 @@
 """
 
 '''
-The robot is tasked with reaching a static EE target 
+The robot is tasked with applying a constant normal force in contact with a wall
 Trajectory optimization using Crocoddyl (feedback from stateLPF x=(q,v,tau))
 The goal of this script is to setup OCP (play with weights)
 '''
@@ -29,7 +29,7 @@ print("--------------------------------------")
 print("              LOAD CONFIG             ")
 print("--------------------------------------")
 # Read config file
-config = path_utils.load_config_file('static_reaching_task_lpf_ocp')
+config = path_utils.load_config_file('static_contact_task_lpf_ocp')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   

@@ -6,14 +6,14 @@
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 1000        # Control frequency
 plan_freq: 1000        # Planning frequency
-T_tot: .5              # Simu duration (s)
+T_tot: 3.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
-DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
-SCALE_TORQUES: False             # Affine scaling of reference torque
-NOISE_TORQUES: False            # Add Gaussian noise on reference torques
+DELAY_OCP: True                # Add delay in OCP solution (i.e. ~1ms resolution time)
+SCALE_TORQUES: True             # Affine scaling of reference torque
+NOISE_TORQUES: True            # Add Gaussian noise on reference torques
 FILTER_TORQUES: False           # Moving average smoothing of reference torques
-NOISE_STATE: False             # Add Gaussian noise on the measured state 
+NOISE_STATE: True             # Add Gaussian noise on the measured state 
 FILTER_STATE: False             # Moving average smoothing of reference torques
 SAVE_DATA: True                 # Save plot_data to npz
 RECORD_SOLVER_DATA: False       # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
@@ -26,8 +26,8 @@ log_rate: 500                  # Display sim status once very 'log_rate' sim cyc
 
 
 # General
-f_c: 5                                               # Low-pass filter cut-off frequency
-dt: 0.01                                             # OCP integration step 
+f_c: 2.                                               # Low-pass filter cut-off frequency
+dt: 0.02                                             # OCP integration step 
 N_h: 100                                              # Horizon length in nodes
 maxiter: 5                                          # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
@@ -35,45 +35,44 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint veloc
 tau0: [0., -2.3274, 0., 0.012262, 0., -0.010595, 0.] # Initial robot joint torque
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
-WHICH_COSTS: ['translation', 'velocity', 'stateReg' ,'stateLim', 'ctrlReg'] #placement, etc.
+# # WHICH_COSTS: ['ctrlReg', 'translation'] # placement, etc.
+WHICH_COSTS: ['translation', 'velocity', 'ctrlReg', 'stateReg', 'stateLim'] #, 'stateReg'] # placement, etc.
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
-stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: .01
-stateRegWeightTerminal: 10.
+stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 2., 2., 2., 2., 2., 2., 2.]
+stateRegWeight: 0.1
+stateRegWeightTerminal: 0.1
 
  # 'ctrlReg' : torque regularization 
-ctrlRegWeights: [1., 1., 1., 1., 1., 1., 5.]
-ctrlRegWeight: 0.05
-ctrlRegWeightTerminal: 0.
+ctrlRegWeights: [1., 1., 1., 1., 5., 10., 15.]
+ctrlRegWeight: 0.003
+ctrlRegWeightTerminal: 0.003
 
  # 'stateLim' : state limits
-stateLimWeight: 1.
-stateLimWeightTerminal: 1.
+stateLimWeight: 10.
+stateLimWeightTerminal: 10.
 
  # 'ctrlLim' : torque limits
 u_lim: [320, 320, 176, 176, 110, 40, 40]
-ctrlLimWeight: 0.
+ctrlLimWeight: 10.
 
  # 'placement' : end-effector frame placement (translation + rotation)
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0.
+framePlacementWeight: 0
 framePlacementWeightTerminal: 0. 
 
-# Reference (for 'translation' and/or 'placement' cost)
-# 'None' <=> p_des is set automatically to the initial EE frame position
-p_des: [-0.5, -0.5, 0.7]  #'None' 
+p_des: [-0.5, -0.5, 0.7]  # both translation and placement
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 1.
-frameTranslationWeightTerminal: 10. 
+frameTranslationWeight: 20.
+frameTranslationWeightTerminal: 20.
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
-frameVelocityWeight: 0.00
-frameVelocityWeightTerminal: 10.
+frameVelocityWeight: 0.0
+frameVelocityWeightTerminal: 1.
 v_des: [0., 0., 0.]       
 
 # armature
@@ -91,8 +90,8 @@ beta_min: -0.1
 beta_max: 0.1
   # White noise on desired torque and measured state
 var_u: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1, 0.1]
-var_q: 0. #0.028 #x10
-var_v: 0. #0.028 #x10
+var_q: 0.028 #x10
+var_v: 0.028 #x10
   # Buffer for torque delay
 delay_OCP_ms: 1    # in ms
 delay_sim_cycle: 2 # in HF cycles
@@ -101,4 +100,4 @@ Kp: [.2, .2, .2, .2, .2, .2, .2  ]
 Ki: [.001, .001, .001, .001, .001, .001, .01]
 Kd: [.00001, .00001, .00001, .00001, .00001, .00001, .00001]
 u_avg_filter_length: 20 #8 # in HF cycles
-x_avg_filter_length: 10  #20 #8 # in HF cycles
+x_avg_filter_length: 5  #20 #8 # in HF cycles

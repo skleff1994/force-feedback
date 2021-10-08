@@ -259,7 +259,9 @@ def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5
 
 
 # Setup OCP and solver using Crocoddyl
-def init_DDP(robot, config, x0, callbacks=False, WHICH_COSTS=['all'], dt=None, N_h=None):
+def init_DDP(robot, config, x0, callbacks=False, 
+                                WHICH_COSTS=['all'], 
+                                CONTACT=False):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       - Running cost: EE placement (Mref) + x_reg (xref) + u_reg (uref)
@@ -274,24 +276,27 @@ def init_DDP(robot, config, x0, callbacks=False, WHICH_COSTS=['all'], dt=None, N
           callbacks   : display Crocoddyl's DDP solver callbacks
           WHICH_COSTS : which cost terms in the running & terminal cost?
                           'placement', 'velocity', 'stateReg', 'ctrlReg'
-                          'stateLim', 'ctrlLim'
+                          'stateLim', 'ctrlLim', 'force'
       OUTPUT:
         FDDP solver
     '''
-    
     # OCP parameters
-    if(dt is None):
-      dt = config['dt']                   # OCP integration step (s)    
-    if(N_h is None):
-      N_h = config['N_h']                 # Number of knots in the horizon 
+    dt = config['dt']                   # OCP integration step (s)    
+    N_h = config['N_h']                 # Number of knots in the horizon 
     # Model params
     id_endeff = robot.model.getFrameId('contact')
     M_ee = robot.data.oMf[id_endeff]
     nq, nv = robot.model.nq, robot.model.nv
-    # Construct cost function terms
     # State and actuation models
     state = crocoddyl.StateMultibody(robot.model)
     actuation = crocoddyl.ActuationModelFull(state)
+    # Contact or not?
+    if(CONTACT):
+      baumgarte_gains = np.array([0., 0.])
+      contact6d = crocoddyl.ContactModel6D(state, id_endeff, robot.data.oMf[id_endeff], baumgarte_gains) 
+    
+    
+    # Construct cost function terms
     # State regularization
     if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
       stateRegWeights = np.asarray(config['stateRegWeights'])
@@ -304,10 +309,14 @@ def init_DDP(robot, config, x0, callbacks=False, WHICH_COSTS=['all'], dt=None, N
       # print("[OCP] Added state reg cost.")  
     # Control regularization
     if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
+      if(CONTACT):
+        residual = crocoddyl.ResidualModelContactControlGrav(state)
+      else:
+        residual = crocoddyl.ResidualModelControlGrav(state)
       ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
       uRegCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
-                                            crocoddyl.ResidualModelControlGrav(state))
+                                            residual)
       # print("[OCP] Added ctrl reg cost.")
     # State limits penalization
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
@@ -360,19 +369,38 @@ def init_DDP(robot, config, x0, callbacks=False, WHICH_COSTS=['all'], dt=None, N
       frameTranslationCost = crocoddyl.CostModelResidual(state, 
                                                       crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
                                                       crocoddyl.ResidualModelFrameTranslation(state, 
-                                                                                            id_endeff, 
-                                                                                            desiredFrameTranslation, 
-                                                                                            actuation.nu)) 
-
+                                                                                              id_endeff, 
+                                                                                              desiredFrameTranslation, 
+                                                                                              actuation.nu)) 
+    # Frame force cost
+    if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+      if(not CONTACT):
+        print("[OCP] !! ERROR !! ")
+        print("[OCP]  >>> No contact model is defined !")
+      desiredFrameForce = pin.Force(np.asarray(config['f_des']))
+      frameForceWeights = np.asarray(config['frameForceWeights'])
+      frameForceCost = crocoddyl.CostModelResidual(state, 
+                                                   crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+                                                   crocoddyl.ResidualModelContactForce(state, id_endeff, desiredFrameForce, 6, actuation.nu))
+    
     # Create IAMs
     runningModels = []
     for i in range(N_h):
-        # Create IAM 
-        runningModels.append(crocoddyl.IntegratedActionModelEuler( 
-            crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
-                                                             actuation, 
-                                                             crocoddyl.CostModelSum(state, nu=actuation.nu)), dt ) )
-
+        # Create DAM (Contact or FreeFwd)
+        if(CONTACT):
+          dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+                                                                    actuation, 
+                                                                    crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                                    crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                                    inv_damping=0., 
+                                                                    enable_force=True)
+        else:
+          dam = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
+                                                                 actuation, 
+                                                                 crocoddyl.CostModelSum(state, nu=actuation.nu))
+        # Create IAM
+        runningModels.append(crocoddyl.IntegratedActionModelEuler(dam, dt))
+        
         # Add cost models
         if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
@@ -388,14 +416,32 @@ def init_DDP(robot, config, x0, callbacks=False, WHICH_COSTS=['all'], dt=None, N
           runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
         if('all' in WHICH_COSTS or 'ctrlLim' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
+        if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+          runningModels[i].differential.costs.addCost("force", frameForceCost, config['frameForceWeight'])
+        
         # Add armature
         runningModels[i].differential.armature = np.asarray(config['armature'])
-    
-    # Terminal IAM + set armature
-    terminalModel = crocoddyl.IntegratedActionModelEuler(
-        crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
+      
+        # Contact model
+        if(CONTACT):
+          runningModels[i].differential.contacts.addContact("contact", contact6d, active=True)
+        
+    # Terminal DAM (Contact or FreeFwd)
+    if(CONTACT):
+      dam_t = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+                                                                actuation, 
+                                                                crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                                crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                                inv_damping=0., 
+                                                                enable_force=True)
+    else:
+      dam_t = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
                                                             actuation, 
-                                                            crocoddyl.CostModelSum(state, nu=actuation.nu) ) )
+                                                            crocoddyl.CostModelSum(state, nu=actuation.nu))    
+    
+    # Terminal IAM
+    terminalModel = crocoddyl.IntegratedActionModelEuler( dam_t )
+    
     # Add cost models
     if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
       terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
@@ -407,10 +453,17 @@ def init_DDP(robot, config, x0, callbacks=False, WHICH_COSTS=['all'], dt=None, N
       terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
       terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
+    if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+      terminalModel.differential.costs.addCost("force", frameForceCost, config['frameForceWeightTerminal'])
+    
     # Add armature
     terminalModel.differential.armature = np.asarray(config['armature']) 
-    print("[OCP] Created IAMs.")
     
+    # Add contact model
+    if(CONTACT):
+      terminalModel.differential.contacts.addContact("contact", contact6d, active=True)
+    
+    print("[OCP] Created IAMs.")  
     # Create the shooting problem
     problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
     # Creating the DDP solver 
@@ -420,9 +473,12 @@ def init_DDP(robot, config, x0, callbacks=False, WHICH_COSTS=['all'], dt=None, N
       ddp.setCallbacks([crocoddyl.CallbackLogger(),
                         crocoddyl.CallbackVerbose()])
     
-    print("[OCP] OCP is ready.")
-    print("-------------------------------------------------------------------")
+    print("[OCP] OCP is ready ! (CONTACT="+str(CONTACT)+")")
+    print("[OCP]   Costs = "+str(WHICH_COSTS))
     return ddp
+
+
+
 
 
 # Setup OCP and solver using Crocoddyl
@@ -431,7 +487,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                     cost_w_lim=1., 
                                     tau_plus=True,
                                     lpf_type=0,
-                                    WHICH_COSTS=['all']):
+                                    WHICH_COSTS=['all'],
+                                    CONTACT=False):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       INPUT: 
@@ -461,6 +518,13 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     # State and actuation models
     state = crocoddyl.StateMultibody(robot.model)
     actuation = crocoddyl.ActuationModelFull(state)
+    # Contact model 
+    if(CONTACT):
+      baumgarte_gains = np.array([0., 0.])
+      contact6d = crocoddyl.ContactModel6D(state, id_endeff, robot.data.oMf[id_endeff], baumgarte_gains) 
+    
+
+    # Cost function terms
     # State regularization
     if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
       stateRegWeights = np.asarray(config['stateRegWeights'])
@@ -471,10 +535,14 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       print('[OCP] Added state regularization cost.')
     # Control regularization
     if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
+      if(CONTACT):
+        residual = crocoddyl.ResidualModelContactControlGrav(state)
+      else:
+        residual = crocoddyl.ResidualModelControlGrav(state)
       ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
       uRegCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
-                                            crocoddyl.ResidualModelControlGrav(state))
+                                            residual)
       print('[OCP] Added control regularization cost.')
     # State limits penalization
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
@@ -531,7 +599,18 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                                           pin.LOCAL, 
                                                                                           actuation.nu)) 
       print('[OCP] Added frame velocity cost.')
+    # Frame force cost
+    if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+      if(not CONTACT):
+        print("[OCP] !! frameForceCost WARNING !! \n")
+        print("[OCP]  >>> No contact model is defined")
+      desiredFrameForce = pin.Force(np.asarray(config['f_des']))
+      frameForceWeights = np.asarray(config['frameForceWeights'])
+      frameForceCost = crocoddyl.CostModelResidual(state, 
+                                                   crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+                                                   crocoddyl.ResidualModelContactForce(state, id_endeff, desiredFrameForce, 6, actuation.nu))
     
+
     # LPF parameters (a.k.a simplified actuation model)
     f_c = config['f_c']    
     # Approx. LPF obtained from Z.O.H. discretization on CT LPF 
@@ -548,6 +627,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     print("          f_c   = ", f_c)
     print("          alpha = ", alpha)
     
+
     # Create IAMs
     runningModels = []
     for i in range(N_h):
@@ -566,10 +646,22 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
       if('all' in WHICH_COSTS or 'ctrlLim' in WHICH_COSTS):
         costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
-      runningModels.append(crocoddyl.IntegratedActionModelLPF(
-                  crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
-                                                                   actuation, 
-                                                                   costs), #crocoddyl.CostModelSum(state, nu=actuation.nu)), 
+      if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+        costs.addCost("force", frameForceCost, config['frameForceWeight'])
+
+      # Create DAM (Contact or FreeFwd)
+      if(CONTACT):
+        dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+                                                                  actuation, 
+                                                                  crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                                  costs, 
+                                                                  inv_damping=0., 
+                                                                  enable_force=True)
+      else:
+        dam = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, actuation, costs)
+      
+      # IAM LPF
+      runningModels.append(crocoddyl.IntegratedActionModelLPF( dam, 
                                                               stepTime=dt, 
                                                               withCostResidual=True, 
                                                               fc=f_c, 
@@ -578,25 +670,15 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                               tau_plus_integration=tau_plus,
                                                               filter=lpf_type,
                                                               is_terminal=False))
-      # Add cost models
-      # if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
-      #   runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
-      # if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
-      #   runningModels[i].differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeight'])
-      # if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
-      #   runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
-      # if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
-      #   runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['stateRegWeight'])
-      # if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
-      #   runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeight']) 
-      # if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
-      #   runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
-      # if('all' in WHICH_COSTS or 'ctrlLim' in WHICH_COSTS):
-      #   runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
+
       # Add armature
       runningModels[i].differential.armature = np.asarray(config['armature'])
+      
+      # Contact model 
+      if(CONTACT):
+        runningModels[i].differential.contacts.addContact("contact", contact6d, active=True)
 
-    # Terminal IAM + set armature
+    # Terminal cost function 
     terminal_costs = crocoddyl.CostModelSum(state, nu=actuation.nu)
     if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
       terminal_costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
@@ -610,10 +692,22 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       terminal_costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeightTerminal'])
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
       terminal_costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
-    terminalModel = crocoddyl.IntegratedActionModelLPF(
-            crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
-                                                             actuation, 
-                                                             terminal_costs), #crocoddyl.CostModelSum(state, nu=actuation.nu)),
+    if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+      terminal_costs.addCost("force", frameForceCost, config['frameForceWeightTerminal'])
+    
+    # Terminal DAM (Contact or FreeFwd)
+    if(CONTACT):
+      dam_t = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+                                                                actuation, 
+                                                                crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                                terminal_costs, 
+                                                                inv_damping=0., 
+                                                                enable_force=True)
+    else:
+      dam_t = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, actuation, terminal_costs)    
+    
+    # Terminal IAM
+    terminalModel = crocoddyl.IntegratedActionModelLPF( dam_t, 
                                                       stepTime=0., 
                                                       withCostResidual=True, 
                                                       fc=f_c, 
@@ -621,22 +715,15 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                       cost_weight_w_lim=cost_w_lim,
                                                       tau_plus_integration=tau_plus,
                                                       filter=lpf_type,
-                                                      is_terminal=True)
-                                                            
-    # # # Add cost models
-    # if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
-    #   terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
-    # if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
-    #   terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal'])
-    # if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
-    #   terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
-    # if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
-    #   terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
-    # if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
-    #   terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
+                                                      is_terminal=True)                                          
+    
     # Add armature
     terminalModel.differential.armature = np.asarray(config['armature'])
     
+    # Add contact model
+    if(CONTACT):
+      terminalModel.differential.contacts.addContact("contact", contact6d, active=True)
+
     print("[OCP] Created IAMs.")
 
     # Create the shooting problem
@@ -646,9 +733,11 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     if(callbacks):
       ddp.setCallbacks([crocoddyl.CallbackLogger(),
                         crocoddyl.CallbackVerbose()])
+    
     # Warm start yb default
     ddp.xs = [y0 for i in range(N_h+1)]
     ddp.us = [pin_utils.get_u_grav_(y0[:nq], robot.model) for i in range(N_h)]
     
-    print("[OCP] OCP is ready.")
+    print("[OCP] OCP is ready ! (CONTACT="+str(CONTACT)+")")
+    print("[OCP]   Costs = "+str(WHICH_COSTS))
     return ddp

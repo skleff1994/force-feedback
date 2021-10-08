@@ -10,8 +10,7 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint veloc
 tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initial robot joint torque
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
-# # WHICH_COSTS: ['ctrlReg', 'translation'] # placement, etc.
-WHICH_COSTS: ['translation', 'velocity', 'ctrlReg', 'stateReg', 'stateLim'] # placement, etc.
+WHICH_COSTS: ['force', 'ctrlReg', 'stateReg'] # placement, etc.
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
@@ -49,6 +48,13 @@ frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
 frameVelocityWeight: 0.00
 frameVelocityWeightTerminal: 1.
 v_des: [0., 0., 0.]       
+
+ # 'force' : end-effector frame force (translation + rotation)
+frameForceWeights:  [1., 1., 1., 1., 1., 1.]
+frameForceWeight: 1.
+frameForceWeightTerminal: 0.
+f_des: [0., 0., 0.]    
+
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .01]

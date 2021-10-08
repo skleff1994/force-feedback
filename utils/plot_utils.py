@@ -1,3 +1,4 @@
+from operator import contains
 from pickle import SHORT_BINBYTES
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
@@ -160,7 +161,7 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
     if(SHOW):
         plt.show() 
     
-    return fig
+    return fig, ax
 
 # Plot control data
 def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False, 
@@ -262,7 +263,7 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
     if(SHOW):
         plt.show() 
 
-    return fig
+    return fig, ax
 
 # Plot end-eff data
 def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False, 
@@ -387,7 +388,7 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
     if(SHOW):
         plt.show() 
     
-    return fig
+    return fig, ax
 
 
 
@@ -692,67 +693,65 @@ def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
                                   based on maximum value taken
     '''
 
-    plots = {}
+    figs = {}; axes = {}
 
     if('y' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        plots['y'] = plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        figs['y'], axes['y'] = plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                            pred_plot_sampling=pred_plot_sampling, 
                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                            SHOW=False)
     
     if('w' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        plots['w'] = plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        figs['w'], axes['w'] = plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                              pred_plot_sampling=pred_plot_sampling, 
                                              SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
 
     if('p' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        plots['p'] = plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        figs['p'], axes['p'] = plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
 
     if('K' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('K_diag' in plot_data.keys()):
-            plots['K_diag'] = plot_mpc_ricatti_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+            figs['K_diag'], axes['K_diag'] = plot_mpc_ricatti_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
         if('K_svd' in plot_data.keys()):
-            plots['K_svd'] = plot_mpc_ricatti_svd_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+            figs['K_svd'], axes['K_svd'] = plot_mpc_ricatti_svd_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
 
     if('V' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('V_diag' in plot_data.keys()):
-            plots['V_diag'] = plot_mpc_Vxx_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+            figs['V_diag'], axes['V_diag'] = plot_mpc_Vxx_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
         if('V_eig' in plot_data.keys()):
-            plots['V_eig'] = plot_mpc_Vxx_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+            figs['V_eig'], axes['V_eig'] = plot_mpc_Vxx_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
 
     if('S' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('S' in plot_data.keys()):
-            plots['S'] = plot_mpc_solver_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+            figs['S'], axes['S'] = plot_mpc_solver_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
 
     if('J' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('J' in plot_data.keys()):
-            plots['J'] = plot_mpc_jacobian_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+            figs['J'], axes['J'] = plot_mpc_jacobian_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                 SHOW=False)
 
     if('Q' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
         if('Q_diag' in plot_data.keys()):
-            plots['Q_diag'] = plot_mpc_Quu_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+            figs['Q_diag'], axes['Q_diag'] = plot_mpc_Quu_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
         if('Q_eig' in plot_data.keys()):
-            plots['Q_eig'] = plot_mpc_Quu_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+            figs['Q_eig'], axes['Q_eig'] = plot_mpc_Quu_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
     
     if(SHOW):
         plt.show() 
     
-    plt.close('all')
-
-
-
+    return figs, axes
+    # plt.close('all')
 
 
 
@@ -848,7 +847,6 @@ def plot_ddp_state_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
     for i in range(nq):
         # Positions
         ax[i,0].plot(tspan, q[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
-        # If tau reg cost, plot gravity torque
         if('stateReg' in ddp_data['active_costs']):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('reg_ref' in labels):
@@ -862,7 +860,6 @@ def plot_ddp_state_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
         ax[i,0].grid(True)
         # Velocities
         ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)  
-        # If tau reg cost, plot gravity torque
         if('stateReg' in ddp_data['active_costs']):
             handles, labels = ax[i,1].get_legend_handles_labels()
             if('reg_ref' in labels):
@@ -876,7 +873,6 @@ def plot_ddp_state_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
         ax[i,1].grid(True)  
         # Torques
         ax[i,2].plot(tspan, tau[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
-        # If tau reg cost, plot gravity torque
         if('ctrlReg' in ddp_data['active_costs']):
             handles, labels = ax[i,2].get_legend_handles_labels()
             if('reg_ref' in labels):
@@ -957,72 +953,7 @@ def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, co
     '''
     Plot ddp results (endeff)
     '''
-    # Parameters
-    N = ddp_data['T'] 
-    dt = ddp_data['dt']
-    nq = ddp_data['nq']
-    nv = ddp_data['nv'] 
-    # Extract EE traj
-    x = np.array(ddp_data['xs'])
-    q = x[:,:nq]
-    v = x[:,nq:nq+nv]
-    p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
-    v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
-    if('translation' in ddp_data['active_costs']):
-        p_ee_ref = np.array(ddp_data['translation_ref'])
-    if('velocity' in ddp_data['active_costs']):
-        v_ee_ref = np.array(ddp_data['velocity_ref'])
-    # Plots
-    tspan = np.linspace(0, N*dt, N+1)
-    if(ax is None or fig is None):
-        fig, ax = plt.subplots(3, 2, sharex='col')
-    if(label is None):
-        label='End-effector'
-    xyz = ['x', 'y', 'z']
-    for i in range(3):
-        # Positions
-        ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
-        if('translation' in ddp_data['active_costs']):
-            handles, labels = ax[i,0].get_legend_handles_labels()
-            if('reference' in labels):
-                handles.pop(labels.index('reference'))
-                ax[i,0].lines.pop(labels.index('reference'))
-                labels.remove('reference')
-            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
-        ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
-        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-        ax[i,0].grid(True)
-        # Velocities
-        ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
-        if('velocity' in ddp_data['active_costs']):
-            handles, labels = ax[i,1].get_legend_handles_labels()
-            if('reference' in labels):
-                handles.pop(labels.index('reference'))
-                ax[i,1].lines.pop(labels.index('reference'))
-                labels.remove('reference')
-            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
-        ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
-        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-        ax[i,1].grid(True)
-    fig.align_ylabels(ax[:,0])
-    fig.align_ylabels(ax[:,1])
-    ax[i,0].set_xlabel('t (s)', fontsize=16)
-    ax[i,1].set_xlabel('t (s)', fontsize=16)
-    if(MAKE_LEGEND):
-        handles, labels = ax[0,0].get_legend_handles_labels()
-        fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.suptitle('End-effector trajectories: position and velocity', size=18)
-    if(SHOW):
-        plt.show()
-    return fig, ax
-
-
-
-
-
-
+    return plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True)
 
 
 
@@ -1935,58 +1866,47 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
 
 
 
-
-
-
-
-
-
-
-
-
 ### Plot from DDP solver 
-def plot_ddp_results(ddp, which_plots='all', SHOW=False, sampling_plot=1):
+def plot_ddp_results(DDP_DATA, which_plots='all', labels=None, markers=None, colors=None, sampling_plot=1, SHOW=False):
     '''
     Plot ddp results from 1 or several DDP solvers
         X, U, EE trajs
         INPUT 
-        ddp         : DDP data or list of ddp data (cf. data_utils.extract_ddp_data())
-        robot       : pinocchio robot wrapper
-        name_endeff : name of end-effector (in pin model) 
+        DDP_DATA         : DDP data or list of ddp data (cf. data_utils.extract_ddp_data())
     '''
-    if(type(ddp) != list):
-        ddp = [ddp]
-    for k,d in enumerate(ddp):
+    if(type(DDP_DATA) != list):
+        DDP_DATA = [DDP_DATA]
+    if(labels==None):
+        labels=[None for k in range(len(DDP_DATA))]
+    if(markers==None):
+        markers=[None for k in range(len(DDP_DATA))]
+    if(colors==None):
+        colors=[None for k in range(len(DDP_DATA))]
+    for k,d in enumerate(DDP_DATA):
+        # If last plot, make legend
+        make_legend = False
+        if(k+sampling_plot > len(DDP_DATA)-1):
+            make_legend=True
         # Return figs and axes object in case need to overlay new plots
         if(k==0):
             if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_x, ax_x = plot_ddp_state(ddp[k], SHOW=False)
+                fig_x, ax_x = plot_ddp_state(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_u, ax_u = plot_ddp_control(ddp[k], SHOW=False)
+                fig_u, ax_u = plot_ddp_control(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_p, ax_p = plot_ddp_endeff(ddp[k], SHOW=False)
-            if('vxx' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_vxx_sv, ax_vxx_sv = plot_ddp_vxx_sv(ddp[k], SHOW=False)
-                fig_vxx_eig, ax_vxx_eig = plot_ddp_vxx_eig(ddp[k], SHOW=False)
-            if('K' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_K_sv, ax_K_sv = plot_ddp_ricatti_sv(ddp[k], SHOW=False)
-                fig_K_eig, ax_K_eig = plot_ddp_ricatti_eig(ddp[k], SHOW=False)
-        # Overlay on top of first plot
+                fig_p, ax_p = plot_ddp_endeff(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+            if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
+                fig_f, ax_f = plot_ddp_force(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
         else:
             if(k%sampling_plot==0):
                 if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_state(ddp[k], fig=fig_x, ax=ax_x, SHOW=False, marker=None)
+                    plot_ddp_state(DDP_DATA[k], fig=fig_x, ax=ax_x, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_control(ddp[k], fig=fig_u, ax=ax_u, SHOW=False, marker=None)
+                    plot_ddp_control(DDP_DATA[k], fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_endeff(ddp[k], fig=fig_p, ax=ax_p, SHOW=False, marker=None)
-                if('vxx' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_vxx_sv(ddp[k], fig=fig_vxx_sv, ax=ax_vxx_sv, SHOW=False)
-                    plot_ddp_vxx_eig(ddp[k], fig=fig_vxx_eig, ax=ax_vxx_eig, SHOW=False)
-                if('K' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_ricatti_sv(ddp[k], fig=fig_K_sv, ax=ax_K_sv, SHOW=False)
-                    plot_ddp_ricatti_eig(ddp[k], fig=fig_K_eig, ax=ax_K_eig, SHOW=False)
-
+                    plot_ddp_endeff(DDP_DATA[k], fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
+                    plot_ddp_force(DDP_DATA[k], fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
     if(SHOW):
       plt.show()
     
@@ -2002,10 +1922,13 @@ def plot_ddp_results(ddp, which_plots='all', SHOW=False, sampling_plot=1):
     if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
         fig['u'] = fig_u
         ax['u'] = ax_u
+    if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
+        fig['f'] = fig_f
+        ax['f'] = ax_f
 
     return fig, ax
 
-def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
+def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
     '''
     Plot ddp results (state)
     '''
@@ -2018,6 +1941,9 @@ def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=No
     x = np.array(ddp_data['xs'])
     q = x[:,:nq]
     v = x[:,nv:]
+    # If state reg cost, 
+    if('stateReg' in ddp_data['active_costs']):
+        x_reg_ref = np.array(ddp_data['stateReg_ref'])
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
@@ -2026,23 +1952,46 @@ def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=No
         label='State'
     for i in range(nq):
         # Positions
-        ax[i,0].plot(tspan, q[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
+        ax[i,0].plot(tspan, q[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        if('stateReg' in ddp_data['active_costs']):
+            handles, labels = ax[i,0].get_legend_handles_labels()
+            if('reg_ref' in labels):
+                handles.pop(labels.index('reg_ref'))
+                ax[i,0].lines.pop(labels.index('reg_ref'))
+                labels.remove('reg_ref')
+            ax[i,0].plot(tspan, x_reg_ref[:,i], linestyle='-.', color='k', marker=None, label='reg_ref', alpha=0.5)
         ax[i,0].set_ylabel('$q_%s$'%i, fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
         # Velocities
-        ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)  
+        ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)  
+        if('stateReg' in ddp_data['active_costs']):
+            handles, labels = ax[i,1].get_legend_handles_labels()
+            if('reg_ref' in labels):
+                handles.pop(labels.index('reg_ref'))
+                ax[i,1].lines.pop(labels.index('reg_ref'))
+                labels.remove('reg_ref')
+            ax[i,1].plot(tspan, x_reg_ref[:,nq+i], linestyle='-.', color='k', marker=None, label='reg_ref', alpha=0.5)
         ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)  
-    # Legend
-    handles, labels = ax[0,0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    # Common x-labels
+    ax[-1,0].set_xlabel('Time (s)', fontsize=16)
+    ax[-1,1].set_xlabel('Time (s)', fontsize=16)
+    fig.align_ylabels(ax[:, 0])
+    fig.align_ylabels(ax[:, 1])
+    if(MAKE_LEGEND):
+        handles, labels = ax[0,0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.align_ylabels()
-    fig.suptitle('State trajectories', size=16)
+    fig.suptitle('State trajectories', size=18)
     if(SHOW):
         plt.show()
     return fig, ax
 
-def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
+def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
     '''
     Plot ddp results (control)
     '''
@@ -2066,29 +2015,30 @@ def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=
         label='Control'    
     for i in range(nu):
         # Positions
-        ax[i].plot(tspan, u[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
+        ax[i].plot(tspan, u[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
         if('ctrlReg' in ddp_data['active_costs']):
             handles, labels = ax[i].get_legend_handles_labels()
             if('u_grav(q)' in labels):
                 handles.pop(labels.index('u_grav(q)'))
                 ax[i].lines.pop(labels.index('u_grav(q)'))
                 labels.remove('u_grav(q)')
-            ax[i].plot(tspan, ureg_ref[:,i], linestyle='-.', color='k', marker=marker, label='u_grav(q)', alpha=0.5)
+            ax[i].plot(tspan, ureg_ref[:,i], linestyle='-.', color='k', marker=None, label='u_grav(q)', alpha=0.5)
         ax[i].set_ylabel('$u_%s$'%i, fontsize=16)
+        ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i].grid(True)
-        # Set xlabel on bottom plot
-        if(i == nu-1):
-            ax[i].set_xlabel('t (s)', fontsize=16)
+    ax[-1].set_xlabel('Time (s)', fontsize=16)
+    fig.align_ylabels(ax[:])
     # Legend
-    handles, labels = ax[i].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.align_ylabels()
-    fig.suptitle('Control trajectories', size=16)
+    if(MAKE_LEGEND):
+        handles, labels = ax[i].get_legend_handles_labels()
+        fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.suptitle('Control trajectories', size=18)
     if(SHOW):
         plt.show()
     return fig, ax
 
-def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=None, alpha=1.):
+def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
     '''
     Plot ddp results (endeff)
     '''
@@ -2105,301 +2055,130 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=N
     v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
     if('translation' in ddp_data['active_costs']):
         p_ee_ref = np.array(ddp_data['translation_ref'])
+    if('velocity' in ddp_data['active_costs']):
+        v_ee_ref = np.array(ddp_data['velocity_ref'])
+    if('contact_translation' in ddp_data):
+        p_ee_contact = np.array(ddp_data['contact_translation'])
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
         fig, ax = plt.subplots(3, 2, sharex='col')
     if(label is None):
         label='End-effector'
-    ylabels_pos = ['Px', 'Py', 'Pz']
-    ylabels_vel = ['Vx', 'Vy', 'Vz']
+    xyz = ['x', 'y', 'z']
     for i in range(3):
         # Positions
-        ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
+        ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
         if('translation' in ddp_data['active_costs']):
-            ax[i,0].plot(np.linspace(0, N*dt, N+1), p_ee_ref[:,i], 'k-.', label='Desired')
-        ax[i,0].set_ylabel(ylabel=ylabels_pos[i], fontsize=16)
+            handles, labels = ax[i,0].get_legend_handles_labels()
+            if('reference' in labels):
+                handles.pop(labels.index('reference'))
+                ax[i,0].lines.pop(labels.index('reference'))
+                labels.remove('reference')
+            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+        if('contact_translation' in ddp_data):
+            handles, labels = ax[i,0].get_legend_handles_labels()
+            if('contact' in labels):
+                handles.pop(labels.index('contact'))
+                ax[i,0].lines.pop(labels.index('contact'))
+                labels.remove('contact')
+            ax[i,0].plot(tspan, p_ee_contact[:,i], linestyle='--', color='r', marker=None, label='contact', alpha=0.3)
+        ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
         # Velocities
-        ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, alpha=alpha)
-        ax[i,1].set_ylabel(ylabel=ylabels_vel[i], fontsize=16)
+        ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        if('velocity' in ddp_data['active_costs']):
+            handles, labels = ax[i,1].get_legend_handles_labels()
+            if('reference' in labels):
+                handles.pop(labels.index('reference'))
+                ax[i,1].lines.pop(labels.index('reference'))
+                labels.remove('reference')
+            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+        ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)
-    handles, labels = ax[i,0].get_legend_handles_labels()
+    fig.align_ylabels(ax[:,0])
+    fig.align_ylabels(ax[:,1])
     ax[i,0].set_xlabel('t (s)', fontsize=16)
-    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.align_ylabels()
-    fig.suptitle('Endeffector trajectories', size=16)
+    ax[i,1].set_xlabel('t (s)', fontsize=16)
+    if(MAKE_LEGEND):
+        handles, labels = ax[0,0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.suptitle('End-effector trajectories: position and velocity', size=18)
     if(SHOW):
         plt.show()
     return fig, ax
 
-def plot_refs(fig, ax, config, SHOW=True):
+def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
     '''
-    Overlay references on top of existing plots
+    Plot ddp results (force)
     '''
-
-    dt = config['dt']; N_h = config['N_h']
-    nq = len(config['q0']); nu = nq
-    # Add EE refs
-    xyz = ['x','y','z']
+    # Parameters
+    N = ddp_data['T'] 
+    dt = ddp_data['dt']
+    nq = ddp_data['nq']
+    nv = ddp_data['nv'] 
+    # Extract EE traj
+    x = np.array(ddp_data['xs'])
+    q = x[:,:nq]
+    v = x[:,nq:nq+nv]
+    p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
+    v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
+    if('force' in ddp_data['active_costs']):
+        p_ee_ref = np.array(ddp_data['translation_ref'])
+    if('velocity' in ddp_data['active_costs']):
+        v_ee_ref = np.array(ddp_data['velocity_ref'])
+    # Plots
+    tspan = np.linspace(0, N*dt, N+1)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(3, 2, sharex='col')
+    if(label is None):
+        label='End-effector'
+    xyz = ['x', 'y', 'z']
     for i in range(3):
-        ax['p'][i,0].plot(np.linspace(0, N_h*dt, N_h+1), [np.asarray(config['p_des']) [i]]*(N_h+1), 'r-.', label='Desired')
-        ax['p'][i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
-        ax['p'][i,1].plot(np.linspace(0, N_h*dt, N_h+1), [np.asarray(config['v_des']) [i]]*(N_h+1), 'r-.', label='Desired')
-        ax['p'][i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
-    handles_x, labels_x = ax['p'][i,0].get_legend_handles_labels()
-    fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-
-    # Add vel refs
-    for i in range(nq):
-        # ax['x'][i,0].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['q0'])[i]]*(N_h+1), 'r-.', label='Desired')
-        ax['x'][i,1].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['dq0'])[i]]*(N_h+1), 'r-.', label='Desired')
-
-    if(SHOW):
-        plt.show()
-    
-    return fig, ax
-    
-    # # Add torque refs
-    # q = np.array(ddp_data['xs'])[:,:nq]
-    # ureg_ref = np.zeros((N_h, nu))
-    # for i in range(N_h):
-    #     ureg_ref[i,:] = utils.pin_utils.get_u_grav_(q[i,:], ddp_data['pin_model'])
-    # for i in range(nu):
-    #     ax['u'][i].plot(np.linspace(0*dt, N_h*dt, N_h), ureg_ref[:,i], 'r-.', label='Desired')
-
-
-# DEPRECATED
-
-def plot_ddp_vxx_sv(ddp, fig=None, ax=None, label=None, SHOW=True):
-    '''
-    Plot ddp results (vxx singular values)
-    '''
-    # Parameters
-    N = ddp.problem.T
-    dt = ddp.problem.runningModels[0].dt
-    nq = ddp.problem.runningModels[0].state.nq
-    nv = ddp.problem.runningModels[0].state.nv
-    nx = nq+nv
-    nx2 = nx//2
-    Vxx_sv = np.zeros((N, nq+nv)) 
-    # Extract singular values and eigenvalues of VF Hessian
-    for i in range(N):
-        _, sv, _ = np.linalg.svd(ddp.Vxx[i])
-        Vxx_sv[i, :] = np.sort(sv)[::-1]
-    # Plots
-    tspan = np.linspace(0, N*dt, N)
-    if(ax is None or fig is None):
-        fig, ax = plt.subplots(nx2, 2, sharex='col')
-    if(label is None):
-        label='Vxx Singular Values'
-    for i in range(nx2):
-        # Singular values 0 to 6
-        ax[i,0].plot(tspan, Vxx_sv[:,i], linestyle='-', marker='o', label=label)
-        ax[i,0].set_ylabel('$\sigma_{%s}$'%i, fontsize=16)
+        # Positions
+        ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        if('translation' in ddp_data['active_costs']):
+            handles, labels = ax[i,0].get_legend_handles_labels()
+            if('reference' in labels):
+                handles.pop(labels.index('reference'))
+                ax[i,0].lines.pop(labels.index('reference'))
+                labels.remove('reference')
+            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+        ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
-        # Eigenvalues 7 to 13
-        ax[i,1].plot(tspan, Vxx_sv[:,nx2+i], linestyle='-', marker='o', label=label)
-        ax[i,1].set_ylabel('$\sigma_{%s}$'%str(nx2+i), fontsize=16)
+        # Velocities
+        ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        if('velocity' in ddp_data['active_costs']):
+            handles, labels = ax[i,1].get_legend_handles_labels()
+            if('reference' in labels):
+                handles.pop(labels.index('reference'))
+                ax[i,1].lines.pop(labels.index('reference'))
+                labels.remove('reference')
+            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+        ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)
-        # Set xlabel on bottom plot
-        if(i == nx2-1):
-            ax[i,0].set_xlabel('t (s)', fontsize=16)
-            ax[i,1].set_xlabel('t (s)', fontsize=16)
-    # Legend
-    handles, labels = ax[i,0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.align_ylabels()
-    fig.suptitle('Vxx Singular Values', size=16)
+    fig.align_ylabels(ax[:,0])
+    fig.align_ylabels(ax[:,1])
+    ax[i,0].set_xlabel('t (s)', fontsize=16)
+    ax[i,1].set_xlabel('t (s)', fontsize=16)
+    if(MAKE_LEGEND):
+        handles, labels = ax[0,0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.suptitle('End-effector trajectories: position and velocity', size=18)
     if(SHOW):
         plt.show()
     return fig, ax
 
-def plot_ddp_vxx_eig(ddp, fig=None, ax=None, label=None, SHOW=True):
-    '''
-    Plot ddp results (vxx eigenvalues)
-    '''
-    # Parameters
-    N = ddp.problem.T
-    dt = ddp.problem.runningModels[0].dt
-    nq = ddp.problem.runningModels[0].state.nq
-    nv = ddp.problem.runningModels[0].state.nv
-    nx = nq+nv
-    nx2 = nx//2
-    Vxx_eig = np.zeros((N, nx))
-    # Extract singular values VF Hessian
-    for i in range(N):
-        Vxx_eig[i, :] = np.linalg.eigvals(ddp.Vxx[i])
-    # Plots
-    tspan = np.linspace(0, N*dt, N)
-    if(ax is None or fig is None):
-        fig, ax = plt.subplots(nx2, 2, sharex='col')
-    if(label is None):
-        label='Vxx Eigenvalues'
-    # ax_ylim = np.max(Vxx_eig)
-    for i in range(nx2):
-        # Eigenvalues 0 to 6
-        ax[i,0].plot(tspan, Vxx_eig[:,i], linestyle='-', marker='o', label=label)
-        ax[i,0].set_ylabel('$\lambda_{%s}$'%i, fontsize=16)
-        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-        ax[i,0].grid(True)
-        # Eigenvalues 7 to 13
-        ax[i,1].plot(tspan, Vxx_eig[:,nx2+i], linestyle='-', marker='o', label=label)
-        ax[i,1].set_ylabel('$\lambda_{%s}$'%str(nx2+i), fontsize=16)
-        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-        ax[i,1].grid(True)
-        # Set xlabel on bottom plot
-        if(i == nx2-1):
-            ax[i,0].set_xlabel('t (s)', fontsize=16)
-            ax[i,1].set_xlabel('t (s)', fontsize=16)
-    # Legend
-    handles, labels = ax[i,0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.align_ylabels()
-    fig.suptitle('Vxx Eigenvalues', size=16)
-    if(SHOW):
-        plt.show()
-    return fig, ax
 
-def plot_ddp_ricatti_sv(ddp, fig=None, ax=None, label=None, SHOW=True):
-    '''
-    Plot ddp results (K sing vals)
-    '''
-    # Parameters
-    N = ddp.problem.T
-    dt = ddp.problem.runningModels[0].dt
-    nq = ddp.problem.runningModels[0].state.nq
-    nv = ddp.problem.runningModels[0].state.nv
-    nx = nq+nv
-    nx2 = nx//2
-    # K_diag = np.zeros((N, nx))
-    # K_eig = np.zeros((N, nx))
-    K_sv = np.zeros((N, nq))
-    # Extract diag , eig and sing val of Ricatti gain
-    for i in range(N):
-        _, K_sv[i, :], _ = np.linalg.svd(ddp.K[i][:nq,:nq])
-    # Plots
-    tspan = np.linspace(0, N*dt, N)
-    if(ax is None or fig is None):
-        fig, ax = plt.subplots(nx2, 1, sharex='col')
-    if(label is None):
-        label='K singular values'
-    for i in range(nx2):
-        # Singular values
-        ax[i].plot(tspan, K_sv[:,i], linestyle='-', marker='o', label=label)
-        ax[i].set_ylabel('$\sigma_{%s}$'%str(i), fontsize=16)
-        ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
-        ax[i].grid(True)
-        # Set xlabel on bottom plot
-        if(i == nx2-1):
-            ax[i].set_xlabel('t (s)', fontsize=16)
-    # Legend
-    handles, labels = ax[i].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.align_ylabels()
-    fig.suptitle('K singular values', size=16)
-    if(SHOW):
-        plt.show()
-    return fig, ax
 
-def plot_ddp_ricatti_eig(ddp, fig=None, ax=None, label=None, SHOW=True):
-    '''
-    Plot ddp results (K sing vals)
-    '''
-    # Parameters
-    N = ddp.problem.T
-    dt = ddp.problem.runningModels[0].dt
-    nq = ddp.problem.runningModels[0].state.nq
-    nv = ddp.problem.runningModels[0].state.nv
-    nx = nq+nv
-    nx2 = nx//2
-    # K_diag = np.zeros((N, nx))
-    K_eig = np.zeros((N, nx))
-    # Extract diag , eig and sing val of Ricatti gain
-    for i in range(N):
-        K_eig[i, :nq] = np.sort(np.linalg.eigvals(ddp.K[i][:nq,:nq]))[::-1]
-        K_eig[i, nv:] = np.sort(np.linalg.eigvals(ddp.K[i][:nq,nv:]))[::-1]
-    # Plots
-    tspan = np.linspace(0, N*dt, N)
-    if(ax is None or fig is None):
-        fig, ax = plt.subplots(nx2, 2, sharex='col')
-    if(label is None):
-        label='K eigenvalues'
-    for i in range(nx2):
-        # Eigenvalues
-        ax[i,0].plot(tspan, K_eig[:,i], linestyle='-', marker='o', label=label)
-        ax[i,0].set_ylabel('$\lambda_{%s}$'%str(nx2+i), fontsize=16)
-        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
-        ax[i,0].grid(True)
-        # Eigenvalues
-        ax[i,1].plot(tspan, K_eig[:,nx2+i], linestyle='-', marker='o', label=label)
-        ax[i,1].set_ylabel('$\lambda_{%s}$'%str(nx2+i), fontsize=16)
-        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
-        ax[i,1].grid(True)
-        # Set xlabel on bottom plot
-        if(i == nx2-1):
-            ax[i,0].set_xlabel('t (s)', fontsize=16)
-            ax[i,1].set_xlabel('t (s)', fontsize=16)
-    # Legend
-    handles, labels = ax[i,0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.align_ylabels()
-    fig.suptitle('Ricatti gain eigenvalues', size=16)
-    if(SHOW):
-        plt.show()
-    return fig, ax
-
-def plot_ddp_ricatti_diag(ddp, fig=None, ax=None, label=None, SHOW=True):
-    '''
-    Plot ddp results (K diag)
-    '''
-    # Parameters
-    N = ddp.problem.T
-    dt = ddp.problem.runningModels[0].dt
-    nq = ddp.problem.runningModels[0].state.nq
-    nv = ddp.problem.runningModels[0].state.nv
-    nx = nq+nv
-    nx2 = nx//2
-    # K_diag = np.zeros((N, nx))
-    K_diag = np.zeros((N, nx))
-    # Extract diag , eig and sing val of Ricatti gain
-    for i in range(N):
-        K_diag[i, :nq] = ddp.K[i][:nq,:nq].diagonal()
-        K_diag[i, nv:] = ddp.K[i][:nq,nv:].diagonal()
-    # Plots
-    tspan = np.linspace(0, N*dt, N)
-    if(ax is None or fig is None):
-        fig, ax = plt.subplots(nx2, 2, sharex='col')
-    if(label is None):
-        label='K diagonal terms'
-    for i in range(nx2):
-        # Diagonal terms
-        ax[i,0].plot(tspan, K_diag[:,i], linestyle='-', marker='o', label=label)
-        ax[i,0].set_ylabel('$diag_{%s}$'%i, fontsize=16)
-        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
-        ax[i,0].grid(True)
-        # Set xlabel on bottom plot
-        if(i == nx2-1):
-            ax[i,0].set_xlabel('t (s)', fontsize=16)
-            ax[i,1].set_xlabel('t (s)', fontsize=16)
-    # Legend
-    handles, labels = ax[i,0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.align_ylabels()
-    fig.suptitle('Ricatti gain diagonal', size=16)
-    if(SHOW):
-        plt.show()
-    return fig, ax
 
 
 # Animate and plot point mass from X,U trajs 

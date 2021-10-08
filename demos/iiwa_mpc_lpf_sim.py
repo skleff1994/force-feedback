@@ -28,6 +28,9 @@ from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_
 import pybullet as p
 import time 
 
+# Fix seed 
+np.random.seed(1)
+
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
@@ -80,7 +83,7 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False,
                                                 WHICH_COSTS=config['WHICH_COSTS']) 
 
 WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = True
+SOLVE_AND_PLOT_INIT = False
 
 if(WEIGHT_PROFILE):
   #  Schedule weights for target reaching

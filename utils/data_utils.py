@@ -32,9 +32,6 @@ def load_data(npz_file):
 
 
 
-
-
-
 # Initialize simulation data for MPC simulation
 def init_sim_data(config, robot, y0):
     '''
@@ -98,10 +95,6 @@ def extract_plot_data(input_data):
     else:
         TypeError("Input data must be a Python dict or a path to .npz archive")
     return extract_plot_data_from_sim_data(sim_data)
-
-
-
-
 
 
 
@@ -176,7 +169,7 @@ def init_sim_data_LPF(config, robot, y0):
     # White noise on desired torque and measured state
     sim_data['var_q'] = np.asarray(config['var_q'])
     sim_data['var_v'] = np.asarray(config['var_v'])
-    sim_data['var_u'] = 0.1*2*np.asarray(config['var_u']) #0.5% of range on the joint
+    sim_data['var_u'] = 0.5*np.asarray(config['var_u']) #0.5% of range on the joint
     # White noise on desired torque and measured state
     sim_data['gain_P'] = config['Kp']*np.eye(sim_data['nq'])
     sim_data['gain_I'] = config['Ki']*np.eye(sim_data['nq'])
@@ -307,9 +300,8 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
 
 
 
-
 # Extract DDP data (classic or LPF)
-def extract_ddp_data_LPF(ddp):
+def extract_ddp_data(ddp):
     '''
     Record relevant data from ddp solver in order to plot 
     '''
@@ -355,4 +347,19 @@ def extract_ddp_data_LPF(ddp):
         ddp_data['velocity_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['velocity'].cost.residual.reference.vector for i in range(ddp.problem.T)]
         ddp_data['velocity_ref'].append(ddp.problem.terminalModel.differential.costs.costs['velocity'].cost.residual.reference.vector)
         ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['velocity'].cost.residual.id
+    if(hasattr(ddp.problem.runningModels[0].differential, 'contacts')):
+        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.translation for i in range(ddp.problem.T)]
+        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.translation)
+        ddp_data['contact_rotation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.rotation for i in range(ddp.problem.T)]
+        ddp_data['contact_rotation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.rotation)
+    if('force' in ddp_data['active_costs']): 
+        ddp_data['force_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['force'].cost.residual.reference.vector for i in range(ddp.problem.T)]
+        ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['force'].cost.residual.id
     return ddp_data
+
+# Extract DDP data (classic or LPF)
+def extract_ddp_data_LPF(ddp):
+    '''
+    Record relevant data from ddp solver in order to plot 
+    '''
+    return extract_ddp_data(ddp)

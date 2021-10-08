@@ -24,7 +24,7 @@ np.set_printoptions(precision=4, linewidth=180)
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task_ocp')
+config = path_utils.load_config_file('static_contact_task_ocp')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
@@ -48,7 +48,9 @@ print(M_ee)
 N_h = config['N_h']
 dt = config['dt']
 
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, WHICH_COSTS=config['WHICH_COSTS']) 
+ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
+                                            WHICH_COSTS=config['WHICH_COSTS'],
+                                            CONTACT=True) 
 
 # # Half reach time (in OCP nodes)
 # PHASE = 50
@@ -93,4 +95,4 @@ if(VISUALIZE):
 
 #  Plot
 ddp_data = data_utils.extract_ddp_data(ddp)
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['p'], SHOW=True)
