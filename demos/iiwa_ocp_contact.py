@@ -72,15 +72,35 @@ us_init = [ug  for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
-VISUALIZE = False
+VISUALIZE = True
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
-    robot.initDisplay(loadModel=True)
+    import pinocchio as pin
+    robot.initViewer(loadModel=True)
     robot.display(q0)
-    viewer = robot.viz.viewer
+    viewer = robot.viz.viewer; gui = viewer.gui
+    
+    # Display force if any
+    if('force' in config['WHICH_COSTS']):
+        M_contact = M_ee.copy()
+        offset = np.array([0., 0., 0.03])
+        M_contact.translation = M_contact.act(offset)
+        contact_tf = pin.utils.se3ToXYZQUAT(M_contact)
+        f_des_LOCAL = 
+        if(gui.nodeExists('world/ref_wrench')):
+            gui.deleteNode('world/contact_point', True)
+        gui.addArrow('world/ref_wrench', .02, 0.1*np.linalg.norm(np.asarray(config['f_des'])), [.0, 0.8, .0, 1.])
+        if(gui.nodeExists('world/contact_point')):
+            gui.deleteNode('world/contact_point', True)
+        gui.addSphere('world/contact_point', .01, [1. ,0 ,0, 1.])
+        viewer.gui.addLandmark('world/contact_point', .3)
+        # Display reference contact wrench in RED
+        gui.applyConfiguration('world/ref_wrench', contact_tf)
+        gui.applyConfiguration('world/contact_point', contact_tf)
+        gui.setColor('world/contact_point', [.8, .0, .0, .8])
     # viewer.gui.addFloor('world/floor')
-    # viewer.gui.refresh()
+    viewer.gui.refresh()
     log_rate = int(N_h/10)
     print("Visualizing...")
     time.sleep(1.)
@@ -95,4 +115,4 @@ if(VISUALIZE):
 
 #  Plot
 ddp_data = data_utils.extract_ddp_data(ddp)
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['f'], SHOW=True)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['p'], SHOW=True)

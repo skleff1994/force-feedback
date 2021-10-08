@@ -16,7 +16,7 @@ WHICH_COSTS: ['force', 'ctrlReg', 'stateReg'] # placement, etc.
 frameForceWeights:  [1., 1., 1., 1., 1., 1.]
 frameForceWeight: 0.
 frameForceWeightTerminal: 0.
-f_des: [0., 0., 1., 0., 0., 0.]    
+f_des: [0., 0., 20., 0., 0., 0.]    
 
  # 'stateReg' : state regularization  
 stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 2., 2., 2., 2., 2., 2., 2.]
