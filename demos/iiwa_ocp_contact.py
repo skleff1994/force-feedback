@@ -72,8 +72,8 @@ us_init = [ug  for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
-VISUALIZE = True
-pause = 0.1 # in s
+VISUALIZE = False
+pause = 0.01 # in s
 if(VISUALIZE):
     import time
     import pinocchio as pin
@@ -112,33 +112,40 @@ if(VISUALIZE):
     print("Visualizing...")
 
     # Clean arrows if any
-    for i in range(N_h):
-        if(gui.nodeExists('world/force_'+str(i))):
-            gui.deleteNode('world/force_'+str(i), True)
+    if(gui.nodeExists('world/force')):
+        gui.deleteNode('world/force', True)
+    gui.addArrow('world/force', .02, arrow_length, [.0, 0., 0.5, 0.3])
 
     time.sleep(1.)
     for i in range(N_h):
-        # Delete previous arrow
-        if(i!=0):
-            gui.deleteNode('world/force_'+str(i), True)
         # Iter log
         robot.display(ddp.xs[i][:nq])
-        
         # Display force
-        gui.addArrow('world/force_'+str(i), .02, 0.02*np.linalg.norm(f[i]), [0., 0., 0.4, .3])
-        gui.applyConfiguration('world/force_'+str(i), tf_contact_aligned )
-
+        gui.resizeArrow('world/force', 0.02, 0.02*np.linalg.norm(f[i]))
+        gui.applyConfiguration('world/force', tf_contact_aligned )
         viewer.gui.refresh()
-        
-        if(i%log_rate==0):
-            print("Display config n°"+str(i))
+        # if(i%log_rate==0):
+        print("Display config n°"+str(i))
         time.sleep(pause)
-
-    # Clean arrows if any
-    for i in range(N_h):
-        if(gui.nodeExists('world/force_'+str(i))):
-            gui.deleteNode('world/force_'+str(i), True)
 
 #  Plot
 ddp_data = data_utils.extract_ddp_data(ddp)
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=True)
+
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['f'], SHOW=False)
+
+# Jacobian, Inertia, NL terms
+import pinocchio as pin
+q = np.array(ddp.xs)[:,:nq]
+v = np.array(ddp.xs)[:,nq:]
+u = np.array(ddp.us)
+f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, dt=dt)
+# for i in range(N_h):
+#     print(f[i])
+#     print(ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector)
+#     print("\n")
+    # f[i] = M_ee.action.dot(f[i])
+import matplotlib.pyplot as plt
+for i in range(3):
+    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], label="Computed")
+    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], label="Computed")
+plt.show()

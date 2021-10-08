@@ -322,7 +322,6 @@ def extract_ddp_data(ddp):
     ddp_data['us'] = ddp.us
     # Extract force at EE frame
     ddp_data['fs'] = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(ddp.problem.T)]
-    ddp_data['fs'].append(ddp.problem.terminalData.differential.multibody.contacts.contacts['contact'].f.vector)
     # Extract refs for active costs 
     ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
     if('stateReg' in ddp_data['active_costs']):
@@ -355,7 +354,6 @@ def extract_ddp_data(ddp):
         ddp_data['contact_rotation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.rotation)
     if('force' in ddp_data['active_costs']): 
         ddp_data['force_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['force'].cost.residual.reference.vector for i in range(ddp.problem.T)]
-        ddp_data['force_ref'].append(ddp.problem.terminalModel.differential.costs.costs['force'].cost.residual.reference.vector)
     return ddp_data
 
 # Extract DDP data (classic or LPF)

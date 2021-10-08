@@ -2142,7 +2142,7 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
         f_ee_lin_ref = f_ee_ref[:,:3]
         f_ee_ang_ref = f_ee_ref[:,3:]
     # Plots
-    tspan = np.linspace(0, N*dt, N+1)
+    tspan = np.linspace(0, N*dt, N)
     if(ax is None or fig is None):
         fig, ax = plt.subplots(3, 2, sharex='col')
     if(label is None):
