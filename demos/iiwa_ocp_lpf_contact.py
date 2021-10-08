@@ -70,7 +70,8 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True,
                                                 cost_w_lim=10.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
-                                                WHICH_COSTS=config['WHICH_COSTS'] ) 
+                                                WHICH_COSTS=config['WHICH_COSTS'],
+                                                CONTACT=True) 
 # for i in range(N_h-1):
 #   if(i<=int(N_h/10)):
 #     ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = 100
@@ -108,26 +109,61 @@ if(INIT_LOGS):
     print("norm(us-u_g)   = ", np.linalg.norm(np.array(ddp.us - ug)))#/N_h)
 
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-
 VISUALIZE = False
+pause = 0.01 # in s
 if(VISUALIZE):
-    print("--------------------------------------")
-    print("              VISUALIZE               ")
-    print("--------------------------------------")
-    robot.initDisplay(loadModel=True)
+    import time
+    import pinocchio as pin
+    robot.initViewer(loadModel=True)
     robot.display(q0)
-    viewer = robot.viz.viewer
+    viewer = robot.viz.viewer; gui = viewer.gui
+    
+    # Display force if any
+    if('force' in config['WHICH_COSTS']):
+        # Display placement of contact in WORLD frame
+        M_contact = M_ee.copy()
+        offset = np.array([0., 0., 0.03])
+        M_contact.translation = M_contact.act(offset)
+        tf_contact = list(pin.SE3ToXYZQUAT(M_contact))
+        if(gui.nodeExists('world/contact_point')):
+            gui.deleteNode('world/contact_point', True)
+            gui.deleteLandmark('world/contact_point')
+        gui.addSphere('world/contact_point', .01, [1. ,0 ,0, 1.])
+        gui.addLandmark('world/contact_point', .3)
+        gui.applyConfiguration('world/contact_point', tf_contact)
+        # Display contact force
+        f_des_LOCAL = np.asarray(config['f_des'])
+        M_contact_aligned = M_contact.copy()
+        M_contact_aligned.rotation = M_contact_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))#.dot(M_contact_aligned.rotation) 
+        tf_contact_aligned = list(pin.SE3ToXYZQUAT(M_contact_aligned))
+        arrow_length = 0.02*np.linalg.norm(f_des_LOCAL)
+        if(gui.nodeExists('world/ref_wrench')):
+            gui.deleteNode('world/ref_wrench', True)
+        gui.addArrow('world/ref_wrench', .01, arrow_length, [.5, 0., 0., 1.])
+        gui.applyConfiguration('world/ref_wrench', tf_contact_aligned )
+        # tf = viewer.gui.getNodeGlobalTransform('world/pinocchio/visuals/contact_0')
     # viewer.gui.addFloor('world/floor')
-    # viewer.gui.refresh()
+    viewer.gui.refresh()
     log_rate = int(N_h/10)
+    f = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(N_h)]
     print("Visualizing...")
+
+    # Clean arrows if any
+    if(gui.nodeExists('world/force')):
+        gui.deleteNode('world/force', True)
+    gui.addArrow('world/force', .02, arrow_length, [.0, 0., 0.5, 0.3])
+
+    time.sleep(1.)
     for i in range(N_h):
         # Iter log
-        viewer.gui.refresh()
         robot.display(ddp.xs[i][:nq])
-        if(i%log_rate==0):
-            print("Display config n°"+str(i))
-        time.sleep(.05)
+        # Display force
+        gui.resizeArrow('world/force', 0.02, 0.02*np.linalg.norm(f[i]))
+        gui.applyConfiguration('world/force', tf_contact_aligned )
+        viewer.gui.refresh()
+        # if(i%log_rate==0):
+        print("Display config n°"+str(i))
+        time.sleep(pause)
 
 PLOT = True
 if(PLOT):

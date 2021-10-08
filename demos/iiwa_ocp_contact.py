@@ -131,7 +131,7 @@ if(VISUALIZE):
 #  Plot
 ddp_data = data_utils.extract_ddp_data(ddp)
 
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['f'], SHOW=False)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=False)
 
 # Jacobian, Inertia, NL terms
 import pinocchio as pin
