@@ -14,9 +14,9 @@ WHICH_COSTS: ['force', 'ctrlReg', 'stateReg'] # placement, etc.
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [1., 1., 1., 1., 1., 1.]
-frameForceWeight: 0.
-frameForceWeightTerminal: 0.
-f_des: [0., 0., 20., 0., 0., 0.]    
+frameForceWeight: 0.1
+frameForceWeightTerminal: 0.1
+f_des: [0., 0., 10, 0., 0., 0.]    
 
  # 'stateReg' : state regularization  
 stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 2., 2., 2., 2., 2., 2., 2.]

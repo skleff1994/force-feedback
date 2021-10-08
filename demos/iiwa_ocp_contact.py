@@ -73,7 +73,7 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
 VISUALIZE = True
-pause = 0.01 # in s
+pause = 0.1 # in s
 if(VISUALIZE):
     import time
     import pinocchio as pin
@@ -83,36 +83,62 @@ if(VISUALIZE):
     
     # Display force if any
     if('force' in config['WHICH_COSTS']):
+        # Display placement of contact in WORLD frame
         M_contact = M_ee.copy()
         offset = np.array([0., 0., 0.03])
         M_contact.translation = M_contact.act(offset)
-        contact_tf = pin.utils.se3ToXYZQUAT(M_contact)
-        f_des_LOCAL = 
-        if(gui.nodeExists('world/ref_wrench')):
-            gui.deleteNode('world/contact_point', True)
-        gui.addArrow('world/ref_wrench', .02, 0.1*np.linalg.norm(np.asarray(config['f_des'])), [.0, 0.8, .0, 1.])
+        tf_contact = list(pin.SE3ToXYZQUAT(M_contact))
         if(gui.nodeExists('world/contact_point')):
             gui.deleteNode('world/contact_point', True)
+            gui.deleteLandmark('world/contact_point')
         gui.addSphere('world/contact_point', .01, [1. ,0 ,0, 1.])
-        viewer.gui.addLandmark('world/contact_point', .3)
-        # Display reference contact wrench in RED
-        gui.applyConfiguration('world/ref_wrench', contact_tf)
-        gui.applyConfiguration('world/contact_point', contact_tf)
-        gui.setColor('world/contact_point', [.8, .0, .0, .8])
+        gui.addLandmark('world/contact_point', .3)
+        gui.applyConfiguration('world/contact_point', tf_contact)
+        # Display contact force
+        f_des_LOCAL = np.asarray(config['f_des'])
+        M_contact_aligned = M_contact.copy()
+        M_contact_aligned.rotation = M_contact_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))#.dot(M_contact_aligned.rotation) 
+        tf_contact_aligned = list(pin.SE3ToXYZQUAT(M_contact_aligned))
+        arrow_length = 0.02*np.linalg.norm(f_des_LOCAL)
+        if(gui.nodeExists('world/ref_wrench')):
+            gui.deleteNode('world/ref_wrench', True)
+        gui.addArrow('world/ref_wrench', .01, arrow_length, [.5, 0., 0., 1.])
+        gui.applyConfiguration('world/ref_wrench', tf_contact_aligned )
+        # tf = viewer.gui.getNodeGlobalTransform('world/pinocchio/visuals/contact_0')
     # viewer.gui.addFloor('world/floor')
     viewer.gui.refresh()
     log_rate = int(N_h/10)
+    f = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(N_h)]
     print("Visualizing...")
+
+    # Clean arrows if any
+    for i in range(N_h):
+        if(gui.nodeExists('world/force_'+str(i))):
+            gui.deleteNode('world/force_'+str(i), True)
+
     time.sleep(1.)
     for i in range(N_h):
+        # Delete previous arrow
+        if(i!=0):
+            gui.deleteNode('world/force_'+str(i), True)
         # Iter log
-        viewer.gui.refresh()
         robot.display(ddp.xs[i][:nq])
+        
+        # Display force
+        gui.addArrow('world/force_'+str(i), .02, 0.02*np.linalg.norm(f[i]), [0., 0., 0.4, .3])
+        gui.applyConfiguration('world/force_'+str(i), tf_contact_aligned )
+
+        viewer.gui.refresh()
+        
         if(i%log_rate==0):
             print("Display config n°"+str(i))
         time.sleep(pause)
 
+    # Clean arrows if any
+    for i in range(N_h):
+        if(gui.nodeExists('world/force_'+str(i))):
+            gui.deleteNode('world/force_'+str(i), True)
 
 #  Plot
 ddp_data = data_utils.extract_ddp_data(ddp)
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['p'], SHOW=True)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=True)
