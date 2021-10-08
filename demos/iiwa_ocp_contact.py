@@ -95,4 +95,4 @@ if(VISUALIZE):
 
 #  Plot
 ddp_data = data_utils.extract_ddp_data(ddp)
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['p'], SHOW=True)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['f'], SHOW=True)

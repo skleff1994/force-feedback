@@ -788,6 +788,8 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
                 fig_u, ax_u = plot_ddp_control_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
                 fig_p, ax_p = plot_ddp_endeff_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+            if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
+                fig_f, ax_f = plot_ddp_force_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
         # Overlay on top of first plot
         else:
             if(k%sampling_plot==0):
@@ -797,6 +799,8 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
                     plot_ddp_control_LPF(DDP_DATA[k], fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
                     plot_ddp_endeff_LPF(DDP_DATA[k], fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
+                    plot_ddp_force_LPF(DDP_DATA[k], fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
     if(SHOW):
       plt.show()
     
@@ -812,6 +816,9 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
     if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
         fig['w'] = fig_u
         ax['w'] = ax_u
+    if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
+        fig['f'] = fig_f
+        ax['f'] = ax_f
 
     return fig, ax
 
@@ -955,6 +962,11 @@ def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, co
     '''
     return plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True)
 
+def plot_ddp_force_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
+    '''
+    Plot ddp results (force)
+    '''
+    return plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True)
 
 
 
@@ -2122,46 +2134,44 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
     nq = ddp_data['nq']
     nv = ddp_data['nv'] 
     # Extract EE traj
-    x = np.array(ddp_data['xs'])
-    q = x[:,:nq]
-    v = x[:,nq:nq+nv]
-    p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
-    v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
+    f = np.array(ddp_data['fs'])
+    f_ee_lin = f[:,:3]
+    f_ee_ang = f[:,3:]
     if('force' in ddp_data['active_costs']):
-        p_ee_ref = np.array(ddp_data['translation_ref'])
-    if('velocity' in ddp_data['active_costs']):
-        v_ee_ref = np.array(ddp_data['velocity_ref'])
+        f_ee_ref = np.array(ddp_data['force_ref'])
+        f_ee_lin_ref = f_ee_ref[:,:3]
+        f_ee_ang_ref = f_ee_ref[:,3:]
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
         fig, ax = plt.subplots(3, 2, sharex='col')
     if(label is None):
-        label='End-effector'
+        label='End-effector force'
     xyz = ['x', 'y', 'z']
     for i in range(3):
         # Positions
-        ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
-        if('translation' in ddp_data['active_costs']):
+        ax[i,0].plot(tspan, f_ee_lin[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        if('force' in ddp_data['active_costs']):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('reference' in labels):
                 handles.pop(labels.index('reference'))
                 ax[i,0].lines.pop(labels.index('reference'))
                 labels.remove('reference')
-            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
-        ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+            ax[i,0].plot(tspan, f_ee_lin_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+        ax[i,0].set_ylabel('$\\lambda^{lin}_%s$ (N)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
         # Velocities
-        ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
-        if('velocity' in ddp_data['active_costs']):
+        ax[i,1].plot(tspan, f_ee_ang[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        if('force' in ddp_data['active_costs']):
             handles, labels = ax[i,1].get_legend_handles_labels()
             if('reference' in labels):
                 handles.pop(labels.index('reference'))
                 ax[i,1].lines.pop(labels.index('reference'))
                 labels.remove('reference')
-            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
-        ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
+            ax[i,1].plot(tspan, f_ee_ang_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+        ax[i,1].set_ylabel('$\\lambda^{ang}_%s$ (Nm)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)
@@ -2172,7 +2182,7 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
     if(MAKE_LEGEND):
         handles, labels = ax[0,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.suptitle('End-effector trajectories: position and velocity', size=18)
+    fig.suptitle('End-effector forces: linear and angular', size=18)
     if(SHOW):
         plt.show()
     return fig, ax
