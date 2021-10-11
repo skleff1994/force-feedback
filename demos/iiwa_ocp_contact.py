@@ -42,6 +42,23 @@ M_ee = robot.data.oMf[id_endeff]
 print("Initial placement : \n")
 print(M_ee)
 
+# print("Created contact plane (id = "+str(contactId)+")")
+# print("  Contact ref. placement in WORLD frame : ")
+# print(M_ct)
+# print("  Detect contact points : ")
+# import pybullet as p
+# p.stepSimulation()
+# contact_points = p.getContactPoints(1, 2)
+# for k,i in enumerate(contact_points):
+#   print("      Contact point n°"+str(k)+" : distance = "+str(i[8])+" (m) | force = "+str(i[9])+" (N)")
+# # print("  Closest pointd between Robot and ContactPlane : ")
+# # print(p.getClosestPoints(1, 2, 0.065))
+
+# # Desired wrench in LOCAL (contact) frame
+# F_des_LOCAL = pin.Force(np.array([0., 0., -50., 0., 0., 0.]))
+# print("  Desired contact wrench in LOCAL frame : ")
+# print(F_des_LOCAL)
+
 #################
 ### OCP SETUP ###
 #################
@@ -63,16 +80,22 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
 
 # import time
 # time.sleep(1.)
-ug = pin_utils.get_u_grav(q0, robot)
+import pinocchio as pin
+# f_ext = [] # pin.Force(np.asarray(config['f_des']))
+# for i in range(nq+1):
+#     f_ext.append(pin.Force.Zero())
+# u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+# print("u0 = ", u0)
+u0= pin_utils.get_u_grav(q0, robot)
 
 # Solve and extract solution trajectories
 xs_init = [x0 for i in range(N_h+1)]
-us_init = [ug  for i in range(N_h)]
+us_init = [u0  for i in range(N_h)]
 
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
-VISUALIZE = True
+VISUALIZE = False
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
@@ -131,16 +154,19 @@ if(VISUALIZE):
 #  Plot
 ddp_data = data_utils.extract_ddp_data(ddp)
 
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=True)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=False)
 
 # # Jacobian, Inertia, NL terms
-# import pinocchio as pin
-# q = np.array(ddp.xs)[:,:nq]
-# v = np.array(ddp.xs)[:,nq:]
-# u = np.array(ddp.us)
-# f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, dt=dt)
-# import matplotlib.pyplot as plt
-# for i in range(3):
-#     ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], label="Computed")
-#     ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], label="Computed")
-# plt.show()
+import pinocchio as pin
+q = np.array(ddp.xs)[:,:nq]
+v = np.array(ddp.xs)[:,nq:] 
+u = np.array(ddp.us)
+f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
+import matplotlib.pyplot as plt
+for i in range(3):
+    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], label="Computed")
+    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], label="Computed")
+# for i in range(N_h):
+#     print("Self : ", f[i,:3])
+#     print("Pin  : ", ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.angular)
+plt.show()

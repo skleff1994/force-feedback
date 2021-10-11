@@ -56,7 +56,7 @@ print("-------------------------------------------------------------------")
 #################
 N_h = config['N_h']
 dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot)
+ug = pin_utils(q0, robot)
 
 print("--------------------------------------")
 print("              INIT OCP                ")

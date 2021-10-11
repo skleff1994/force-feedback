@@ -71,7 +71,7 @@ def get_f(q, v, tau, pin_robot, id_endeff, dt=1e-2):
     '''
     return get_f_(q, v, tau, pin_robot.model, id_endeff, dt=dt)
 
-def get_f_(q, v, tau, model, id_endeff, dt=1e-2):
+def get_f_(q, v, tau, model, id_endeff, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -83,22 +83,27 @@ def get_f_(q, v, tau, model, id_endeff, dt=1e-2):
         dt        : step size for FD estimate of joint acceleration
     '''
     data = model.createData()
-    # Estimate joint accelerations with finite differences on v
-    a = np.zeros(q.shape)
-    for i in range(q.shape[0]-1):
-        a[i,:] = (v[i+1,:] - v[i,:])/dt
     # Calculate contact force from (q, v, a, tau)
     f = np.empty((q.shape[0]-1, 6))
     for i in range(f.shape[0]):
-        # pin.computeAllTerms(model ,data, q[i,:], v[i,:])
-        # Jacobian (in LOCAL coord)
+        # Get spatial acceleration at EE frame
+        pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros((model.nq,1)))
+        gamma = -pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        # gamma2 = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        # print(gamma)
+        # print(gamma.vector)
+        # Jacobian 
         pin.computeJointJacobians(model, data, q[i,:])
-        jac = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
+        pin.framesForwardKinematics(model, data, q[i,:])
+        J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
+        # _, s, _ = np.linalg.svd(J)
+        # print(np.min(np.abs(s)))
         # Joint space inertia and its inverse + NL terms
         Minv = pin.computeMinverse(model, data, q[i,:])
         h = pin.nonLinearEffects(model, data, q[i,:], v[i,:])
         # Contact force
-        f[i,:] = np.linalg.solve( jac.dot(Minv).dot(jac.T) ,  jac.dot( a[i,:] + Minv.dot(h - tau[i,:]) ) ) 
+        # f = (JMiJ')^+ ( JMi (b-tau) + gamma )
+        f[i,:] = np.linalg.solve( J.dot(Minv).dot(J.T) + REG,  J.dot(Minv).dot(h - tau[i,:]) + gamma )
     return f
 
 
@@ -122,6 +127,15 @@ def get_u_mea(q, v, pin_robot):
     Return gravity torque at q
     '''
     return pin.rnea(pin_robot.model, pin_robot.data, q, v, np.zeros((pin_robot.model.nq,1)))
+
+
+def get_tau(q, v, a, f, model):
+    '''
+    Return torque using rnea
+    '''
+    data = model.createData()
+    return pin.rnea(model, data, q, v, a, f)
+
 
 
 from numpy.linalg import pinv

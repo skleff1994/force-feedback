@@ -19,12 +19,12 @@ f_des: [0., 0., 20, 0., 0., 0.]
  # 'stateReg' : state regularization  
 stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 2., 2., 2., 2., 2., 2., 2.]
 stateRegWeight: .001
-stateRegWeightTerminal: 10.
+stateRegWeightTerminal: .01
 
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.01
-ctrlRegWeightTerminal: 10.
+ctrlRegWeightTerminal: .01
 
 p_des: 'None'  # both translation and placement
 
