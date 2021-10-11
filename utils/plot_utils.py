@@ -871,6 +871,91 @@ def plot_ddp_force_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
 
 
 ### Plot from MPC simulation (regular i.e. 'impedance_mpc' repo)
+# Plot data
+def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
+                                              pred_plot_sampling=100, 
+                                              SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                                              SHOW=True,
+                                              AUTOSCALE=False):
+    '''
+    Plot sim data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+      AUTOSCALE                 : rescale y-axis of endeff plot 
+                                  based on maximum value taken
+    '''
+
+    plots = {}
+
+    if('x' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        plots['x'] = plot_mpc_state(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                           pred_plot_sampling=pred_plot_sampling, 
+                                           SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                           SHOW=False)
+    
+    if('u' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        plots['u'] = plot_mpc_control(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                             pred_plot_sampling=pred_plot_sampling, 
+                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                             SHOW=False)
+
+    if('p' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        plots['p'] = plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                            pred_plot_sampling=pred_plot_sampling, 
+                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False, AUTOSCALE=AUTOSCALE)
+
+    if('f' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        plots['f'] = plot_mpc_force(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                            pred_plot_sampling=pred_plot_sampling, 
+                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False, AUTOSCALE=AUTOSCALE)
+
+
+    if('K' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        if('K_diag' in plot_data.keys()):
+            plots['K_diag'] = plot_mpc_ricatti_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+        if('K_svd' in plot_data.keys()):
+            plots['K_svd'] = plot_mpc_ricatti_svd(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('V' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        if('V_diag' in plot_data.keys()):
+            plots['V_diag'] = plot_mpc_Vxx_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+        if('V_eig' in plot_data.keys()):
+            plots['V_eig'] = plot_mpc_Vxx_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+
+    if('S' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        if('S' in plot_data.keys()):
+            plots['S'] = plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('J' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        if('J' in plot_data.keys()):
+            plots['J'] = plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('Q' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        if('Q_diag' in plot_data.keys()):
+            plots['Q_diag'] = plot_mpc_Quu_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+        if('Q_eig' in plot_data.keys()):
+            plots['Q_eig'] = plot_mpc_Quu_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+    
+    if(SHOW):
+        plt.show() 
+    plt.close('all')
+
 # Plot state data
 def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False, 
                           pred_plot_sampling=100, 
@@ -1211,11 +1296,14 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
     
     return fig, ax
 
-# Plot acceleration error data
-def plot_mpc_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
-                            SHOW=True):
+# Plot end-eff data
+def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False, 
+                           pred_plot_sampling=100, 
+                           SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                           SHOW=True,
+                           AUTOSCALE=False):
     '''
-    Plot acc err data
+    Plot EE force data
      Input:
       plot_data                 : plotting data
       PLOT_PREDICTIONS          : True or False
@@ -1224,42 +1312,96 @@ def plot_mpc_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                                   ("1" = plot all)
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
+      AUTOSCALE                 : rescale y-axis of endeff plot 
+                                  based on maximum value taken
     '''
-    print('Plotting acc error data...')
+    print('Plotting force data...')
     T_tot = plot_data['T_tot']
+    N_simu = plot_data['N_simu']
     N_ctrl = plot_data['N_ctrl']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    dt_simu = plot_data['dt_simu']
     dt_ctrl = plot_data['dt_ctrl']
-    nq = plot_data['nq']
+    T_h = plot_data['T_h']
+    N_h = plot_data['N_h']
     # Create time spans for X and U + Create figs and subplots
-    t_span_ctrl_u = np.linspace(0, T_tot-dt_ctrl, N_ctrl)
-    fig_a, ax_a = plt.subplots(nq,2, figsize=(19.2,10.8), sharex='col') 
-    # For each joint
-    for i in range(nq):
-        # Joint velocity error (avg over 1 control cycle)
-        ax_a[i,0].plot(t_span_ctrl_u, plot_data['a_err'][:,i], 'b-', label='Velocity error (average)')
-        ax_a[i,0].set_ylabel('$verr_{}$'.format(i), fontsize=12)
-        ax_a[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax_a[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
-        ax_a[i,0].grid(True)
-        # Joint acceleration error (avg over 1 control cycle)
-        ax_a[i,1].plot(t_span_ctrl_u, plot_data['a_err'][:,nq+i], 'b-', label='Acceleration error (average)')
-        ax_a[i,1].set_ylabel('$aerr_{}$'.format(i), fontsize=12)
-        ax_a[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax_a[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
-        ax_a[i,1].grid(True)
-        # Set xlabel on bottom plot
-        if(i == nq-1):
-            ax_a[i,0].set_xlabel('t (s)', fontsize=16)
-            ax_a[i,1].set_xlabel('t (s)', fontsize=16)
-    # y axis labels
-    fig_a.text(0.05, 0.5, 'Vel. error (rad/s)', va='center', rotation='vertical', fontsize=16)
-    fig_a.text(0.49, 0.5, 'Acc. error (rad/s^2)', va='center', rotation='vertical', fontsize=16)
-    fig_a.subplots_adjust(wspace=0.27)    
-    # title
-    fig_a.suptitle('Average tracking errors over control cycles (1ms)', size=16)
+    t_span_simu = np.linspace(0, T_tot - dt_simu, N_simu)
+    t_span_ctrl = np.linspace(0, T_tot - dt_ctrl, N_ctrl)
+    t_span_plan = np.linspace(0, T_tot - dt_plan, N_plan)
+    fig, ax = plt.subplots(3, 2, figsize=(19.2,10.8), sharex='col') 
+    # Plot endeff
+    xyz = ['x', 'y', 'z']
+    for i in range(3):
+
+        if(PLOT_PREDICTIONS):
+            f_ee_pred_i = plot_data['f_ee_pred'][:, :, i]
+            # For each planning step in the trajectory
+            for j in range(0, N_plan, pred_plot_sampling):
+                # Receding horizon = [j,j+N_h]
+                t0_horizon = j*dt_plan
+                tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
+                # Set up lists of (x,y) points for predicted positions
+                points_f = np.array([tspan_x_pred, f_ee_pred_i[j,:]-plot_data['f_ee_ref'][i]]).transpose().reshape(-1,1,2)
+                # Set up lists of segments
+                segs_f = np.concatenate([points_f[:-1], points_f[1:]], axis=1)
+                # Make collections segments
+                cm = plt.get_cmap('Greys_r') 
+                lc_f = LineCollection(segs_f, cmap=cm, zorder=-1)
+                lc_f.set_array(tspan_x_pred)
+                # Customize
+                lc_f.set_linestyle('-')
+                lc_f.set_linewidth(1)
+                # Plot collections
+                ax[i,0].add_collection(lc_f)
+                # Scatter to highlight points
+                colors = np.r_[np.linspace(0.1, 1, N_h-1), 1] 
+                my_colors = cm(colors)
+                ax[i,0].scatter(tspan_x_pred, f_ee_pred_i[j,:]-plot_data['f_ee_ref'][i], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+       
+        # EE position
+        ax[i,0].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,i]-plot_data['f_ee_ref'][i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,0].plot(t_span_ctrl, plot_data['p_ee_des_CTRL'][:,i]-plot_data['p_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,i]-plot_data['f_ee_ref'][i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['f_ee_mea'][:,i]-plot_data['f_ee_ref'][i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        # ax[i,0].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,i]-[plot_data['p_ee_ref'][i]]*(N_simu+1), 'r-', label='measured', linewidth=2)
+        ax[i,0].plot(t_span_plan, [0.]*(N_plan), 'k-.', linewidth=2., label='err=0', alpha=0.5)
+        ax[i,0].set_ylabel('$\\lambda^{EE}_%s$  (N)'%xyz[i], fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax[i,0].grid(True)
+        # EE velocity
+        ax[i,1].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,3+i]-plot_data['f_ee_ref'][3+i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,1].plot(t_span_ctrl, plot_data['v_ee_des_CTRL'][:,i]-plot_data['v_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,3+i]-plot_data['f_ee_ref'][3+i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['f_ee_mea'][:,3+i]-plot_data['f_ee_ref'][3+i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        # ax[i,1].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,3+i]-[plot_data['f_ee_ref'][3+i]]*(N_simu+1), 'r-', label='Measured', linewidth=2)
+        ax[i,1].plot(t_span_plan, [0.]*(N_plan), 'k-.', linewidth=2., label='err=0', alpha=0.5)
+        ax[i,1].set_ylabel('$\\tau^{EE}_%s$  (Nm)'%xyz[i], fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax[i,1].grid(True)
+    # Align
+    fig.align_ylabels(ax[:,0])
+    fig.align_ylabels(ax[:,1])
+    ax[i,0].set_xlabel('t (s)', fontsize=16)
+    ax[i,1].set_xlabel('t (s)', fontsize=16)
+    # Set ylim if any
+    TOL = 1e-3
+    if(AUTOSCALE):
+        ax_p_ylim = 1.1*max(np.max(np.abs(plot_data['f_ee_mea']-plot_data['f_ee_ref'])), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['f_ee_mea']-plot_data['f_ee_ref'])), TOL)
+        for i in range(3):
+            ax[i,0].set_ylim(-ax_p_ylim, ax_p_ylim) 
+            ax[i,1].set_ylim(-ax_v_ylim, ax_v_ylim) 
+
+    handles_p, labels_p = ax[0,0].get_legend_handles_labels()
+    fig.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
+    # Titles
+    fig.suptitle('End-effector forces errors', size=18)
     # Save figs
     if(SAVE):
-        figs = {'a': fig_a}
+        figs = {'p': fig}
         if(SAVE_DIR is None):
             SAVE_DIR = '/home/skleff/force-feedback/data'
         if(SAVE_NAME is None):
@@ -1270,7 +1412,8 @@ def plot_mpc_acc_err(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
     if(SHOW):
         plt.show() 
     
-    return fig_a
+    return fig, ax
+
 
 # Plot Ricatti SVD
 def plot_mpc_ricatti_svd(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
@@ -1703,88 +1846,6 @@ def plot_mpc_jacobian(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
         plt.show() 
     
     return fig_J
-
-# Plot data
-def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
-                                              pred_plot_sampling=100, 
-                                              SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
-                                              SHOW=True,
-                                              AUTOSCALE=False):
-    '''
-    Plot sim data
-     Input:
-      plot_data                 : plotting data
-      PLOT_PREDICTIONS          : True or False
-      pred_plot_sampling        : plot every pred_plot_sampling prediction 
-                                  to avoid huge amount of plotted data 
-                                  ("1" = plot all)
-      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
-      SHOW                      : show plots
-      AUTOSCALE                 : rescale y-axis of endeff plot 
-                                  based on maximum value taken
-    '''
-
-    plots = {}
-
-    if('x' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        plots['x'] = plot_mpc_state(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
-                                           pred_plot_sampling=pred_plot_sampling, 
-                                           SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                           SHOW=False)
-    
-    if('u' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        plots['u'] = plot_mpc_control(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
-                                             pred_plot_sampling=pred_plot_sampling, 
-                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                             SHOW=False)
-    
-    if('a' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        plots['a'] = plot_mpc_acc_err(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                             SHOW=SHOW)
-
-    if('p' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        plots['p'] = plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
-                                            pred_plot_sampling=pred_plot_sampling, 
-                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False, AUTOSCALE=AUTOSCALE)
-
-    if('K' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        if('K_diag' in plot_data.keys()):
-            plots['K_diag'] = plot_mpc_ricatti_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-        if('K_svd' in plot_data.keys()):
-            plots['K_svd'] = plot_mpc_ricatti_svd(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-
-    if('V' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        if('V_diag' in plot_data.keys()):
-            plots['V_diag'] = plot_mpc_Vxx_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-        if('V_eig' in plot_data.keys()):
-            plots['V_eig'] = plot_mpc_Vxx_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-
-    if('S' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        if('S' in plot_data.keys()):
-            plots['S'] = plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-
-    if('J' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        if('J' in plot_data.keys()):
-            plots['J'] = plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-
-    if('Q' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        if('Q_diag' in plot_data.keys()):
-            plots['Q_diag'] = plot_mpc_Quu_diag(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-        if('Q_eig' in plot_data.keys()):
-            plots['Q_eig'] = plot_mpc_Quu_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-    
-    if(SHOW):
-        plt.show() 
-    plt.close('all')
 
 
 
