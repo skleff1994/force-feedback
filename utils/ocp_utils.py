@@ -261,7 +261,9 @@ def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5
 # Setup OCP and solver using Crocoddyl
 def init_DDP(robot, config, x0, callbacks=False, 
                                 WHICH_COSTS=['all'], 
-                                CONTACT=False):
+                                CONTACT=False,
+                                contact_placement=None,
+                                u_reg_ref=None):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       - Running cost: EE placement (Mref) + x_reg (xref) + u_reg (uref)
@@ -293,8 +295,9 @@ def init_DDP(robot, config, x0, callbacks=False,
     # Contact or not?
     if(CONTACT):
       baumgarte_gains = np.array([0., 0.])
-      contact_placement = robot.data.oMf[id_endeff]
-      contact_placement.translation = contact_placement.act(np.array([0., 0., 0.03]))
+      if(contact_placement is None):
+        contact_placement = robot.data.oMf[id_endeff]
+        contact_placement.translation = contact_placement.act(np.array([0., 0., 0.03]))
       contact6d = crocoddyl.ContactModel6D(state, id_endeff, contact_placement, baumgarte_gains) 
     
     
@@ -311,14 +314,23 @@ def init_DDP(robot, config, x0, callbacks=False,
       # print("[OCP] Added state reg cost.")  
     # Control regularization
     if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
-      if(CONTACT):
-        residual = crocoddyl.ResidualModelContactControlGrav(state)
+      # Gravity reg by default
+      if(u_reg_ref is None):
+        if(CONTACT):
+          residual = crocoddyl.ResidualModelContactControlGrav(state)
+        else:
+          residual = crocoddyl.ResidualModelControlGrav(state)
+        ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
+        uRegCost = crocoddyl.CostModelResidual(state, 
+                                              crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
+                                              residual)
+      # User-specified reg reference 
       else:
-        residual = crocoddyl.ResidualModelControlGrav(state)
-      ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
-      uRegCost = crocoddyl.CostModelResidual(state, 
-                                            crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
-                                            residual)
+          residual = crocoddyl.ResidualModelControl(state, u_reg_ref)
+          ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
+          uRegCost = crocoddyl.CostModelResidual(state, 
+                                                crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
+                                                residual)
       # print("[OCP] Added ctrl reg cost.")
     # State limits penalization
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):

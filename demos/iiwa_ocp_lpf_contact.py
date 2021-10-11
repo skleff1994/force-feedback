@@ -85,7 +85,7 @@ us_init = [ug for i in range(N_h)]
 
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
-VISUALIZE = True
+VISUALIZE = False
 pause = 0.01 # in s
 if(VISUALIZE):
     import time

@@ -65,28 +65,35 @@ print(M_ee)
 N_h = config['N_h']
 dt = config['dt']
 
+# Contact model
+M_ct = robot.data.oMf[id_endeff]
+M_ct.translation = M_ct.act(np.array([0., 0., 0.03]))
+
+# Warm start and reg
+import pinocchio as pin
+f_ext = []
+for i in range(nq+1):
+    W_X_ct = M_ct.action
+    j_X_W  = robot.data.oMi[i].actionInverse
+    j_X_ee = W_X_ct.dot(j_X_W)
+    f_joint = j_X_ee.dot(np.asarray(config['f_des']))
+    print("Joint n°"+str(i)+" : force = ", f_joint) 
+    f_ext.append(pin.Force(f_joint))
+print(f_ext)
+u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+ug = pin_utils.get_u_grav(q0, robot)
+# print("u0 = ", u0)
+# print("ug = ", ug)
+
+# solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
                                             WHICH_COSTS=config['WHICH_COSTS'],
-                                            CONTACT=True) 
+                                            CONTACT=True,
+                                            contact_placement=M_ct,
+                                            u_reg_ref=u0) 
 
-# # Half reach time (in OCP nodes)
-# PHASE = 50
-# for i in range(N_h-1):
-#     ddp.problem.runningModels[i].differential.costs.costs['placement'].weight = ocp_utils.cost_weight_linear(i, PHASE, min_weight=.1, max_weight=10.)
-#     # ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_normal_clamped(i, PHASE, min_weight=0.01, max_weight=10., peak=2)
-#     # print(ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight)
-#     ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = ocp_utils.cost_weight_parabolic(i, PHASE, min_weight=0.05, max_weight=0.5)
-#     ddp.problem.runningModels[i].differential.costs.costs['velocity'].weight = ocp_utils.cost_weight_parabolic(i, PHASE, min_weight=0.001, max_weight=10.)
 
-# import time
-# time.sleep(1.)
-import pinocchio as pin
-# f_ext = [] # pin.Force(np.asarray(config['f_des']))
-# for i in range(nq+1):
-#     f_ext.append(pin.Force.Zero())
-# u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-# print("u0 = ", u0)
-u0= pin_utils.get_u_grav(q0, robot)
+
 
 # Solve and extract solution trajectories
 xs_init = [x0 for i in range(N_h+1)]
@@ -95,7 +102,7 @@ us_init = [u0  for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
-VISUALIZE = False
+VISUALIZE = True
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
