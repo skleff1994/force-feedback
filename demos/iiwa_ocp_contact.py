@@ -72,7 +72,7 @@ us_init = [ug  for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
-VISUALIZE = False
+VISUALIZE = True
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
@@ -131,21 +131,16 @@ if(VISUALIZE):
 #  Plot
 ddp_data = data_utils.extract_ddp_data(ddp)
 
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=False)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=True)
 
-# Jacobian, Inertia, NL terms
-import pinocchio as pin
-q = np.array(ddp.xs)[:,:nq]
-v = np.array(ddp.xs)[:,nq:]
-u = np.array(ddp.us)
-f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, dt=dt)
-# for i in range(N_h):
-#     print(f[i])
-#     print(ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector)
-#     print("\n")
-    # f[i] = M_ee.action.dot(f[i])
-import matplotlib.pyplot as plt
-for i in range(3):
-    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], label="Computed")
-    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], label="Computed")
-plt.show()
+# # Jacobian, Inertia, NL terms
+# import pinocchio as pin
+# q = np.array(ddp.xs)[:,:nq]
+# v = np.array(ddp.xs)[:,nq:]
+# u = np.array(ddp.us)
+# f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, dt=dt)
+# import matplotlib.pyplot as plt
+# for i in range(3):
+#     ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], label="Computed")
+#     ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], label="Computed")
+# plt.show()

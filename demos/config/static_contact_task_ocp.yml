@@ -14,7 +14,6 @@ WHICH_COSTS: ['force', 'stateReg', 'velocity', 'translation', 'ctrlReg'] # place
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [1., 1., 1., 1., 1., 1.]
 frameForceWeight: 1.
-frameForceWeightTerminal: 0.
 f_des: [0., 0., 20, 0., 0., 0.]    
 
  # 'stateReg' : state regularization  

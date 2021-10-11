@@ -698,6 +698,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       terminal_costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeightTerminal'])
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
       terminal_costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
+    if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+      terminal_costs.addCost("force", frameForceCost, config['frameForceWeightTerminal'])
 
     # Terminal DAM (Contact or FreeFwd)
     if(CONTACT):
