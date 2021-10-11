@@ -73,10 +73,14 @@ M_ct.translation = M_ct.act(np.array([0., 0., 0.03]))
 import pinocchio as pin
 f_ext = []
 for i in range(nq+1):
+    # CONTACT --> WORLD
     W_X_ct = M_ct.action
+    # WORLD --> JOINT
     j_X_W  = robot.data.oMi[i].actionInverse
+    # CONTACT --> JOINT
     j_X_ee = W_X_ct.dot(j_X_W)
-    f_joint = j_X_ee.dot(np.asarray(config['f_des']))
+    # ADJOINT INVERSE (wrenches)
+    f_joint = np.linalg.inv(j_X_ee).T.dot(np.asarray(config['f_des']))
     print("Joint n°"+str(i)+" : force = ", f_joint) 
     f_ext.append(pin.Force(f_joint))
 print(f_ext)
@@ -127,6 +131,8 @@ if(VISUALIZE):
         # Display contact force
         f_des_LOCAL = np.asarray(config['f_des'])
         M_contact_aligned = M_contact.copy()
+            # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
+            # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
         M_contact_aligned.rotation = M_contact_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))#.dot(M_contact_aligned.rotation) 
         tf_contact_aligned = list(pin.SE3ToXYZQUAT(M_contact_aligned))
         arrow_length = 0.02*np.linalg.norm(f_des_LOCAL)

@@ -43,7 +43,7 @@ stateRegWeight: 0.1
 stateRegWeightTerminal: 0.1
 
  # 'ctrlReg' : torque regularization 
-ctrlRegWeights: [1., 1., 1., 1., 5., 10., 15.]
+ctrlRegWeights: [1., 1., 1., 1., 2., 10., 15.]
 ctrlRegWeight: 0.003
 ctrlRegWeightTerminal: 0.003
 
