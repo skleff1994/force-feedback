@@ -44,7 +44,7 @@ nq, nv = robot.model.nq, robot.model.nv; nu = nq
 # Display contact surface
 id_endeff = robot.model.getFrameId('contact')
 contact_placement = robot.data.oMf[id_endeff]
-contact_placement.translation = contact_placement.act(np.array([0., 0., .031])) 
+contact_placement.translation = contact_placement.act(np.array([0., 0., .03])) 
 sim_utils.display_contact_surface(contact_placement, with_collision=True)
 print("-------------------------------------------------------------------")
 print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
@@ -66,7 +66,7 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False,
                                             CONTACT=True) 
 
 WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = False
+SOLVE_AND_PLOT_INIT = True
 
 if(WEIGHT_PROFILE):
   #  Schedule weights for target reaching
@@ -263,7 +263,7 @@ for i in range(sim_data['N_simu']):
         # Increment control counter
         nb_ctrl += 1
         
-  # Simulate actuation with PI torque tracking controller (low-level control frequency)
+  # Simulate actuation and step PyBullet (low-level control frequency)
 
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
@@ -296,8 +296,9 @@ for i in range(sim_data['N_simu']):
     #  Send output of actuation torque to the RBD simulator 
     pybullet_simulator.send_joint_command(tau_mea_SIMU)
     p.stepSimulation()
-    # Measure new state from simulation :
+    # Measure new state from simulation 
     q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
+    # Measure force from simulation
     _, force_measured = pybullet_simulator.get_force()
     if(len(force_measured)==0):
         f_mea_SIMU = np.zeros(6)

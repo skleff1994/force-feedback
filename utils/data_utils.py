@@ -33,6 +33,8 @@ def load_data(npz_file):
 
 
 
+
+
 # Initialize simulation data for MPC simulation
 def init_sim_data(config, robot, x0):
     '''
@@ -245,6 +247,8 @@ def extract_plot_data(input_data):
 
 
 
+
+
 # Initialize MPC simulation with torque feedback based on Low-Pass-Filter (LPF) Actuation Model
 def init_sim_data_LPF(config, robot, y0):
     '''
@@ -441,6 +445,8 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
       plot_data['ureg'] = sim_data['ureg']
 
     return plot_data
+
+
 
 
 
