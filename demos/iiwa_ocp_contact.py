@@ -80,7 +80,7 @@ for i in range(nq+1):
     # CONTACT --> JOINT
     j_X_ee = W_X_ct.dot(j_X_W)
     # ADJOINT INVERSE (wrenches)
-    f_joint = np.linalg.inv(j_X_ee).T.dot(np.asarray(config['f_des']))
+    f_joint = j_X_ee.dot(np.asarray(config['f_des'])) # np.linalg.inv(j_X_ee).T.dot(np.asarray(config['f_des']))
     print("Joint n°"+str(i)+" : force = ", f_joint) 
     f_ext.append(pin.Force(f_joint))
 print(f_ext)
