@@ -474,9 +474,12 @@ def extract_ddp_data(ddp, CONTACT=False):
     ddp_data['us'] = ddp.us
     # Extract force at EE frame
     if(CONTACT):
-      f_lin = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.linear for i in range(ddp.problem.T)]
-      f_ang = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.angular for i in range(ddp.problem.T)]
-      ddp_data['fs'] = [np.concatenate([f_lin[i], f_ang[i]]) for i in range(ddp.problem.T)]
+      datas = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'] for i in range(ddp.problem.T)]
+      # data.f = force exerted at parent joint expressed in WORLD frame (oMi)
+      # express it in LOCAL contact frame using jMf 
+      ee_forces = [data.jMf.actInv(data.f) for data in datas] 
+      ddp_data['fs'] = [ee_forces[i].vector for i in range(ddp.problem.T)]
+      # np.concatenate([ee_forces[i].linear, ee_forces[i].angular])
     # Extract refs for active costs 
     ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
     if('stateReg' in ddp_data['active_costs']):

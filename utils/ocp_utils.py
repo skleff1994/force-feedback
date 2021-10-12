@@ -297,7 +297,7 @@ def init_DDP(robot, config, x0, callbacks=False,
       baumgarte_gains = np.array([0., 0.])
       if(contact_placement is None):
         contact_placement = robot.data.oMf[id_endeff]
-        contact_placement.translation = contact_placement.act(np.array([0., 0., 0.03]))
+        # contact_placement.translation = contact_placement.act(np.array([0., 0., 0.03]))
       contact6d = crocoddyl.ContactModel6D(state, id_endeff, contact_placement, baumgarte_gains) 
     
     
