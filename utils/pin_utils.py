@@ -49,12 +49,10 @@ def get_v_(q, dq, model, id_endeff):
     N = np.shape(q)[0]
     v = np.empty((N,3))
     data = model.createData()
-    jac = np.zeros((6,model.nv))
     for i in range(N):
         # Get jacobian + compute vel
-        pin.computeJointJacobians(model, data, q[i,:])
-        jac = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
-        v[i,:] = jac.dot(dq[i])[:3]
+        J = pin.computeFrameJacobian(model, data, q[i,:], id_endeff)
+        v[i,:] = J.dot(dq[i])[:3] # expressed in LOCAL frame 
     return v
 
 
@@ -89,22 +87,76 @@ def get_f_(q, v, tau, model, id_endeff, REG=0.):
         # Get spatial acceleration at EE frame
         pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros((model.nq,1)))
         gamma = -pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
-        # gamma2 = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
-        # print(gamma)
-        # print(gamma.vector)
         # Jacobian 
         pin.computeJointJacobians(model, data, q[i,:])
         pin.framesForwardKinematics(model, data, q[i,:])
         J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
-        # _, s, _ = np.linalg.svd(J)
-        # print(np.min(np.abs(s)))
         # Joint space inertia and its inverse + NL terms
         Minv = pin.computeMinverse(model, data, q[i,:])
         h = pin.nonLinearEffects(model, data, q[i,:], v[i,:])
         # Contact force
         # f = (JMiJ')^+ ( JMi (b-tau) + gamma )
-        f[i,:] = np.linalg.solve( J.dot(Minv).dot(J.T) + REG,  J.dot(Minv).dot(h - tau[i,:]) + gamma )
+        f[i,:] = np.linalg.solve( J.dot(Minv).dot(J.T) + REG,  J.dot(Minv).dot(h - tau[i,:]) + gamma.vector )
     return f
+
+
+def get_f_bis(q, v, tau, model, id_endeff, REG=0.):
+    '''
+    Returns contact force in LOCAL frame based on FD estimate of joint acc
+        q         : joint positions
+        v         : joint velocities
+        a         : joint acceleration
+        tau       : joint torques
+        pin_robot : Pinocchio wrapper
+        id_endeff : id of EE frame
+        dt        : step size for FD estimate of joint acceleration
+    '''
+    data = model.createData()
+    # Calculate contact force from (q, v, a, tau)
+    f = np.empty((q.shape[0]-1, 6))
+    for i in range(f.shape[0]):
+        # Get spatial acceleration at EE frame
+        pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros((model.nq,1)))
+        gamma = -pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        # Jacobian 
+        pin.computeJointJacobians(model, data, q[i,:])
+        pin.framesForwardKinematics(model, data, q[i,:])
+        J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
+        # Joint space inertia and its inverse + NL terms
+        h = pin.nonLinearEffects(model, data, q[i,:], v[i,:])
+        rhs = np.vstack([np.array([h - tau[i,:]]).T, np.array([gamma.vector]).T ])
+        f[i,:] = pin.computeKKTContactDynamicMatrixInverse(model, data, q[i,:], J).dot(rhs)[-6:,0]
+    return f
+
+
+def get_f_bis_bis(q, v, tau, model, id_endeff, REG=0.):
+    '''
+    Returns contact force in LOCAL frame based on FD estimate of joint acc
+        q         : joint positions
+        v         : joint velocities
+        a         : joint acceleration
+        tau       : joint torques
+        pin_robot : Pinocchio wrapper
+        id_endeff : id of EE frame
+        dt        : step size for FD estimate of joint acceleration
+    '''
+    data = model.createData()
+    # Calculate contact force from (q, v, a, tau)
+    f = np.empty((q.shape[0]-1, 6))
+    for i in range(f.shape[0]):
+        # Get spatial acceleration at EE frame
+        pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros((model.nq,1)))
+        gamma = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        # Jacobian 
+        pin.computeJointJacobians(model, data, q[i,:])
+        pin.framesForwardKinematics(model, data, q[i,:])
+        J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
+        # Joint space inertia and its inverse + NL terms
+        h = pin.nonLinearEffects(model, data, q[i,:], v[i,:])
+        rhs = np.vstack([np.array([h - tau[i,:]]).T, np.array([gamma.vector]).T ])
+        f[i,:] = pin.computeKKTContactDynamicMatrixInverse(model, data, q[i,:], J).dot(rhs)[-6:,0]
+    return f
+
 
 
 def get_u_grav(q, pin_robot):

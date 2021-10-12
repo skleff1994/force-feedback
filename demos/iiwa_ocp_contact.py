@@ -105,8 +105,18 @@ us_init = [u0  for i in range(N_h)]
 
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
+import crocoddyl 
 
-VISUALIZE = True
+display = crocoddyl.GepettoDisplay(robot, frameNames=['contact'])
+
+forces = display.getForceTrajectoryFromSolver(ddp)
+fs = np.array([ np.concatenate([forces[i][0]['f'].linear, forces[i][0]['f'].angular]) for i in range(N_h)] )
+# ps = np.array(display.getFrameTrajectoryFromSolver(ddp)[str(id_endeff)])
+# print(F)
+# fs = F[str(id_endeff)]
+# ps = P[str(id_endeff)]
+
+VISUALIZE = False
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
@@ -165,9 +175,9 @@ if(VISUALIZE):
         time.sleep(pause)
 
 #  Plot
-ddp_data = data_utils.extract_ddp_data(ddp)
+ddp_data = data_utils.extract_ddp_data(ddp, CONTACT=True)
 
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=False)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['f'], SHOW=False)
 
 # # Jacobian, Inertia, NL terms
 import pinocchio as pin
@@ -175,10 +185,29 @@ q = np.array(ddp.xs)[:,:nq]
 v = np.array(ddp.xs)[:,nq:] 
 u = np.array(ddp.us)
 f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
+
+fbis = pin_utils.get_f_bis(q, v, u, robot.model, id_endeff, REG=0.)
+
+fbisbis = pin_utils.get_f_bis_bis(q, v, u, robot.model, id_endeff, REG=0.)
+
 import matplotlib.pyplot as plt
 for i in range(3):
     ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], label="Computed")
     ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], label="Computed")
+
+    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fbis[:,i], label="bis")
+    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fbis[:,3+i], label="bis")
+
+    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fbisbis[:,i], '-.', label="bisbis")
+    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fbisbis[:,3+i], '-.', label="bisbis")
+
+    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fs[:,i], '.', label="croco")
+    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fs[:,3+i], '.', label="croco")
+
+plt.legend()
+
+# ax[]
+    # ax['p'][i,0].plot(np.linspace(0,N_h*dt, N_h+1), ps[:,i], label="croco")
 # for i in range(N_h):
 #     print("Self : ", f[i,:3])
 #     print("Pin  : ", ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.angular)

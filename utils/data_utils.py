@@ -453,7 +453,7 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
 
 
 # Extract DDP data (classic or LPF)
-def extract_ddp_data(ddp):
+def extract_ddp_data(ddp, CONTACT=False):
     '''
     Record relevant data from ddp solver in order to plot 
     '''
@@ -473,12 +473,10 @@ def extract_ddp_data(ddp):
     ddp_data['xs'] = ddp.xs
     ddp_data['us'] = ddp.us
     # Extract force at EE frame
-    # for i in range(ddp.problem.T):
-    #   print(ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f)
-    #   print(ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector)
-    f_lin = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.linear for i in range(ddp.problem.T)]
-    f_ang = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.angular for i in range(ddp.problem.T)]
-    ddp_data['fs'] = [np.concatenate([f_lin[i], f_ang[i]]) for i in range(ddp.problem.T)]
+    if(CONTACT):
+      f_lin = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.linear for i in range(ddp.problem.T)]
+      f_ang = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.angular for i in range(ddp.problem.T)]
+      ddp_data['fs'] = [np.concatenate([f_lin[i], f_ang[i]]) for i in range(ddp.problem.T)]
     # Extract refs for active costs 
     ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
     if('stateReg' in ddp_data['active_costs']):
