@@ -184,12 +184,11 @@ import pinocchio as pin
 q = np.array(ddp.xs)[:,:nq]
 v = np.array(ddp.xs)[:,nq:] 
 u = np.array(ddp.us)
-f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
+f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=1e-10)
 
-fbis = pin_utils.get_f_bis(q, v, u, robot.model, id_endeff, REG=0.)
+fbis = pin_utils.get_f_kkt(q, v, u, robot.model, id_endeff, REG=0.)
 
-fbisbis = pin_utils.get_f_bis_bis(q, v, u, robot.model, id_endeff, REG=0.)
-
+fbisbis = pin_utils.get_f_lambda(q, v, u, robot.model, id_endeff, REG=0.)
 # In world
 # CONTACT --> WORLD
 W_X_ct = M_ct.action
@@ -199,23 +198,24 @@ j_X_W  = robot.data.oMi[-1].actionInverse
 j_X_ee = W_X_ct.dot(j_X_W)
 # ADJOINT INVERSE (wrenches)
 W_f = np.zeros((N_h, 6))
-W_fcroco = np.zeros((N_h, 6))
-for i in range(N_h):
-    W_f[i,:] = j_X_ee.T.dot(f[i,:])
-    W_fcroco[i,:] = j_X_ee.T.dot(fs[i,:])
+# W_fcroco = np.zeros((N_h, 6))
+# for i in range(N_h):
+#     W_f[i,:] = j_X_ee.T.dot(f[i,:])
+    # W_fcroco[i,:] = j_X_ee.T.dot(fs[i,:])
 
 # print(f)
 import matplotlib.pyplot as plt
 for i in range(3):
-    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], '-.', label="Computed")
-    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], '-.', label="Computed")
+    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], '-.', label="(JMiJ')+")
+    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], '-.', label="(JMiJ')+")
 
-    # ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fbis[:,i], label="bis")
-    # ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fbis[:,3+i], label="bis")
+    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fbis[:,i], label="KKT inv (tau, gamma)")
+    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fbis[:,3+i], label="KKT inv (tau, gamma)")
 
-    # ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fbisbis[:,i], '-.', label="bisbis")
-    # ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fbisbis[:,3+i], '-.', label="bisbis")
-
+    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fbisbis[:,i], '--', label="FD+lambda_c")
+    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fbisbis[:,3+i], '--', label="FD+lambda_c")
+    
+    # !!!! FALSE
     # ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fs[:,i], '.', label="croco")
     # ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fs[:,3+i], '.', label="croco")
 
