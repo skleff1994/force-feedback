@@ -285,7 +285,8 @@ def init_DDP(robot, config, x0, callbacks=False,
     # OCP parameters
     dt = config['dt']                   # OCP integration step (s)    
     N_h = config['N_h']                 # Number of knots in the horizon 
-    # Model params
+   
+   # Model params
     id_endeff = robot.model.getFrameId('contact')
     M_ee = robot.data.oMf[id_endeff]
     nq, nv = robot.model.nq, robot.model.nv
@@ -297,7 +298,6 @@ def init_DDP(robot, config, x0, callbacks=False,
       baumgarte_gains = np.array([0., 0.])
       if(contact_placement is None):
         contact_placement = robot.data.oMf[id_endeff]
-        # contact_placement.translation = contact_placement.act(np.array([0., 0., 0.03]))
       contact6d = crocoddyl.ContactModel6D(state, id_endeff, contact_placement, baumgarte_gains) 
     
     
@@ -376,7 +376,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                       crocoddyl.ResidualModelFrameVelocity(state, 
                                                                                           id_endeff, 
                                                                                           desiredFrameMotion, 
-                                                                                          pin.LOCAL, 
+                                                                                          pin.WORLD, 
                                                                                           actuation.nu)) 
       # print("[OCP] Added frame velocity cost.")
     # Frame translation cost
@@ -402,6 +402,18 @@ def init_DDP(robot, config, x0, callbacks=False,
       frameForceCost = crocoddyl.CostModelResidual(state, 
                                                    crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                    crocoddyl.ResidualModelContactForce(state, id_endeff, desiredFrameForce, 6, actuation.nu))
+    # Friction cone 
+    if('all' in WHICH_COSTS or 'friction' in WHICH_COSTS):
+      if(not CONTACT):
+        print("[OCP] !! ERROR !! ")
+        print("[OCP]  >>> No contact model is defined !")
+      cone_rotation = contact_placement.rotation.T
+      # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
+      mu = config['mu']
+      frictionCone = crocoddyl.FrictionCone(cone_rotation, mu, 4, True, 0, 2000)
+      frictionConeCost = crocoddyl.CostModelResidual(state,
+                                                     crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
+                                                     crocoddyl.ResidualModelContactFrictionCone(state, id_endeff, frictionCone))
     
     # Create IAMs
     runningModels = []
@@ -438,7 +450,9 @@ def init_DDP(robot, config, x0, callbacks=False,
           runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
         if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("force", frameForceCost, config['frameForceWeight'])
-        
+        if('all' in WHICH_COSTS or 'friction' in WHICH_COSTS):
+          runningModels[i].differential.costs.addCost("friction", frictionConeCost, config['frictionConeWeight'])
+
         # Add armature
         runningModels[i].differential.armature = np.asarray(config['armature'])
       

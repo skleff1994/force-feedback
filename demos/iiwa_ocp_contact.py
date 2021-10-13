@@ -39,35 +39,20 @@ nu = nq
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
 M_ee = robot.data.oMf[id_endeff]
-print("Initial placement : \n")
+print("EE frame placement : \n")
 print(M_ee)
-
-# print("Created contact plane (id = "+str(contactId)+")")
-# print("  Contact ref. placement in WORLD frame : ")
-# print(M_ct)
-# print("  Detect contact points : ")
-# import pybullet as p
-# p.stepSimulation()
-# contact_points = p.getContactPoints(1, 2)
-# for k,i in enumerate(contact_points):
-#   print("      Contact point n°"+str(k)+" : distance = "+str(i[8])+" (m) | force = "+str(i[9])+" (N)")
-# # print("  Closest pointd between Robot and ContactPlane : ")
-# # print(p.getClosestPoints(1, 2, 0.065))
-
-# # Desired wrench in LOCAL (contact) frame
-# F_des_LOCAL = pin.Force(np.array([0., 0., -50., 0., 0., 0.]))
-# print("  Desired contact wrench in LOCAL frame : ")
-# print(F_des_LOCAL)
 
 #################
 ### OCP SETUP ###
 #################
 N_h = config['N_h']
 dt = config['dt']
-
 # Contact frame placement 
-M_ct = robot.data.oMf[id_endeff]
-# M_ct.translation = M_ct.act(np.array([0., 0., 0.03]))
+M_ct = robot.data.oMf[id_endeff].copy()
+print("Contact frame placement : \n")
+print(M_ct)
+
+
 
 # Warm start and reg
 import pinocchio as pin
@@ -80,8 +65,7 @@ for i in range(nq+1):
     # CONTACT --> JOINT
     j_X_ee = W_X_ct.dot(j_X_W)
     # ADJOINT INVERSE (wrenches)
-    f_joint = j_X_ee.T.dot(np.asarray(config['f_des'])) # np.linalg.inv(j_X_ee).T.dot(np.asarray(config['f_des']))
-    print("Joint n°"+str(i)+" : force = ", f_joint) 
+    f_joint = j_X_ee.T.dot(np.asarray(config['f_des']))
     f_ext.append(pin.Force(f_joint))
 # print(f_ext)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
@@ -105,18 +89,8 @@ us_init = [u0  for i in range(N_h)]
 
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
-# import crocoddyl 
 
-# display = crocoddyl.GepettoDisplay(robot, frameNames=['contact'])
-
-# forces = display.getForceTrajectoryFromSolver(ddp)
-# fs = np.array([ np.concatenate([forces[i][0]['f'].linear, forces[i][0]['f'].angular]) for i in range(N_h)] )
-# ps = np.array(display.getFrameTrajectoryFromSolver(ddp)[str(id_endeff)])
-# print(F)
-# fs = F[str(id_endeff)]
-# ps = P[str(id_endeff)]
-
-VISUALIZE = False
+VISUALIZE = True
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
@@ -146,6 +120,7 @@ if(VISUALIZE):
         M_contact_aligned.rotation = M_contact_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))#.dot(M_contact_aligned.rotation) 
         tf_contact_aligned = list(pin.SE3ToXYZQUAT(M_contact_aligned))
         arrow_length = 0.02*np.linalg.norm(f_des_LOCAL)
+        print(arrow_length)
         if(gui.nodeExists('world/ref_wrench')):
             gui.deleteNode('world/ref_wrench', True)
         gui.addArrow('world/ref_wrench', .01, arrow_length, [.5, 0., 0., 1.])
@@ -160,15 +135,17 @@ if(VISUALIZE):
     # Clean arrows if any
     if(gui.nodeExists('world/force')):
         gui.deleteNode('world/force', True)
-    gui.addArrow('world/force', .02, arrow_length, [.0, 0., 0.5, 0.3])
+    if('force' in config['WHICH_COSTS']):
+        gui.addArrow('world/force', .02, arrow_length, [.0, 0., 0.5, 0.3])
 
     time.sleep(1.)
     for i in range(N_h):
         # Iter log
         robot.display(ddp.xs[i][:nq])
         # Display force
-        gui.resizeArrow('world/force', 0.02, 0.02*np.linalg.norm(f[i]))
-        gui.applyConfiguration('world/force', tf_contact_aligned )
+        if('force' in config['WHICH_COSTS']):
+            gui.resizeArrow('world/force', 0.02, 0.02*np.linalg.norm(f[i]))
+            gui.applyConfiguration('world/force', tf_contact_aligned )
         viewer.gui.refresh()
         # if(i%log_rate==0):
         print("Display config n°"+str(i))
@@ -177,56 +154,17 @@ if(VISUALIZE):
 #  Plot
 ddp_data = data_utils.extract_ddp_data(ddp, CONTACT=True)
 
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['f'], SHOW=False)
+fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=True)
 
-# # Jacobian, Inertia, NL terms
-import pinocchio as pin
-q = np.array(ddp.xs)[:,:nq]
-v = np.array(ddp.xs)[:,nq:] 
-u = np.array(ddp.us)
-
-f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
-
-fbis = pin_utils.get_f_kkt(q, v, u, robot.model, id_endeff, REG=1e-12)
-
-fbisbis = pin_utils.get_f_lambda(q, v, u, robot.model, id_endeff, REG=1e-12)
-# In world
-# CONTACT --> WORLD
-W_X_ct = M_ct.action
-# WORLD --> JOINT
-j_X_W  = robot.data.oMi[-1].actionInverse
-# CONTACT --> JOINT
-j_X_ee = W_X_ct.dot(j_X_W)
-# ADJOINT INVERSE (wrenches)
-W_f = np.zeros((N_h, 6))
-# W_fcroco = np.zeros((N_h, 6))
-# for i in range(N_h):
-#     W_f[i,:] = j_X_ee.T.dot(f[i,:])
-    # W_fcroco[i,:] = j_X_ee.T.dot(fs[i,:])
-
-# print(f)
-import matplotlib.pyplot as plt
-for i in range(3):
-    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], '-.', label="(JMiJ')+")
-    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], '-.', label="(JMiJ')+")
-
-    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fbis[:,i], label="KKT inv (tau, gamma)")
-    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fbis[:,3+i], label="KKT inv (tau, gamma)")
-
-    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fbisbis[:,i], '--', label="FD+lambda_c")
-    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fbisbis[:,3+i], '--', label="FD+lambda_c")
-    
-    # !!!! FALSE
-    # ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), fs[:,i], '.', label="croco")
-    # ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), fs[:,3+i], '.', label="croco")
-
-    # ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), W_f[:,i], '.', label=" WORLD")
-    # ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), W_f[:,3+i], '.', label=" WORLD")
-plt.legend()
-
-# ax[]
-    # ax['p'][i,0].plot(np.linspace(0,N_h*dt, N_h+1), ps[:,i], label="croco")
-# for i in range(N_h):
-#     print("Self : ", f[i,:3])
-#     print("Pin  : ", ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.angular)
-plt.show()
+# # Check forces
+# import pinocchio as pin
+# q = np.array(ddp.xs)[:,:nq]
+# v = np.array(ddp.xs)[:,nq:] 
+# u = np.array(ddp.us)
+# f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
+# import matplotlib.pyplot as plt
+# for i in range(3):
+#     ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], '-.', label="(JMiJ')+")
+#     ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], '-.', label="(JMiJ')+")
+# plt.legend()
+# plt.show()

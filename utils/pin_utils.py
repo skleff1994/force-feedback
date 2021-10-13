@@ -70,7 +70,7 @@ def get_f(q, v, tau, pin_robot, id_endeff, dt=1e-2):
     '''
     return get_f_(q, v, tau, pin_robot.model, id_endeff, dt=dt)
 
-def get_f_(q, v, tau, model, id_endeff, REG=0.):
+def get_f_(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0], REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -86,16 +86,15 @@ def get_f_(q, v, tau, model, id_endeff, REG=0.):
     f = np.empty((q.shape[0]-1, 6))
     for i in range(f.shape[0]):
         # Get spatial acceleration at EE frame
-        
         pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
         pin.updateFramePlacements(model, data)
         gamma = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
-
         pin.computeJointJacobians(model, data)
         J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
-        
         # Joint space inertia and its inverse + NL terms
-        Minv = pin.computeMinverse(model, data, q[i,:])
+        pin.computeAllTerms(model, data, q[i,:], v[i,:])
+        data.M += np.diag(armature)
+        Minv = np.linalg.inv(data.M)
         h = pin.nonLinearEffects(model, data, q[i,:], v[i,:])
         # Contact force
         # f = (JMiJ')^+ ( JMi (b-tau) + gamma )
@@ -105,7 +104,7 @@ def get_f_(q, v, tau, model, id_endeff, REG=0.):
         # f[i,:] = np.linalg.solve( J @ Minv @ J.T + REGMAT,  J @ Minv @ (h - tau[i,:]) + gamma.vector )
     return f
 
-def get_f_lambda(q, v, tau, model, id_endeff, REG=0.):
+def get_f_lambda(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0], REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -129,14 +128,15 @@ def get_f_lambda(q, v, tau, model, id_endeff, REG=0.):
         pin.updateFramePlacements(model, data)
         gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
         # Joint space inertia and its inverse + NL terms
-        pin.computeAllTerms(model, data, q[i,:], v[i,:])
+        # pin.computeAllTerms(model, data, q[i,:], v[i,:])
+        data.M += np.diag(armature)
         pin.forwardDynamics(model, data, q[i,:], v[i,:], tau[i,:], J[:6,:], gamma.vector, REG)
         # Contact force
         f[i,:] = data.lambda_c
     return f
 
 
-def get_f_kkt(q, v, tau, model, id_endeff, REG=0.):
+def get_f_kkt(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0], REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions

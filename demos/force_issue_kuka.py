@@ -22,7 +22,7 @@ robot.computeJointJacobians(q0)
 state = crocoddyl.StateMultibody(model)
 actuation = crocoddyl.ActuationModelFull(state)
 # contact model 6D
-contact_frame_id = model.getFrameId("L7")
+contact_frame_id = model.getFrameId("contact")
 print("Contact frame ID   = ", contact_frame_id)
 print("              name = ", model.frames[contact_frame_id].name)
 print("              M    = ", robot.data.oMf[contact_frame_id])
@@ -35,7 +35,7 @@ contactModel.addContact("contact", contact6d, active=True)
 # Cost models
 runningCostModel = crocoddyl.CostModelSum(state)
 terminalCostModel = crocoddyl.CostModelSum(state)
-pose_frame_id = model.getFrameId("L7")
+pose_frame_id = model.getFrameId("contact")
 print("Pose frame ID   = ", pose_frame_id)
 print("           name = ", model.frames[pose_frame_id].name)
 print("              M = ", robot.data.oMf[pose_frame_id])
@@ -47,19 +47,19 @@ goalTrackingCost = crocoddyl.CostModelResidual(state, framePlacementResidual)
 contactForceCost = crocoddyl.CostModelResidual(state, frameForceResidual)
 xRegCost = crocoddyl.CostModelResidual(state, xResidual)
 uRegCost = crocoddyl.CostModelResidual(state, uResidual)
-runningCostModel.addCost("gripperPose", goalTrackingCost, 0.1)
+# runningCostModel.addCost("gripperPose", goalTrackingCost, 0.1)
 runningCostModel.addCost("xReg", xRegCost, 1e-2)
 runningCostModel.addCost("uReg", uRegCost, 1e-3)
 runningCostModel.addCost("contactForce", contactForceCost, 1.)
-terminalCostModel.addCost("gripperPose", goalTrackingCost, 0.1)
+# terminalCostModel.addCost("gripperPose", goalTrackingCost, 0.1)
 
 dt = 1e-2
 runningModel = crocoddyl.IntegratedActionModelEuler(
     crocoddyl.DifferentialActionModelContactFwdDynamics(state, actuation, contactModel, runningCostModel, inv_damping=0., enable_force=True), dt)
-# runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
+runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
 terminalModel = crocoddyl.IntegratedActionModelEuler(
     crocoddyl.DifferentialActionModelContactFwdDynamics(state, actuation, contactModel, terminalCostModel, inv_damping=0., enable_force=True), 0.)
-# terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
+terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
 
 # For this optimal control problem, we define 250 knots (or running action
 # models) plus a terminal knot
@@ -118,7 +118,12 @@ for i in range(T):
     pin.computeJointJacobians(robot.model, robot.data)
     J = pin.getFrameJacobian(robot.model, robot.data, contact_frame_id, pin.ReferenceFrame.LOCAL) 
     # Joint space inertia and its inverse + NL terms
-    Minv = pin.computeMinverse(robot.model, robot.data, qs[i,:])
+    pin.computeAllTerms(model, robot.data, qs[i,:], vs[i,:])
+    print("BEFORE : ", robot.data.M.diagonal()[:3])
+    robot.data.M += np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+    print("AFTER : ", robot.data.M.diagonal()[:3])
+    Minv = np.linalg.inv(robot.data.M)
+    # Minv = pin.computeMinverse(robot.model, robot.data, qs[i,:])
     h = pin.nonLinearEffects(robot.model, robot.data, qs[i,:], vs[i,:])
     # Contact force using f = (JMiJ')^+ ( JMi (b-tau) + gamma )
     LDLT = eigenpy.LDLT(J @ Minv @ J.T + REG*np.eye(6))
@@ -139,9 +144,9 @@ for i in range(3):
     ax[i,1].plot(tspan, ee_force_ref[:,3+i], linestyle='-.', color='k', label='reference', alpha=0.5)
     ax[i,1].set_ylabel('$\\lambda^{ang}_%s$ (Nm)'%xyz[i], fontsize=16)
     # Lim
-    lim = 5.
-    ax[i,0].set_ylim(-lim, +lim)
-    ax[i,1].set_ylim(-lim, +lim)
+    # lim = 5.
+    # ax[i,0].set_ylim(-lim, +lim)
+    # ax[i,1].set_ylim(-lim, +lim)
 ax[i,0].set_xlabel('t (s)', fontsize=16)
 ax[i,1].set_xlabel('t (s)', fontsize=16)
 handles, labels = ax[0,0].get_legend_handles_labels()
