@@ -65,9 +65,9 @@ print(M_ee)
 N_h = config['N_h']
 dt = config['dt']
 
-# Contact model
+# Contact frame placement 
 M_ct = robot.data.oMf[id_endeff]
-M_ct.translation = M_ct.act(np.array([0., 0., 0.03]))
+# M_ct.translation = M_ct.act(np.array([0., 0., 0.03]))
 
 # Warm start and reg
 import pinocchio as pin
@@ -83,11 +83,11 @@ for i in range(nq+1):
     f_joint = j_X_ee.T.dot(np.asarray(config['f_des'])) # np.linalg.inv(j_X_ee).T.dot(np.asarray(config['f_des']))
     print("Joint n°"+str(i)+" : force = ", f_joint) 
     f_ext.append(pin.Force(f_joint))
-print(f_ext)
+# print(f_ext)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 ug = pin_utils.get_u_grav(q0, robot)
-# print("u0 = ", u0)
-# print("ug = ", ug)
+print("u0 = ", u0)
+print("ug = ", ug)
 
 # solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
@@ -184,11 +184,12 @@ import pinocchio as pin
 q = np.array(ddp.xs)[:,:nq]
 v = np.array(ddp.xs)[:,nq:] 
 u = np.array(ddp.us)
+
 f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
 
-fbis = pin_utils.get_f_kkt(q, v, u, robot.model, id_endeff, REG=1.)
+fbis = pin_utils.get_f_kkt(q, v, u, robot.model, id_endeff, REG=1e-12)
 
-fbisbis = pin_utils.get_f_lambda(q, v, u, robot.model, id_endeff, REG=0.)
+fbisbis = pin_utils.get_f_lambda(q, v, u, robot.model, id_endeff, REG=1e-12)
 # In world
 # CONTACT --> WORLD
 W_X_ct = M_ct.action

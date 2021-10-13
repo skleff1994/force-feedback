@@ -1,6 +1,7 @@
 
 import numpy as np
 import pinocchio as pin
+import eigenpy
 
 def get_p(q, pin_robot, id_endeff):
     '''
@@ -85,20 +86,23 @@ def get_f_(q, v, tau, model, id_endeff, REG=0.):
     f = np.empty((q.shape[0]-1, 6))
     for i in range(f.shape[0]):
         # Get spatial acceleration at EE frame
-        pin.computeJointJacobians(model, data, q[i,:])
-        pin.framesForwardKinematics(model, data, q[i,:])
-        J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
-          # Forward kinematics & placements
+        
         pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
         pin.updateFramePlacements(model, data)
         gamma = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+
+        pin.computeJointJacobians(model, data)
+        J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
+        
         # Joint space inertia and its inverse + NL terms
         Minv = pin.computeMinverse(model, data, q[i,:])
         h = pin.nonLinearEffects(model, data, q[i,:], v[i,:])
         # Contact force
         # f = (JMiJ')^+ ( JMi (b-tau) + gamma )
         REGMAT = REG*np.eye(6)
-        f[i,:] = np.linalg.solve( J.dot(Minv).dot(J.T) + REGMAT,  J.dot(Minv).dot(h - tau[i,:]) + gamma.vector )
+        LDLT = eigenpy.LDLT(J @ Minv @ J.T + REGMAT)
+        f[i,:]  = LDLT.solve(J @ Minv @ (h - tau[i,:]) + gamma.vector)
+        # f[i,:] = np.linalg.solve( J @ Minv @ J.T + REGMAT,  J @ Minv @ (h - tau[i,:]) + gamma.vector )
     return f
 
 def get_f_lambda(q, v, tau, model, id_endeff, REG=0.):
