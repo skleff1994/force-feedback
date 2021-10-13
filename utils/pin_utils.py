@@ -85,17 +85,20 @@ def get_f_(q, v, tau, model, id_endeff, REG=0.):
     f = np.empty((q.shape[0]-1, 6))
     for i in range(f.shape[0]):
         # Get spatial acceleration at EE frame
-        pin.framesForwardKinematics(model, data, q[i,:])
         pin.computeJointJacobians(model, data, q[i,:])
-        gamma = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
-        # Jacobian 
+        pin.framesForwardKinematics(model, data, q[i,:])
         J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
+          # Forward kinematics & placements
+        pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
+        pin.updateFramePlacements(model, data)
+        gamma = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
         # Joint space inertia and its inverse + NL terms
         Minv = pin.computeMinverse(model, data, q[i,:])
         h = pin.nonLinearEffects(model, data, q[i,:], v[i,:])
         # Contact force
         # f = (JMiJ')^+ ( JMi (b-tau) + gamma )
-        f[i,:] = np.linalg.solve( J.dot(Minv).dot(J.T) + REG,  J.dot(Minv).dot(h - tau[i,:]) + gamma.vector )
+        REGMAT = REG*np.eye(6)
+        f[i,:] = np.linalg.solve( J.dot(Minv).dot(J.T) + REGMAT,  J.dot(Minv).dot(h - tau[i,:]) + gamma.vector )
     return f
 
 def get_f_lambda(q, v, tau, model, id_endeff, REG=0.):
@@ -114,12 +117,16 @@ def get_f_lambda(q, v, tau, model, id_endeff, REG=0.):
     f = np.empty((q.shape[0]-1, 6))
     for i in range(f.shape[0]):
         # Get spatial acceleration at EE frame
-        pin.framesForwardKinematics(model, data, q[i,:])
         pin.computeJointJacobians(model, data, q[i,:])
-        gamma = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        pin.framesForwardKinematics(model, data, q[i,:])
         J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
+          # Forward kinematics & placements
+        pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
+        pin.updateFramePlacements(model, data)
+        gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
         # Joint space inertia and its inverse + NL terms
-        pin.forwardDynamics(model, data, q[i,:], v[i,:], tau[i,:], J[:6,:], gamma.vector, 1e-10)
+        pin.computeAllTerms(model, data, q[i,:], v[i,:])
+        pin.forwardDynamics(model, data, q[i,:], v[i,:], tau[i,:], J[:6,:], gamma.vector, REG)
         # Contact force
         f[i,:] = data.lambda_c
     return f
@@ -141,12 +148,13 @@ def get_f_kkt(q, v, tau, model, id_endeff, REG=0.):
     f = np.empty((q.shape[0]-1, 6))
     for i in range(f.shape[0]):
         # Get spatial acceleration at EE frame
-        pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros((model.nq,1)))
-        gamma = -pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
-        # Jacobian 
         pin.computeJointJacobians(model, data, q[i,:])
         pin.framesForwardKinematics(model, data, q[i,:])
         J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
+          # Forward kinematics & placements
+        pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
+        pin.updateFramePlacements(model, data)
+        gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
         # Joint space inertia and its inverse + NL terms
         h = pin.nonLinearEffects(model, data, q[i,:], v[i,:])
         rhs = np.vstack([np.array([h - tau[i,:]]).T, np.array([gamma.vector]).T ])

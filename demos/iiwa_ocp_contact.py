@@ -105,12 +105,12 @@ us_init = [u0  for i in range(N_h)]
 
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
-import crocoddyl 
+# import crocoddyl 
 
-display = crocoddyl.GepettoDisplay(robot, frameNames=['contact'])
+# display = crocoddyl.GepettoDisplay(robot, frameNames=['contact'])
 
-forces = display.getForceTrajectoryFromSolver(ddp)
-fs = np.array([ np.concatenate([forces[i][0]['f'].linear, forces[i][0]['f'].angular]) for i in range(N_h)] )
+# forces = display.getForceTrajectoryFromSolver(ddp)
+# fs = np.array([ np.concatenate([forces[i][0]['f'].linear, forces[i][0]['f'].angular]) for i in range(N_h)] )
 # ps = np.array(display.getFrameTrajectoryFromSolver(ddp)[str(id_endeff)])
 # print(F)
 # fs = F[str(id_endeff)]
@@ -184,9 +184,9 @@ import pinocchio as pin
 q = np.array(ddp.xs)[:,:nq]
 v = np.array(ddp.xs)[:,nq:] 
 u = np.array(ddp.us)
-f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=1e-10)
+f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
 
-fbis = pin_utils.get_f_kkt(q, v, u, robot.model, id_endeff, REG=0.)
+fbis = pin_utils.get_f_kkt(q, v, u, robot.model, id_endeff, REG=1.)
 
 fbisbis = pin_utils.get_f_lambda(q, v, u, robot.model, id_endeff, REG=0.)
 # In world

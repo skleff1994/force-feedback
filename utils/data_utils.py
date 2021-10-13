@@ -479,7 +479,7 @@ def extract_ddp_data(ddp, CONTACT=False):
         print(datas[i].f.vector)
       # data.f = force exerted at parent joint expressed in WORLD frame (oMi)
       # express it in LOCAL contact frame using jMf 
-      ee_forces = [data.pinocchio.oMf[20].actionInverse.dot(data.f.vector) for data in datas] 
+      ee_forces = [data.f.vector for data in datas] 
       ddp_data['fs'] = [ee_forces[i] for i in range(ddp.problem.T)]
       # np.concatenate([ee_forces[i].linear, ee_forces[i].angular])
     # Extract refs for active costs 
