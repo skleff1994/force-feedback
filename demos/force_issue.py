@@ -35,8 +35,8 @@ uRegCost = crocoddyl.CostModelResidual(state, uResidual)
 runningCostModel.addCost("gripperPose", goalTrackingCost, 0.1)
 runningCostModel.addCost("xReg", xRegCost, 1e-2)
 runningCostModel.addCost("uReg", uRegCost, 1e-3)
-runningCostModel.addCost("contactForce", contactForceCost, 1.)
-terminalCostModel.addCost("gripperPose", goalTrackingCost, 1)
+runningCostModel.addCost("contactForce", contactForceCost, 10.)
+terminalCostModel.addCost("gripperPose", goalTrackingCost, 0.1)
 
 dt = 1e-3
 runningModel = crocoddyl.IntegratedActionModelEuler(
@@ -60,12 +60,51 @@ ddp.setCallbacks([crocoddyl.CallbackLogger(),
 
 ddp.solve()
 
-from utils import data_utils, plot_utils, pin_utils
+
+# Plot force
 import matplotlib.pyplot as plt
-ddp_data = data_utils.extract_ddp_data(ddp, CONTACT=True)
-fig, ax = plot_utils.plot_ddp_force(ddp_data, SHOW=False)
-f = pin_utils.get_f_lambda(np.array(ddp.xs)[:,:nq], np.array(ddp.xs)[:,nq:], np.array(ddp.us), model, contact_frame_id, REG=0.)
+import pinocchio as pin
+import eigenpy
+
+ # Extract Croco data 
+datas = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'] for i in range(T)]
+ee_forces = np.array([data.jMf.actInv(data.f).vector for data in datas])
+ee_force_ref = np.array([ddp.problem.runningModels[i].differential.costs.costs['contactForce'].cost.residual.reference.vector for i in range(T)])
+ # Manual computation using pinocchio
+qs = np.array(ddp.xs)[:,:nq]; vs = np.array(ddp.xs)[:,nq:]; us = np.array(ddp.us)
+fs = np.zeros((T, 6))
+REG = 0.
+for i in range(T):
+    # Get Jacobian and spatial acceleration at EE frame
+    pin.forwardKinematics(robot.model, robot.data, qs[i,:], vs[i,:], np.zeros(nq))
+    pin.updateFramePlacements(robot.model, robot.data)
+    gamma = -pin.getFrameAcceleration(model, robot.data, contact_frame_id, pin.ReferenceFrame.LOCAL)
+    pin.computeJointJacobians(robot.model, robot.data)
+    J = pin.getFrameJacobian(robot.model, robot.data, contact_frame_id, pin.ReferenceFrame.LOCAL) 
+    # Joint space inertia and its inverse + NL terms
+    Minv = pin.computeMinverse(robot.model, robot.data, qs[i,:])
+    h = pin.nonLinearEffects(robot.model, robot.data, qs[i,:], vs[i,:])
+    # Contact force using f = (JMiJ')^+ ( JMi (b-tau) + gamma )
+    LDLT = eigenpy.LDLT(J @ Minv @ J.T + REG*np.eye(6))
+    fs[i,:]  = LDLT.solve(J @ Minv @ (h - us[i,:]) + gamma.vector)
+
+fig, ax = plt.subplots(3, 2, sharex='col')
+tspan = np.linspace(0, T*dt, T)
+xyz = ['x', 'y', 'z']
 for i in range(3):
-    ax[i,0].plot(np.linspace(0 ,T*dt, T), f[:,i], '-.', label='calculated')
-    ax[i,1].plot(np.linspace(0, T*dt, T), f[:,3+i], '-.', label='calculated')
+    # translation
+    ax[i,0].plot(tspan, ee_forces[:,i], linestyle='-', label='Croco')
+    ax[i,0].plot(tspan, fs[:,i], linestyle='-.', label='manual')
+    ax[i,0].plot(tspan, ee_force_ref[:,i], linestyle='-.', color='k', label='reference', alpha=0.5)
+    ax[i,0].set_ylabel('$\\lambda^{lin}_%s$ (N)'%xyz[i], fontsize=16)
+    # rotation
+    ax[i,1].plot(tspan, ee_forces[:,3+i], linestyle='-', label='Croco')
+    ax[i,1].plot(tspan, fs[:,3+i], linestyle='-.', label='manual')
+    ax[i,1].plot(tspan, ee_force_ref[:,3+i], linestyle='-.', color='k', label='reference', alpha=0.5)
+    ax[i,1].set_ylabel('$\\lambda^{ang}_%s$ (Nm)'%xyz[i], fontsize=16)
+ax[i,0].set_xlabel('t (s)', fontsize=16)
+ax[i,1].set_xlabel('t (s)', fontsize=16)
+handles, labels = ax[0,0].get_legend_handles_labels()
+fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+fig.suptitle('End-effector forces: linear and angular', size=18)
 plt.show()

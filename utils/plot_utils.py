@@ -2121,7 +2121,7 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
         label='End-effector force'
     xyz = ['x', 'y', 'z']
     for i in range(3):
-        # Positions
+        # translation
         ax[i,0].plot(tspan, f_ee_lin[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
         if('force' in ddp_data['active_costs']):
             handles, labels = ax[i,0].get_legend_handles_labels()
@@ -2134,7 +2134,7 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
-        # Velocities
+        # rotation
         ax[i,1].plot(tspan, f_ee_ang[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
         if('force' in ddp_data['active_costs']):
             handles, labels = ax[i,1].get_legend_handles_labels()
