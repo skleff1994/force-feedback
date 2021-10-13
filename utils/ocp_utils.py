@@ -407,7 +407,7 @@ def init_DDP(robot, config, x0, callbacks=False,
       if(not CONTACT):
         print("[OCP] !! ERROR !! ")
         print("[OCP]  >>> No contact model is defined !")
-      cone_rotation = contact_placement.rotation.T
+      cone_rotation = contact_placement.inverse().rotation
       # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
       mu = config['mu']
       frictionCone = crocoddyl.FrictionCone(cone_rotation, mu, 4, True, 0, 2000)
