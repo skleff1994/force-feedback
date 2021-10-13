@@ -2,6 +2,7 @@ import crocoddyl
 import pinocchio
 import numpy as np
 import example_robot_data
+np.set_printoptions(precision=4, linewidth=180)
 
 
 robot = example_robot_data.load('talos_arm')
@@ -12,11 +13,19 @@ nq = model.nq; nv = model.nv; nu = nq; nx = nq+nv
 q0 = np.array([0.173046, 1., -0.52366, 0., 0., 0.1, -0.005])
 v0 = np.zeros(nv)
 
+robot.framesForwardKinematics(q0)
+robot.computeJointJacobians(q0)
+
 state = crocoddyl.StateMultibody(model)
 actuation = crocoddyl.ActuationModelFull(state)
 # contact model 6D
-contact_frame_id = model.getFrameId("gripper_left_motor_single_link")
-contact6d = crocoddyl.ContactModel6D(state, contact_frame_id, robot.data.oMf[contact_frame_id], np.array([0., 0.])) 
+contact_frame_id = model.getFrameId("gripper_left_joint") #model.getFrameId("gripper_left_motor_single_link")
+print("Contact frame ID   = ", contact_frame_id)
+print("              name = ", model.frames[contact_frame_id].name)
+print("              M    = ", robot.data.oMf[contact_frame_id])
+  # Contact placement ref
+contact_placement = robot.data.oMf[contact_frame_id].copy()
+contact6d = crocoddyl.ContactModel6D(state, contact_frame_id, contact_placement, np.array([0., 0.])) 
 contactModel = crocoddyl.ContactModelMultiple(state, actuation.nu)
 contactModel.addContact("contact", contact6d, active=True)
 
@@ -24,42 +33,58 @@ contactModel.addContact("contact", contact6d, active=True)
 runningCostModel = crocoddyl.CostModelSum(state)
 terminalCostModel = crocoddyl.CostModelSum(state)
 pose_frame_id = model.getFrameId("gripper_left_joint")
+print("Pose frame ID   = ", pose_frame_id)
+print("           name = ", model.frames[pose_frame_id].name)
+print("              M = ", robot.data.oMf[pose_frame_id])
 framePlacementResidual = crocoddyl.ResidualModelFramePlacement(state, pose_frame_id, robot.data.oMf[pose_frame_id])
-frameForceResidual = crocoddyl.ResidualModelContactForce(state, contact_frame_id, pinocchio.Force(np.array([0., 0., 20., 0., 0., 0.])), 6, actuation.nu)
+desiredFrameForce = pinocchio.Force(np.array([0., 0., 20., 0., 0., 0.]))
+frameForceResidual = crocoddyl.ResidualModelContactForce(state, contact_frame_id, desiredFrameForce, 6, actuation.nu)
 uResidual = crocoddyl.ResidualModelControl(state)
 xResidual = crocoddyl.ResidualModelControl(state)
 goalTrackingCost = crocoddyl.CostModelResidual(state, framePlacementResidual)
 contactForceCost = crocoddyl.CostModelResidual(state, frameForceResidual)
 xRegCost = crocoddyl.CostModelResidual(state, xResidual)
 uRegCost = crocoddyl.CostModelResidual(state, uResidual)
-runningCostModel.addCost("gripperPose", goalTrackingCost, 0.1)
-runningCostModel.addCost("xReg", xRegCost, 1e-2)
+# runningCostModel.addCost("gripperPose", goalTrackingCost, 0.1)
+runningCostModel.addCost("xReg", xRegCost, 1e-1)
 runningCostModel.addCost("uReg", uRegCost, 1e-3)
-runningCostModel.addCost("contactForce", contactForceCost, 10.)
-terminalCostModel.addCost("gripperPose", goalTrackingCost, 0.1)
+runningCostModel.addCost("contactForce", contactForceCost, 0.1)
+# terminalCostModel.addCost("gripperPose", goalTrackingCost, 0.1)
 
-dt = 1e-3
+dt = 1e-2
 runningModel = crocoddyl.IntegratedActionModelEuler(
     crocoddyl.DifferentialActionModelContactFwdDynamics(state, actuation, contactModel, runningCostModel, inv_damping=0., enable_force=True), dt)
-runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
+runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
 terminalModel = crocoddyl.IntegratedActionModelEuler(
     crocoddyl.DifferentialActionModelContactFwdDynamics(state, actuation, contactModel, terminalCostModel, inv_damping=0., enable_force=True), 0.)
-terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
-
-# For this optimal control problem, we define 250 knots (or running action
-# models) plus a terminal knot
+terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
 T = 250
 x0 = np.concatenate([q0, v0])
 problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
 
 # Creating the DDP solver for this OC problem, defining a logger
 ddp = crocoddyl.SolverFDDP(problem)
-
 ddp.setCallbacks([crocoddyl.CallbackLogger(),
                 crocoddyl.CallbackVerbose()])
+# Warm start 
+import pinocchio as pin
+f_ext = []
+for i in range(nq+1):
+    # CONTACT --> WORLD
+    W_X_ct = robot.data.oMf[contact_frame_id].action
+    # WORLD --> JOINT
+    j_X_W  = robot.data.oMi[i].actionInverse
+    # CONTACT --> JOINT
+    j_X_ee = W_X_ct.dot(j_X_W)
+    # ADJOINT INVERSE (wrenches)
+    f_joint = j_X_ee.T.dot(desiredFrameForce.vector)
+    # print("Joint n°"+str(i)+" : force = ", f_joint) 
+    f_ext.append(pin.Force(f_joint))
 
-ddp.solve()
-
+xs_init = [x0 for i in range(T+1)]
+us_init = [pin.rnea(model, robot.data, q0, v0, np.zeros((nq,1)), f_ext) for i in range(T)]
+# us_init = ddp.problem.quasiStatic(ddp.xs[:-1])
+ddp.solve(xs_init, us_init, maxiter=1000, isFeasible=False)
 
 # Plot force
 import matplotlib.pyplot as plt
@@ -82,7 +107,12 @@ for i in range(T):
     pin.computeJointJacobians(robot.model, robot.data)
     J = pin.getFrameJacobian(robot.model, robot.data, contact_frame_id, pin.ReferenceFrame.LOCAL) 
     # Joint space inertia and its inverse + NL terms
-    Minv = pin.computeMinverse(robot.model, robot.data, qs[i,:])
+    pin.computeAllTerms(model, robot.data, qs[i,:], vs[i,:])
+    print("BEFORE : ", robot.data.M.diagonal()[:3])
+    robot.data.M += np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+    print("AFTER : ", robot.data.M.diagonal()[:3])
+    Minv = np.linalg.inv(robot.data.M)
+    # Minv = pin.computeMinverse(robot.model, robot.data, qs[i,:])
     h = pin.nonLinearEffects(robot.model, robot.data, qs[i,:], vs[i,:])
     # Contact force using f = (JMiJ')^+ ( JMi (b-tau) + gamma )
     LDLT = eigenpy.LDLT(J @ Minv @ J.T + REG*np.eye(6))
