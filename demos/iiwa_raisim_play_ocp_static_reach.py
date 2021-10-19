@@ -66,18 +66,21 @@ us_init = [ug  for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 #  Plot
-ddp_data = data_utils.extract_ddp_data(ddp)
-fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['x', 'u', 'p'], markers=['.'], colors=['b'], SHOW=True)
+# ddp_data = data_utils.extract_ddp_data(ddp)
+# fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['x', 'u', 'p'], markers=['.'], colors=['b'], SHOW=True)
 
 xs = np.array(ddp.xs)
 us = np.array(ddp.us)
 
-for i in range(N_h):
+# Initial sim state
+q,v, = robot.get_state()
+for i in range(N_h-1):
     print('Time step '+str(i)+'/'+str(N_h))
-    robot.send_joint_command(us[i,:])
-    q,v, = robot.get_state()
+    robot.send_joint_command(us[i,:] - ddp.K[i] @ (np.concatenate([q,v])  - xs[i+1]))
     robot.forward_robot(q,v)
+    q,v, = robot.get_state()
     env.step()
-    time.sleep(0.1)
+    time.sleep(0.01)
 
+time.sleep(1000)
 env.server.killServer()

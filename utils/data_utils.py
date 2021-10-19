@@ -71,10 +71,10 @@ def init_sim_data(config, robot, x0):
     # EE reference velocity
     sim_data['v_ee_ref'] = config['v_des']
     # EE reference force
-    if(config['f_des'] == 'None'):
-      sim_data['f_ee_ref'] = np.zeros(6)
-    else:
-      sim_data['f_ee_ref'] = config['f_des']
+    # if(config['f_des'] == 'None'):
+    #   sim_data['f_ee_ref'] = np.zeros(6)
+    # else:
+      # sim_data['f_ee_ref'] = config['f_des']
     # Predictions
     sim_data['X_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['nx'])) # Predicted states  ( ddp.xs : {x* = (q*, v*)} )
     sim_data['U_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {u*} )
@@ -142,7 +142,7 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['alpha'] = sim_data['alpha']; plot_data['beta'] = sim_data['beta']
     plot_data['p_ee_ref'] = sim_data['p_ee_ref']
     plot_data['v_ee_ref'] = sim_data['v_ee_ref']
-    plot_data['f_ee_ref'] = sim_data['f_ee_ref']
+    # plot_data['f_ee_ref'] = sim_data['f_ee_ref']
     # Control predictions
     plot_data['u_pred'] = sim_data['U_pred']
       # Extract 1st prediction
@@ -188,11 +188,11 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['p_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['v_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     # Extract EE force
-    plot_data['f_ee_pred'] = sim_data['F_pred']
-    plot_data['f_ee_mea'] = sim_data['F_mea_SIMU']
-    plot_data['f_ee_des_PLAN'] = sim_data['F_des_PLAN']
-    plot_data['f_ee_des_CTRL'] = sim_data['F_des_CTRL']
-    plot_data['f_ee_des_SIMU'] = sim_data['F_des_SIMU']
+    # plot_data['f_ee_pred'] = sim_data['F_pred']
+    # plot_data['f_ee_mea'] = sim_data['F_mea_SIMU']
+    # plot_data['f_ee_des_PLAN'] = sim_data['F_des_PLAN']
+    # plot_data['f_ee_des_CTRL'] = sim_data['F_des_CTRL']
+    # plot_data['f_ee_des_SIMU'] = sim_data['F_des_SIMU']
 
     # Solver data (optional)
     if(sim_data['RECORD_SOLVER_DATA']):
