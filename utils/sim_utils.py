@@ -72,6 +72,7 @@ def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=
       return contactId
 
 
+
 # # Load simulator
 # def load_simulator(config, simulator='PYBULLET'):
 #     # Load robot (pinocchio RobotWrapper object)
