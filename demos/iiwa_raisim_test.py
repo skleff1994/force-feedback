@@ -1,9 +1,19 @@
-import os
+"""
+@package force_feedback
+@file iiwa_raisim_test.py
+@author Sebastien Kleff
+@license License BSD-3-Clause
+@copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
+@date 2020-05-18
+@brief OCP for static EE pose task with the KUKA iiwa 
+"""
 
-from robot_properties_kuka.config import IiwaConfig
+'''
+Just to test out the Pinocchio-Rai wrapper for Iiwa robot in raisim simulator
+'''
+
+
 import numpy as np
-import raisimpy as raisim
-import math
 import time
 from utils import raisim_utils
 
@@ -15,23 +25,27 @@ iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
 # Load Raisim environment
 LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
 env = raisim_utils.RaiEnv(LICENSE_PATH)
-robot = env.add_robot(iiwa_config, urdf_path, init_config=None, vis_ghost=True)
-env.step()
+robot = env.add_robot(iiwa_config, init_config=None)
 env.launch_server()
+# Raisim parameters for forward prediction
+env.world.setTimeStep(1e-3)
+q,v = np.zeros(7), np.zeros(7)
+robot.reset_state(q,v)
+print(robot.get_state())
+robot.forward_robot(q,v)
+print(robot.get_state())
+env.step()
+print(robot.get_state())
+time.sleep(10)
+env.server.killServer()
+# for i in range(10):
+#     robot.send_joint_command(tau)
+#     q,v, = robot.get_state()
+#     robot.forward_robot(q,v)
+#     env.step()
 
-tau = np.zeros(7)
 
-#Raisim parameters for forward prediction
-sim_dt = 0.001
-world = raisim.World()
-world.setTimeStep(sim_dt)
-
-while(1):
-    robot.send_joint_command(tau)
-    q,v, = robot.get_state()
-    robot.forward_robot(q,v)
-    env.step()
-
+# Add stuff in environments
 
 # iiwa = server.addVisualArticulatedSystem("v_iiwa", ) #path_utils.get_urdf_path('iiwa'))
 # x0 = np.zeros(14)

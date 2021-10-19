@@ -10,6 +10,7 @@ from numpy.linalg import norm
 import pinocchio as pin
 
 
+
 class IiwaMinimalConfig:
     def __init__(self, urdf_path, mesh_path):
         self.end_effector_names = ["contact"]
@@ -18,14 +19,17 @@ class IiwaMinimalConfig:
         self.robot_name = "iiwa"
         self.urdf_path = urdf_path
         self.mesh_path = mesh_path
-        self.robot_model = pin.buildModelFromUrdf(self.urdf_path)
-        self.initial_configuration = [0.]*self.robot_model.nq
-        self.initial_velocity = [0.]*self.robot_model.nv
+        self.model = pin.buildModelFromUrdf(self.urdf_path)
+        self.initial_configuration = [0.]*self.model.nq
+        self.initial_velocity = [0.]*self.model.nv
         self.link_names =  ['iiwa_base', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7']
+
+
+
 
 class PinRaiRobotWrapper:
 
-    def __init__(self, world, robot_config, init_config = None, vis_ghost = True):
+    def __init__(self, world, robot_config, init_config = None):
         """
         Input:
             world        : rai world
@@ -35,16 +39,15 @@ class PinRaiRobotWrapper:
         """
 
         self.world = world
-        self.robot
         #Set up Pinocchio data
-        self.pin_model = pin.buildModelFromUrdf(robot_config.urdf_path)
-        self.pin_data = self.pin_model.createData()
+        self.model = robot_config.model 
+        self.data = self.model.createData()
 
         #Set up robot model information
         self.ee_names = robot_config.end_effector_names
         self.end_eff_ids = [] 
         self.nb_ee = len(self.ee_names)
-        self.nb_dof = self.pin_model.nv #- 6
+        self.nb_dof = self.model.nv #- 6
         
         ## TODO : Has to be general
         if robot_config.robot_name == "iiwa":
@@ -55,9 +58,6 @@ class PinRaiRobotWrapper:
 
         #Set up Raisim Articulated Body
         self.rai_robot = self.world.addArticulatedSystem(robot_config.urdf_path)
-        if vis_ghost:
-            self.rai_robot_ghost = world.addArticulatedSystem(robot_config.urdf_path)
-
         if isinstance(init_config, (np.ndarray)):
             rq = init_config
             self.rai_robot.setGeneralizedCoordinate(rq)
@@ -65,32 +65,21 @@ class PinRaiRobotWrapper:
             rq = robot_config.initial_configuration
             self.rai_robot.setGeneralizedCoordinate(rq)
 
-        if vis_ghost:
-            rq2 = rq.copy()
-            self.ghost_offset = 0.6
-            rq2[1] += self.ghost_offset
-            self.rai_robot_ghost.setGeneralizedCoordinate(rq2)
-
         if robot_config:
             self.rai_robot.setName(robot_config.robot_name)
-            self.pin_robot = pin.RobotWrapper.BuildFromURDF(
-                robot_config.urdf_path, robot_config.meshes_path)
-            self.pin_model.rotorInertia[:] = robot_config.motor_inertia
-            self.pin_model.rotorGearRatio[:] = robot_config.motor_gear_ration
+            self.model.rotorInertia[:] = robot_config.motor_inertia
+            self.model.rotorGearRatio[:] = robot_config.motor_gear_ratio
             self.name = robot_config.robot_name
         else:
             self.rai_robot.setName("Raisim_Robot")
             self.name = "raisim_robot_wrapper"
 
-        if vis_ghost:
-            self.rai_robot_ghost.setName("vis")
-
         for i in range(0, self.raisim_foot_idx.size):
             self.raisim_foot_idx[i] = self.rai_robot.getBodyIdx(self.body_names[i])
 
         for i in range(len(self.ee_names)):
-            # print(self.pin_model.getFrameId(self.ee_names[i]))
-            self.end_eff_ids.append(self.pin_model.getFrameId(self.ee_names[i]))
+            # print(self.model.getFrameId(self.ee_names[i]))
+            self.end_eff_ids.append(self.model.getFrameId(self.ee_names[i]))
 
     def reset_state(self,q, v):
         rq = np.concatenate([q,v])
@@ -118,8 +107,8 @@ class PinRaiRobotWrapper:
         self.rai_robot.setGeneralizedForce(tau)
 
     def forward_robot(self, q=None, dq=None):
-        pin.framesForwardKinematics(self.pin_model, self.pin_data, q)
-        pin.computeJointJacobians(self.pin_model, self.pin_data, q)
+        pin.framesForwardKinematics(self.model, self.data, q)
+        pin.computeJointJacobians(self.model, self.data, q)
 
     def get_contact_forces(self):
         """
@@ -147,45 +136,43 @@ class PinRaiRobotWrapper:
         """
         set state for visualization purposes in raisim
         """
-        rq = q.copy()
-        self.rai_robot.setState(rq,v)
+        self.rai_robot.setState(q,v)
 
     def get_ee_positions(self, q, v):
         ee_positions = np.zeros(self.nb_ee*3)
-        pin.forwardKinematics(self.pin_model, self.pin_data, q)
-        pin.framesForwardKinematics(self.pin_model, self.pin_data, q)
-        pin.computeJointJacobians(self.pin_model, self.pin_data, q)
-        pin.computeCentroidalMomentum(self.pin_model, self.pin_data, q, v)
+        pin.forwardKinematics(self.model, self.data, q)
+        pin.framesForwardKinematics(self.model, self.data, q)
+        pin.computeJointJacobians(self.model, self.data, q)
+        pin.computeCentroidalMomentum(self.model, self.data, q, v)
         for i in range(len(self.end_eff_ids)):
-            #print(self.pin_data.oMf[self.end_eff_ids[i]].translation)
-            ee_positions[i*3:i*3 + 3 ] = self.pin_data.oMf[self.end_eff_ids[i]].translation
+            #print(self.data.oMf[self.end_eff_ids[i]].translation)
+            ee_positions[i*3:i*3 + 3 ] = self.data.oMf[self.end_eff_ids[i]].translation
         return ee_positions
 
-    def set_state_ghost(self, q, v):
-        """
-        set state for visualization purposes in raisim
-        """
-        rq = q.copy()
-        rq[1] += self.ghost_offset
-        self.rai_robot_ghost.setState(rq,v)
+
+
+
 
 class RaiEnv:
 
-    def __init__(self, LICENSE_PATH=None):
+    def __init__(self, LICENSE_PATH=None, dt=None):
 
         if(LICENSE_PATH is None):
           print("ERROR: please specify Raisim license path !")
         raisim.World.setLicenseFile(LICENSE_PATH)
-        self.dt = 0.001
         self.robots = []
         # Raisim Configuration
         self.world = raisim.World()
+        if(dt is not None):
+            self.dt = dt
+        else:
+            self.dt = 1e-3
         self.world.setTimeStep(self.dt)
         self.server = raisim.RaisimServer(self.world)
         self.ground = self.world.addGround()
         self.visualize_array = []
 
-    def add_robot(self, robot_config=None, urdf_path = None, init_config = None, vis_ghost = False):
+    def add_robot(self, robot_config=None, init_config = None):
         """
         Adds robot into the raisim world
         Input:
@@ -193,7 +180,7 @@ class RaiEnv:
             urdf_path : incase the robot urdf is in a different place
                 Note :its best to use the urdf defined in the robot config file
         """
-        robot = PinRaiRobotWrapper(self.world, robot_config, urdf_path, init_config=init_config, vis_ghost=vis_ghost)
+        robot = PinRaiRobotWrapper(self.world, robot_config, init_config=init_config)
         self.robots.append(robot)
 
         return robot
@@ -334,3 +321,31 @@ class RaiEnv:
 
 
 
+# Load KUKA arm in Raisim environment
+def init_kuka_RAISIM(dt=1e3, x0=None):
+    '''
+    Loads KUKA LBR iiwa model in Raisim using the 
+    Pinocchio-Raisim wrapper to simplify interactions
+    '''
+    # Create Raisim sim environment + initialize sumulator
+    urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa.urdf"
+    mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
+    iiwa_config = IiwaMinimalConfig(urdf_path, mesh_path)
+
+    # Load Raisim environment
+    LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
+    env = RaiEnv(LICENSE_PATH)
+    robot = env.add_robot(iiwa_config, init_config=None)
+    env.launch_server()
+    #Raisim parameters for forward prediction
+    env.world.setTimeStep(dt)
+    # Initialize
+    if(x0 is None):
+        q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
+        dq0 = np.zeros(robot.model.nv)
+    else:
+        q0 = x0[:robot.model.nq]
+        dq0 = x0[robot.pin_robot.model.nv:]
+    robot.reset_state(q0, dq0)
+    robot.forward_robot(q0, dq0)
+    return env, robot
