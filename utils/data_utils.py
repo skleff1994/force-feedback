@@ -1,11 +1,8 @@
 import time
-
-from matplotlib.pyplot import plot
 import numpy as np
 import os
-from numpy.core.records import find_duplicate 
 from utils import pin_utils
-
+import pinocchio as pin
 
 
 # Save data (dict) into compressed npz
@@ -34,7 +31,7 @@ def load_data(npz_file):
 
 
 
-
+#### Classical MPC
 # Initialize simulation data for MPC simulation
 def init_sim_data(config, robot, x0):
     '''
@@ -61,20 +58,23 @@ def init_sim_data(config, robot, x0):
     sim_data['nu'] = sim_data['pin_model'].nq
     sim_data['nx'] = sim_data['nq'] + sim_data['nv']
     sim_data['id_endeff'] = sim_data['pin_model'].getFrameId('contact')
-    #EE reference translation
-    if(config['p_des']=='None'):
-      robot.framesForwardKinematics(x0[:sim_data['nq']])
-      robot.computeJointJacobians(x0[:sim_data['nq']])
+    # EE reference translation
+    if('p_des' not in config.keys() or config['p_des']=='None'):
+      pin.framesForwardKinematics(robot.model, robot.data, x0[:sim_data['nq']])
+      pin.computeJointJacobians(robot.model, robot.data, x0[:sim_data['nq']])
       sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
     else:
       sim_data['p_ee_ref'] = config['p_des']
     # EE reference velocity
-    sim_data['v_ee_ref'] = config['v_des']
+    if('v_des' not in config.keys() or config['v_des']=='None'):
+      sim_data['v_ee_ref'] = np.zeros(3)
+    else:
+      sim_data['v_ee_ref'] = config['v_des']
     # EE reference force
-    # if(config['f_des'] == 'None'):
-    #   sim_data['f_ee_ref'] = np.zeros(6)
-    # else:
-      # sim_data['f_ee_ref'] = config['f_des']
+    if('f_des' not in config.keys() or config['f_des'] == 'None'):
+      sim_data['f_ee_ref'] = np.zeros(6)
+    else:
+      sim_data['f_ee_ref'] = config['f_des']
     # Predictions
     sim_data['X_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['nx'])) # Predicted states  ( ddp.xs : {x* = (q*, v*)} )
     sim_data['U_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {u*} )
@@ -127,6 +127,7 @@ def extract_plot_data_from_sim_data(sim_data):
     Extract plot data from simu data
     '''
     print('Extracting plotting data from simulation data...')
+    
     plot_data = {}
     # Robot model & params
     plot_data['pin_model'] = sim_data['pin_model']
@@ -142,17 +143,15 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['alpha'] = sim_data['alpha']; plot_data['beta'] = sim_data['beta']
     plot_data['p_ee_ref'] = sim_data['p_ee_ref']
     plot_data['v_ee_ref'] = sim_data['v_ee_ref']
-    # plot_data['f_ee_ref'] = sim_data['f_ee_ref']
+    plot_data['f_ee_ref'] = sim_data['f_ee_ref']
     # Control predictions
     plot_data['u_pred'] = sim_data['U_pred']
-      # Extract 1st prediction
     plot_data['u_des_PLAN'] = sim_data['U_des_PLAN']
     plot_data['u_des_CTRL'] = sim_data['U_des_CTRL']
     plot_data['u_des_SIMU'] = sim_data['U_des_SIMU']
     # State predictions (at PLAN freq)
     plot_data['q_pred'] = sim_data['X_pred'][:,:,:nq]
     plot_data['v_pred'] = sim_data['X_pred'][:,:,nq:nq+nv]
-      # Extract 1st prediction + shift 1 planning cycle
     plot_data['q_des_PLAN'] = sim_data['X_des_PLAN'][:,:nq]
     plot_data['v_des_PLAN'] = sim_data['X_des_PLAN'][:,nq:nq+nv] 
     plot_data['q_des_CTRL'] = sim_data['X_des_CTRL'][:,:nq] 
@@ -188,11 +187,11 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['p_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['v_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     # Extract EE force
-    # plot_data['f_ee_pred'] = sim_data['F_pred']
-    # plot_data['f_ee_mea'] = sim_data['F_mea_SIMU']
-    # plot_data['f_ee_des_PLAN'] = sim_data['F_des_PLAN']
-    # plot_data['f_ee_des_CTRL'] = sim_data['F_des_CTRL']
-    # plot_data['f_ee_des_SIMU'] = sim_data['F_des_SIMU']
+    plot_data['f_ee_pred'] = sim_data['F_pred']
+    plot_data['f_ee_mea'] = sim_data['F_mea_SIMU']
+    plot_data['f_ee_des_PLAN'] = sim_data['F_des_PLAN']
+    plot_data['f_ee_des_CTRL'] = sim_data['F_des_CTRL']
+    plot_data['f_ee_des_SIMU'] = sim_data['F_des_SIMU']
 
     # Solver data (optional)
     if(sim_data['RECORD_SOLVER_DATA']):
@@ -231,24 +230,10 @@ def extract_plot_data_from_sim_data(sim_data):
 
     return plot_data
 
-# Same giving npz path OR dict as argument
-def extract_plot_data(input_data):
-    '''
-    Extract plot data from npz archive or sim_data
-    '''
-    if(type(input_data)==str):
-        sim_data = load_data(input_data)
-    elif(type(input_data)==dict):
-        sim_data = input_data
-    else:
-        TypeError("Input data must be a Python dict or a path to .npz archive")
-    return extract_plot_data_from_sim_data(sim_data)
 
 
 
-
-
-
+#### Low Pass Filter MPC
 # Initialize MPC simulation with torque feedback based on Low-Pass-Filter (LPF) Actuation Model
 def init_sim_data_LPF(config, robot, y0):
     '''
@@ -450,9 +435,7 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
 
 
 
-
-
-# Extract DDP data (classic or LPF)
+#### Classical OCP
 def extract_ddp_data(ddp, CONTACT=False):
     '''
     Record relevant data from ddp solver in order to plot 
@@ -472,17 +455,17 @@ def extract_ddp_data(ddp, CONTACT=False):
     # Solution trajectories
     ddp_data['xs'] = ddp.xs
     ddp_data['us'] = ddp.us
-    # Extract force at EE frame
-    if(CONTACT):
+    # Extract force at EE frame and contact info 
+    if(hasattr(ddp.problem.runningModels[0].differential, 'contacts')):
+      ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.translation for i in range(ddp.problem.T)]
+      ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.translation)
+      ddp_data['contact_rotation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.rotation for i in range(ddp.problem.T)]
+      ddp_data['contact_rotation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.rotation)
       datas = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'] for i in range(ddp.problem.T)]
-      # for i in range(ddp.problem.T):
-        # print("f = ", datas[i].f.vector)
-        # print("lmb = ", datas[i].jMf.act(datas[i].pinocchio.lambda_c))
       # data.f = force exerted at parent joint expressed in WORLD frame (oMi)
       # express it in LOCAL contact frame using jMf 
       ee_forces = [data.jMf.actInv(data.f).vector for data in datas] 
       ddp_data['fs'] = [ee_forces[i] for i in range(ddp.problem.T)]
-      # np.concatenate([ee_forces[i].linear, ee_forces[i].angular])
     # Extract refs for active costs 
     ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
     if('stateReg' in ddp_data['active_costs']):
@@ -508,16 +491,14 @@ def extract_ddp_data(ddp, CONTACT=False):
         ddp_data['velocity_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['velocity'].cost.residual.reference.vector for i in range(ddp.problem.T)]
         ddp_data['velocity_ref'].append(ddp.problem.terminalModel.differential.costs.costs['velocity'].cost.residual.reference.vector)
         ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['velocity'].cost.residual.id
-    if(hasattr(ddp.problem.runningModels[0].differential, 'contacts')):
-        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.translation for i in range(ddp.problem.T)]
-        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.translation)
-        ddp_data['contact_rotation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.rotation for i in range(ddp.problem.T)]
-        ddp_data['contact_rotation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.rotation)
     if('force' in ddp_data['active_costs']): 
         ddp_data['force_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['force'].cost.residual.reference.vector for i in range(ddp.problem.T)]
     return ddp_data
 
-# Extract DDP data (classic or LPF)
+
+
+
+#### Low Pass Filter OCP
 def extract_ddp_data_LPF(ddp):
     '''
     Record relevant data from ddp solver in order to plot 

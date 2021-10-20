@@ -12,9 +12,8 @@
 '''
 The robot is tasked with reaching a static EE target 
 Trajectory optimization using Crocoddyl in closed-loop MPC 
-(feedback from stateLPF x=(q,v), control u = tau 
-Using PyBullet simulator & GUI for rigid-body dynamics + visualization
-
+(feedback from state x=(q,v), control u = tau) 
+Using Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualization
 The goal of this script is to simulate closed-loop MPC on a simple reaching task 
 '''
 

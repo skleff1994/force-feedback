@@ -193,6 +193,7 @@ def get_tau(q, v, a, f, model):
     Return torque using rnea
     '''
     data = model.createData()
+    data.M += np.diag(np.array([.1, .1, .1, .1, .1, .1, .0]))
     return pin.rnea(model, data, q, v, a, f)
 
 

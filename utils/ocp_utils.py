@@ -278,13 +278,13 @@ def init_DDP(robot, config, x0, callbacks=False,
           callbacks   : display Crocoddyl's DDP solver callbacks
           WHICH_COSTS : which cost terms in the running & terminal cost?
                           'placement', 'velocity', 'stateReg', 'ctrlReg'
-                          'stateLim', 'ctrlLim', 'force'
+                          'stateLim', 'ctrlLim', 'force', 'friction'
       OUTPUT:
         FDDP solver
     '''
     # OCP parameters
-    dt = config['dt']                   # OCP integration step (s)    
-    N_h = config['N_h']                 # Number of knots in the horizon 
+    dt = config['dt']                   
+    N_h = config['N_h']               
    
    # Model params
     id_endeff = robot.model.getFrameId('contact')
@@ -297,7 +297,8 @@ def init_DDP(robot, config, x0, callbacks=False,
     if(CONTACT):
       baumgarte_gains = np.array([0., 0.])
       if(contact_placement is None):
-        contact_placement = robot.data.oMf[id_endeff]
+        contact_placement = robot.data.oMf[id_endeff].copy()
+        # contact_placement.translation += contact_placement.act(np.array([0.,0.,-0.5]))
       contact6d = crocoddyl.ContactModel6D(state, id_endeff, contact_placement, baumgarte_gains) 
     
     
@@ -383,6 +384,7 @@ def init_DDP(robot, config, x0, callbacks=False,
     if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
       if(config['p_des']=='None'):
         desiredFrameTranslation = M_ee.translation.copy()
+        # desiredFrameTranslation[2] += -0.1
       else:
         desiredFrameTranslation = np.asarray(config['p_des'])
       frameTranslationWeights = np.asarray(config['frameTranslationWeights'])

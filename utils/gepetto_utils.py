@@ -136,8 +136,9 @@ class GepettoDisplay(DisplayAbstract):
                     key = f["key"]
                     pose = f["oMf"]
                     wrench = f["f"]
-                    # Display the contact forces !!! 
-                    R = rotationMatrixFromTwoVectors(self.z_axis, wrench.linear)
+                    # Display the contact forces  
+                    # R = rotationMatrixFromTwoVectors(self.z_axis, wrench.linear)
+                    R = pinocchio.rpy.rpyToMatrix(0., -np.pi/2, 0.)
                     forcePose = pinocchio.SE3ToXYZQUATtuple(pinocchio.SE3(R, pose.translation))
                     forceMagnitud = 10*np.linalg.norm(wrench.linear) / self.totalWeight
                     forceName = self.forceGroup + "/" + key
@@ -178,10 +179,7 @@ class GepettoDisplay(DisplayAbstract):
                         if model.differential.contacts.contacts[key].active:
                             joint = model.differential.state.pinocchio.frames[contact.frame].parent
                             oMf = contact.pinocchio.oMi[joint] * contact.jMf
-                            fiMo = pinocchio.SE3(contact.pinocchio.oMi[joint].rotation.T, contact.jMf.translation)
-                            # force = fiMo.actInv(contact.f)
                             force = contact.jMf.actInv(contact.f)
-                            # print(force.vector)
                             R = np.eye(3)
                             mu = 0.7
                             for k, c in model.differential.costs.costs.todict().items():
@@ -192,24 +190,6 @@ class GepettoDisplay(DisplayAbstract):
                                         continue
                             fc.append({"key": str(joint), "oMf": oMf, "f": force, "R": R, "mu": mu})
                     fs.append(fc)
-            elif isinstance(data, crocoddyl.libcrocoddyl_pywrap.ActionDataImpulseFwdDynamics):
-                fc = []
-                for key, impulse in data.multibody.impulses.impulses.todict().items():
-                    if model.impulses.impulses[key].active:
-                        joint = model.state.pinocchio.frames[impulse.frame].parent
-                        oMf = impulse.pinocchio.oMi[joint] * impulse.jMf
-                        fiMo = pinocchio.SE3(impulse.pinocchio.oMi[joint].rotation.T, impulse.jMf.translation)
-                        force = fiMo.actInv(impulse.f)
-                        R = np.eye(3)
-                        mu = 0.7
-                        for k, c in model.costs.costs.todict().items():
-                            if isinstance(c.cost, crocoddyl.libcrocoddyl_pywrap.CostModelContactFrictionCone):
-                                if impulse.frame == c.cost.id:
-                                    R = c.cost.cone.R
-                                    mu = c.cost.cone.mu
-                                    continue
-                        fc.append({"key": str(joint), "oMf": oMf, "f": force, "R": R, "mu": mu})
-                fs.append(fc)
         return fs
 
     def getFrameTrajectoryFromSolver(self, solver):
@@ -243,8 +223,8 @@ class GepettoDisplay(DisplayAbstract):
     def _setBackground(self):
         # Set white background and floor
         window_id = self.robot.viewer.gui.getWindowID("crocoddyl")
-        self.robot.viewer.gui.setBackgroundColor1(window_id, self.backgroundColor)
-        self.robot.viewer.gui.setBackgroundColor2(window_id, self.backgroundColor)
+        # self.robot.viewer.gui.setBackgroundColor1(window_id, self.backgroundColor)
+        # self.robot.viewer.gui.setBackgroundColor2(window_id, self.backgroundColor)
 
     def _addFloor(self):
         self.robot.viewer.gui.createGroup(self.floorGroup)

@@ -26,7 +26,6 @@ class IiwaMinimalConfig:
 
 
 
-
 class PinRaiRobotWrapper:
 
     def __init__(self, world, robot_config, init_config = None):
@@ -76,6 +75,7 @@ class PinRaiRobotWrapper:
 
         for i in range(0, self.raisim_foot_idx.size):
             self.raisim_foot_idx[i] = self.rai_robot.getBodyIdx(self.body_names[i])
+        print(self.raisim_foot_idx)
 
         for i in range(len(self.ee_names)):
             # print(self.model.getFrameId(self.ee_names[i]))
@@ -114,11 +114,10 @@ class PinRaiRobotWrapper:
         """
         returns contact forces at each end effector
         """    
-        F = np.zeros(3*self.nb_ee)
+        F = np.zeros(6)
         for contact in self.rai_robot.getContacts():
-            for i in range(self.nb_ee):
-                if contact.getlocalBodyIndex() == int(self.raisim_foot_idx[i]):
-                    F[3*i:3*(i+1)] += contact.getContactFrame().dot(contact.getImpulse())/self.world.getTimeStep()
+            if(contact.getlocalBodyIndex() == 7):
+                F = contact.getContactFrame().dot(contact.getImpulse())/self.world.getTimeStep()
         return F
 
     def get_current_contacts(self):
@@ -148,8 +147,6 @@ class PinRaiRobotWrapper:
             #print(self.data.oMf[self.end_eff_ids[i]].translation)
             ee_positions[i*3:i*3 + 3 ] = self.data.oMf[self.end_eff_ids[i]].translation
         return ee_positions
-
-
 
 
 
@@ -318,6 +315,19 @@ class RaiEnv:
             return collisionPos, collisionOrientation
         else:
             return position, np.identity(3)
+
+    # Load contact surface in PyBullet for contact experiments
+    def display_contact_surface(self, placement, radius=.5, length=0.0, with_collision=False):
+        '''
+        Create contact surface object in raisim and display it
+        '''
+        wall = self.world.addBox(.1, 1, 1, 10, material="default", collision_group=1, collision_mask=18446744073709551615)
+        wall.setAppearance("1,0,0,0.3")
+        placement.translation +=.03
+        wall.setPosition(placement.translation[0], placement.translation[1], placement.translation[2])
+        quat = list(pin.se3ToXYZQUAT(placement))
+        wall.setOrientation(quat[0], quat[1], quat[2], quat[3])
+        wall.setBodyType(raisim.BodyType.STATIC)
 
 
 
