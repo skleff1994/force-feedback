@@ -17,12 +17,10 @@ Using Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualiza
 The goal of this script is to simulate closed-loop MPC on a simple reaching task 
 '''
 
-import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, raisim_utils
-import time 
-
-# Fix seed 
-np.random.seed(1)
+import numpy as np
+import time
+from utils import raisim_utils, path_utils, ocp_utils, pin_utils, plot_utils, data_utils
+np.set_printoptions(precision=4, linewidth=180)
 
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
@@ -31,7 +29,7 @@ np.random.seed(1)
 config_name = 'static_contact_task_mpc'
 config = path_utils.load_config_file(config_name)
 # Load Kuka config from URDF
-urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa.urdf"
+urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
 mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
 iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
 
@@ -56,16 +54,16 @@ M_ee = robot.data.oMf[id_endeff]
 print("Initial placement : \n")
 print(M_ee)
 
+
 # Display contact surface
 id_endeff = robot.model.getFrameId('contact')
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
-contact_placement.translation = contact_placement.act(np.array([0., 0., .035])) 
+contact_placement.translation = contact_placement.act(np.array([0., 0., .045])) 
 env.display_contact_surface(contact_placement) #, with_collision=False)
 print("-----------------------")
 print("[Raisim] Created robot ")
 print("-----------------------")
-
 
 #################
 ### OCP SETUP ###
@@ -104,14 +102,17 @@ xs_init = [x0 for i in range(N_h+1)]
 us_init = [u0 for i in range(N_h)]
 
 if(SOLVE_AND_PLOT_INIT):
-  ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-#   ddp_data = data_utils.extract_ddp_data(ddp)
-#   fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], which_plots=['x','u','p'], SHOW=True)
+  ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+  # ddp_data = data_utils.extract_ddp_data(ddp)
+  # fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], which_plots=['x','u','p', 'f'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
 sim_data = data_utils.init_sim_data(config, robot, x0)
+
+# print(sim_data['f_ee_ref'])
+# time.sleep(10)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
 freq_CTRL = sim_data['ctrl_freq']
@@ -128,7 +129,7 @@ x_buffer_OCP = []                                             # buffer for desi
 u_buffer_OCP = []                                             # buffer for desired states delayed by OCP computation time
 buffer_sim = []                                               # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
-WHICH_PLOTS = ['x','u', 'p']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS = ['x','u', 'p', 'f']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 DELAY_SIM = config['DELAY_SIM']                               # Add delay in reference torques (low-level)
 DELAY_OCP = config['DELAY_OCP']                               # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES = config['SCALE_TORQUES']                       # Affinescaling of reference torque
@@ -173,33 +174,6 @@ if(config['INIT_LOG']):
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
 
-# Interpolation  
-
- # ^ := MPC computations
- # | := current MPC computation
-
- # MPC ITER #1
-  #      x_0         x_1         x_2 ...                    --> pred(MPC=O) size N_h
-  # OCP : O           O           O                           ref_O = x_1
-  # MPC : M     M     M     M     M                           ref_M = x_0 + Interp_[O->M] (x_1 - x_0)
-  # CTR : C  C  C  C  C  C  C  C  C                           ref_C = x_0 + Interp_[O->C] (x_1 - x_0)
-  # SIM : SSSSSSSSSSSSSSSSSSSSSSSSS                           ref_S = x_0 + Interp_[O->S] (x_1 - x_0)
-  #       |     ^     ^     ^     ^  ...
- # MPC ITER #2
-  #            x_0         x_1         x_2 ...              --> pred(MPC=1) size N_h
-  #             O           O           O                     ...
-  #             M     M     M     M     M
-  #             C  C  C  C  C  C  C  C  C
-  #             SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #             |     ^     ^     ^     ^  ...
- # MPC ITER #3
-  #                        x_0         x_1         x_2 ...  --> pred(MPC=2) size N_h
-  #                         O           O           O         ...
-  #                         M     M     M     M     M
-  #                         C  C  C  C  C  C  C  C  C
-  #                         SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #                         |     ^     ^     ^     ^  ...
- # ...
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -320,12 +294,6 @@ for i in range(sim_data['N_simu']):
     # Measure force from simulation
     f_mea_SIMU = robot.get_contact_forces()
     print(f_mea_SIMU)
-    # if(len(force_measured)==0):
-    #     f_mea_SIMU = np.zeros(6)
-    # else:
-    #     f_mea_SIMU = force_measured[0]
-    # # print(f_mea_SIMU)
-    # print(f_curr)
     # Update pinocchio model
     robot.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Record data (unnoised)
@@ -344,7 +312,7 @@ for i in range(sim_data['N_simu']):
       x_mea_SIMU = x_mea_SIMU / (n_sum + 1)
     # Record noised data
     sim_data['X_mea_SIMU'][i+1, :] = x_mea_SIMU 
-    sim_data['F_mea_SIMU'][i, :] = f_mea_SIMU
+    sim_data['F_mea_SIMU'][i, :3] = f_mea_SIMU
 
 print('--------------------------------')
 print('Simulation exited successfully !')
@@ -368,4 +336,6 @@ plot_utils.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
                                 SAVE=True,
                                 SAVE_DIR=save_dir,
                                 SAVE_NAME=save_name,
-                                AUTOSCALE=True)
+                                AUTOSCALE=False)
+
+env.server.killServer()

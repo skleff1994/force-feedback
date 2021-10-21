@@ -25,7 +25,7 @@ np.set_printoptions(precision=4, linewidth=180)
 # Read config file
 config = path_utils.load_config_file('static_reaching_task_ocp')
 # Load Kuka config from URDF
-urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa.urdf"
+urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
 mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
 iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
 

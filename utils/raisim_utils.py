@@ -4,6 +4,7 @@
 
 import time
 import numpy as np
+from numpy.lib.function_base import place
 import raisimpy as raisim
 from scipy.spatial.transform import Rotation
 from numpy.linalg import norm
@@ -15,7 +16,7 @@ class IiwaMinimalConfig:
     def __init__(self, urdf_path, mesh_path):
         self.end_effector_names = ["contact"]
         self.motor_inertia = 0.0000045
-        self.motor_gear_ratio = 9.0
+        self.motor_gear_ratio = 100.0
         self.robot_name = "iiwa"
         self.urdf_path = urdf_path
         self.mesh_path = mesh_path
@@ -46,14 +47,12 @@ class PinRaiRobotWrapper:
         self.ee_names = robot_config.end_effector_names
         self.end_eff_ids = [] 
         self.nb_ee = len(self.ee_names)
-        self.nb_dof = self.model.nv #- 6
+        self.nb_dof = self.model.nv 
         
-        ## TODO : Has to be general
-        if robot_config.robot_name == "iiwa":
-            self.body_names = robot_config.link_names
-        else:
-            self.body_names = self.ee_names.copy()
-        self.raisim_foot_idx = np.zeros(len(self.body_names))
+        self.body_names = robot_config.link_names
+        self.raisim_foot_idx = self.body_names[-1] # rule for manipulator only (simple chain)
+        # The link 'contact' (with parent : fixed joint 'EE') 
+        # is consumed by 'L7' (with parent : movable joint 'A7')
 
         #Set up Raisim Articulated Body
         self.rai_robot = self.world.addArticulatedSystem(robot_config.urdf_path)
@@ -73,10 +72,7 @@ class PinRaiRobotWrapper:
             self.rai_robot.setName("Raisim_Robot")
             self.name = "raisim_robot_wrapper"
 
-        for i in range(0, self.raisim_foot_idx.size):
-            self.raisim_foot_idx[i] = self.rai_robot.getBodyIdx(self.body_names[i])
-        print(self.raisim_foot_idx)
-
+        # These are Pinocchio ids 
         for i in range(len(self.ee_names)):
             # print(self.model.getFrameId(self.ee_names[i]))
             self.end_eff_ids.append(self.model.getFrameId(self.ee_names[i]))
@@ -114,12 +110,32 @@ class PinRaiRobotWrapper:
         """
         returns contact forces at each end effector
         """    
-        F = np.zeros(6)
-        for contact in self.rai_robot.getContacts():
+        F = np.zeros(3)
+        nb_contact_points = 0
+        # Get contact placement of contact point on the robot
+        M_ee = self.data.oMf[self.model.getFrameId('contact')].inverse() # W-->L
+        for contact in self.get_contact_points():
             if(contact.getlocalBodyIndex() == 7):
-                F = contact.getContactFrame().dot(contact.getImpulse())/self.world.getTimeStep()
+                nb_contact_points +=1
+                # Contact frame of current contact in Raisim
+                R_contact = contact.getContactFrame().T   # !! careful need to transpose according to doc
+                p_contact = contact.get_position()
+                M_contact = pin.SE3(R_contact, p_contact) # L-->W
+                # Contact frame 
+                # print("Normal in local ", R.T.dot(contact.getNormal())) OK
+                f_local_raisim = contact.getImpulse() / self.world.getTimeStep() # Already in local frame of contact point in simulator
+                # Move to contact frame as defined in URDF : LOCAL(raisim) --> WORLD --> LOCAL(urdf)
+                f_world = M_contact.actionInverse.T[:3,:3].dot(f_local_raisim)
+                f_ee = M_ee.actionInverse.T[:3, :3].dot(f_world)
+                F += f_ee
+                # F += contact.getContactFrame().T.dot(contact.getImpulse())/self.world.getTimeStep()
+                # print(" >>> ", contact.getImpulse())
+        if(nb_contact_points==0):
+            F = np.zeros(3)
+        else:
+            F/nb_contact_points
         return F
-
+        
     def get_current_contacts(self):
         """
         returns boolean array of which end-effectors are currently in contact
@@ -130,6 +146,24 @@ class PinRaiRobotWrapper:
                 if contact.getlocalBodyIndex() == self.raisim_foot_idx[i]:
                     contact_config[i] = 1.0
         return contact_config
+
+    def get_contact_points(self):
+        contacts = []
+        for c in self.rai_robot.getContacts():
+            if (c.skip()):
+                continue
+            else:
+                contacts.append(c)
+        return contacts
+
+    def get_closest_contact_point(self):
+        contacts = self.get_contact_points()
+        depths = []
+        for c in contacts:
+            depths.append(c.getDepth())
+        idx = depths.index(min(depths))
+        return contacts[idx]
+
 
     def set_state(self, q, v):
         """
@@ -321,13 +355,16 @@ class RaiEnv:
         '''
         Create contact surface object in raisim and display it
         '''
-        wall = self.world.addBox(.1, 1, 1, 10, material="default", collision_group=1, collision_mask=18446744073709551615)
-        wall.setAppearance("1,0,0,0.3")
-        placement.translation +=.03
-        wall.setPosition(placement.translation[0], placement.translation[1], placement.translation[2])
-        quat = list(pin.se3ToXYZQUAT(placement))
-        wall.setOrientation(quat[0], quat[1], quat[2], quat[3])
+        # wall = self.world.addBox(.1, 1, 1, 10, material="default", collision_group=1, collision_mask=18446744073709551615)
+        wall = self.world.addSphere(.1, 100, material="default")#, collision_group=1, collision_mask=-1)
         wall.setBodyType(raisim.BodyType.STATIC)
+        wall.setAppearance("0,1,0,0.1")
+        offset = .08
+        p = placement.act(np.array([0.,0.,offset]))
+        wall.setPosition(p)
+        # quat = list(pin.se3ToXYZQUAT(placement))
+        # wall.setOrientation(quat[0], quat[1], quat[2], quat[3])
+        # wall.setBodyType(raisim.BodyType.STATIC)
 
 
 
