@@ -482,8 +482,8 @@ def extract_ddp_data(ddp, CONTACT=False):
         ddp_data['ctrlLim_ub'].append(ddp.problem.runningModels[-1].differential.costs.costs['ctrlLim'].cost.activation.bounds.ub)
         ddp_data['ctrlLim_lb'].append(ddp.problem.runningModels[-1].differential.costs.costs['ctrlLim'].cost.activation.bounds.lb)
     if('placement' in ddp_data['active_costs']):
-        ddp_data['placement_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['placement'].cost.residual.reference.vector for i in range(ddp.problem.T)]
-        ddp_data['placement_ref'].append(ddp.problem.terminalModel.differential.costs.costs['placement'].cost.residual.reference.vector)
+        ddp_data['placement_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['placement'].cost.residual.reference.translation for i in range(ddp.problem.T)]
+        ddp_data['placement_ref'].append(ddp.problem.terminalModel.differential.costs.costs['placement'].cost.residual.reference.translation)
     if('translation' in ddp_data['active_costs']):
         ddp_data['translation_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['translation'].cost.residual.reference for i in range(ddp.problem.T)]
         ddp_data['translation_ref'].append(ddp.problem.terminalModel.differential.costs.costs['translation'].cost.residual.reference)

@@ -1,20 +1,20 @@
 """
 @package force_feedback
-@file iiwa_ocp.py
+@file iiwa_ocp_contact_switch.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
 @date 2020-05-18
-@brief OCP for static EE pose task with the KUKA iiwa 
+@brief OCP for contact task with the KUKA iiwa 
 """
 
 '''
-The robot is tasked with reaching a static EE target 
+The robot is tasked with approaching then contacting an object
+with its EE applying a constant normal force  
 Trajectory optimization using Crocoddyl
 The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
 
-from crocoddyl import GepettoDisplay
 import numpy as np  
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
@@ -25,7 +25,7 @@ np.set_printoptions(precision=4, linewidth=180)
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_contact_task_ocp')
+config = path_utils.load_config_file('switch_contact_task_ocp')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
@@ -39,9 +39,10 @@ nu = nq
 # Update robot model with initial state
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
-M_ee = robot.data.oMf[id_endeff]
+M_ee = robot.data.oMf[id_endeff].copy()
 print("EE frame placement : \n")
 print(M_ee)
+
 
 #################
 ### OCP SETUP ###
@@ -49,11 +50,10 @@ print(M_ee)
 N_h = config['N_h']
 dt = config['dt']
 # Contact frame placement 
-M_ct = robot.data.oMf[id_endeff].copy()
-# M_ct.translation += M_ct.act(np.array([0.,0.,0.03]))
+M_ct = M_ee.copy()
+M_ct.translation = M_ee.act(np.array([0., 0., .05]))
 print("Contact frame placement : \n")
 print(M_ct)
-
 
 
 # Warm start and reg
@@ -75,7 +75,6 @@ ug = pin_utils.get_u_grav(q0, robot)
 print("u0 = ", u0)
 print("ug = ", ug)
 
-# solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
                                             WHICH_COSTS=config['WHICH_COSTS'],
                                             CONTACT=True,
@@ -83,13 +82,30 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
                                             u_reg_ref=u0) 
 
 
-
+# Custom phases in the OCP 
+N_switch = N_h//4
+# Schedule cost weights for the task (time-based switch)
+for i in range(N_h):
+    if(i<=N_switch):
+        # First phase = reach EE placement
+        ddp.problem.runningModels[i].differential.contacts.changeContactStatus("contact", False)
+        ddp.problem.runningModels[i].differential.costs.changeCostStatus("force", False)
+        ddp.problem.runningModels[i].differential.costs.changeCostStatus("ctrlReg", False) # only grav first
+        ddp.problem.runningModels[i].differential.costs.costs["placement"].weight = 1.
+       #   ddp.problem.runningModels[i].differential.costs.costs["stateReg"].ref = 10.
+    else:
+        # Second phase = apply constant normal force
+        ddp.problem.runningModels[i].differential.contacts.changeContactStatus("contact", True)
+        ddp.problem.runningModels[i].differential.costs.changeCostStatus("force", True)
+        ddp.problem.runningModels[i].differential.costs.changeCostStatus("placement", False)
+        ddp.problem.runningModels[i].differential.costs.changeCostStatus("ctrlReg", True)
+        ddp.problem.runningModels[i].differential.costs.changeCostStatus("ctrlRegGrav", False)
+        # ddp.problem.runningModels[i].differential.costs.costs["stateReg"].weight = 10.
 
 # Solve and extract solution trajectories
-xs_init = [x0 for i in range(N_h+1)]
-us_init = [u0  for i in range(N_h)]
+xs_init = [x0 for i in range(N_switch)] + [x0 for i in range(N_switch, N_h+1)]
+us_init = [ug for i in range(N_switch)] + [u0 for i in range(N_switch, N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-
 
 #  Plot
 PLOT = True
@@ -110,7 +126,7 @@ if(VISUALIZE):
     # Display force if any
     if('force' in config['WHICH_COSTS']):
         # Display placement of contact in WORLD frame
-        M_contact = M_ee.copy()
+        M_contact = M_ct.copy()
         offset = np.array([0., 0., 0.03])
         M_contact.translation = M_contact.act(offset)
         tf_contact = list(pin.SE3ToXYZQUAT(M_contact))

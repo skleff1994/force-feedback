@@ -1401,7 +1401,7 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
     fig.suptitle('End-effector forces errors', size=18)
     # Save figs
     if(SAVE):
-        figs = {'p': fig}
+        figs = {'f': fig}
         if(SAVE_DIR is None):
             SAVE_DIR = '/home/skleff/force-feedback/data'
         if(SAVE_NAME is None):

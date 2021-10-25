@@ -46,7 +46,7 @@ id_endeff = robot.model.getFrameId('contact')
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
 contact_placement.translation = contact_placement.act(np.array([0., 0., .035])) 
-sim_utils.display_contact_surface(contact_placement, with_collision=False)
+sim_utils.display_contact_surface(contact_placement, with_collision=True)
 print("-------------------------------------------------------------------")
 print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
 print("-------------------------------------------------------------------")
@@ -91,9 +91,9 @@ xs_init = [x0 for i in range(N_h+1)]
 us_init = [u0 for i in range(N_h)]
 
 if(SOLVE_AND_PLOT_INIT):
-  ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-  ddp_data = data_utils.extract_ddp_data(ddp, CONTACT=True)
-  fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+  ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+  # ddp_data = data_utils.extract_ddp_data(ddp, CONTACT=True)
+  # fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###

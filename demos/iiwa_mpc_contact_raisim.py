@@ -35,7 +35,7 @@ iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
 
 # Load Raisim environment
 LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
-env = raisim_utils.RaiEnv(LICENSE_PATH, dt=1e-3)
+env = raisim_utils.RaiEnv(LICENSE_PATH, dt=1./config['simu_freq'])
 robot = env.add_robot(iiwa_config, init_config=None)
 env.launch_server()
 
@@ -57,10 +57,13 @@ print(M_ee)
 
 # Display contact surface
 id_endeff = robot.model.getFrameId('contact')
+  # Placement of reference of the contact in Crocoddyl (Baumgarte integration and friction cost)
+M_ct              = robot.data.oMf[id_endeff].copy() 
+  # Initial placement of contacted object in simulator
 contact_placement = robot.data.oMf[id_endeff].copy()
-M_ct = robot.data.oMf[id_endeff].copy()
-contact_placement.translation = contact_placement.act(np.array([0., 0., .045])) 
-env.display_contact_surface(contact_placement) #, with_collision=False)
+offset = 0.025 #0.025 #0.045 + 0.08 - 0.1
+contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
+env.display_contact_surface(contact_placement, radius=0.1) 
 print("-----------------------")
 print("[Raisim] Created robot ")
 print("-----------------------")
@@ -102,9 +105,13 @@ xs_init = [x0 for i in range(N_h+1)]
 us_init = [u0 for i in range(N_h)]
 
 if(SOLVE_AND_PLOT_INIT):
-  ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+  ddp.solve([x0 for i in range(N_h+1)], [u0 for i in range(N_h)], maxiter=100, isFeasible=False)
   # ddp_data = data_utils.extract_ddp_data(ddp)
   # fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], which_plots=['x','u','p', 'f'], SHOW=True)
+
+
+        for k,m in enumerate(ddp.problem.runningModels):
+          m.differential.
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
@@ -185,6 +192,9 @@ for i in range(sim_data['N_simu']):
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
+        # Update OCP 
+        for k,m in enumerate(ddp.problem.runningModels):
+          m.differential.
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -199,9 +209,8 @@ for i in range(sim_data['N_simu']):
         x_curr = sim_data['X_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
         x_pred = sim_data['X_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
         u_curr = sim_data['U_pred'][nb_plan, 0, :]    # u0* = optimal control   
-        f_curr = sim_data['F_pred'][nb_plan, 0, :]
-        f_pred = sim_data['F_pred'][nb_plan, 1, :]
-        # u_pred = sim_data['U_pred'][nb_plan, 1, :]  # u1* = predicted optimal control  
+        f_curr = sim_data['F_pred'][nb_plan, 0, :]    # f0* = current contact force
+        f_pred = sim_data['F_pred'][nb_plan, 1, :]    # f1* = predicted contact force
         # Record solver data (optional)
         if(config['RECORD_SOLVER_DATA']):
           sim_data['K'][nb_plan, :, :, :] = np.array(ddp.K)         # Ricatti gains
@@ -235,6 +244,7 @@ for i in range(sim_data['N_simu']):
           sim_data['X_des_PLAN'][nb_plan, :] = x_curr  
         sim_data['U_des_PLAN'][nb_plan, :]   = u_ref_PLAN   
         sim_data['X_des_PLAN'][nb_plan+1, :] = x_ref_PLAN    
+        sim_data['F_des_PLAN'][nb_plan, :] = f_ref_PLAN 
 
         # Increment planning counter
         nb_plan += 1
@@ -312,7 +322,7 @@ for i in range(sim_data['N_simu']):
       x_mea_SIMU = x_mea_SIMU / (n_sum + 1)
     # Record noised data
     sim_data['X_mea_SIMU'][i+1, :] = x_mea_SIMU 
-    sim_data['F_mea_SIMU'][i, :3] = f_mea_SIMU
+    sim_data['F_mea_SIMU'][i, :] = f_mea_SIMU
 
 print('--------------------------------')
 print('Simulation exited successfully !')

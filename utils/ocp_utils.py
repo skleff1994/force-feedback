@@ -298,7 +298,6 @@ def init_DDP(robot, config, x0, callbacks=False,
       baumgarte_gains = np.array([0., 0.])
       if(contact_placement is None):
         contact_placement = robot.data.oMf[id_endeff].copy()
-        # contact_placement.translation += contact_placement.act(np.array([0.,0.,-0.5]))
       contact6d = crocoddyl.ContactModel6D(state, id_endeff, contact_placement, baumgarte_gains) 
     
     
@@ -315,24 +314,27 @@ def init_DDP(robot, config, x0, callbacks=False,
       # print("[OCP] Added state reg cost.")  
     # Control regularization
     if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
-      # Gravity reg by default
-      if(u_reg_ref is None):
-        if(CONTACT):
-          residual = crocoddyl.ResidualModelContactControlGrav(state)
-        else:
-          residual = crocoddyl.ResidualModelControlGrav(state)
-        ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
-        uRegCost = crocoddyl.CostModelResidual(state, 
-                                              crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
-                                              residual)
-      # User-specified reg reference 
+      # 0 if not ref provided
+      if('ctrlRegRef' not in config):
+        u_reg_ref = np.zeros(nq)
       else:
-          residual = crocoddyl.ResidualModelControl(state, u_reg_ref)
-          ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
-          uRegCost = crocoddyl.CostModelResidual(state, 
-                                                crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
-                                                residual)
-      # print("[OCP] Added ctrl reg cost.")
+        u_reg_ref = np.asarray(config['ctrlRegRef'])
+      residual = crocoddyl.ResidualModelControl(state, u_reg_ref)
+      ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
+      uRegCost = crocoddyl.CostModelResidual(state, 
+                                            crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
+                                            residual)
+    # Control regularization (gravity)
+    if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+      # Gravity reg by default
+      if(CONTACT):
+        residual = crocoddyl.ResidualModelContactControlGrav(state)
+      else:
+        residual = crocoddyl.ResidualModelControlGrav(state)
+      ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
+      uRegCost = crocoddyl.CostModelResidual(state, 
+                                            crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
+                                            residual)
     # State limits penalization
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
       x_lim_ref  = np.zeros(nq+nv)
@@ -409,10 +411,10 @@ def init_DDP(robot, config, x0, callbacks=False,
       if(not CONTACT):
         print("[OCP] !! ERROR !! ")
         print("[OCP]  >>> No contact model is defined !")
-      cone_rotation = contact_placement.inverse().rotation
+      cone_rotation = contact_placement.rotation
       # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
       mu = config['mu']
-      frictionCone = crocoddyl.FrictionCone(cone_rotation, mu, 4, True, 0, 2000)
+      frictionCone = crocoddyl.FrictionCone(cone_rotation, mu, 4, True, 0, 200)
       frictionConeCost = crocoddyl.CostModelResidual(state,
                                                      crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
                                                      crocoddyl.ResidualModelContactFrictionCone(state, id_endeff, frictionCone))

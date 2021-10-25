@@ -110,7 +110,7 @@ class PinRaiRobotWrapper:
         """
         returns contact forces at each end effector
         """    
-        F = np.zeros(3)
+        F = np.zeros(6)
         nb_contact_points = 0
         # Get contact placement of contact point on the robot
         M_ee = self.data.oMf[self.model.getFrameId('contact')].inverse() # W-->L
@@ -121,21 +121,20 @@ class PinRaiRobotWrapper:
                 R_contact = contact.getContactFrame().T   # !! careful need to transpose according to doc
                 p_contact = contact.get_position()
                 M_contact = pin.SE3(R_contact, p_contact) # L-->W
-                # Contact frame 
+                # print("Contact n°"+str(nb_contact_points))
+                # print("  ", contact.getImpulse())
+                # print("  ", contact.getDepth())
                 # print("Normal in local ", R.T.dot(contact.getNormal())) OK
+                # Contact frame 
                 f_local_raisim = contact.getImpulse() / self.world.getTimeStep() # Already in local frame of contact point in simulator
+                wrench_local_raisim = np.concatenate([f_local_raisim, np.zeros(3)])
+                # Torque induced at EE frame origin by force acting on contact frame
                 # Move to contact frame as defined in URDF : LOCAL(raisim) --> WORLD --> LOCAL(urdf)
-                f_world = M_contact.actionInverse.T[:3,:3].dot(f_local_raisim)
-                f_ee = M_ee.actionInverse.T[:3, :3].dot(f_world)
-                F += f_ee
-                # F += contact.getContactFrame().T.dot(contact.getImpulse())/self.world.getTimeStep()
-                # print(" >>> ", contact.getImpulse())
-        if(nb_contact_points==0):
-            F = np.zeros(3)
-        else:
-            F/nb_contact_points
+                wrench_world = M_contact.actionInverse.T.dot(wrench_local_raisim) # LOCAL --> WORLD Same as M_contact.act( pin.Force(w) )
+                wrench_ee = M_ee.action.T.dot(wrench_world)                       # WORLD --> LOCAL Same as M_contact.actInv( pin.Force(w) )
+                F += wrench_ee
         return F
-        
+
     def get_current_contacts(self):
         """
         returns boolean array of which end-effectors are currently in contact
@@ -163,7 +162,6 @@ class PinRaiRobotWrapper:
             depths.append(c.getDepth())
         idx = depths.index(min(depths))
         return contacts[idx]
-
 
     def set_state(self, q, v):
         """
@@ -356,11 +354,10 @@ class RaiEnv:
         Create contact surface object in raisim and display it
         '''
         # wall = self.world.addBox(.1, 1, 1, 10, material="default", collision_group=1, collision_mask=18446744073709551615)
-        wall = self.world.addSphere(.1, 100, material="default")#, collision_group=1, collision_mask=-1)
+        wall = self.world.addSphere(radius, 100, material="default")#, collision_group=1, collision_mask=-1)
         wall.setBodyType(raisim.BodyType.STATIC)
         wall.setAppearance("0,1,0,0.1")
-        offset = .08
-        p = placement.act(np.array([0.,0.,offset]))
+        p = placement.act(np.array([0.,0.,radius]))
         wall.setPosition(p)
         # quat = list(pin.se3ToXYZQUAT(placement))
         # wall.setOrientation(quat[0], quat[1], quat[2], quat[3])
