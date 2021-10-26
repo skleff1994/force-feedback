@@ -112,8 +112,8 @@ class PinRaiRobotWrapper:
         """    
         F = np.zeros(6)
         nb_contact_points = 0
-        # Get contact placement of contact point on the robot
-        M_ee = self.data.oMf[self.model.getFrameId('contact')].inverse() # W-->L
+        # Get contact frame placement of the robot's EE (tennis ball)
+        M_ee = self.data.oMf[self.model.getFrameId('contact')]
         for contact in self.get_contact_points():
             if(contact.getlocalBodyIndex() == 7):
                 nb_contact_points +=1
@@ -121,18 +121,13 @@ class PinRaiRobotWrapper:
                 R_contact = contact.getContactFrame().T   # !! careful need to transpose according to doc
                 p_contact = contact.get_position()
                 M_contact = pin.SE3(R_contact, p_contact) # L-->W
-                # print("Contact n°"+str(nb_contact_points))
-                # print("  ", contact.getImpulse())
-                # print("  ", contact.getDepth())
-                # print("Normal in local ", R.T.dot(contact.getNormal())) OK
-                # Contact frame 
-                f_local_raisim = contact.getImpulse() / self.world.getTimeStep() # Already in local frame of contact point in simulator
-                wrench_local_raisim = np.concatenate([f_local_raisim, np.zeros(3)])
-                # Torque induced at EE frame origin by force acting on contact frame
-                # Move to contact frame as defined in URDF : LOCAL(raisim) --> WORLD --> LOCAL(urdf)
-                wrench_world = M_contact.actionInverse.T.dot(wrench_local_raisim) # LOCAL --> WORLD Same as M_contact.act( pin.Force(w) )
-                wrench_ee = M_ee.action.T.dot(wrench_world)                       # WORLD --> LOCAL Same as M_contact.actInv( pin.Force(w) )
-                F += wrench_ee
+                # Wrench in local contact frame
+                f_local_raisim = contact.getImpulse() / self.world.getTimeStep() 
+                wrench_local_raisim = pin.Force(np.concatenate([f_local_raisim, np.zeros(3)]))
+                # Wrench in contact frame as defined in URDF (tennis ball): LOCAL(raisim) --> WORLD --> LOCAL(urdf)
+                wrench_world = M_contact.act(wrench_local_raisim) # LOCAL --> WORLD Same as M_contact.act( pin.Force(w) )
+                wrench_ee = M_ee.actInv(wrench_world)                       # WORLD --> LOCAL Same as M_contact.actInv( pin.Force(w) )
+                F += wrench_ee.vector
         return F
 
     def get_current_contacts(self):
@@ -362,7 +357,7 @@ class RaiEnv:
         # quat = list(pin.se3ToXYZQUAT(placement))
         # wall.setOrientation(quat[0], quat[1], quat[2], quat[3])
         # wall.setBodyType(raisim.BodyType.STATIC)
-
+        return wall
 
 
 # Load KUKA arm in Raisim environment

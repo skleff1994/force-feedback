@@ -61,7 +61,7 @@ id_endeff = robot.model.getFrameId('contact')
 M_ct              = robot.data.oMf[id_endeff].copy() 
   # Initial placement of contacted object in simulator
 contact_placement = robot.data.oMf[id_endeff].copy()
-offset = 0.025 #0.025 #0.045 + 0.08 - 0.1
+offset = 0.035 #0.025 #0.045 + 0.08 - 0.1
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 env.display_contact_surface(contact_placement, radius=0.1) 
 print("-----------------------")
@@ -79,14 +79,12 @@ import pinocchio as pin
 f_ext = []
 for i in range(nq+1):
     # CONTACT --> WORLD
-    W_X_ct = contact_placement.action
+    W_M_ct = contact_placement.copy()
+    f_WORLD = W_M_ct.act(pin.Force(np.asarray(config['f_des'])))
     # WORLD --> JOINT
-    j_X_W  = robot.data.oMi[i].actionInverse
-    # CONTACT --> JOINT
-    j_X_ee = W_X_ct.dot(j_X_W)
-    # ADJOINT INVERSE (wrenches)
-    f_joint = j_X_ee.T.dot(np.asarray(config['f_des']))
-    f_ext.append(pin.Force(f_joint))
+    j_M_W = robot.data.oMi[i].copy().inverse()
+    f_JOINT = j_M_W.act(f_WORLD)
+    f_ext.append(f_JOINT)
 # print(f_ext)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 
@@ -101,17 +99,16 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False,
                                             u_reg_ref=u0) 
 SOLVE_AND_PLOT_INIT = True
 
+
 xs_init = [x0 for i in range(N_h+1)]
 us_init = [u0 for i in range(N_h)]
 
 if(SOLVE_AND_PLOT_INIT):
-  ddp.solve([x0 for i in range(N_h+1)], [u0 for i in range(N_h)], maxiter=100, isFeasible=False)
+  ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   # ddp_data = data_utils.extract_ddp_data(ddp)
   # fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], which_plots=['x','u','p', 'f'], SHOW=True)
-
-
-        for k,m in enumerate(ddp.problem.runningModels):
-          m.differential.
+        # for k,m in enumerate(ddp.problem.runningModels):
+        #   m.differential.
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
@@ -193,8 +190,8 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
         # Update OCP 
-        for k,m in enumerate(ddp.problem.runningModels):
-          m.differential.
+        # for k,m in enumerate(ddp.problem.runningModels):
+        #   m.differential.
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]

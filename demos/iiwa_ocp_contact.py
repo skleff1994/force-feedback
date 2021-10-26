@@ -61,19 +61,25 @@ import pinocchio as pin
 f_ext = []
 for i in range(nq+1):
     # CONTACT --> WORLD
-    W_X_ct = M_ct.action
+    W_M_ct = M_ct.copy()
+    f_WORLD = W_M_ct.actionInverse.T.dot(np.asarray(config['f_des']))
+    # W_X_ct = contact_placement.action
     # WORLD --> JOINT
-    j_X_W  = robot.data.oMi[i].actionInverse
+    j_M_W = robot.data.oMi[i].copy().inverse()
+    f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
+    # j_X_W  = robot.data.oMi[i].actionInverse
     # CONTACT --> JOINT
-    j_X_ee = W_X_ct.dot(j_X_W)
-    # ADJOINT INVERSE (wrenches)
-    f_joint = j_X_ee.T.dot(np.asarray(config['f_des']))
-    f_ext.append(pin.Force(f_joint))
+    # j_X_ee = W_X_ct.dot(j_X_W)
+    # ADJOINT INVERSE (i.e. wrench JOINT --> CONTACT) 
+    # f_joint = j_X_ee.actionInverse.T.dot(np.asarray(config['f_des']))
+    f_ext.append(pin.Force(f_JOINT))
 # print(f_ext)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 ug = pin_utils.get_u_grav(q0, robot)
 print("u0 = ", u0)
 print("ug = ", ug)
+
+
 
 # solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
