@@ -18,18 +18,21 @@ WHICH_COSTS: ['translation', 'velocity', 'ctrlReg', 'stateReg', 'stateLim'] # pl
 stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 2., 2., 2., 2., 2., 2., 2.]
 stateRegWeight: .001
 stateRegWeightTerminal: 10.
+stateRegRef: 'None' # default 0 if None
 
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.01
 ctrlRegWeightTerminal: 1.
+ctrlRegReg: 'None'  # default 0 if None
 
  # 'stateLim' : state limits
+stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
 stateLimWeight: 0.
 stateLimWeightTerminal: 0.
 
  # 'ctrlLim' : torque limits
-u_lim: [320, 320, 176, 176, 110, 40, 40]
+ctrl_lim: [320, 320, 176, 176, 110, 40, 40]
 ctrlLimWeight: 0.
 
  # 'placement' : end-effector frame placement (translation + rotation)

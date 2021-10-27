@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_ocp_lpf_contact.py
+@file iiwa_LPF_contact_OCP.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.

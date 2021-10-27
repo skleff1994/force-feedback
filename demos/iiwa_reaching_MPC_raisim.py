@@ -1,7 +1,7 @@
 
 """
 @package force_feedback
-@file iiwa_mpc_static_reach_raisim.py
+@file iiwa_reaching_MPC_raisim.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS

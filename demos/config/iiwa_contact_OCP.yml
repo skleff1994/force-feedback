@@ -30,7 +30,7 @@ ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.01
 ctrlRegRef: [0., 0., 0., 0., 0., 0., 0.]
 
-p_des: 'None'  # both translation and placement
+p_des: 'None' # 'None' <-> default = initial  # both translation and placement
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
@@ -41,7 +41,7 @@ frameTranslationWeightTerminal: .1
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
 frameVelocityWeight: .1
 frameVelocityWeightTerminal: .1
-v_des: [0., 0., 0.]       
+frameVelocityRef: [0., 0., 0., 0., 0., 0.]   
 
  # 'placement' : end-effector frame placement (translation + rotation)
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
