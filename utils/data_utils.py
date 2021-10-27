@@ -325,15 +325,20 @@ def init_sim_data_LPF(config, robot, y0):
     # Predictions
     sim_data['Y_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'])) # Predicted states  ( ddp.xs : {y* = (q*, v*, tau*)} )
     sim_data['W_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {w*} )
+    sim_data['F_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], 6))                # Predicted EE contact forces
     sim_data['Y_des_PLAN'] = np.zeros((sim_data['N_plan']+1, sim_data['ny']))            # Predicted states at planner frequency  ( y* interpolated at PLAN freq )
     sim_data['W_des_PLAN'] = np.zeros((sim_data['N_plan'], sim_data['nu']))              # Predicted torques at planner frequency ( w* interpolated at PLAN freq )
+    sim_data['F_des_PLAN'] = np.zeros((sim_data['N_plan'], 6))                           # Predicted EE contact forces planner frequency  
     sim_data['Y_des_CTRL'] = np.zeros((sim_data['N_ctrl']+1, sim_data['ny']))            # Reference state at motor drivers freq ( y* interpolated at CTRL freq )
     sim_data['W_des_CTRL'] = np.zeros((sim_data['N_ctrl'], sim_data['nu']))              # Reference input at motor drivers freq ( w* interpolated at CTRL freq )
+    sim_data['F_des_CTRL'] = np.zeros((sim_data['N_ctrl'], 6))                           # Reference EE contact force at motor drivers freq
     sim_data['Y_des_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))            # Reference state at actuation freq ( y* interpolated at SIMU freq )
     sim_data['W_des_SIMU'] = np.zeros((sim_data['N_simu'], sim_data['nu']))              # Reference input at actuation freq ( w* interpolated at SIMU freq )
+    sim_data['F_des_SIMU'] = np.zeros((sim_data['N_simu'], 6))                           # Reference EE contact force at actuation freq
     # Measurements
     sim_data['Y_mea_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))            # Measured states ( y^mea = (q, v, tau) from actuator & PyB at SIMU freq )
     sim_data['Y_mea_no_noise_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))   # Measured states ( y^mea = (q, v, tau) from actuator & PyB at SIMU freq ) without noise
+    sim_data['F_mea_SIMU'] = np.zeros((sim_data['N_simu'], 6)) 
     sim_data['Y_mea_SIMU'][0, :] = y0
     sim_data['Y_mea_no_noise_SIMU'][0, :] = y0
     # # Derivatives  
@@ -448,7 +453,14 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     plot_data['v_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['p_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['v_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
-
+    # Extract EE force
+    plot_data['f_ee_pred'] = sim_data['F_pred']
+    plot_data['f_ee_mea'] = sim_data['F_mea_SIMU']
+    plot_data['f_ee_des_PLAN'] = sim_data['F_des_PLAN']
+    plot_data['f_ee_des_CTRL'] = sim_data['F_des_CTRL']
+    plot_data['f_ee_des_SIMU'] = sim_data['F_des_SIMU']
+    plot_data['f_ee_ref'] = sim_data['f_ee_ref']
+    
     # Solver data (optional)
     if(sim_data['RECORD_SOLVER_DATA']):
       # Get SVD & diagonal of Ricatti + record in sim data

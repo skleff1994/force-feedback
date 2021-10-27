@@ -10,6 +10,92 @@ from utils import pin_utils
 
 ### Plot from MPC simulation (LPF)
 
+# Plot data
+def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
+                                              pred_plot_sampling=100, 
+                                              SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                                              SHOW=True,
+                                              AUTOSCALE=False):
+    '''
+    Plot sim data (MPC simulation using LPF, i.e. state y = (q,v,tau))
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+      AUTOSCALE                 : rescale y-axis of endeff plot 
+                                  based on maximum value taken
+    '''
+
+    figs = {}; axes = {}
+
+    if('y' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        figs['y'], axes['y'] = plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                           pred_plot_sampling=pred_plot_sampling, 
+                                           SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                           SHOW=False)
+    
+    if('w' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        figs['w'], axes['w'] = plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                             pred_plot_sampling=pred_plot_sampling, 
+                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                             SHOW=False)
+
+    if('p' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        figs['p'], axes['p'] = plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                            pred_plot_sampling=pred_plot_sampling, 
+                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False, AUTOSCALE=AUTOSCALE)
+
+    if('f' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        figs['f'], axes['f'] = plot_mpc_force_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                            pred_plot_sampling=pred_plot_sampling, 
+                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False, AUTOSCALE=AUTOSCALE)
+
+    if('K' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        if('K_diag' in plot_data.keys()):
+            figs['K_diag'], axes['K_diag'] = plot_mpc_ricatti_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+        if('K_svd' in plot_data.keys()):
+            figs['K_svd'], axes['K_svd'] = plot_mpc_ricatti_svd_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('V' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        if('V_diag' in plot_data.keys()):
+            figs['V_diag'], axes['V_diag'] = plot_mpc_Vxx_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+        if('V_eig' in plot_data.keys()):
+            figs['V_eig'], axes['V_eig'] = plot_mpc_Vxx_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+
+    if('S' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        if('S' in plot_data.keys()):
+            figs['S'], axes['S'] = plot_mpc_solver_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('J' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        if('J' in plot_data.keys()):
+            figs['J'], axes['J'] = plot_mpc_jacobian_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                SHOW=False)
+
+    if('Q' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        if('Q_diag' in plot_data.keys()):
+            figs['Q_diag'], axes['Q_diag'] = plot_mpc_Quu_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+        if('Q_eig' in plot_data.keys()):
+            figs['Q_eig'], axes['Q_eig'] = plot_mpc_Quu_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False)
+    
+    if(SHOW):
+        plt.show() 
+    
+    return figs, axes
+    # plt.close('all')
+
 # Plot state data
 def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False, 
                                   pred_plot_sampling=100, 
@@ -290,6 +376,30 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
                                    SHOW=True,
                                    AUTOSCALE=False)
 
+# Plot end-eff data
+def plot_mpc_force_LPF(plot_data, PLOT_PREDICTIONS=False, 
+                                   pred_plot_sampling=100, 
+                                   SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                                   SHOW=True,
+                                   AUTOSCALE=False):
+    '''
+    Plot force data
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+      AUTOSCALE                 : rescale y-axis of endeff plot 
+                                  based on maximum value taken
+    '''
+    return plot_mpc_force(plot_data, PLOT_PREDICTIONS=False, 
+                                   pred_plot_sampling=100, 
+                                   SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                                   SHOW=True,
+                                   AUTOSCALE=False)
 
 
 # Plot Ricatti SVD
@@ -572,86 +682,6 @@ def plot_mpc_jacobian_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SHOW                      : show plots
     '''
     return plot_mpc_jacobian(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME, SHOW=SHOW)
-
-# Plot data
-def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
-                                              pred_plot_sampling=100, 
-                                              SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
-                                              SHOW=True,
-                                              AUTOSCALE=False):
-    '''
-    Plot sim data (MPC simulation using LPF, i.e. state y = (q,v,tau))
-     Input:
-      plot_data                 : plotting data
-      PLOT_PREDICTIONS          : True or False
-      pred_plot_sampling        : plot every pred_plot_sampling prediction 
-                                  to avoid huge amount of plotted data 
-                                  ("1" = plot all)
-      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
-      SHOW                      : show plots
-      AUTOSCALE                 : rescale y-axis of endeff plot 
-                                  based on maximum value taken
-    '''
-
-    figs = {}; axes = {}
-
-    if('y' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        figs['y'], axes['y'] = plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
-                                           pred_plot_sampling=pred_plot_sampling, 
-                                           SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                           SHOW=False)
-    
-    if('w' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        figs['w'], axes['w'] = plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
-                                             pred_plot_sampling=pred_plot_sampling, 
-                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                             SHOW=False)
-
-    if('p' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        figs['p'], axes['p'] = plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
-                                            pred_plot_sampling=pred_plot_sampling, 
-                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False, AUTOSCALE=AUTOSCALE)
-
-    if('K' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        if('K_diag' in plot_data.keys()):
-            figs['K_diag'], axes['K_diag'] = plot_mpc_ricatti_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-        if('K_svd' in plot_data.keys()):
-            figs['K_svd'], axes['K_svd'] = plot_mpc_ricatti_svd_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-
-    if('V' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        if('V_diag' in plot_data.keys()):
-            figs['V_diag'], axes['V_diag'] = plot_mpc_Vxx_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-        if('V_eig' in plot_data.keys()):
-            figs['V_eig'], axes['V_eig'] = plot_mpc_Vxx_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-
-    if('S' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        if('S' in plot_data.keys()):
-            figs['S'], axes['S'] = plot_mpc_solver_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-
-    if('J' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        if('J' in plot_data.keys()):
-            figs['J'], axes['J'] = plot_mpc_jacobian_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                                SHOW=False)
-
-    if('Q' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        if('Q_diag' in plot_data.keys()):
-            figs['Q_diag'], axes['Q_diag'] = plot_mpc_Quu_diag_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-        if('Q_eig' in plot_data.keys()):
-            figs['Q_eig'], axes['Q_eig'] = plot_mpc_Quu_eig_LPF(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
-    
-    if(SHOW):
-        plt.show() 
-    
-    return figs, axes
-    # plt.close('all')
 
 
 

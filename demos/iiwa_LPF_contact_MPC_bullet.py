@@ -46,6 +46,13 @@ env, pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
 robot = pybullet_simulator.pin_robot
 # Get dimensions 
 nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
+# Display contact surface
+id_endeff = robot.model.getFrameId('contact')
+contact_placement = robot.data.oMf[id_endeff].copy()
+M_ct = robot.data.oMf[id_endeff].copy()
+offset = 0.0320
+contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
+sim_utils.display_contact_surface(contact_placement, with_collision=True)
 print("-------------------------------------------------------------------")
 print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
 print("-------------------------------------------------------------------")
@@ -71,11 +78,28 @@ if(LPF_TYPE==1):
 if(LPF_TYPE==2):
     y = np.cos(2*np.pi*config['f_c']*dt)
     alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
+
+
+# Warm start and reg
+import pinocchio as pin
+f_ext = []
+for i in range(nq+1):
+    # CONTACT --> WORLD
+    W_M_ct = contact_placement.copy()
+    f_WORLD = W_M_ct.act(pin.Force(np.asarray(config['frameForceRef'])))
+    # WORLD --> JOINT
+    j_M_W = robot.data.oMi[i].copy().inverse()
+    f_JOINT = j_M_W.act(f_WORLD)
+    f_ext.append(f_JOINT)
+# print(f_ext)
+u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+
+
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                cost_w_reg=1e-6, 
+                                                cost_w_reg=1e-3, 
                                                 cost_w_lim=10.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
@@ -94,17 +118,12 @@ if(WEIGHT_PROFILE):
       # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
 
 xs_init = [y0 for i in range(N_h+1)]
-us_init = [ug for i in range(N_h)]
+us_init = [u0 for i in range(N_h)]
 
 if(SOLVE_AND_PLOT_INIT):
-  xs_init = [y0 for i in range(N_h+1)]
-  us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-  # for i in range(N_h):
-  #   print(ddp.problem.runningDatas[i].differential.costs.costs['ctrlReg'].activation.a_value)
-  # print(ddp.problem.terminalData.differential.costs.costs['ctrlReg'].activation.a_value)
-  ddp_data = data_utils.extract_ddp_data_LPF(ddp)
-  fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
+  # ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+  # fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
@@ -126,7 +145,7 @@ y_buffer_OCP = []                                             # buffer for desi
 w_buffer_OCP = []                                             # buffer for desired states delayed by OCP computation time
 buffer_sim = []                                               # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
-WHICH_PLOTS = ['y','w', 'p']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS = ['f'] #['y','w', 'p', 'f']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 DELAY_SIM = config['DELAY_SIM']                               # Add delay in reference torques (low-level)
 DELAY_OCP = config['DELAY_OCP']                               # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES = config['SCALE_TORQUES']                       # Affine scaling of reference torque
@@ -226,10 +245,14 @@ for i in range(sim_data['N_simu']):
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
         sim_data['Y_pred'][nb_plan, :, :] = np.array(ddp.xs)
         sim_data['W_pred'][nb_plan, :, :] = np.array(ddp.us)
+        sim_data ['F_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(N_h)])
+
         # Extract relevant predictions for interpolations
         y_curr = sim_data['Y_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
         y_pred = sim_data['Y_pred'][nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
         w_curr = sim_data['W_pred'][nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
+        f_curr = sim_data['F_pred'][nb_plan, 0, :]
+        f_pred = sim_data['F_pred'][nb_plan, 1, :]
         # w_pred = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
         # Record solver data (optional)
         if(config['RECORD_SOLVER_DATA']):
@@ -259,11 +282,13 @@ for i in range(sim_data['N_simu']):
         # Select reference control and state for the current PLAN cycle
         y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
         w_ref_PLAN  = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        f_ref_PLAN  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         if(nb_plan==0):
           sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
         sim_data['W_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
         sim_data['Y_des_PLAN'][nb_plan+1, :] = y_ref_PLAN    
-
+        sim_data['F_des_PLAN'][nb_plan, :] = f_ref_PLAN    
+        
         # Increment planning counter
         nb_plan += 1
 
@@ -274,11 +299,13 @@ for i in range(sim_data['N_simu']):
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
         y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
         w_ref_CTRL = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev) #w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        f_ref_CTRL = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
         sim_data['W_des_CTRL'][nb_ctrl, :]   = w_ref_CTRL  
         sim_data['Y_des_CTRL'][nb_ctrl+1, :] = y_ref_CTRL   
+        sim_data['F_des_CTRL'][nb_ctrl, :] = f_ref_CTRL 
         # Increment control counter
         nb_ctrl += 1
         
@@ -288,12 +315,14 @@ for i in range(sim_data['N_simu']):
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
     y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
     w_ref_SIMU  = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)# w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+    f_ref_SIMU  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
 
     # First prediction = measurement = initialization of MPC
     if(i==0):
       sim_data['Y_des_SIMU'][i, :] = y_curr  
     sim_data['W_des_SIMU'][i, :]   = w_ref_SIMU  
     sim_data['Y_des_SIMU'][i+1, :] = y_ref_SIMU 
+    sim_data['F_des_SIMU'][i, :] = f_ref_SIMU 
 
     # Torque applied by motor on actuator : interpolate current torque and predicted torque 
     tau_ref_SIMU =  y_ref_SIMU[-nu:] # y_curr[-nu:]+ COEF * EPS * (y_pred[-nu:] - y_curr[-nu:]) # (dt_sim/dt_mpc) # 
@@ -320,6 +349,14 @@ for i in range(sim_data['N_simu']):
     env.step()
     # Measure new state from simulation :
     q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
+    # Measure force from simulation
+    _, force_measured = pybullet_simulator.get_force()
+    if(len(force_measured)==0):
+        f_mea_SIMU = np.zeros(6)
+    else:
+        f_mea_SIMU = force_measured[0]
+    if(i%50==0): 
+      print(f_mea_SIMU)
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Record data (unnoised)
@@ -338,6 +375,7 @@ for i in range(sim_data['N_simu']):
       y_mea_SIMU = y_mea_SIMU / (n_sum + 1)
     # Record noised data
     sim_data['Y_mea_SIMU'][i+1, :] = y_mea_SIMU 
+    sim_data['F_mea_SIMU'][i, :] = f_mea_SIMU
 
 print('--------------------------------')
 print('Simulation exited successfully !')
