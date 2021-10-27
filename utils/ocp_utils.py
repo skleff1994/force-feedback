@@ -326,13 +326,14 @@ def init_DDP(robot, config, x0, callbacks=False,
                                             residual)
     # Control regularization (gravity)
     if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+      print("yoyo")
       # Gravity reg by default
       if(CONTACT):
         residual = crocoddyl.ResidualModelContactControlGrav(state)
       else:
         residual = crocoddyl.ResidualModelControlGrav(state)
       ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
-      uRegCost = crocoddyl.CostModelResidual(state, 
+      uRegGravCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                             residual)
     # State limits penalization
@@ -448,6 +449,8 @@ def init_DDP(robot, config, x0, callbacks=False,
           runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['stateRegWeight'])
         if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeight'])
+        if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+          runningModels[i].differential.costs.addCost("ctrlRegGrav", uRegGravCost, config['ctrlRegWeight'])
         if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
         if('all' in WHICH_COSTS or 'ctrlLim' in WHICH_COSTS):

@@ -22,6 +22,9 @@ import time
 from utils import raisim_utils, path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 np.set_printoptions(precision=4, linewidth=180)
 
+# Fix seed 
+np.random.seed(1)
+
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
@@ -61,9 +64,10 @@ id_endeff = robot.model.getFrameId('contact')
 M_ct              = robot.data.oMf[id_endeff].copy() 
   # Initial placement of contacted object in simulator
 contact_placement = robot.data.oMf[id_endeff].copy()
-offset = 0.035 #0.025 #0.045 + 0.08 - 0.1
+offset = iiwa_config.tennis_ball_radius 
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-env.display_contact_surface(contact_placement, radius=0.1) 
+env.display_ball(contact_placement, radius=0.1) 
+# env.display_wall(contact_placement)
 print("-----------------------")
 print("[Raisim] Created robot ")
 print("-----------------------")
@@ -300,7 +304,8 @@ for i in range(sim_data['N_simu']):
     q_mea_SIMU, v_mea_SIMU = robot.get_state()
     # Measure force from simulation
     f_mea_SIMU = robot.get_contact_forces()
-    print(f_mea_SIMU)
+    if(i%50==0): 
+      print(f_mea_SIMU)
     # Update pinocchio model
     robot.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Record data (unnoised)
@@ -343,6 +348,9 @@ plot_utils.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
                                 SAVE=True,
                                 SAVE_DIR=save_dir,
                                 SAVE_NAME=save_name,
-                                AUTOSCALE=False)
+                                AUTOSCALE=True)
+# Save optionally
+if(config['SAVE_DATA']):
+  data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)
 
 env.server.killServer()

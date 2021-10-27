@@ -471,6 +471,10 @@ def extract_ddp_data(ddp, CONTACT=False):
     if('stateReg' in ddp_data['active_costs']):
         ddp_data['stateReg_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['stateReg'].cost.residual.reference for i in range(ddp.problem.T)]
         ddp_data['stateReg_ref'].append(ddp.problem.terminalModel.differential.costs.costs['stateReg'].cost.residual.reference)
+    if('ctrlReg' in ddp_data['active_costs']):
+        ddp_data['ctrlReg_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].cost.residual.reference for i in range(ddp.problem.T)]
+    if('ctrlRegGrav' in ddp_data['active_costs']):
+        ddp_data['ctrlRegGrav_ref'] = [pin_utils.get_u_grav_(ddp.xs[i][:ddp_data['nq']], ddp_data['pin_model']) for i in range(ddp.problem.T)]
     if('stateLim' in ddp_data['active_costs']):
         ddp_data['stateLim_ub'] = [ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.ub for i in range(ddp.problem.T)]
         ddp_data['stateLim_lb'] = [ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.lb for i in range(ddp.problem.T)]

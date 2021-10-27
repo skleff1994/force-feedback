@@ -8,7 +8,7 @@ q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint confi
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
-WHICH_COSTS: ['stateReg', 'velocity', 'translation', 'ctrlReg'] # placement, etc.
+WHICH_COSTS: ['stateReg', 'velocity', 'translation', 'ctrlRegGrav'] # placement, etc.
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  

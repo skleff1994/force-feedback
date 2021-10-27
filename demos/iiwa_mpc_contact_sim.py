@@ -22,6 +22,8 @@ from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_
 import pybullet as p
 import time 
 
+np.set_printoptions(precision=4, linewidth=180)
+
 # Fix seed 
 np.random.seed(1)
 
@@ -45,7 +47,8 @@ nq, nv = robot.model.nq, robot.model.nv; nu = nq
 id_endeff = robot.model.getFrameId('contact')
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
-contact_placement.translation = contact_placement.act(np.array([0., 0., .035])) 
+offset = 0.0320
+contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 sim_utils.display_contact_surface(contact_placement, with_collision=True)
 print("-------------------------------------------------------------------")
 print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
@@ -63,14 +66,12 @@ import pinocchio as pin
 f_ext = []
 for i in range(nq+1):
     # CONTACT --> WORLD
-    W_X_ct = contact_placement.action
+    W_M_ct = contact_placement.copy()
+    f_WORLD = W_M_ct.act(pin.Force(np.asarray(config['f_des'])))
     # WORLD --> JOINT
-    j_X_W  = robot.data.oMi[i].actionInverse
-    # CONTACT --> JOINT
-    j_X_ee = W_X_ct.dot(j_X_W)
-    # ADJOINT INVERSE (wrenches)
-    f_joint = j_X_ee.T.dot(np.asarray(config['f_des']))
-    f_ext.append(pin.Force(f_joint))
+    j_M_W = robot.data.oMi[i].copy().inverse()
+    f_JOINT = j_M_W.act(f_WORLD)
+    f_ext.append(f_JOINT)
 # print(f_ext)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 
@@ -311,8 +312,8 @@ for i in range(sim_data['N_simu']):
         f_mea_SIMU = np.zeros(6)
     else:
         f_mea_SIMU = force_measured[0]
-    # print(f_mea_SIMU)
-    print(f_curr)
+    if(i%50==0): 
+      print(f_mea_SIMU)
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Record data (unnoised)

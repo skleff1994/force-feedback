@@ -1983,34 +1983,49 @@ def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, marker=None, color
     N = ddp_data['T'] 
     dt = ddp_data['dt']
     nu = ddp_data['nu'] 
-    nq = ddp_data['nq'] 
-    # Extract pos, vel trajs
+    # Extract trajectory
     u = np.array(ddp_data['us'])
-    q = np.array(ddp_data['xs'])[:,:nq]
-    ureg_ref = np.zeros((N,nu))
     if('ctrlReg' in ddp_data['active_costs']):
-        for i in range(N):
-            ureg_ref[i,:] = pin_utils.get_u_grav_(q[i,:], ddp_data['pin_model'])
-    # Plots
+        ureg_ref  = np.array(ddp_data['ctrlReg_ref']) 
+    if('ctrlRegGrav' in ddp_data['active_costs']):
+        ureg_grav = np.array(ddp_data['ctrlRegGrav_ref'])
+
     tspan = np.linspace(0, N*dt-dt, N)
     if(ax is None or fig is None):
         fig, ax = plt.subplots(nu, 1, sharex='col') 
     if(label is None):
         label='Control'    
+
     for i in range(nu):
-        # Positions
+        # Plot optimal control trajectory
         ax[i].plot(tspan, u[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+
+        # Plot control regularization reference 
         if('ctrlReg' in ddp_data['active_costs']):
             handles, labels = ax[i].get_legend_handles_labels()
-            if('u_grav(q)' in labels):
+            if('u_reg' in labels):
+                handles.pop(labels.index('u_reg'))
+                ax[i].lines.pop(labels.index('u_reg'))
+                labels.remove('u_reg')
+            ax[i].plot(tspan, ureg_ref[:,i], linestyle='-.', color='k', marker=None, label='u_reg', alpha=0.5)
+
+        # Plot gravity compensation torque
+        if('ctrlRegGrav' in ddp_data['active_costs']):
+            print("yoyo")
+            handles, labels = ax[i].get_legend_handles_labels()
+            if('grav(q)' in labels):
                 handles.pop(labels.index('u_grav(q)'))
                 ax[i].lines.pop(labels.index('u_grav(q)'))
                 labels.remove('u_grav(q)')
-            ax[i].plot(tspan, ureg_ref[:,i], linestyle='-.', color='k', marker=None, label='u_grav(q)', alpha=0.5)
+            ax[i].plot(tspan, ureg_grav[:,i], linestyle='-.', color='m', marker=None, label='u_grav(q)', alpha=0.5)
+        
+        # Labels, tick labels, grid
         ax[i].set_ylabel('$u_%s$'%i, fontsize=16)
         ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i].grid(True)
+
+    # Set x label + align
     ax[-1].set_xlabel('Time (s)', fontsize=16)
     fig.align_ylabels(ax[:])
     # Legend

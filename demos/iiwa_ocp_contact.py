@@ -63,23 +63,14 @@ for i in range(nq+1):
     # CONTACT --> WORLD
     W_M_ct = M_ct.copy()
     f_WORLD = W_M_ct.actionInverse.T.dot(np.asarray(config['f_des']))
-    # W_X_ct = contact_placement.action
     # WORLD --> JOINT
     j_M_W = robot.data.oMi[i].copy().inverse()
     f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
-    # j_X_W  = robot.data.oMi[i].actionInverse
-    # CONTACT --> JOINT
-    # j_X_ee = W_X_ct.dot(j_X_W)
-    # ADJOINT INVERSE (i.e. wrench JOINT --> CONTACT) 
-    # f_joint = j_X_ee.actionInverse.T.dot(np.asarray(config['f_des']))
     f_ext.append(pin.Force(f_JOINT))
-# print(f_ext)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 ug = pin_utils.get_u_grav(q0, robot)
 print("u0 = ", u0)
 print("ug = ", ug)
-
-
 
 # solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
@@ -205,15 +196,15 @@ if(VISUALIZE):
 
 
 
-# # Check forces
-# import pinocchio as pin
-# q = np.array(ddp.xs)[:,:nq]
-# v = np.array(ddp.xs)[:,nq:] 
-# u = np.array(ddp.us)
-# f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
-# import matplotlib.pyplot as plt
-# for i in range(3):
-#     ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], '-.', label="(JMiJ')+")
-#     ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], '-.', label="(JMiJ')+")
-# plt.legend()
-# plt.show()
+# Check forces
+import pinocchio as pin
+q = np.array(ddp.xs)[:,:nq]
+v = np.array(ddp.xs)[:,nq:] 
+u = np.array(ddp.us)
+f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
+import matplotlib.pyplot as plt
+for i in range(3):
+    ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], '-.', label="(JMiJ')+")
+    ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], '-.', label="(JMiJ')+")
+plt.legend()
+plt.show()

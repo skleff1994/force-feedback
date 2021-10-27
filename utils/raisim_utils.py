@@ -24,7 +24,7 @@ class IiwaMinimalConfig:
         self.initial_configuration = [0.]*self.model.nq
         self.initial_velocity = [0.]*self.model.nv
         self.link_names =  ['iiwa_base', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7']
-
+        self.tennis_ball_radius = 0.0320 # Value found empirically to be already in contact
 
 
 class PinRaiRobotWrapper:
@@ -344,22 +344,45 @@ class RaiEnv:
             return position, np.identity(3)
 
     # Load contact surface in PyBullet for contact experiments
-    def display_contact_surface(self, placement, radius=.5, length=0.0, with_collision=False):
+    def display_ball(self, placement, radius=.5, length=0.0, with_collision=False):
         '''
         Create contact surface object in raisim and display it
         '''
         # wall = self.world.addBox(.1, 1, 1, 10, material="default", collision_group=1, collision_mask=18446744073709551615)
-        wall = self.world.addSphere(radius, 100, material="default")#, collision_group=1, collision_mask=-1)
-        wall.setBodyType(raisim.BodyType.STATIC)
-        wall.setAppearance("0,1,0,0.1")
+        ball = self.world.addSphere(radius, 100, material="default")#, collision_group=1, collision_mask=-1)
+        ball.setBodyType(raisim.BodyType.STATIC)
+        ball.setAppearance("0,1,0,0.1")
         p = placement.act(np.array([0.,0.,radius]))
-        wall.setPosition(p)
+        ball.setPosition(p)
         # quat = list(pin.se3ToXYZQUAT(placement))
         # wall.setOrientation(quat[0], quat[1], quat[2], quat[3])
         # wall.setBodyType(raisim.BodyType.STATIC)
+        return ball
+
+    def display_wall(self, placement, width=0.01, length=0.0, with_collision=False):
+        '''
+        Create contact surface object in raisim and display it
+        '''
+        wall = self.world.addBox(width, 1, 1, 10, material="default")# collision_group=1, collision_mask=18446744073709551615)
+        wall.setBodyType(raisim.BodyType.STATIC)
+        wall.setAppearance("0,1,0, 0.01")
+        p = placement.act(np.array([0.,0., width]))
+        quat = list(pin.se3ToXYZQUAT(placement))
+        # wall.setOrientation(quat[0], quat[1], quat[2], quat[3])
+        wall.setPosition(p)
         return wall
 
-
+# def rotationMatrixFromTwoVectors(a, b):
+#     a_copy = a / np.linalg.norm(a)
+#     b_copy = b / np.linalg.norm(b)
+#     a_cross_b = np.cross(a_copy, b_copy, axis=0)
+#     s = np.linalg.norm(a_cross_b)
+#     if s == 0:
+#         return np.eye(3)
+#     c = np.dot(a_copy, b_copy)
+#     ab_skew = pin.skew(a_cross_b)
+#     return np.eye(3) + ab_skew + np.dot(ab_skew, ab_skew) * (1 - c) / s**2
+        
 # Load KUKA arm in Raisim environment
 def init_kuka_RAISIM(dt=1e3, x0=None):
     '''
