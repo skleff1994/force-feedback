@@ -9,7 +9,7 @@
 """
 
 '''
-The robot is tasked with reaching a static EE target 
+The robot is tasked with exerting a constant normal force at its EE
 Trajectory optimization using Crocoddyl
 The goal of this script is to setup OCP (a.k.a. play with weights)
 '''

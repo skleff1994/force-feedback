@@ -12,18 +12,17 @@ def init_kuka_simulator(dt=1e3, x0=None):
     '''
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.GUI, dt=dt)
-    pybullet_simulator = IiwaRobot()
-    env.add_robot(pybullet_simulator)
+    pybullet_simulator = env.add_robot(IiwaRobot())
     # Initialize
     if(x0 is None):
         q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
-        dq0 = np.zeros(pybullet_simulator.robot.model.nv)
+        dq0 = np.zeros(pybullet_simulator.pin_robot.model.nv)
     else:
         q0 = x0[:pybullet_simulator.pin_robot.model.nq]
         dq0 = x0[pybullet_simulator.pin_robot.model.nv:]
     pybullet_simulator.reset_state(q0, dq0)
     pybullet_simulator.forward_robot(q0, dq0)
-    return pybullet_simulator
+    return env, pybullet_simulator
 
 
 # Load contact surface in PyBullet for contact experiments

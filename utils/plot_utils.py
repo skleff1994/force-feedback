@@ -675,47 +675,55 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
         markers=[None for k in range(len(DDP_DATA))]
     if(colors==None):
         colors=[None for k in range(len(DDP_DATA))]
-    for k,d in enumerate(DDP_DATA):
+    for k,data in enumerate(DDP_DATA):
         # If last plot, make legend
         make_legend = False
         if(k+sampling_plot > len(DDP_DATA)-1):
             make_legend=True
         # Return figs and axes object in case need to overlay new plots
         if(k==0):
-            if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_x, ax_x = plot_ddp_state_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-            if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_u, ax_u = plot_ddp_control_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+            if('y' in which_plots or which_plots =='all' or 'all' in which_plots):
+                if('xs' in data.keys()):
+                    fig_x, ax_x = plot_ddp_state_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+            if('w' in which_plots or which_plots =='all' or 'all' in which_plots):
+                if('us' in data.keys()):
+                    fig_u, ax_u = plot_ddp_control_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_p, ax_p = plot_ddp_endeff_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('xs' in data.keys()):
+                    fig_p, ax_p = plot_ddp_endeff_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_f, ax_f = plot_ddp_force_LPF(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-        # Overlay on top of first plot
+                if('fs' in data.keys()):
+                    fig_f, ax_f = plot_ddp_force_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
         else:
             if(k%sampling_plot==0):
-                if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_state_LPF(DDP_DATA[k], fig=fig_x, ax=ax_x, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-                if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_control_LPF(DDP_DATA[k], fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('y' in which_plots or which_plots =='all' or 'all' in which_plots):
+                    if('xs' in data.keys()):
+                        plot_ddp_state_LPF(data, fig=fig_x, ax=ax_x, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('w' in which_plots or which_plots =='all' or 'all' in which_plots):
+                    if('us' in data.keys()):
+                        plot_ddp_control_LPF(data, fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_endeff_LPF(DDP_DATA[k], fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    if('xs' in data.keys()):
+                        plot_ddp_endeff_LPF(data, fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_force_LPF(DDP_DATA[k], fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    if('fs' in data.keys()):
+                        plot_ddp_force_LPF(data, fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
     if(SHOW):
       plt.show()
+    
     
     # Record and return if user needs to overlay stuff
     fig = {}
     ax = {}
+    if('y' in which_plots or which_plots =='all' or 'all' in which_plots):
+        fig['y'] = fig_x
+        ax['y'] = ax_x
+    if('w' in which_plots or which_plots =='all' or 'all' in which_plots):
+        fig['w'] = fig_u
+        ax['w'] = ax_u
     if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
         fig['p'] = fig_p
         ax['p'] = ax_p
-    if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
-        fig['y'] = fig_x
-        ax['y'] = ax_x
-    if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
-        fig['w'] = fig_u
-        ax['w'] = ax_u
     if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
         fig['f'] = fig_f
         ax['f'] = ax_f
@@ -739,10 +747,9 @@ def plot_ddp_state_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
     tau = x[:,-nu:]
     # If tau reg cost, compute gravity torque
     if('ctrlReg' in ddp_data['active_costs']):
-        tau_reg_ref = np.zeros((N+1,nu))
-        for i in range(N+1):
-            tau_reg_ref[i,:] = pin_utils.get_u_grav_(q[i,:], ddp_data['pin_model'])
-    # If state reg cost, 
+        ureg_ref  = np.array(ddp_data['ctrlReg_ref']) 
+    if('ctrlRegGrav' in ddp_data['active_costs']):
+        ureg_grav = np.array(ddp_data['ctrlRegGrav_ref'])
     if('stateReg' in ddp_data['active_costs']):
         x_reg_ref = np.array(ddp_data['stateReg_ref'])
     # Plots
@@ -780,13 +787,22 @@ def plot_ddp_state_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
         ax[i,1].grid(True)  
         # Torques
         ax[i,2].plot(tspan, tau[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        # Plot control regularization reference 
         if('ctrlReg' in ddp_data['active_costs']):
             handles, labels = ax[i,2].get_legend_handles_labels()
-            if('reg_ref' in labels):
-                handles.pop(labels.index('reg_ref'))
-                ax[i,2].lines.pop(labels.index('reg_ref'))
-                labels.remove('reg_ref')
-            ax[i,2].plot(tspan, tau_reg_ref[:,i], linestyle='-.', color='k', marker=None, label='reg_ref', alpha=0.5)
+            if('u_reg' in labels):
+                handles.pop(labels.index('u_reg'))
+                ax[i,2].lines.pop(labels.index('u_reg'))
+                labels.remove('u_reg')
+            ax[i,2].plot(tspan, ureg_ref[:,i], linestyle='-.', color='k', marker=None, label='u_reg', alpha=0.5)
+        # Plot gravity compensation torque
+        if('ctrlRegGrav' in ddp_data['active_costs']):
+            handles, labels = ax[i,2].get_legend_handles_labels()
+            if('grav(q)' in labels):
+                handles.pop(labels.index('u_grav(q)'))
+                ax[i,2].lines.pop(labels.index('u_grav(q)'))
+                labels.remove('u_grav(q)')
+            ax[i,2].plot(tspan, ureg_grav[:,i], linestyle='-.', color='m', marker=None, label='u_grav(q)', alpha=0.5)
         ax[i,2].set_ylabel('$\\tau_{}$'.format(i), fontsize=16)
         ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -1141,7 +1157,7 @@ def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False,
         ax_u[i].plot(t_span_plan, plot_data['u_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Prediction (PLAN)', alpha=0.6)
         # ax[i].plot(t_span_ctrl, plot_data['w_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Prediction (CTRL)', alpha=0.6)
         ax_u[i].plot(t_span_simu, plot_data['u_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Prediction (SIMU)', alpha=0.6)
-        ax_u[i].plot(t_span_simu, plot_data['grav'][:-1,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
+        ax_u[i].plot(t_span_simu, plot_data['grav'][:-1,i], color='k', marker=None, linestyle='-.', label='Reg', alpha=0.6)
         ax_u[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
         ax_u[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_u[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -2218,9 +2234,6 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
     if(SHOW):
         plt.show()
     return fig, ax
-
-
-
 
 
 # Animate and plot point mass from X,U trajs 

@@ -62,9 +62,28 @@ if(LPF_TYPE==1):
 if(LPF_TYPE==2):
     y = np.cos(2*np.pi*config['f_c']*dt)
     alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
-print("--------------------------------------")
-print("              INIT OCP                ")
-print("--------------------------------------")
+
+
+
+# Warm start and reg
+import pinocchio as pin
+f_ext = []
+for i in range(nq+1):
+    # CONTACT --> WORLD
+    W_M_ct = M_ee.copy()
+    f_WORLD = W_M_ct.actionInverse.T.dot(np.asarray(config['frameForceRef']))
+    # WORLD --> JOINT
+    j_M_W = robot.data.oMi[i].copy().inverse()
+    f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
+    f_ext.append(pin.Force(f_JOINT))
+u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+ug = pin_utils.get_u_grav(q0, robot)
+print("u0 = ", u0)
+print("ug = ", ug)
+#  Overwrite reference for torque regularization
+# config['ctrlRegRef'] = u0
+
+
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
                                                 cost_w_reg=1e-6, 
                                                 cost_w_lim=10.,
@@ -81,7 +100,7 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True,
 
 # Solve and extract solution trajectories
 xs_init = [y0 for i in range(N_h+1)]
-us_init = [ug for i in range(N_h)]
+us_init = [u0 for i in range(N_h)]
 
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 

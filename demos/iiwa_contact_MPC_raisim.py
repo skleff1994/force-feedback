@@ -84,7 +84,7 @@ f_ext = []
 for i in range(nq+1):
     # CONTACT --> WORLD
     W_M_ct = contact_placement.copy()
-    f_WORLD = W_M_ct.act(pin.Force(np.asarray(config['f_des'])))
+    f_WORLD = W_M_ct.act(pin.Force(np.asarray(config['frameForceRef'])))
     # WORLD --> JOINT
     j_M_W = robot.data.oMi[i].copy().inverse()
     f_JOINT = j_M_W.act(f_WORLD)
@@ -97,10 +97,7 @@ print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
-                                            WHICH_COSTS=config['WHICH_COSTS'],
-                                            CONTACT=True, 
-                                            contact_placement=M_ct,
-                                            u_reg_ref=u0) 
+                                            WHICH_COSTS=config['WHICH_COSTS']) 
 SOLVE_AND_PLOT_INIT = True
 
 
@@ -334,7 +331,8 @@ print('--------------------------------')
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/force-feedback/data'
-save_name = config_name+'_BIAS='+str(SCALE_TORQUES)+\
+save_name = config_name+'_raisim_'+\
+                        '_BIAS='+str(SCALE_TORQUES)+\
                         '_NOISE='+str(NOISE_STATE or NOISE_TORQUES)+\
                         '_DELAY='+str(DELAY_OCP or DELAY_SIM)+\
                         '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)+\

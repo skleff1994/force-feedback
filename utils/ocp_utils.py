@@ -851,6 +851,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       terminal_costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
     if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
       terminal_costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeightTerminal'])
+    if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+      terminal_costs.addCost("ctrlRegGrav", uRegGravCost, config['ctrlRegWeightTerminal'])
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
       terminal_costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
     if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):

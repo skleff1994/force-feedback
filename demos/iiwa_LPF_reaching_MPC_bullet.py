@@ -25,7 +25,6 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 
 import numpy as np  
 from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils
-import pybullet as p
 import time 
 
 # Fix seed 
@@ -42,7 +41,7 @@ dt_simu = 1./float(config['simu_freq'])
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
-pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
+env, pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
 # Get pin wrapper
 robot = pybullet_simulator.pin_robot
 # Get dimensions 
@@ -318,7 +317,7 @@ for i in range(sim_data['N_simu']):
     # tau_mea_SIMU = alpha_*tau_mea_SIMU + (1-alpha_)*w_curr # in fact u_des as long as old actuation model is desactivated
     #  Send output of actuation torque to the RBD simulator 
     pybullet_simulator.send_joint_command(tau_mea_SIMU)#w_curr)  #y_ref_CTRL[-nu:]
-    p.stepSimulation()
+    env.step()
     # Measure new state from simulation :
     q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
     # Update pinocchio model
