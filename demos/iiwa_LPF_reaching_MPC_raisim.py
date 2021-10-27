@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_LPF_reaching_MPC_bullet.py
+@file iiwa_LPF_reaching_MPC_raisim.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
@@ -12,7 +12,7 @@
 The robot is tasked with reaching a static EE target 
 Trajectory optimization using Crocoddyl in closed-loop MPC 
 (feedback from stateLPF y=(q,v,tau), control w = unfiltered torque)
-Using PyBullet simulator & GUI for rigid-body dynamics + visualization
+Using Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualization
 
 The goal of this script is to simulate MPC with torque feedback where
 the actuation dynamics is modeled as a low pass filter (LPF) in the optimization.
@@ -20,36 +20,47 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
     and filtered torques while the letter 'w' denotes the unfiltered torque 
     input to the actuation model. 
   - We optimize (y*,w*) using Crocoddyl but we send tau* to the simulator (NOT w*)
-  - Simulator = custom actuation model (not LPF) + PyBullet RBD
+  - Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualization
 '''
 
 import numpy as np  
-from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils
-import pybullet as p
+from utils import path_utils, raisim_utils, ocp_utils, pin_utils, plot_utils, data_utils
 import time 
 
 # Fix seed 
 np.random.seed(1)
 
-# # # # # # # # # # # # # # # # # # #
-### LOAD ROBOT MODEL and SIMU ENV ### 
-# # # # # # # # # # # # # # # # # # # 
+# # # # # # # # # # # #
+### LOAD ROBOT MODEL ## 
+# # # # # # # # # # # # 
 # Read config file
 config_name = 'iiwa_LPF_reaching_MPC'
 config = path_utils.load_config_file(config_name)
-# Create a Pybullet simulation environment + set simu freq
-dt_simu = 1./float(config['simu_freq'])  
+# Load Kuka config from URDF
+urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
+mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
+iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
+
+# Load Raisim environment
+LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
+env = raisim_utils.RaiEnv(LICENSE_PATH, dt=1e-3)
+robot = env.add_robot(iiwa_config, init_config=None)
+env.launch_server()
+
+# Initialize simulation
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
-pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
-# Get pin wrapper
-robot = pybullet_simulator.pin_robot
-# Get dimensions 
-nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
-print("-------------------------------------------------------------------")
-print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
-print("-------------------------------------------------------------------")
+id_endeff = robot.model.getFrameId('contact')
+nq, nv = robot.model.nq, robot.model.nv
+nx = nq+nv; nu = nq
+# Update robot model with initial state
+robot.reset_state(q0, v0)
+robot.forward_robot(q0, v0)
+print(robot.get_state())
+M_ee = robot.data.oMf[id_endeff]
+print("Initial placement : \n")
+print(M_ee)
 
 
 #################
@@ -172,33 +183,6 @@ if(config['INIT_LOG']):
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
 
-# Interpolation  
-
- # ^ := MPC computations
- # | := current MPC computation
-
- # MPC ITER #1
-  #      y_0         y_1         y_2 ...                    --> pred(MPC=O) size N_h
-  # OCP : O           O           O                           ref_O = y_1
-  # MPC : M     M     M     M     M                           ref_M = y_0 + Interp_[O->M] (y_1 - y_0)
-  # CTR : C  C  C  C  C  C  C  C  C                           ref_C = y_0 + Interp_[O->C] (y_1 - y_0)
-  # SIM : SSSSSSSSSSSSSSSSSSSSSSSSS                           ref_S = y_0 + Interp_[O->S] (y_1 - y_0)
-  #       |     ^     ^     ^     ^  ...
- # MPC ITER #2
-  #            y_0         y_1         y_2 ...              --> pred(MPC=1) size N_h
-  #             O           O           O                     ...
-  #             M     M     M     M     M
-  #             C  C  C  C  C  C  C  C  C
-  #             SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #             |     ^     ^     ^     ^  ...
- # MPC ITER #3
-  #                        y_0         y_1         y_2 ...  --> pred(MPC=2) size N_h
-  #                         O           O           O         ...
-  #                         M     M     M     M     M
-  #                         C  C  C  C  C  C  C  C  C
-  #                         SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #                         |     ^     ^     ^     ^  ...
- # ...
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -317,12 +301,12 @@ for i in range(sim_data['N_simu']):
     # alpha_ = 1./float(1+2*np.pi*config['f_c']*dt)
     # tau_mea_SIMU = alpha_*tau_mea_SIMU + (1-alpha_)*w_curr # in fact u_des as long as old actuation model is desactivated
     #  Send output of actuation torque to the RBD simulator 
-    pybullet_simulator.send_joint_command(tau_mea_SIMU)#w_curr)  #y_ref_CTRL[-nu:]
-    p.stepSimulation()
+    robot.send_joint_command(tau_mea_SIMU)#w_curr)  #y_ref_CTRL[-nu:]
+    env.step()
     # Measure new state from simulation :
-    q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
+    q_mea_SIMU, v_mea_SIMU = robot.get_state()
     # Update pinocchio model
-    pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
+    robot.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Record data (unnoised)
     y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
     sim_data['Y_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
@@ -348,7 +332,7 @@ print('--------------------------------')
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/force-feedback/data'
-save_name = config_name+'_bullet_'+\
+save_name = config_name+'_raisim_'+\
                         '_BIAS='+str(SCALE_TORQUES)+\
                         '_NOISE='+str(NOISE_STATE or NOISE_TORQUES)+\
                         '_DELAY='+str(DELAY_OCP or DELAY_SIM)+\
