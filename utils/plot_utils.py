@@ -1933,7 +1933,7 @@ def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
     dt = ddp_data['dt']
     nq = ddp_data['nq'] 
     nv = ddp_data['nv'] 
-    # Extract pos, vel trajs
+    # Extract trajectories
     x = np.array(ddp_data['xs'])
     q = x[:,:nq]
     v = x[:,nv:]
@@ -1947,8 +1947,10 @@ def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
     if(label is None):
         label='State'
     for i in range(nq):
-        # Positions
+        # Plot positions
         ax[i,0].plot(tspan, q[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+
+        # Plot joint position regularization reference
         if('stateReg' in ddp_data['active_costs']):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('reg_ref' in labels):
@@ -1960,8 +1962,11 @@ def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
-        # Velocities
+
+        # Plot velocities
         ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)  
+
+        # Plot joint velocity regularization reference
         if('stateReg' in ddp_data['active_costs']):
             handles, labels = ax[i,1].get_legend_handles_labels()
             if('reg_ref' in labels):
@@ -1969,15 +1974,19 @@ def plot_ddp_state(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
                 ax[i,1].lines.pop(labels.index('reg_ref'))
                 labels.remove('reg_ref')
             ax[i,1].plot(tspan, x_reg_ref[:,nq+i], linestyle='-.', color='k', marker=None, label='reg_ref', alpha=0.5)
+        
+        # Labels, tick labels and grid
         ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)  
-    # Common x-labels
+
+    # Common x-labels + align
     ax[-1,0].set_xlabel('Time (s)', fontsize=16)
     ax[-1,1].set_xlabel('Time (s)', fontsize=16)
     fig.align_ylabels(ax[:, 0])
     fig.align_ylabels(ax[:, 1])
+
     if(MAKE_LEGEND):
         handles, labels = ax[0,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right', prop={'size': 16})
@@ -2023,7 +2032,6 @@ def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, marker=None, color
 
         # Plot gravity compensation torque
         if('ctrlRegGrav' in ddp_data['active_costs']):
-            print("yoyo")
             handles, labels = ax[i].get_legend_handles_labels()
             if('grav(q)' in labels):
                 handles.pop(labels.index('u_grav(q)'))
@@ -2078,8 +2086,10 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
         label='End-effector'
     xyz = ['x', 'y', 'z']
     for i in range(3):
-        # Positions
+        # Plot EE position in WORLD frame
         ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+
+        # Plot EE target frame translation in WORLD frame
         if('translation' in ddp_data['active_costs']):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('reference' in labels):
@@ -2087,6 +2097,8 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
                 ax[i,0].lines.pop(labels.index('reference'))
                 labels.remove('reference')
             ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+        
+        # Plot CONTACT reference frame translation in WORLD frame
         if('contact_translation' in ddp_data):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('contact' in labels):
@@ -2094,12 +2106,17 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
                 ax[i,0].lines.pop(labels.index('contact'))
                 labels.remove('contact')
             ax[i,0].plot(tspan, p_ee_contact[:,i], linestyle='--', color='r', marker=None, label='contact', alpha=0.3)
+
+        # Labels, tick labels, grid
         ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
-        # Velocities
+
+        # Plot EE 'linear) velocities in WORLD frame
         ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+
+        # Plot EE target frame (linear) velocity in WORLD frame
         if('velocity' in ddp_data['active_costs']):
             handles, labels = ax[i,1].get_legend_handles_labels()
             if('reference' in labels):
@@ -2107,14 +2124,19 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
                 ax[i,1].lines.pop(labels.index('reference'))
                 labels.remove('reference')
             ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+        
+        # Labels, tick labels, grid
         ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)
+    
+    #x-label + align
     fig.align_ylabels(ax[:,0])
     fig.align_ylabels(ax[:,1])
     ax[i,0].set_xlabel('t (s)', fontsize=16)
     ax[i,1].set_xlabel('t (s)', fontsize=16)
+
     if(MAKE_LEGEND):
         handles, labels = ax[0,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right', prop={'size': 16})
@@ -2130,12 +2152,11 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
     # Parameters
     N = ddp_data['T'] 
     dt = ddp_data['dt']
-    nq = ddp_data['nq']
-    nv = ddp_data['nv'] 
     # Extract EE traj
     f = np.array(ddp_data['fs'])
     f_ee_lin = f[:,:3]
     f_ee_ang = f[:,3:]
+    # Get desired contact wrench (linear, angular)
     if('force' in ddp_data['active_costs']):
         f_ee_ref = np.array(ddp_data['force_ref'])
         f_ee_lin_ref = f_ee_ref[:,:3]
@@ -2148,8 +2169,10 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
         label='End-effector force'
     xyz = ['x', 'y', 'z']
     for i in range(3):
-        # translation
+        # Plot contact linear wrench (force) in LOCAL frame
         ax[i,0].plot(tspan, f_ee_lin[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+
+        # Plot desired contact linear wrench (force) in LOCAL frame 
         if('force' in ddp_data['active_costs']):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('reference' in labels):
@@ -2157,12 +2180,17 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
                 ax[i,0].lines.pop(labels.index('reference'))
                 labels.remove('reference')
             ax[i,0].plot(tspan, f_ee_lin_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+        
+        # Labels, tick labels+ grid
         ax[i,0].set_ylabel('$\\lambda^{lin}_%s$ (N)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
-        # rotation
+
+        # Plot contact angular wrench (torque) in LOCAL frame 
         ax[i,1].plot(tspan, f_ee_ang[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+
+        # Plot desired contact anguler wrench (torque) in LOCAL frame
         if('force' in ddp_data['active_costs']):
             handles, labels = ax[i,1].get_legend_handles_labels()
             if('reference' in labels):
@@ -2170,14 +2198,19 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
                 ax[i,1].lines.pop(labels.index('reference'))
                 labels.remove('reference')
             ax[i,1].plot(tspan, f_ee_ang_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+
+        # Labels, tick labels+ grid
         ax[i,1].set_ylabel('$\\lambda^{ang}_%s$ (Nm)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)
+    
+    # x-label + align
     fig.align_ylabels(ax[:,0])
     fig.align_ylabels(ax[:,1])
     ax[i,0].set_xlabel('t (s)', fontsize=16)
     ax[i,1].set_xlabel('t (s)', fontsize=16)
+    
     if(MAKE_LEGEND):
         handles, labels = ax[0,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right', prop={'size': 16})

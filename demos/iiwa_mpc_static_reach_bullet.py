@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_mpc_static_reach_sim.py
+@file iiwa_mpc_static_reach_bullet.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS

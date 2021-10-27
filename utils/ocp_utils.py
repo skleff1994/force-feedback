@@ -326,7 +326,6 @@ def init_DDP(robot, config, x0, callbacks=False,
                                             residual)
     # Control regularization (gravity)
     if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
-      print("yoyo")
       # Gravity reg by default
       if(CONTACT):
         residual = crocoddyl.ResidualModelContactControlGrav(state)

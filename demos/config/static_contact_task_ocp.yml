@@ -8,7 +8,7 @@ q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint confi
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
-WHICH_COSTS: ['force', 'friction', 'stateReg', 'ctrlReg'] # placement, etc.
+WHICH_COSTS: ['force', 'friction', 'stateReg', 'velocity', 'ctrlReg', 'stateLim', 'ctrlLim'] # placement, etc.
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
@@ -43,12 +43,18 @@ frameVelocityWeight: .1
 frameVelocityWeightTerminal: .1
 v_des: [0., 0., 0.]       
 
+ # 'placement' : end-effector frame placement (translation + rotation)
+framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
+framePlacementWeight: 0.1
+framePlacementWeightTerminal: 0.1
+
  # 'stateLim' : state limits
+stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
 stateLimWeight: 0.
 stateLimWeightTerminal: 0.
 
  # 'ctrlLim' : torque limits
-u_lim: [320, 320, 176, 176, 110, 40, 40]
+ctrl_lim: [320, 320, 176, 176, 110, 40, 40]
 ctrlLimWeight: 0.
 
 # armature
