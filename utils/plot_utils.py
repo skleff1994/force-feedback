@@ -1866,7 +1866,7 @@ def plot_ddp_results(DDP_DATA, which_plots='all', labels=None, markers=None, col
         markers=[None for k in range(len(DDP_DATA))]
     if(colors==None):
         colors=[None for k in range(len(DDP_DATA))]
-    for k,d in enumerate(DDP_DATA):
+    for k,data in enumerate(DDP_DATA):
         # If last plot, make legend
         make_legend = False
         if(k+sampling_plot > len(DDP_DATA)-1):
@@ -1874,41 +1874,53 @@ def plot_ddp_results(DDP_DATA, which_plots='all', labels=None, markers=None, col
         # Return figs and axes object in case need to overlay new plots
         if(k==0):
             if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_x, ax_x = plot_ddp_state(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('xs' in data.keys()):
+                    fig_x, ax_x = plot_ddp_state(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_u, ax_u = plot_ddp_control(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('us' in data.keys()):
+                    fig_u, ax_u = plot_ddp_control(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_p, ax_p = plot_ddp_endeff(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('xs' in data.keys()):
+                    fig_p, ax_p = plot_ddp_endeff(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
-                fig_f, ax_f = plot_ddp_force(DDP_DATA[k], label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                if('fs' in data.keys()):
+                    fig_f, ax_f = plot_ddp_force(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
         else:
             if(k%sampling_plot==0):
                 if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_state(DDP_DATA[k], fig=fig_x, ax=ax_x, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    if('xs' in data.keys()):
+                        plot_ddp_state(data, fig=fig_x, ax=ax_x, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_control(DDP_DATA[k], fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    if('us' in data.keys()):
+                        plot_ddp_control(data, fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_endeff(DDP_DATA[k], fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    if('xs' in data.keys()):
+                        plot_ddp_endeff(data, fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
-                    plot_ddp_force(DDP_DATA[k], fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    if('fs' in data.keys()):
+                        plot_ddp_force(data, fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
     if(SHOW):
       plt.show()
     
     # Record and return if user needs to overlay stuff
     fig = {}
     ax = {}
-    if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
-        fig['p'] = fig_p
-        ax['p'] = ax_p
     if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
-        fig['x'] = fig_x
-        ax['x'] = ax_x
+        if('xs' in data.keys()):
+            fig['x'] = fig_x
+            ax['x'] = ax_x
     if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
-        fig['u'] = fig_u
-        ax['u'] = ax_u
+        if('us' in data.keys()):
+            fig['u'] = fig_u
+            ax['u'] = ax_u
+    if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
+        if('xs' in data.keys()):
+            fig['p'] = fig_p
+            ax['p'] = ax_p
     if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
-        fig['f'] = fig_f
-        ax['f'] = ax_f
+        if('fs' in data.keys()):
+            fig['f'] = fig_f
+            ax['f'] = ax_f
 
     return fig, ax
 
