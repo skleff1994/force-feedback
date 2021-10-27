@@ -54,14 +54,13 @@ print("Contact frame placement : \n")
 print(M_ct)
 
 
-
 # Warm start and reg
 import pinocchio as pin
 f_ext = []
 for i in range(nq+1):
     # CONTACT --> WORLD
     W_M_ct = M_ct.copy()
-    f_WORLD = W_M_ct.actionInverse.T.dot(np.asarray(config['f_des']))
+    f_WORLD = W_M_ct.actionInverse.T.dot(np.asarray(config['frameForceRef']))
     # WORLD --> JOINT
     j_M_W = robot.data.oMi[i].copy().inverse()
     f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
@@ -72,11 +71,9 @@ print("u0 = ", u0)
 print("ug = ", ug)
 
 # solver
+# config['ctrlRegRef'] = u0
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
-                                            WHICH_COSTS=config['WHICH_COSTS'],
-                                            CONTACT=True,
-                                            contact_placement=M_ct,
-                                            u_reg_ref=u0) 
+                                            WHICH_COSTS=config['WHICH_COSTS']) 
 
 
 

@@ -1,4 +1,4 @@
-# OCP parameters for static end-effector pose reaching task
+# OCP parameters for end-effector reaching task
 
 # General
 dt: 0.02                                             # OCP integration step 
@@ -23,8 +23,6 @@ stateRegRef: 'DEFAULT'
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.01
 ctrlRegRef: 'DEFAULT' # reference not used for 'ctrlRegGrav'
-
-p_des: [-0.5, -0.5, 0.7]   # both for translation and placement costs
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
