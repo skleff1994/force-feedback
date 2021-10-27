@@ -85,7 +85,7 @@ print("ug = ", ug)
 
 
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-6, 
+                                                cost_w_reg=1e-3, 
                                                 cost_w_lim=10.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,

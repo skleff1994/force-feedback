@@ -716,17 +716,21 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
     fig = {}
     ax = {}
     if('y' in which_plots or which_plots =='all' or 'all' in which_plots):
-        fig['y'] = fig_x
-        ax['y'] = ax_x
+        if('xs' in data.keys()):
+            fig['y'] = fig_x
+            ax['y'] = ax_x
     if('w' in which_plots or which_plots =='all' or 'all' in which_plots):
-        fig['w'] = fig_u
-        ax['w'] = ax_u
+        if('us' in data.keys()):
+            fig['w'] = fig_u
+            ax['w'] = ax_u
     if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
-        fig['p'] = fig_p
-        ax['p'] = ax_p
+        if('xs' in data.keys()):
+            fig['p'] = fig_p
+            ax['p'] = ax_p
     if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
-        fig['f'] = fig_f
-        ax['f'] = ax_f
+        if('fs' in data.keys()):
+            fig['f'] = fig_f
+            ax['f'] = ax_f
 
     return fig, ax
 

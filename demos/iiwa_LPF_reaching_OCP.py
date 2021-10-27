@@ -66,7 +66,7 @@ print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=0., 
+                                                cost_w_reg=1e-3, 
                                                 cost_w_lim=10.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
@@ -136,17 +136,17 @@ if(PLOT):
     print("-----------------------------------")
     #  Plot
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
-    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], colors=['r'], markers=['.'], SHOW=False)
+    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], colors=['r'], markers=['.'], SHOW=True)
 
-tau_filtered = np.zeros((N_h+1, nq))
-tau_filtered[0,:] = ug
-# alpha=0.9
-for i in range(N_h):
-    tau_filtered[i+1,:] = alpha*tau_filtered[i,:] + (1-alpha)*ddp.us[i]
-for i in range(nq):
-    ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), tau_filtered[:,i], 'b.', alpha=0.7)
-    ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h), np.array(ddp.us)[:,i], 'g', linestyle='-', marker='.', alpha=0.5, label='Control')
-plt.show()
+# tau_filtered = np.zeros((N_h+1, nq))
+# tau_filtered[0,:] = ug
+# # alpha=0.9
+# for i in range(N_h):
+#     tau_filtered[i+1,:] = alpha*tau_filtered[i,:] + (1-alpha)*ddp.us[i]
+# for i in range(nq):
+#     ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h+1), tau_filtered[:,i], 'b.', alpha=0.7)
+#     ax['y'][i,2].plot(np.linspace(0, N_h*dt, N_h), np.array(ddp.us)[:,i], 'g', linestyle='-', marker='.', alpha=0.5, label='Control')
+# plt.show()
 
 # # Test integration (rollout)
 # xs = ddp.problem.rollout(us_init)
