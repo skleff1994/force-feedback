@@ -436,7 +436,7 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
 
 
 #### Classical OCP
-def extract_ddp_data(ddp, CONTACT=False):
+def extract_ddp_data(ddp):
     '''
     Record relevant data from ddp solver in order to plot 
     '''
@@ -467,6 +467,7 @@ def extract_ddp_data(ddp, CONTACT=False):
       ee_forces = [data.jMf.actInv(data.f).vector for data in datas] 
       ddp_data['fs'] = [ee_forces[i] for i in range(ddp.problem.T)]
     # Extract refs for active costs 
+    # TODO : active costs may change along horizon : how to deal with that when plotting? 
     ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
     if('stateReg' in ddp_data['active_costs']):
         ddp_data['stateReg_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['stateReg'].cost.residual.reference for i in range(ddp.problem.T)]

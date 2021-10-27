@@ -29,7 +29,7 @@ print("--------------------------------------")
 print("              LOAD CONFIG             ")
 print("--------------------------------------")
 # Read config file
-config = path_utils.load_config_file('static_contact_task_lpf_ocp')
+config = path_utils.load_config_file('iiwa_LPF_contact_OCP')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   

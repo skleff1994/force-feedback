@@ -18,7 +18,7 @@ import time
 from utils import raisim_utils
 
 # Load Kuka config from URDF
-urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa.urdf"
+urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
 mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
 iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
 

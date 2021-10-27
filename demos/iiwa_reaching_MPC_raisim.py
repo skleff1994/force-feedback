@@ -1,6 +1,7 @@
+
 """
 @package force_feedback
-@file iiwa_mpc_static_reach_bullet.py
+@file iiwa_mpc_static_reach_raisim.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
@@ -11,39 +12,51 @@
 '''
 The robot is tasked with reaching a static EE target 
 Trajectory optimization using Crocoddyl in closed-loop MPC 
-(feedback from stateLPF x=(q,v), control u = tau 
-Using PyBullet simulator & GUI for rigid-body dynamics + visualization
-
+(feedback from state x=(q,v), control u = tau) 
+Using Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualization
 The goal of this script is to simulate closed-loop MPC on a simple reaching task 
 '''
 
 import numpy as np  
-from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils
+from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, raisim_utils
 import pybullet as p
 import time 
 
 # Fix seed 
 np.random.seed(1)
 
-# # # # # # # # # # # # # # # # # # #
-### LOAD ROBOT MODEL and SIMU ENV ### 
-# # # # # # # # # # # # # # # # # # # 
+# # # # # # # # # # # #
+### LOAD ROBOT MODEL ## 
+# # # # # # # # # # # # 
 # Read config file
-config_name = 'static_reaching_task_mpc'
+config_name = 'iiwa_reaching_MPC'
 config = path_utils.load_config_file(config_name)
-# Create a Pybullet simulation environment + set simu freq
-dt_simu = 1./float(config['simu_freq'])  
+# Load Kuka config from URDF
+urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa.urdf"
+mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
+iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
+
+# Load Raisim environment
+LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
+env = raisim_utils.RaiEnv(LICENSE_PATH, dt=1e-3)
+robot = env.add_robot(iiwa_config, init_config=None)
+env.launch_server()
+
+# Initialize simulation
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
-pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
-# Get pin wrapper
-robot = pybullet_simulator.pin_robot
-# Get dimensions 
-nq, nv = robot.model.nq, robot.model.nv; nu = nq
-print("-------------------------------------------------------------------")
-print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
-print("-------------------------------------------------------------------")
+id_endeff = robot.model.getFrameId('contact')
+nq, nv = robot.model.nq, robot.model.nv
+nx = nq+nv; nu = nq
+# Update robot model with initial state
+robot.reset_state(q0, v0)
+robot.forward_robot(q0, v0)
+print(robot.get_state())
+M_ee = robot.data.oMf[id_endeff]
+print("Initial placement : \n")
+print(M_ee)
+
 
 
 #################
@@ -58,28 +71,15 @@ print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, WHICH_COSTS=config['WHICH_COSTS']) 
 
-WEIGHT_PROFILE = False
 SOLVE_AND_PLOT_INIT = False
-
-if(WEIGHT_PROFILE):
-  #  Schedule weights for target reaching
-  for k,m in enumerate(ddp.problem.runningModels):
-      m.differential.costs.costs['translation'].weight = ocp_utils.cost_weight_tanh(k, N_h, max_weight=10., alpha=5., alpha_cut=0.65)
-      m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
-      m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
-      # print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
-      # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
 
 xs_init = [x0 for i in range(N_h+1)]
 us_init = [ug for i in range(N_h)]
 
 if(SOLVE_AND_PLOT_INIT):
   ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-  # for i in range(N_h):
-  #   print(ddp.problem.runningDatas[i].differential.costs.costs['ctrlReg'].activation.a_value)
-  # print(ddp.problem.terminalData.differential.costs.costs['ctrlReg'].activation.a_value)
   ddp_data = data_utils.extract_ddp_data(ddp)
-  fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+  fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], which_plots=['x','u','p'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
@@ -278,12 +278,12 @@ for i in range(sim_data['N_simu']):
       else:                          
         tau_mea_SIMU = buffer_sim.pop(-sim_data['delay_sim_cycle'])
     #  Send output of actuation torque to the RBD simulator 
-    pybullet_simulator.send_joint_command(tau_mea_SIMU)
-    p.stepSimulation()
+    robot.send_joint_command(tau_mea_SIMU)
+    env.step()
     # Measure new state from simulation :
-    q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
+    q_mea_SIMU, v_mea_SIMU = robot.get_state()
     # Update pinocchio model
-    pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
+    robot.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Record data (unnoised)
     x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
     sim_data['X_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU
@@ -312,7 +312,8 @@ save_dir = '/home/skleff/force-feedback/data'
 save_name = config_name+'_BIAS='+str(SCALE_TORQUES)+\
                         '_NOISE='+str(NOISE_STATE or NOISE_TORQUES)+\
                         '_DELAY='+str(DELAY_OCP or DELAY_SIM)+\
-                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
+                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)+\
+                        '_RAISIM'
 # Extract plot data from sim data
 plot_data = data_utils.extract_plot_data_from_sim_data(sim_data)
 # Plot results
@@ -323,6 +324,3 @@ plot_utils.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
                                 SAVE_DIR=save_dir,
                                 SAVE_NAME=save_name,
                                 AUTOSCALE=True)
-# Save optionally
-if(config['SAVE_DATA']):
-  data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)

@@ -71,15 +71,12 @@ import pinocchio as pin
 f_ext = []
 for i in range(nq+1):
     # CONTACT --> WORLD
-    W_X_ct = robot.data.oMf[contact_frame_id].action
+    W_M_ct = robot.data.oMf[contact_frame_id].copy()
+    f_WORLD = W_M_ct.actionInverse.T.dot(np.array([0., 0., 20., 0., 0., 0.]))
     # WORLD --> JOINT
-    j_X_W  = robot.data.oMi[i].actionInverse
-    # CONTACT --> JOINT
-    j_X_ee = W_X_ct.dot(j_X_W)
-    # ADJOINT INVERSE (wrenches)
-    f_joint = j_X_ee.T.dot(desiredFrameForce.vector)
-    # print("Joint n°"+str(i)+" : force = ", f_joint) 
-    f_ext.append(pin.Force(f_joint))
+    j_M_W = robot.data.oMi[i].copy().inverse()
+    f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
+    f_ext.append(pin.Force(f_JOINT))
 
 xs_init = [x0 for i in range(T+1)]
 us_init = [pin.rnea(model, robot.data, q0, v0, np.zeros((nq,1)), f_ext) for i in range(T)]

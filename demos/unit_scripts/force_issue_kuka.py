@@ -2,12 +2,11 @@ import crocoddyl
 import pinocchio
 import numpy as np
 from pinocchio.robot_wrapper import RobotWrapper
-from robot_properties_kuka.config import IiwaConfig
 np.set_printoptions(precision=4, linewidth=180)
 
 urdf_path = '/home/skleff/robot_properties_kuka/urdf/iiwa.urdf'
 mesh_path = '/home/skleff/robot_properties_kuka'
-robot = IiwaConfig.buildRobotWrapper()# RobotWrapper.BuildFromURDF(urdf_path, mesh_path)
+robot = RobotWrapper.BuildFromURDF(urdf_path, mesh_path) 
 
 model = robot.model
 nq = model.nq; nv = model.nv; nu = nq; nx = nq+nv
@@ -78,15 +77,12 @@ import pinocchio as pin
 f_ext = []
 for i in range(nq+1):
     # CONTACT --> WORLD
-    W_X_ct = robot.data.oMf[contact_frame_id].action
+    W_M_ct = robot.data.oMf[contact_frame_id].copy()
+    f_WORLD = W_M_ct.actionInverse.T.dot(np.array([0., 0., 20., 0., 0., 0.]))
     # WORLD --> JOINT
-    j_X_W  = robot.data.oMi[i].actionInverse
-    # CONTACT --> JOINT
-    j_X_ee = W_X_ct.dot(j_X_W)
-    # ADJOINT INVERSE (wrenches)
-    f_joint = j_X_ee.T.dot(np.array([0., 0., 20., 0., 0., 0.])) 
-    # print("Joint n°"+str(i)+" : force = ", f_joint) 
-    f_ext.append(pin.Force(f_joint))
+    j_M_W = robot.data.oMi[i].copy().inverse()
+    f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
+    f_ext.append(pin.Force(f_JOINT))
 
 xs_init = [x0 for i in range(T+1)]
 

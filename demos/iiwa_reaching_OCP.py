@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_ocp.py
+@file iiwa_reaching_OCP.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -24,7 +24,7 @@ np.set_printoptions(precision=4, linewidth=180)
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('static_reaching_task_ocp')
+config = path_utils.load_config_file('iiwa_reaching_OCP')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   

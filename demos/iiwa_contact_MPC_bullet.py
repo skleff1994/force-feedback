@@ -1,7 +1,6 @@
-
 """
 @package force_feedback
-@file iiwa_mpc_contact_raisim.py
+@file iiwa_contact_MPC_bullet.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
@@ -12,66 +11,50 @@
 '''
 The robot is tasked with reaching a static EE target 
 Trajectory optimization using Crocoddyl in closed-loop MPC 
-(feedback from state x=(q,v), control u = tau) 
-Using Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualization
+(feedback from stateLPF x=(q,v), control u = tau 
+Using PyBullet simulator & GUI for rigid-body dynamics + visualization
+
 The goal of this script is to simulate closed-loop MPC on a simple reaching task 
 '''
 
-import numpy as np
-import time
-from utils import raisim_utils, path_utils, ocp_utils, pin_utils, plot_utils, data_utils
+import numpy as np  
+from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils
+import pybullet as p
+import time 
+
 np.set_printoptions(precision=4, linewidth=180)
 
 # Fix seed 
 np.random.seed(1)
 
-# # # # # # # # # # # #
-### LOAD ROBOT MODEL ## 
-# # # # # # # # # # # # 
+# # # # # # # # # # # # # # # # # # #
+### LOAD ROBOT MODEL and SIMU ENV ### 
+# # # # # # # # # # # # # # # # # # # 
 # Read config file
-config_name = 'static_contact_task_mpc'
+config_name = 'iiwa_contact_MPC'
 config = path_utils.load_config_file(config_name)
-# Load Kuka config from URDF
-urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
-mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
-iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
-
-# Load Raisim environment
-LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
-env = raisim_utils.RaiEnv(LICENSE_PATH, dt=1./config['simu_freq'])
-robot = env.add_robot(iiwa_config, init_config=None)
-env.launch_server()
-
-# Initialize simulation
+# Create a Pybullet simulation environment + set simu freq
+dt_simu = 1./float(config['simu_freq'])  
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
-id_endeff = robot.model.getFrameId('contact')
-nq, nv = robot.model.nq, robot.model.nv
-nx = nq+nv; nu = nq
-# Update robot model with initial state
-robot.reset_state(q0, v0)
-robot.forward_robot(q0, v0)
-print(robot.get_state())
-M_ee = robot.data.oMf[id_endeff]
-print("Initial placement : \n")
-print(M_ee)
-
-
+pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
+# Get pin wrapper
+robot = pybullet_simulator.pin_robot
+# Get dimensions 
+nq, nv = robot.model.nq, robot.model.nv; nu = nq
 # Display contact surface
 id_endeff = robot.model.getFrameId('contact')
-  # Placement of reference of the contact in Crocoddyl (Baumgarte integration and friction cost)
-M_ct              = robot.data.oMf[id_endeff].copy() 
-  # Initial placement of contacted object in simulator
 contact_placement = robot.data.oMf[id_endeff].copy()
-offset = iiwa_config.tennis_ball_radius 
+M_ct = robot.data.oMf[id_endeff].copy()
+offset = 0.0320
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-env.display_ball(contact_placement, radius=0.1) 
-# env.display_wall(contact_placement)
-print("-----------------------")
-print("[Raisim] Created robot ")
-print("-----------------------")
+sim_utils.display_contact_surface(contact_placement, with_collision=True)
+print("-------------------------------------------------------------------")
+print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
+print("-------------------------------------------------------------------")
 
+# time.sleep(10)
 #################
 ### OCP SETUP ###
 #################
@@ -92,7 +75,6 @@ for i in range(nq+1):
 # print(f_ext)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 
-
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
@@ -101,6 +83,8 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False,
                                             CONTACT=True, 
                                             contact_placement=M_ct,
                                             u_reg_ref=u0) 
+
+WEIGHT_PROFILE = False
 SOLVE_AND_PLOT_INIT = True
 
 
@@ -109,18 +93,13 @@ us_init = [u0 for i in range(N_h)]
 
 if(SOLVE_AND_PLOT_INIT):
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-  # ddp_data = data_utils.extract_ddp_data(ddp)
-  # fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], which_plots=['x','u','p', 'f'], SHOW=True)
-        # for k,m in enumerate(ddp.problem.runningModels):
-        #   m.differential.
+  # ddp_data = data_utils.extract_ddp_data(ddp, CONTACT=True)
+  # fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
 sim_data = data_utils.init_sim_data(config, robot, x0)
-
-# print(sim_data['f_ee_ref'])
-# time.sleep(10)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
 freq_CTRL = sim_data['ctrl_freq']
@@ -137,7 +116,7 @@ x_buffer_OCP = []                                             # buffer for desi
 u_buffer_OCP = []                                             # buffer for desired states delayed by OCP computation time
 buffer_sim = []                                               # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
-WHICH_PLOTS = ['x','u', 'p', 'f']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS = ['all']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 DELAY_SIM = config['DELAY_SIM']                               # Add delay in reference torques (low-level)
 DELAY_OCP = config['DELAY_OCP']                               # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES = config['SCALE_TORQUES']                       # Affinescaling of reference torque
@@ -182,6 +161,33 @@ if(config['INIT_LOG']):
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
 
+# Interpolation  
+
+ # ^ := MPC computations
+ # | := current MPC computation
+
+ # MPC ITER #1
+  #      x_0         x_1         x_2 ...                    --> pred(MPC=O) size N_h
+  # OCP : O           O           O                           ref_O = x_1
+  # MPC : M     M     M     M     M                           ref_M = x_0 + Interp_[O->M] (x_1 - x_0)
+  # CTR : C  C  C  C  C  C  C  C  C                           ref_C = x_0 + Interp_[O->C] (x_1 - x_0)
+  # SIM : SSSSSSSSSSSSSSSSSSSSSSSSS                           ref_S = x_0 + Interp_[O->S] (x_1 - x_0)
+  #       |     ^     ^     ^     ^  ...
+ # MPC ITER #2
+  #            x_0         x_1         x_2 ...              --> pred(MPC=1) size N_h
+  #             O           O           O                     ...
+  #             M     M     M     M     M
+  #             C  C  C  C  C  C  C  C  C
+  #             SSSSSSSSSSSSSSSSSSSSSSSSS  
+  #             |     ^     ^     ^     ^  ...
+ # MPC ITER #3
+  #                        x_0         x_1         x_2 ...  --> pred(MPC=2) size N_h
+  #                         O           O           O         ...
+  #                         M     M     M     M     M
+  #                         C  C  C  C  C  C  C  C  C
+  #                         SSSSSSSSSSSSSSSSSSSSSSSSS  
+  #                         |     ^     ^     ^     ^  ...
+ # ...
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -193,9 +199,6 @@ for i in range(sim_data['N_simu']):
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
-        # Update OCP 
-        # for k,m in enumerate(ddp.problem.runningModels):
-        #   m.differential.
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -210,8 +213,9 @@ for i in range(sim_data['N_simu']):
         x_curr = sim_data['X_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
         x_pred = sim_data['X_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
         u_curr = sim_data['U_pred'][nb_plan, 0, :]    # u0* = optimal control   
-        f_curr = sim_data['F_pred'][nb_plan, 0, :]    # f0* = current contact force
-        f_pred = sim_data['F_pred'][nb_plan, 1, :]    # f1* = predicted contact force
+        f_curr = sim_data['F_pred'][nb_plan, 0, :]
+        f_pred = sim_data['F_pred'][nb_plan, 1, :]
+        # u_pred = sim_data['U_pred'][nb_plan, 1, :]  # u1* = predicted optimal control  
         # Record solver data (optional)
         if(config['RECORD_SOLVER_DATA']):
           sim_data['K'][nb_plan, :, :, :] = np.array(ddp.K)         # Ricatti gains
@@ -245,8 +249,8 @@ for i in range(sim_data['N_simu']):
           sim_data['X_des_PLAN'][nb_plan, :] = x_curr  
         sim_data['U_des_PLAN'][nb_plan, :]   = u_ref_PLAN   
         sim_data['X_des_PLAN'][nb_plan+1, :] = x_ref_PLAN    
-        sim_data['F_des_PLAN'][nb_plan, :] = f_ref_PLAN 
-
+        sim_data['F_des_PLAN'][nb_plan, :] = f_ref_PLAN    
+        
         # Increment planning counter
         nb_plan += 1
 
@@ -255,23 +259,23 @@ for i in range(sim_data['N_simu']):
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
         # Select reference control and state for the current CTRL cycle
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)# x_curr + COEF * OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-        u_ref_CTRL = u_curr 
+        x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
+        u_ref_CTRL = u_curr
         f_ref_CTRL = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['X_des_CTRL'][nb_ctrl, :] = x_curr  
         sim_data['U_des_CTRL'][nb_ctrl, :]   = u_ref_CTRL  
-        sim_data['X_des_CTRL'][nb_ctrl+1, :] = x_ref_CTRL  
-        sim_data['F_des_CTRL'][nb_ctrl, :] = f_ref_CTRL    
+        sim_data['X_des_CTRL'][nb_ctrl+1, :] = x_ref_CTRL   
+        sim_data['F_des_CTRL'][nb_ctrl, :] = f_ref_CTRL   
         # Increment control counter
         nb_ctrl += 1
         
-  # Simulate actuation with PI torque tracking controller (low-level control frequency)
+  # Simulate actuation and step PyBullet (low-level control frequency)
 
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)# x_curr + COEF * OCP_TO_PLAN_RATIO * (x_pred - x_curr)
+    x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
     u_ref_SIMU  = u_curr 
     f_ref_SIMU  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
 
@@ -298,16 +302,20 @@ for i in range(sim_data['N_simu']):
       else:                          
         tau_mea_SIMU = buffer_sim.pop(-sim_data['delay_sim_cycle'])
     #  Send output of actuation torque to the RBD simulator 
-    robot.send_joint_command(tau_mea_SIMU)
-    env.step()
-    # Measure new state from simulation :
-    q_mea_SIMU, v_mea_SIMU = robot.get_state()
+    pybullet_simulator.send_joint_command(tau_mea_SIMU)
+    p.stepSimulation()
+    # Measure new state from simulation 
+    q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
     # Measure force from simulation
-    f_mea_SIMU = robot.get_contact_forces()
+    _, force_measured = pybullet_simulator.get_force()
+    if(len(force_measured)==0):
+        f_mea_SIMU = np.zeros(6)
+    else:
+        f_mea_SIMU = force_measured[0]
     if(i%50==0): 
       print(f_mea_SIMU)
     # Update pinocchio model
-    robot.forward_robot(q_mea_SIMU, v_mea_SIMU)
+    pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Record data (unnoised)
     x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
     sim_data['X_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU
@@ -334,11 +342,11 @@ print('--------------------------------')
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/force-feedback/data'
-save_name = config_name+'_BIAS='+str(SCALE_TORQUES)+\
+save_name = config_name+'contact_'+\
+                        '_BIAS='+str(SCALE_TORQUES)+\
                         '_NOISE='+str(NOISE_STATE or NOISE_TORQUES)+\
                         '_DELAY='+str(DELAY_OCP or DELAY_SIM)+\
-                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)+\
-                        '_RAISIM'
+                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
 # Extract plot data from sim data
 plot_data = data_utils.extract_plot_data_from_sim_data(sim_data)
 # Plot results
@@ -352,5 +360,3 @@ plot_utils.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
 # Save optionally
 if(config['SAVE_DATA']):
   data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)
-
-env.server.killServer()
