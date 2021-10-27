@@ -309,10 +309,12 @@ print('--------------------------------')
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/force-feedback/data'
-save_name = config_name+'_BIAS='+str(SCALE_TORQUES)+\
+save_name = config_name+'_bullet_'+\
+                        '_BIAS='+str(SCALE_TORQUES)+\
                         '_NOISE='+str(NOISE_STATE or NOISE_TORQUES)+\
                         '_DELAY='+str(DELAY_OCP or DELAY_SIM)+\
                         '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
+
 # Extract plot data from sim data
 plot_data = data_utils.extract_plot_data_from_sim_data(sim_data)
 # Plot results

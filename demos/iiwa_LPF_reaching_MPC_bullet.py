@@ -35,7 +35,7 @@ np.random.seed(1)
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
 # Read config file
-config_name = 'iiwa_LPC_reaching_MPC'
+config_name = 'iiwa_LPF_reaching_MPC'
 config = path_utils.load_config_file(config_name)
 # Create a Pybullet simulation environment + set simu freq
 dt_simu = 1./float(config['simu_freq'])  
@@ -95,7 +95,7 @@ if(WEIGHT_PROFILE):
       # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
 
 xs_init = [y0 for i in range(N_h+1)]
-us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
+us_init = [ug for i in range(N_h)]
 
 if(SOLVE_AND_PLOT_INIT):
   xs_init = [y0 for i in range(N_h+1)]

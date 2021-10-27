@@ -58,23 +58,35 @@ def init_sim_data(config, robot, x0):
     sim_data['nu'] = sim_data['pin_model'].nq
     sim_data['nx'] = sim_data['nq'] + sim_data['nv']
     sim_data['id_endeff'] = sim_data['pin_model'].getFrameId('contact')
-    # EE reference translation
-    if('p_des' not in config.keys() or config['p_des']=='None'):
-      pin.framesForwardKinematics(robot.model, robot.data, x0[:sim_data['nq']])
-      pin.computeJointJacobians(robot.model, robot.data, x0[:sim_data['nq']])
-      sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
-    else:
-      sim_data['p_ee_ref'] = config['p_des']
-    # EE reference velocity
-    if('v_des' not in config.keys() or config['v_des']=='None'):
-      sim_data['v_ee_ref'] = np.zeros(3)
-    else:
-      sim_data['v_ee_ref'] = config['v_des']
-    # EE reference force
-    if('f_des' not in config.keys() or config['f_des'] == 'None'):
-      sim_data['f_ee_ref'] = np.zeros(6)
-    else:
-      sim_data['f_ee_ref'] = config['f_des']
+    # Cost references 
+    pin.framesForwardKinematics(robot.model, robot.data, x0[:sim_data['nq']])
+    pin.computeJointJacobians(robot.model, robot.data, x0[:sim_data['nq']])
+    # target translation = frame translation cost reference if any
+    if('translation' in config['WHICH_COSTS']):
+      if('frameTranslationRef'=='DEFAULT'):
+        sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
+      else:
+        sim_data['p_ee_ref'] = config['frameTranslationRef']
+    # target translation = frame placement cost reference if any 
+    if('placement' in config['WHICH_COSTS']):
+      if('framePlacementTranslationRef'=='DEFAULT'):
+        sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
+      else:
+        sim_data['p_ee_ref'] = config['framePlacementTranslationRef']
+
+     # target translation = frame translation cost reference if any
+    # target velocity = frame velocity cost reference if any
+    if('velocity' in config['WHICH_COSTS']):
+      if('frameVelocityRef'=='DEFAULT'):
+        sim_data['v_ee_ref'] = np.zeros(3)
+      else:
+        sim_data['v_ee_ref'] = config['frameVelocityRef']
+    # target force = frame contact force reference if any
+    if('force' in config['WHICH_COSTS']):
+      if('frameForceRef'=='DEFAULT'):
+        sim_data['f_ee_ref'] = np.zeros(6)
+      else:
+        sim_data['f_ee_ref'] = config['frameForceRef']
     # Predictions
     sim_data['X_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['nx'])) # Predicted states  ( ddp.xs : {x* = (q*, v*)} )
     sim_data['U_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {u*} )
@@ -261,14 +273,33 @@ def init_sim_data_LPF(config, robot, y0):
     sim_data['nx'] = sim_data['nq'] + sim_data['nv']
     sim_data['ny'] = sim_data['nx'] + sim_data['nu']
     sim_data['id_endeff'] = sim_data['pin_model'].getFrameId('contact')
-    # Target translation
-    if(config['p_des']=='None'):
-      robot.framesForwardKinematics(y0[:sim_data['nq']])
-      robot.computeJointJacobians(y0[:sim_data['nq']])
-      sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
-    else:
-      sim_data['p_ee_ref'] = config['p_des']
-    sim_data['v_ee_ref'] = config['v_des']
+    # Cost references 
+    pin.framesForwardKinematics(robot.model, robot.data, y0[:sim_data['nq']])
+    pin.computeJointJacobians(robot.model, robot.data, y0[:sim_data['nq']])
+    # target translation = frame translation cost reference if any
+    if('translation' in config['WHICH_COSTS']):
+      if('frameTranslationRef'=='DEFAULT'):
+        sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
+      else:
+        sim_data['p_ee_ref'] = config['frameTranslationRef']
+    # target translation = frame placement cost reference if any 
+    if('placement' in config['WHICH_COSTS']):
+      if('framePlacementTranslationRef'=='DEFAULT'):
+        sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
+      else:
+        sim_data['p_ee_ref'] = config['framePlacementTranslationRef']
+    # target velocity = frame velocity cost reference if any
+    if('velocity' in config['WHICH_COSTS']):
+      if('frameVelocityRef'=='DEFAULT'):
+        sim_data['v_ee_ref'] = np.zeros(3)
+      else:
+        sim_data['v_ee_ref'] = config['frameVelocityRef']
+    # target force = frame contact force reference if any
+    if('force' in config['WHICH_COSTS']):
+      if('frameForceRef'=='DEFAULT'):
+        sim_data['f_ee_ref'] = np.zeros(6)
+      else:
+        sim_data['f_ee_ref'] = config['frameForceRef']
     # Predictions
     sim_data['Y_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'])) # Predicted states  ( ddp.xs : {y* = (q*, v*, tau*)} )
     sim_data['W_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {w*} )
@@ -356,15 +387,15 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     plot_data['v_pred'] = sim_data['Y_pred'][:,:,nq:nq+nv]
     plot_data['tau_pred'] = sim_data['Y_pred'][:,:,-nu:]
       # Extract 1st prediction + shift 1 planning cycle
-    plot_data['q_des_PLAN'] = sim_data['Y_des_PLAN'][:,:nq] #np.zeros((plot_data['N_plan']+1,nq))
-    plot_data['v_des_PLAN'] = sim_data['Y_des_PLAN'][:,nq:nq+nv] #np.zeros((plot_data['N_plan']+1,nv))
-    plot_data['tau_des_PLAN'] = sim_data['Y_des_PLAN'][:,-nu:] #np.zeros((plot_data['N_plan']+1,nq))
-    plot_data['q_des_CTRL'] = sim_data['Y_des_CTRL'][:,:nq] #np.zeros((plot_data['N_plan']+1,nq))
-    plot_data['v_des_CTRL'] = sim_data['Y_des_CTRL'][:,nq:nq+nv] #np.zeros((plot_data['N_plan']+1,nv))
-    plot_data['tau_des_CTRL'] = sim_data['Y_des_CTRL'][:,-nu:] #np.zeros((plot_data['N_plan']+1,nq))
-    plot_data['q_des_SIMU'] = sim_data['Y_des_SIMU'][:,:nq] #np.zeros((plot_data['N_plan']+1,nq))
-    plot_data['v_des_SIMU'] = sim_data['Y_des_SIMU'][:,nq:nq+nv] #np.zeros((plot_data['N_plan']+1,nv))
-    plot_data['tau_des_SIMU'] = sim_data['Y_des_SIMU'][:,-nu:] #np.zeros((plot_data['N_plan']+1,nq))
+    plot_data['q_des_PLAN'] = sim_data['Y_des_PLAN'][:,:nq] 
+    plot_data['v_des_PLAN'] = sim_data['Y_des_PLAN'][:,nq:nq+nv] 
+    plot_data['tau_des_PLAN'] = sim_data['Y_des_PLAN'][:,-nu:]
+    plot_data['q_des_CTRL'] = sim_data['Y_des_CTRL'][:,:nq] 
+    plot_data['v_des_CTRL'] = sim_data['Y_des_CTRL'][:,nq:nq+nv] 
+    plot_data['tau_des_CTRL'] = sim_data['Y_des_CTRL'][:,-nu:]
+    plot_data['q_des_SIMU'] = sim_data['Y_des_SIMU'][:,:nq] 
+    plot_data['v_des_SIMU'] = sim_data['Y_des_SIMU'][:,nq:nq+nv]
+    plot_data['tau_des_SIMU'] = sim_data['Y_des_SIMU'][:,-nu:] 
     # State measurements (at SIMU freq)
     plot_data['q_mea'] = sim_data['Y_mea_SIMU'][:,:nq]
     plot_data['v_mea'] = sim_data['Y_mea_SIMU'][:,nq:nq+nv]

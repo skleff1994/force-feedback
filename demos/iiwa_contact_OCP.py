@@ -49,7 +49,6 @@ N_h = config['N_h']
 dt = config['dt']
 # Contact frame placement 
 M_ct = robot.data.oMf[id_endeff].copy()
-# M_ct.translation += M_ct.act(np.array([0.,0.,0.03]))
 print("Contact frame placement : \n")
 print(M_ct)
 
@@ -69,14 +68,12 @@ u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 ug = pin_utils.get_u_grav(q0, robot)
 print("u0 = ", u0)
 print("ug = ", ug)
-
-# solver
+# Overwrite reference for torque regularization
 # config['ctrlRegRef'] = u0
+
+# Create
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-
-
-
 
 # Solve and extract solution trajectories
 xs_init = [x0 for i in range(N_h+1)]

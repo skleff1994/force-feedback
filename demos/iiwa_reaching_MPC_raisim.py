@@ -19,7 +19,6 @@ The goal of this script is to simulate closed-loop MPC on a simple reaching task
 
 import numpy as np  
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, raisim_utils
-import pybullet as p
 import time 
 
 # Fix seed 
@@ -32,7 +31,7 @@ np.random.seed(1)
 config_name = 'iiwa_reaching_MPC'
 config = path_utils.load_config_file(config_name)
 # Load Kuka config from URDF
-urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa.urdf"
+urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
 mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
 iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
 
@@ -309,11 +308,11 @@ print('--------------------------------')
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/force-feedback/data'
-save_name = config_name+'_BIAS='+str(SCALE_TORQUES)+\
+save_name = config_name+'_raisim_'+\
+                        '_BIAS='+str(SCALE_TORQUES)+\
                         '_NOISE='+str(NOISE_STATE or NOISE_TORQUES)+\
                         '_DELAY='+str(DELAY_OCP or DELAY_SIM)+\
-                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)+\
-                        '_RAISIM'
+                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
 # Extract plot data from sim data
 plot_data = data_utils.extract_plot_data_from_sim_data(sim_data)
 # Plot results
@@ -324,3 +323,9 @@ plot_utils.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
                                 SAVE_DIR=save_dir,
                                 SAVE_NAME=save_name,
                                 AUTOSCALE=True)
+
+# Save optionally
+if(config['SAVE_DATA']):
+  data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)
+  
+env.server.killServer()

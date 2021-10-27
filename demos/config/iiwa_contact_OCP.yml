@@ -16,7 +16,7 @@ contactModelGains: [0., 0.]
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['force', 'friction', 'stateReg', 'velocity', 'ctrlReg', 'stateLim', 'ctrlLim'] 
+WHICH_COSTS: ['force', 'stateReg', 'ctrlReg'] # 'stateLim', 'ctrlLim'] 
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)

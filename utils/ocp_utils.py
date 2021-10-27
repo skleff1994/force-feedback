@@ -286,8 +286,6 @@ def init_DDP(robot, config, x0, callbacks=False,
     N_h = config['N_h']               
    
    # Model params
-    id_endeff = robot.model.getFrameId('contact')
-    M_ee = robot.data.oMf[id_endeff]
     nq, nv = robot.model.nq, robot.model.nv
     # State and actuation models
     state = crocoddyl.StateMultibody(robot.model)
@@ -579,114 +577,195 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           tau_plus    : use "tau_plus" integration if True, "tau" otherwise
           lpf_type    : use expo moving avg (0), classical lpf (1) or exact (2)
           WHICH_COSTS : which cost terms in the running & terminal cost?
-                          'placement', 'velocity', 'stateReg', 'ctrlReg'
-                          'stateLim', 'ctrlLim', 'translation'
+                          'placement', 'velocity', 'stateReg', 'ctrlReg', 'ctrlRegGrav'
+                          'stateLim', 'ctrlLim', 'translation', 'friction', 'force'
       OUTPUT:
           FDDP solver
+
+     A cost term on a variable z(x,u) has the generic form w * r( a( z(x,u) ) )
+     where w <--> cost weight, e.g. 'stateRegWeight' in config file
+           r <--> residual model depending on some reference, e.g. 'stateRegRef'
+                  Wen set to 'None' in config file, default references are hard-coded here
+           a <--> weighted activation, with weights e.g. 'stateRegWeights' in config file 
+           z <--> can be state x, control u, frame position or velocity, contact force, etc.
     '''
     
     # OCP parameters 
     dt = config['dt']                   # OCP integration step (s)               
     N_h = config['N_h']                 # Number of knots in the horizon 
     # Model params
-    id_endeff = robot.model.getFrameId('contact')
-    M_ee = robot.data.oMf[id_endeff]
     nq, nv = robot.model.nq, robot.model.nv
     nx = nq+nv
     # State and actuation models
     state = crocoddyl.StateMultibody(robot.model)
     actuation = crocoddyl.ActuationModelFull(state)
-    # Contact model 
-    if(CONTACT):
-      baumgarte_gains = np.array([0., 0.])
-      contact6d = crocoddyl.ContactModel6D(state, id_endeff, robot.data.oMf[id_endeff], baumgarte_gains) 
-    
+    # Contact or not ?
+    if('contactModelFrameName' in config.keys()):
+      CONTACT = True
+      contactModelGains = np.asarray(config['contactModelGains'])
+      contactModelFrameId = robot.model.getFrameId(config['contactModelFrameName'])
+      # Default contact reference translation = initial translation
+      if(config['contactModelTranslationRef']=='DEFAULT'):
+        contactModelTranslationRef = robot.data.oMf[contactModelFrameId].translation.copy()
+      else:
+        contactModelTranslationRef = config['contactModelTranslationRef']
+      # Default contact reference rotation = initial rotation
+      if(config['contactModelRotationRef']=='DEFAULT'):
+        contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
+      else:
+        contactModelRotationRef = config['contactModelRotationRef']
+      contactModelPlacementRef = pin.SE3(contactModelRotationRef, contactModelTranslationRef)
+      contact6d = crocoddyl.ContactModel6D(state, 
+                                           contactModelFrameId, 
+                                           contactModelPlacementRef, 
+                                           contactModelGains) 
+    else:
+      CONTACT = False
+
 
     # Cost function terms
     # State regularization
     if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
+      # Default reference = initial state
+      if(config['stateRegRef']=='DEFAULT'):
+        stateRegRef = y0[:nx] #np.zeros(nq+nv) 
+      else:
+        stateRegRef = np.asarray(config['stateRegRef'])
       stateRegWeights = np.asarray(config['stateRegWeights'])
-      x_reg_ref = y0[:nx]   
       xRegCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
-                                            crocoddyl.ResidualModelState(state, x_reg_ref, actuation.nu))
-      print('[OCP] Added state regularization cost.')
+                                            crocoddyl.ResidualModelState(state, stateRegRef, actuation.nu))
     # Control regularization
     if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
+      # Default reference = zero torque 
+      if(config['ctrlRegRef']=='DEFAULT'):
+        u_reg_ref = np.zeros(nq)
+      else:
+        u_reg_ref = np.asarray(config['ctrlRegRef'])
+      residual = crocoddyl.ResidualModelControl(state, u_reg_ref)
+      ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
+      uRegCost = crocoddyl.CostModelResidual(state, 
+                                            crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
+                                            residual)
+    # Control regularization (gravity)
+    if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+      # Contact or not?
       if(CONTACT):
         residual = crocoddyl.ResidualModelContactControlGrav(state)
       else:
         residual = crocoddyl.ResidualModelControlGrav(state)
       ctrlRegWeights = np.asarray(config['ctrlRegWeights'])
-      uRegCost = crocoddyl.CostModelResidual(state, 
+      uRegGravCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                             residual)
-      print('[OCP] Added control regularization cost.')
     # State limits penalization
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
-      x_lim_ref  = np.zeros(nq+nv)
+      # Default reference = zero state
+      if(config['stateLimRef']=='DEFAULT'):
+        stateLimRef = np.zeros(nq+nv)
+      else:
+        stateLimRef = np.asarray(config['stateLimRef'])
+      x_max = state.ub 
+      x_min = state.lb
+      stateLimWeights = np.asarray(config['stateLimWeights'])
       xLimitCost = crocoddyl.CostModelResidual(state, 
-                                              crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(state.lb, state.ub)), 
-                                              crocoddyl.ResidualModelState(state, x_lim_ref, actuation.nu))
-      print('[OCP] Added state limit cost.')
+                                            crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(x_min, x_max), stateLimWeights), 
+                                            crocoddyl.ResidualModelState(state, stateLimRef, actuation.nu))
     # Control limits penalization
     if('all' in WHICH_COSTS or 'ctrlLim' in WHICH_COSTS):
-      u_min = -np.asarray(config['u_lim']) 
-      u_max = +np.asarray(config['u_lim']) 
-      u_lim_ref = np.zeros(nq)
+      # Default reference = zero torque
+      if(config['ctrlLimRef']=='DEFAULT'):
+        ctrlLimRef = np.zeros(nq)
+      else:
+        ctrlLimRef = np.asarray(config['ctrlLimRef'])
+      u_min = -np.asarray(config['ctrlBounds']) 
+      u_max = +np.asarray(config['ctrlBounds']) 
+      ctrlLimWeights = np.asarray(config['ctrlLimWeights'])
       uLimitCost = crocoddyl.CostModelResidual(state, 
-                                              crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max)), 
-                                              crocoddyl.ResidualModelControl(state, u_lim_ref))
-      print('[OCP] Added control limit cost.')
+                                              crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max), ctrlLimWeights), 
+                                              crocoddyl.ResidualModelControl(state, ctrlLimRef))
     # End-effector placement 
     if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
-      # p_des = np.asarray(config['p_des']) 
-      desiredFramePlacement = M_ee.copy() #pin.SE3(M_ee.rotation.T, p_des)
+      framePlacementFrameId = robot.model.getFrameId(config['framePlacementFrameName'])
+      # Default translation reference = initial translation
+      if(config['framePlacementTranslationRef']=='DEFAULT'):
+        framePlacementTranslationRef = robot.data.oMf[framePlacementFrameId].translation.copy()
+      else:
+        framePlacementTranslationRef = np.asarray(config['framePlacementTranslationRef'])
+      # Default rotation reference = initial rotation
+      if(config['framePlacementRotationRef']=='DEFAULT'):
+        framePlacementRotationRef = robot.data.oMf[framePlacementFrameId].rotation.copy()
+      else:
+        framePlacementRotationRef = np.asarray(config['framePlacementRotationRef'])
+      framePlacementRef = pin.SE3(framePlacementRotationRef, framePlacementTranslationRef)
       framePlacementWeights = np.asarray(config['framePlacementWeights'])
       framePlacementCost = crocoddyl.CostModelResidual(state, 
                                                       crocoddyl.ActivationModelWeightedQuad(framePlacementWeights**2), 
                                                       crocoddyl.ResidualModelFramePlacement(state, 
-                                                                                            id_endeff, 
-                                                                                            desiredFramePlacement, 
+                                                                                            framePlacementFrameId, 
+                                                                                            framePlacementRef, 
                                                                                             actuation.nu)) 
-      print('[OCP] Added frame placement cost.')
-    # End-effector translation
-    if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
-      if(config['p_des']=='None'):
-        desiredFrameTranslation = M_ee.translation.copy()
+    # End-effector velocity
+    if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS): 
+      frameVelocityFrameId = robot.model.getFrameId(config['frameVelocityFrameName'])
+      # Default reference = zero velocity
+      if(config['frameVelocityRef']=='DEFAULT'):
+        frameVelocityRef = pin.Motion( np.zeros(6) )
       else:
-        desiredFrameTranslation = np.asarray(config['p_des'])
-      frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
-      frameTranslationCost = crocoddyl.CostModelResidual(state, 
-                                                      crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
-                                                      crocoddyl.ResidualModelFrameTranslation(state, 
-                                                                                              id_endeff, 
-                                                                                              desiredFrameTranslation, 
-                                                                                              actuation.nu)) 
-      # print("[OCP] Desired frame translation = ", desiredFrameTranslation)
-      print("[OCP] Added frame translation cost.")
-    # End-effector velocity 
-    if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
-      desiredFrameMotion = pin.Motion(np.concatenate([np.asarray(config['v_des']), np.zeros(3)]))
+        frameVelocityRef = pin.Motion( np.asarray( config['frameVelocityRef'] ) )
       frameVelocityWeights = np.asarray(config['frameVelocityWeights'])
       frameVelocityCost = crocoddyl.CostModelResidual(state, 
                                                       crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
                                                       crocoddyl.ResidualModelFrameVelocity(state, 
-                                                                                          id_endeff, 
-                                                                                          desiredFrameMotion, 
-                                                                                          pin.LOCAL, 
+                                                                                          frameVelocityFrameId, 
+                                                                                          frameVelocityRef, 
+                                                                                          pin.WORLD, 
                                                                                           actuation.nu)) 
-      print('[OCP] Added frame velocity cost.')
+    # Frame translation cost
+    if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
+      frameTranslationFrameId = robot.model.getFrameId(config['frameTranslationFrameName'])
+      # Default reference translation = initial translation
+      if(config['frameTranslationRef']=='DEFAULT'):
+        frameTranslationRef = robot.data.oMf[frameTranslationFrameId].translation.copy()
+      else:
+        frameTranslationRef = np.asarray(config['frameTranslationRef'])
+      frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+      frameTranslationCost = crocoddyl.CostModelResidual(state, 
+                                                      crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
+                                                      crocoddyl.ResidualModelFrameTranslation(state, 
+                                                                                              frameTranslationFrameId, 
+                                                                                              frameTranslationRef, 
+                                                                                              actuation.nu)) 
     # Frame force cost
     if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
       if(not CONTACT):
-        print("[OCP] !! frameForceCost WARNING !! \n")
-        print("[OCP]  >>> No contact model is defined")
-      desiredFrameForce = pin.Force(np.asarray(config['f_des']))
+        print("[OCP] ERROR : Force cost but no contact model is defined !!! ")
+      # Default force reference = zero force
+      if(config['frameForceRef']=='DEFAULT'):
+        frameForceRef = pin.Force( np.zeros(6) )
+      else:
+        frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
       frameForceWeights = np.asarray(config['frameForceWeights'])
+      frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
       frameForceCost = crocoddyl.CostModelResidual(state, 
                                                    crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
-                                                   crocoddyl.ResidualModelContactForce(state, id_endeff, desiredFrameForce, 6, actuation.nu))
+                                                   crocoddyl.ResidualModelContactForce(state, 
+                                                                                       frameForceFrameId, 
+                                                                                       frameForceRef, 
+                                                                                       6, 
+                                                                                       actuation.nu))
+    # Friction cone 
+    if('all' in WHICH_COSTS or 'friction' in WHICH_COSTS):
+      if(not CONTACT):
+        print("[OCP] ERROR :  Friction cost but no contact model is defined !!! ")
+      cone_rotation = contactModelPlacementRef.rotation
+      # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
+      mu = config['mu']
+      frictionConeFrameId = robot.model.getFrameId(config['frictionConeFrameName'])
+      frictionCone = crocoddyl.FrictionCone(cone_rotation, mu, 4, True, 0, 200)
+      frictionConeCost = crocoddyl.CostModelResidual(state,
+                                                     crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
+                                                     crocoddyl.ResidualModelContactFrictionCone(state, frictionConeFrameId, frictionCone))
     
 
     # LPF parameters (a.k.a simplified actuation model)
@@ -720,12 +799,16 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         costs.addCost("stateReg", xRegCost, config['stateRegWeight'])
       if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
         costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeight']) 
+      if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+        costs.addCost("ctrlRegGrav", uRegGravCost, config['ctrlRegWeight'])
       if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
         costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
       if('all' in WHICH_COSTS or 'ctrlLim' in WHICH_COSTS):
         costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
       if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
         costs.addCost("force", frameForceCost, config['frameForceWeight'])
+      if('all' in WHICH_COSTS or 'friction' in WHICH_COSTS):
+        costs.addCost("friction", frictionConeCost, config['frictionConeWeight'])
 
       # Create DAM (Contact or FreeFwd)
       if(CONTACT):
