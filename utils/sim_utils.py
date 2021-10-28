@@ -25,6 +25,33 @@ def init_kuka_simulator(dt=1e3, x0=None):
     return env, pybullet_simulator
 
 
+def get_contact_wrench(pybullet_simulator, id_endeff):
+    '''
+    Get contact wrench in LOCAL contact frame
+    '''
+    contact_points = p.getContactPoints()
+    force = np.zeros(6)
+    for ci in reversed(contact_points):
+        p_ct = np.array(ci[6])
+        contact_normal = ci[7]
+        normal_force = ci[9]
+        lateral_friction_direction_1 = ci[11]
+        lateral_friction_force_1 = ci[10]
+        lateral_friction_direction_2 = ci[13]
+        lateral_friction_force_2 = ci[12]
+        # Linear force in LOCAL frame
+        linear_LOCAL = np.array([normal_force, lateral_friction_force_1, lateral_friction_force_2])
+        wrench_LOCAL = np.concatenate([linear_LOCAL, np.zeros(3)])
+        # LOCAL contact placement
+        R_ct = np.vstack([np.array(contact_normal), np.array(lateral_friction_direction_1), np.array(lateral_friction_direction_2)]).T
+        M_ct = pin.SE3(R_ct, p_ct) # LOCAL --> WORLD
+        # wrench_WORLD
+        wrench_WORLD = M_ct.act(pin.Force(wrench_LOCAL))
+        # wrench Croco frame
+        wrench_croco = pybullet_simulator.pin_robot.data.oMf[id_endeff].actInv(wrench_WORLD)
+        force =+ wrench_croco.vector
+        return force
+
 # Load contact surface in PyBullet for contact experiments
 def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=False):
     '''

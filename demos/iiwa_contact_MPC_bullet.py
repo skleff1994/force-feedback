@@ -44,7 +44,7 @@ nq, nv = robot.model.nq, robot.model.nv; nu = nq
 id_endeff = robot.model.getFrameId('contact')
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
-offset = 0.0320
+offset = 0.0335
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 sim_utils.display_contact_surface(contact_placement, with_collision=True)
 print("-------------------------------------------------------------------")
@@ -110,7 +110,7 @@ x_buffer_OCP = []                                             # buffer for desi
 u_buffer_OCP = []                                             # buffer for desired states delayed by OCP computation time
 buffer_sim = []                                               # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
-WHICH_PLOTS = ['p']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS = ['all']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 DELAY_SIM = config['DELAY_SIM']                               # Add delay in reference torques (low-level)
 DELAY_OCP = config['DELAY_OCP']                               # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES = config['SCALE_TORQUES']                       # Affinescaling of reference torque
@@ -300,16 +300,17 @@ for i in range(sim_data['N_simu']):
     env.step()
     # Measure new state from simulation 
     q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
-    # Measure force from simulation
-    _, force_measured = pybullet_simulator.get_force()
-    if(len(force_measured)==0):
-        f_mea_SIMU = np.zeros(6)
-    else:
-        f_mea_SIMU = force_measured[0]
-    if(i%50==0): 
-      print(f_mea_SIMU)
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
+    f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
+    # # Measure normal force from simulation (WORLD frame)
+    # _, force_measured = pybullet_simulator.get_force()
+    # if(len(force_measured)==0):
+    #     f_mea_SIMU_WORLD = np.zeros(6)
+    # else:
+    #     f_mea_SIMU_WORLD = force_measured[0]
+    if(i%50==0): 
+      print(f_mea_SIMU)
     # Record data (unnoised)
     x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
     sim_data['X_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU
