@@ -4,17 +4,19 @@
 @file iiwa_contact_MPC_raisim.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
-@copyright Copyright (c) 2020, New York University and LAAS-CNRS
-@date 2020-05-18
-@brief Closed-loop MPC for static target task with the KUKA iiwa 
+@copyright Copyright (c) 2021, New York University & LAAS-CNRS
+@date 2021-10-28
+@brief Closed-loop MPC for force task with the KUKA iiwa (RaiSim)
 """
 
 '''
-The robot is tasked with reaching a static EE target 
+The robot is tasked with exerting a constant normal force  
 Trajectory optimization using Crocoddyl in closed-loop MPC 
 (feedback from state x=(q,v), control u = tau) 
 Using Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualization
-The goal of this script is to simulate closed-loop MPC on a simple reaching task 
+
+The goal of this script is to simulate MPC with state feedback, optionally
+imperfect actuation (bias, noise, delays) at higher frequency
 '''
 
 import numpy as np
@@ -64,7 +66,7 @@ id_endeff = robot.model.getFrameId('contact')
 M_ct              = robot.data.oMf[id_endeff].copy() 
   # Initial placement of contacted object in simulator
 contact_placement = robot.data.oMf[id_endeff].copy()
-offset = iiwa_config.tennis_ball_radius 
+offset = iiwa_config.tennis_ball_radius + 0.001  
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 env.display_ball(contact_placement, radius=0.1) 
 # env.display_wall(contact_placement)

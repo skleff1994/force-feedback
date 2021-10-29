@@ -3,9 +3,9 @@
 @file iiwa_LPF_contact_MPC_bullet.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
-@copyright Copyright (c) 2020, New York University and LAAS-CNRS
-@date 2020-05-18
-@brief Closed-loop 'LPF torque feedback' MPC for force task with the KUKA iiwa 
+@copyright Copyright (c) 2021, New York University & LAAS-CNRS
+@date 2021-10-28
+@brief Closed-loop 'LPF torque feedback' MPC for force task with the KUKA iiwa  (PyBullet)
 """
 
 '''

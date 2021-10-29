@@ -3,16 +3,19 @@
 @file iiwa_contact_MPC_bullet.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
-@copyright Copyright (c) 2020, New York University and LAAS-CNRS
-@date 2020-05-18
-@brief Closed-loop MPC for force task with the KUKA iiwa 
+@copyright Copyright (c) 2021, New York University & LAAS-CNRS
+@date 2021-10-28
+@brief Closed-loop MPC for force task with the KUKA iiwa (PyBullet)
 """
 
 '''
 The robot is tasked with exerting a constant normal force  
 Trajectory optimization using Crocoddyl in closed-loop MPC 
-(feedback from stateLPF x=(q,v), control u = tau 
+(feedback from state x=(q,v), control u = tau) 
 Using PyBullet simulator & GUI for rigid-body dynamics + visualization
+
+The goal of this script is to simulate MPC with state feedback, optionally
+imperfect actuation (bias, noise, delays) at higher frequency
 '''
 
 import numpy as np  
