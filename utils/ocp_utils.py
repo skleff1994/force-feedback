@@ -452,10 +452,10 @@ def init_DDP(robot, config, x0, callbacks=False,
       # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
       mu = config['mu']
       frictionConeFrameId = robot.model.getFrameId(config['frictionConeFrameName'])
-      frictionCone = crocoddyl.FrictionCone(cone_rotation, mu, 4, True, 0, 200)
+      frictionCone = crocoddyl.FrictionCone(cone_rotation, mu, 4, False) #, 0, 1000)
       frictionConeCost = crocoddyl.CostModelResidual(state,
                                                      crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
-                                                     crocoddyl.ResidualModelContactFrictionCone(state, frictionConeFrameId, frictionCone))
+                                                     crocoddyl.ResidualModelContactFrictionCone(state, frictionConeFrameId, frictionCone, actuation.nu))
     
     # Create IAMs
     runningModels = []

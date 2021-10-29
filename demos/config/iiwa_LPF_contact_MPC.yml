@@ -57,7 +57,7 @@ frameForceFrameName: 'contact'
 
  # 'friction' : end-effector frame friction cone 
 mu:  0.7
-frictionConeWeight: 1
+frictionConeWeight: 1.
 frictionConeFrameName: 'contact'
 
  # 'stateReg' : state regularization  

@@ -68,8 +68,8 @@ M_ct              = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
 offset = iiwa_config.tennis_ball_radius + 0.001  
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-env.display_ball(contact_placement, radius=0.1) 
-# env.display_wall(contact_placement)
+# env.display_ball(contact_placement, radius=0.1) 
+env.display_wall(contact_placement)
 print("-----------------------")
 print("[Raisim] Created robot ")
 print("-----------------------")
@@ -93,7 +93,7 @@ for i in range(nq+1):
     f_ext.append(f_JOINT)
 # print(f_ext)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-
+config['ctrlRegRef'] = u0
 
 print("--------------------------------------")
 print("              INIT OCP                ")

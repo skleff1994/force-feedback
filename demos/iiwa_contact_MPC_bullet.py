@@ -75,6 +75,7 @@ for i in range(nq+1):
 # print(f_ext)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 
+config['ctrlRegRef'] = u0
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
@@ -160,8 +161,8 @@ if(config['INIT_LOG']):
 
 # Interpolation  
 
- # ^ := MPC computations
- # | := current MPC computation
+ # ^ := MPC update steps
+ # | := current MPC update step
 
  # MPC ITER #1
   #      x_0         x_1         x_2 ...                    --> pred(MPC=O) size N_h
@@ -178,12 +179,12 @@ if(config['INIT_LOG']):
   #             SSSSSSSSSSSSSSSSSSSSSSSSS  
   #             |     ^     ^     ^     ^  ...
  # MPC ITER #3
-  #                        x_0         x_1         x_2 ...  --> pred(MPC=2) size N_h
-  #                         O           O           O         ...
-  #                         M     M     M     M     M
-  #                         C  C  C  C  C  C  C  C  C
-  #                         SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #                         |     ^     ^     ^     ^  ...
+  #                  x_0         x_1         x_2 ...        --> pred(MPC=2) size N_h
+  #                   O           O           O               ...
+  #                   M     M     M     M     M
+  #                   C  C  C  C  C  C  C  C  C
+  #                   SSSSSSSSSSSSSSSSSSSSSSSSS  
+  #                   |     ^     ^     ^     ^  ...
  # ...
 
 # SIMULATE

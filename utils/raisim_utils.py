@@ -344,31 +344,33 @@ class RaiEnv:
             return position, np.identity(3)
 
     # Load contact surface in PyBullet for contact experiments
-    def display_ball(self, placement, radius=.5, length=0.0, with_collision=False):
+    def display_ball(self, placement, radius=.5):
         '''
-        Create contact surface object in raisim and display it
+        Create contact sphere object in raisim and display it
         '''
-        # wall = self.world.addBox(.1, 1, 1, 10, material="default", collision_group=1, collision_mask=18446744073709551615)
-        ball = self.world.addSphere(radius, 100, material="default")#, collision_group=1, collision_mask=-1)
+        ball = self.world.addSphere(radius, 100, material="default")
         ball.setBodyType(raisim.BodyType.STATIC)
         ball.setAppearance("0,1,0,0.1")
         p = placement.act(np.array([0.,0.,radius]))
         ball.setPosition(p)
-        # quat = list(pin.se3ToXYZQUAT(placement))
-        # wall.setOrientation(quat[0], quat[1], quat[2], quat[3])
-        # wall.setBodyType(raisim.BodyType.STATIC)
         return ball
 
-    def display_wall(self, placement, width=0.01, length=0.0, with_collision=False):
+    def display_wall(self, placement, width=0.01):
         '''
-        Create contact surface object in raisim and display it
+        Create contact plane object in raisim and display it
         '''
-        wall = self.world.addBox(width, 1, 1, 10, material="default")# collision_group=1, collision_mask=18446744073709551615)
+        wall = self.world.addBox(1, 1, width, 10, material="default")
         wall.setBodyType(raisim.BodyType.STATIC)
-        wall.setAppearance("0,1,0, 0.01")
+        wall.setAppearance("0,1,0,1")
+        # print("WALL ", wall.getOrientation())
         p = placement.act(np.array([0.,0., width]))
-        quat = list(pin.se3ToXYZQUAT(placement))
-        # wall.setOrientation(quat[0], quat[1], quat[2], quat[3])
+        R = placement.rotation.T
+        placement_wall = pin.SE3(R, p)
+        # Get quaternion (px, py, pz, x, y, z, w)
+        quat = np.array(list(pin.se3ToXYZQUAT(placement_wall)))
+        # pin.Quaternion(quat)
+        # WARNING: RaiSim takes quaternion as (w, x, y, z) (angle first)
+        wall.setOrientation(quat[6], quat[3], quat[4], quat[5])
         wall.setPosition(p)
         return wall
 
