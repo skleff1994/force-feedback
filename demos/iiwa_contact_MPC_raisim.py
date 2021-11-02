@@ -66,7 +66,7 @@ id_endeff = robot.model.getFrameId('contact')
 M_ct              = robot.data.oMf[id_endeff].copy() 
   # Initial placement of contacted object in simulator
 contact_placement = robot.data.oMf[id_endeff].copy()
-offset = iiwa_config.tennis_ball_radius + 0.001  
+offset = iiwa_config.tennis_ball_radius #+ 0.001  
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 # env.display_ball(contact_placement, radius=0.1) 
 env.display_wall(contact_placement)
