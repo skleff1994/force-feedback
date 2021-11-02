@@ -1,12 +1,35 @@
 # What is it
-Force feedback in Optimal Control : preliminary studies. Several approaches are explored, relaxing the rigid contact assumption, or not. In particular, the LPF approach is studied: low-pass filter (LPF) modeling the actuation dynamics, the filtered torque are treated as states in the optimization.
+Several approaches toward Force feedback in Optimal Control are explored:
+-- Relaxing the rigid contact assumption ("augmented state" and "observer")
+-- Assuming imperfect torque actuation
+In particular, the second lead is explored in details throughout simulations on the KUKA iiwa LBR 14 manipulator. We call it the "LPF" approach, which consists basically in modeling the actuation as a low-pass filter (LPF) on the torques. Reaching tasks and contact tasks are simulated in both PyBullet and Raisim.
 
 # Dependencies
-- [PyBullet](https://pybullet.org/wordpress/)
-- [bullet_utils](https://github.com/machines-in-motion/bullet_utils) 
 - [robot_properties_kuka](https://github.com/machines-in-motion/robot_properties_kuka)
-- [Crocoddyl](https://github.com/loco-3d/crocoddyl) 
+- [Crocoddyl](https://github.com/skleff1994/crocoddyl.git) (my fork, "lpf" branch)
 - [Pinocchio](https://github.com/stack-of-tasks/pinocchio)
 
+You also need either one of these in order to run MPC simulations :
+- [RaiSim](https://raisim.com/index.html) (only for RaiSim simulations)
+- [PyBullet](https://pybullet.org/wordpress/)  (only for PyBullet simulations)
+- [bullet_utils](https://github.com/machines-in-motion/bullet_utils) (only for PyBullet simulations)
+
 # How to use it
-All relevant scripts are in `demos` so far. In `core` there is a custom DDP solver and Kalman filter. `models` contains dynamics models and cost models that are compatible with the custom DDP solver and Crocoddyl Integrated Action Models (IAM) of simple systems (point mass, ...).  
+As of Nov. 2, 2021, all relevant scripts are in `demos` and `utils`
+
+## Solve OCP + plot results
+For instance, to solve an OCP for a reaching task and plot the results, simply call
+```
+python demos/iiwa_reaching_OCP.py 
+```
+This script reads the corresponding YAML configuration file `demos/config/iiwa_reaching_OCP.yml` and sets up the OCP defined in `utils/ocp_utils` and solves it. The results are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_ddp").
+
+## Simulate MPC + plot the results
+Now in order to simulate MPC, we need a physics simulator. We can use either PyBullet (open-source) or RaiSim (closed-source, free academic license) 
+```
+python demos/iiwa_reaching_MPC_bullet.py  # replace 'bullet' by 'raisim' to use raisim
+```
+This script reads the corresponding YAML configuration file in `demos/config/iiwa_reaching_MPC.yml` and sets up an OCP defined in `utils/ocp_utils`. The results are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_mpc").
+
+## How to do force feedback ?
+All functions and script containing the suffix "\_LPF" can be used similarly. Those rely on an augmented dynamics model that includes a low-pass filter as an actuation abstraction, which is implemented in C++ my fork of the Crocoddyl library ('lpf' branch). The rest of the repo (i.e. what is not described above) contains draft code for approaches based on soft contact models, and is mainly under construction at the moment.
