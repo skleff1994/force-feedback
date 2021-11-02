@@ -30,7 +30,7 @@ Now in order to simulate MPC, we need a physics simulator. We can use either PyB
 ```
 python demos/iiwa_reaching_MPC_bullet.py  # replace 'bullet' by 'raisim' to use raisim
 ```
-This script reads the corresponding YAML configuration file in `demos/config/iiwa_reaching_MPC.yml` and sets up an OCP defined in `utils/ocp_utils`. The results are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_mpc").
+This script reads the corresponding YAML configuration file in `demos/config/iiwa_reaching_MPC.yml` and sets up an OCP defined in `utils/ocp_utils` and simulates the MPC in PyBullet (or RaiSim). The results are of the simulations are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_mpc"). The simulation data can be optionally saved as .npz for offline analysis. 
 
 ## How to do force feedback ?
 All functions and script containing the suffix "\_LPF" can be used similarly. Those rely on an augmented dynamics model that includes a low-pass filter as an actuation abstraction, which is implemented in C++ my fork of the Crocoddyl library ('lpf' branch). The rest of the repo (i.e. what is not described above) contains draft code for approaches based on soft contact models, and is mainly under construction at the moment.
