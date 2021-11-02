@@ -1,7 +1,8 @@
 # What is it
 Several approaches toward Force feedback in Optimal Control are explored:
--- Relaxing the rigid contact assumption ("augmented state" and "observer")
--- Assuming imperfect torque actuation
+- Relaxing the rigid contact assumption ("augmented state" and "observer")
+- Assuming imperfect torque actuation
+
 In particular, the second lead is explored in details throughout simulations on the KUKA iiwa LBR 14 manipulator. We call it the "LPF" approach, which consists basically in modeling the actuation as a low-pass filter (LPF) on the torques. Reaching tasks and contact tasks are simulated in both PyBullet and Raisim.
 
 # Dependencies
