@@ -69,7 +69,7 @@ ug = pin_utils.get_u_grav(q0, robot)
 print("u0 = ", u0)
 print("ug = ", ug)
 # Overwrite reference for torque regularization
-# config['ctrlRegRef'] = u0
+config['ctrlRegRef'] = u0
 
 # Create
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,

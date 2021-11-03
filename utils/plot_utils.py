@@ -2107,7 +2107,8 @@ def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, marker=None, color
         plt.show()
     return fig, ax
 
-def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
+def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
+                                                    MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
     '''
     Plot ddp results (endeff)
     '''
@@ -2124,8 +2125,12 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
     v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
     if('translation' in ddp_data['active_costs']):
         p_ee_ref = np.array(ddp_data['translation_ref'])
+    else:
+        p_ee_ref = np.array([p_ee[0,:] for i in range(N+1)])
     if('velocity' in ddp_data['active_costs']):
         v_ee_ref = np.array(ddp_data['velocity_ref'])
+    else:
+        v_ee_ref = np.array([v_ee[0,:] for i in range(N+1)])
     if('contact_translation' in ddp_data):
         p_ee_contact = np.array(ddp_data['contact_translation'])
     # Plots
@@ -2133,7 +2138,7 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
     if(ax is None or fig is None):
         fig, ax = plt.subplots(3, 2, sharex='col')
     if(label is None):
-        label='End-effector'
+        label='OCP solution'
     xyz = ['x', 'y', 'z']
     for i in range(3):
         # Plot EE position in WORLD frame
@@ -2146,7 +2151,7 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
                 handles.pop(labels.index('reference'))
                 ax[i,0].lines.pop(labels.index('reference'))
                 labels.remove('reference')
-            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
         
         # Plot CONTACT reference frame translation in WORLD frame
         if('contact_translation' in ddp_data):
@@ -2155,7 +2160,7 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
                 handles.pop(labels.index('contact'))
                 ax[i,0].lines.pop(labels.index('contact'))
                 labels.remove('contact')
-            ax[i,0].plot(tspan, p_ee_contact[:,i], linestyle='--', color='r', marker=None, label='contact', alpha=0.3)
+            ax[i,0].plot(tspan, p_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
 
         # Labels, tick labels, grid
         ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
@@ -2173,7 +2178,7 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
                 handles.pop(labels.index('reference'))
                 ax[i,1].lines.pop(labels.index('reference'))
                 labels.remove('reference')
-            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='-.', color='k', marker=None, label='reference', alpha=0.5)
+            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
         
         # Labels, tick labels, grid
         ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
@@ -2187,6 +2192,17 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
     ax[i,0].set_xlabel('t (s)', fontsize=16)
     ax[i,1].set_xlabel('t (s)', fontsize=16)
 
+    # Set ylim if any
+    if(AUTOSCALE):
+        TOL = 0.1
+        ax_p_ylim = 1.1*max(np.max(np.abs(p_ee)), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(v_ee)), TOL)
+        print(ax_p_ylim)
+        print(ax_v_ylim)
+        for i in range(3):
+            ax[i,0].set_ylim(p_ee_ref[0,i]-ax_p_ylim, p_ee_ref[0,i]+ax_p_ylim) 
+            ax[i,1].set_ylim(v_ee_ref[0,i]-ax_v_ylim, v_ee_ref[0,i]+ax_v_ylim)
+
     if(MAKE_LEGEND):
         handles, labels = ax[0,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right', prop={'size': 16})
@@ -2195,7 +2211,8 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
         plt.show()
     return fig, ax
 
-def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
+def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
+                                                MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
     '''
     Plot ddp results (force)
     '''
@@ -2209,8 +2226,10 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
     # Get desired contact wrench (linear, angular)
     if('force' in ddp_data['active_costs']):
         f_ee_ref = np.array(ddp_data['force_ref'])
-        f_ee_lin_ref = f_ee_ref[:,:3]
-        f_ee_ang_ref = f_ee_ref[:,3:]
+    else:
+        f_ee_ref = np.zeros((N,6))
+    f_ee_lin_ref = f_ee_ref[:,:3]
+    f_ee_ang_ref = f_ee_ref[:,3:]
     # Plots
     tspan = np.linspace(0, N*dt, N)
     if(ax is None or fig is None):
@@ -2260,7 +2279,18 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
     fig.align_ylabels(ax[:,1])
     ax[i,0].set_xlabel('t (s)', fontsize=16)
     ax[i,1].set_xlabel('t (s)', fontsize=16)
-    
+
+    # Set ylim if any
+    if(AUTOSCALE):
+        TOL = 1e-1
+        ax_lin_ylim = 1.1*max(np.max(np.abs(f_ee_lin)), TOL)
+        ax_ang_ylim = 1.1*max(np.max(np.abs(f_ee_ang)), TOL)
+        print(ax_lin_ylim)
+        print(ax_ang_ylim)
+        for i in range(3):
+            ax[i,0].set_ylim(f_ee_lin_ref[0,i]-ax_lin_ylim, f_ee_lin_ref[0,i]+ax_lin_ylim) 
+            ax[i,1].set_ylim(f_ee_ang_ref[0,i]-ax_ang_ylim, f_ee_ang_ref[0,i]+ax_ang_ylim)
+
     if(MAKE_LEGEND):
         handles, labels = ax[0,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right', prop={'size': 16})
