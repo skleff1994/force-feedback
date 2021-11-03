@@ -80,12 +80,20 @@ xs_init = [x0 for i in range(N_h+1)]
 us_init = [u0  for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
+ddp2 = ocp_utils.init_DDP(robot, config, np.zeros(nq+nv), callbacks=True,
+                                            WHICH_COSTS=config['WHICH_COSTS']) 
+
+ddp2.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 #  Plot
 PLOT = True
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data(ddp)
-    fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=True)
+    ddp_data2 = data_utils.extract_ddp_data(ddp2)
+    fig, ax = plot_utils.plot_ddp_results( [ddp_data, ddp_data2], 
+                                            which_plots=['all'], 
+                                            markers=['.', None],
+                                            colors=['r', 'g'], SHOW=True)
     
 
 VISUALIZE = False

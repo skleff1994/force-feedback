@@ -85,7 +85,7 @@ print("ug = ", ug)
 
 
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-3, 
+                                                cost_w_reg=1e-2, 
                                                 cost_w_lim=10.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
@@ -168,8 +168,8 @@ if(PLOT):
     #  Plot
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
     fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], 
-                                                        colors=['r'], 
-                                                        markers=['.'], 
+                                                        # colors=['r'], 
+                                                        # markers=['.'], 
                                                         SHOW=True)
 
 # tau_filtered = np.zeros((N_h+1, nq))

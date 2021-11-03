@@ -30,7 +30,7 @@ np.random.seed(1)
 # # # # # # # # # # # # # # # # # # # 
 # Read config file
 config_name = 'iiwa_reaching_MPC'
-config = path_utils.load_config_file(config_name)
+config      = path_utils.load_config_file(config_name)
 # Create a Pybullet simulation environment + set simu freq
 dt_simu = 1./float(config['simu_freq'])  
 q0 = np.asarray(config['q0'])
@@ -50,8 +50,8 @@ print("-------------------------------------------------------------------")
 ### OCP SETUP ###
 #################
 N_h = config['N_h']
-dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot)
+dt  = config['dt']
+ug  = pin_utils.get_u_grav(q0, robot)
 
 print("--------------------------------------")
 print("              INIT OCP                ")
@@ -97,21 +97,21 @@ err_u_D = np.zeros(nq)
 nb_plan = 0
 nb_ctrl = 0
   # Buffers for delays
-x_buffer_OCP = []                                             # buffer for desired controls delayed by OCP computation time
-u_buffer_OCP = []                                             # buffer for desired states delayed by OCP computation time
-buffer_sim = []                                               # buffer for measured torque delayed by e.g. actuation and/or sensing 
+x_buffer_OCP = []                                           # buffer for desired controls delayed by OCP computation time
+u_buffer_OCP = []                                           # buffer for desired states delayed by OCP computation time
+buffer_sim   = []                                           # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
-WHICH_PLOTS = ['x','u', 'p']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
-DELAY_SIM = config['DELAY_SIM']                               # Add delay in reference torques (low-level)
-DELAY_OCP = config['DELAY_OCP']                               # Add delay in OCP solution (i.e. ~1ms resolution time)
-SCALE_TORQUES = config['SCALE_TORQUES']                       # Affinescaling of reference torque
-NOISE_TORQUES = config['NOISE_TORQUES']                       # Add Gaussian noise on reference torques
-FILTER_TORQUES = config['FILTER_TORQUES']                     # Moving average smoothing of reference torques
-NOISE_STATE = config['NOISE_STATE']                           # Add Gaussian noise on the measured state 
-FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
-dt_ocp = dt                                                   # OCP sampling rate 
-dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
-OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
+WHICH_PLOTS       = ['x','u', 'p']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+DELAY_SIM         = config['DELAY_SIM']                     # Add delay in reference torques (low-level)
+DELAY_OCP         = config['DELAY_OCP']                     # Add delay in OCP solution (i.e. ~1ms resolution time)
+SCALE_TORQUES     = config['SCALE_TORQUES']                 # Affinescaling of reference torque
+NOISE_TORQUES     = config['NOISE_TORQUES']                 # Add Gaussian noise on reference torques
+FILTER_TORQUES    = config['FILTER_TORQUES']                # Moving average smoothing of reference torques
+NOISE_STATE       = config['NOISE_STATE']                   # Add Gaussian noise on the measured state 
+FILTER_STATE      = config['FILTER_STATE']                  # Moving average smoothing of reference torques
+dt_ocp            = dt                                      # OCP sampling rate 
+dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
+OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
 
 # # # # # # # # # # # #
@@ -146,33 +146,6 @@ if(config['INIT_LOG']):
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
 
-# Interpolation  
-
- # ^ := MPC computations
- # | := current MPC computation
-
- # MPC ITER #1
-  #      x_0         x_1         x_2 ...                    --> pred(MPC=O) size N_h
-  # OCP : O           O           O                           ref_O = x_1
-  # MPC : M     M     M     M     M                           ref_M = x_0 + Interp_[O->M] (x_1 - x_0)
-  # CTR : C  C  C  C  C  C  C  C  C                           ref_C = x_0 + Interp_[O->C] (x_1 - x_0)
-  # SIM : SSSSSSSSSSSSSSSSSSSSSSSSS                           ref_S = x_0 + Interp_[O->S] (x_1 - x_0)
-  #       |     ^     ^     ^     ^  ...
- # MPC ITER #2
-  #            x_0         x_1         x_2 ...              --> pred(MPC=1) size N_h
-  #             O           O           O                     ...
-  #             M     M     M     M     M
-  #             C  C  C  C  C  C  C  C  C
-  #             SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #             |     ^     ^     ^     ^  ...
- # MPC ITER #3
-  #                        x_0         x_1         x_2 ...  --> pred(MPC=2) size N_h
-  #                         O           O           O         ...
-  #                         M     M     M     M     M
-  #                         C  C  C  C  C  C  C  C  C
-  #                         SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #                         |     ^     ^     ^     ^  ...
- # ...
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -253,8 +226,8 @@ for i in range(sim_data['N_simu']):
 
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)# x_curr + COEF * OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-    u_ref_SIMU  = u_curr #u_pred_prev + OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev)# u_pred_prev + COEF * OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev)
+    x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
+    u_ref_SIMU  = u_curr 
 
     # First prediction = measurement = initialization of MPC
     if(i==0):

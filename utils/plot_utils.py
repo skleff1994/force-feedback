@@ -368,11 +368,10 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
       AUTOSCALE                 : rescale y-axis of endeff plot 
                                   based on maximum value taken
     '''
-    return plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False, 
-                                   pred_plot_sampling=100, 
-                                   SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
-                                   SHOW=True,
-                                   AUTOSCALE=False)
+    return plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                      pred_plot_sampling=pred_plot_sampling, 
+                                      SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                      SHOW=SHOW, AUTOSCALE=AUTOSCALE)
 
 # Plot end-eff data
 def plot_mpc_force_LPF(plot_data, PLOT_PREDICTIONS=False, 
@@ -393,11 +392,10 @@ def plot_mpc_force_LPF(plot_data, PLOT_PREDICTIONS=False,
       AUTOSCALE                 : rescale y-axis of endeff plot 
                                   based on maximum value taken
     '''
-    return plot_mpc_force(plot_data, PLOT_PREDICTIONS=False, 
-                                   pred_plot_sampling=100, 
-                                   SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
-                                   SHOW=True,
-                                   AUTOSCALE=False)
+    return plot_mpc_force(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                     pred_plot_sampling=pred_plot_sampling, 
+                                     SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                     SHOW=SHOW, AUTOSCALE=AUTOSCALE)
 
 
 # Plot Ricatti SVD
@@ -908,13 +906,13 @@ def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, co
     '''
     Plot ddp results (endeff)
     '''
-    return plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True)
+    return plot_ddp_endeff(ddp_data, fig=fig, ax=ax, label=label, marker=marker, color=color, alpha=alpha, MAKE_LEGEND=MAKE_LEGEND, SHOW=SHOW)
 
 def plot_ddp_force_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
     '''
     Plot ddp results (force)
     '''
-    return plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True)
+    return plot_ddp_force(ddp_data, fig=fig, ax=ax, label=label, marker=marker, color=color, alpha=alpha, MAKE_LEGEND=MAKE_LEGEND, SHOW=SHOW)
 
 
 
@@ -1221,10 +1219,10 @@ def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False,
 
 # Plot end-eff data
 def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False, 
-                           pred_plot_sampling=100, 
-                           SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
-                           SHOW=True,
-                           AUTOSCALE=False):
+                               pred_plot_sampling=100, 
+                               SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                               SHOW=True,
+                               AUTOSCALE=False):
     '''
     Plot endeff data
      Input:
