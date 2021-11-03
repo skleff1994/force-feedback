@@ -1,5 +1,3 @@
-from operator import contains
-from pickle import SHORT_BINBYTES
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
 import matplotlib
@@ -2197,8 +2195,6 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
         TOL = 0.1
         ax_p_ylim = 1.1*max(np.max(np.abs(p_ee)), TOL)
         ax_v_ylim = 1.1*max(np.max(np.abs(v_ee)), TOL)
-        print(ax_p_ylim)
-        print(ax_v_ylim)
         for i in range(3):
             ax[i,0].set_ylim(p_ee_ref[0,i]-ax_p_ylim, p_ee_ref[0,i]+ax_p_ylim) 
             ax[i,1].set_ylim(v_ee_ref[0,i]-ax_v_ylim, v_ee_ref[0,i]+ax_v_ylim)
@@ -2285,8 +2281,6 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
         TOL = 1e-1
         ax_lin_ylim = 1.1*max(np.max(np.abs(f_ee_lin)), TOL)
         ax_ang_ylim = 1.1*max(np.max(np.abs(f_ee_ang)), TOL)
-        print(ax_lin_ylim)
-        print(ax_ang_ylim)
         for i in range(3):
             ax[i,0].set_ylim(f_ee_lin_ref[0,i]-ax_lin_ylim, f_ee_lin_ref[0,i]+ax_lin_ylim) 
             ax[i,1].set_ylim(f_ee_ang_ref[0,i]-ax_ang_ylim, f_ee_ang_ref[0,i]+ax_ang_ylim)
