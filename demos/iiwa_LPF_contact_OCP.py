@@ -48,8 +48,6 @@ print("Initial frame translation = ", M_ee.translation.copy())
 #################
 N_h = config['N_h']
 dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot) 
-y0 = np.concatenate([x0, ug])
 
 LPF_TYPE = 1
 # Approx. LPF obtained from Z.O.H. discretization on CT LPF 
@@ -63,8 +61,6 @@ if(LPF_TYPE==2):
     y = np.cos(2*np.pi*config['f_c']*dt)
     alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
 
-
-
 # Warm start and reg
 import pinocchio as pin
 f_ext = []
@@ -77,31 +73,29 @@ for i in range(nq+1):
     f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
     f_ext.append(pin.Force(f_JOINT))
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-ug = pin_utils.get_u_grav(q0, robot)
-print("u0 = ", u0)
-print("ug = ", ug)
+ug = pin_utils.get_u_grav(q0, robot.model)
 #  Overwrite reference for torque regularization
 # config['ctrlRegRef'] = u0
-
+# Define initial state
+y0 = np.concatenate([x0, ug])
 
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-2, 
+                                                cost_w_reg=1e-9, 
+                                                w_reg_ref=None,
                                                 cost_w_lim=10.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
                                                 WHICH_COSTS=config['WHICH_COSTS'],
                                                 CONTACT=True) 
-# for i in range(N_h-1):
-#   if(i<=int(N_h/10)):
-#     ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = 100
-#   if(i>=5*N_h/10):
-#     ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight /= 1.1
 
+# # Half reach time (in OCP nodes)
+# for i in range(N_h-1):
+#     if(i<=25):
+#         ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = .1
 
 # Solve and extract solution trajectories
 xs_init = [y0 for i in range(N_h+1)]
-us_init = [u0 for i in range(N_h)]
-
+us_init = [y0[-nq:] for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 VISUALIZE = False
@@ -167,9 +161,7 @@ if(PLOT):
     print("-----------------------------------")
     #  Plot
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
-    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], 
-                                                        # colors=['r'], 
-                                                        # markers=['.'], 
+    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['y', 'w'], 
                                                         SHOW=True)
 
 # tau_filtered = np.zeros((N_h+1, nq))

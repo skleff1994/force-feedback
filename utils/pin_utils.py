@@ -57,18 +57,18 @@ def get_v_(q, dq, model, id_endeff):
     return v
 
 
-def get_f(q, v, tau, pin_robot, id_endeff, dt=1e-2):
-    '''
-    Returns contact force in LOCAL frame based on FD estimate of joint acc
-        q         : joint positions
-        v         : joint velocities
-        a         : joint acceleration
-        tau       : joint torques
-        pin_robot : Pinocchio wrapper
-        id_endeff : id of EE frame
-        dt        : step size for FD estimate of joint acceleration
-    '''
-    return get_f_(q, v, tau, pin_robot.model, id_endeff, dt=dt)
+# def get_f(q, v, tau, pin_robot, id_endeff, dt=1e-2):
+#     '''
+#     Returns contact force in LOCAL frame based on FD estimate of joint acc
+#         q         : joint positions
+#         v         : joint velocities
+#         a         : joint acceleration
+#         tau       : joint torques
+#         pin_robot : Pinocchio wrapper
+#         id_endeff : id of EE frame
+#         dt        : step size for FD estimate of joint acceleration
+#     '''
+#     return get_f_(q, v, tau, pin_robot.model, id_endeff, dt=dt)
 
 def get_f_(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0], REG=0.):
     '''
@@ -166,34 +166,21 @@ def get_f_kkt(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0]
     return f
 
 
-def get_u_grav(q, pin_robot):
+def get_u_grav(q, model, armature=[.1, .1, .1, .1, .1, .1, .0]):
     '''
     Return gravity torque at q
     '''
-    return pin.computeGeneralizedGravity(pin_robot.model, pin_robot.data, q)
-    # return pin.rnea(pin_robot.model, pin_robot.data, q, np.zeros((pin_robot.model.nv,1)), np.zeros((pin_robot.model.nq,1)))
-
-def get_u_grav_(q, model):
-    '''
-    Return gravity torque at q (from model, not pin)
-    '''
     data = model.createData()
+    data.M += np.diag(armature)
     return pin.computeGeneralizedGravity(model, data, q)
 
 
-def get_u_mea(q, v, pin_robot):
-    '''
-    Return gravity torque at q
-    '''
-    return pin.rnea(pin_robot.model, pin_robot.data, q, v, np.zeros((pin_robot.model.nq,1)))
-
-
-def get_tau(q, v, a, f, model):
+def get_tau(q, v, a, f, model, armature=[.1, .1, .1, .1, .1, .1, .0]):
     '''
     Return torque using rnea
     '''
     data = model.createData()
-    data.M += np.diag(np.array([.1, .1, .1, .1, .1, .1, .0]))
+    data.M += np.diag(armature)
     return pin.rnea(model, data, q, v, a, f)
 
 

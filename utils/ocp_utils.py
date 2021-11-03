@@ -560,6 +560,7 @@ def init_DDP(robot, config, x0, callbacks=False,
 # Setup OCP and solver using Crocoddyl
 def init_DDP_LPF(robot, config, y0, callbacks=False, 
                                     cost_w_reg=0.1,
+                                    w_reg_ref=None,
                                     cost_w_lim=1., 
                                     tau_plus=True,
                                     lpf_type=0,
@@ -783,7 +784,16 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     print("[OCP] LOW-PASS FILTER : ")
     print("          f_c   = ", f_c)
     print("          alpha = ", alpha)
-    
+
+    # Regularization cost of unfiltered torque (inside IAM_LPF in Crocoddyl)
+    if(w_reg_ref is None):
+      # If no reference is provided, assume default reg w.r.t. gravity torque
+      w_gravity_reg = True
+      cost_ref_w_reg = np.zeros(nq)
+    else:
+      # Otherwise, use provided constant torque reference for w_reg
+      w_gravity_reg = False
+      cost_ref_w_reg = w_reg_ref
 
     # Create IAMs
     runningModels = []
@@ -827,6 +837,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                               withCostResidual=True, 
                                                               fc=f_c, 
                                                               cost_weight_w_reg=cost_w_reg, 
+                                                              cost_ref_w_reg=cost_ref_w_reg,
+                                                              w_gravity_reg=w_gravity_reg,
                                                               cost_weight_w_lim=cost_w_lim,
                                                               tau_plus_integration=tau_plus,
                                                               filter=lpf_type,
@@ -875,6 +887,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                       withCostResidual=True, 
                                                       fc=f_c, 
                                                       cost_weight_w_reg=cost_w_reg, 
+                                                      cost_ref_w_reg=cost_ref_w_reg,
+                                                      w_gravity_reg=w_gravity_reg,
                                                       cost_weight_w_lim=cost_w_lim,
                                                       tau_plus_integration=tau_plus,
                                                       filter=lpf_type,
@@ -899,7 +913,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     
     # Warm start yb default
     ddp.xs = [y0 for i in range(N_h+1)]
-    ddp.us = [pin_utils.get_u_grav_(y0[:nq], robot.model) for i in range(N_h)]
+    ddp.us = [pin_utils.get_u_grav(y0[:nq], robot.model) for i in range(N_h)]
     
     print("[OCP] OCP is ready ! (CONTACT="+str(CONTACT)+")")
     print("[OCP]   Costs = "+str(WHICH_COSTS))

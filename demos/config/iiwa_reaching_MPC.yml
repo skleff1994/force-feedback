@@ -4,8 +4,8 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 500        # Control frequency
-plan_freq: 500        # Planning frequency
+ctrl_freq: 1000        # Control frequency
+plan_freq: 1000        # Planning frequency
 T_tot: 5.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False              # Add delay in reference torques (low-level)
@@ -15,7 +15,7 @@ NOISE_TORQUES: False          # Add Gaussian noise on reference torques
 FILTER_TORQUES: False         # Moving average smoothing of reference torques
 NOISE_STATE: False            # Add Gaussian noise on the measured state 
 FILTER_STATE: False           # Moving average smoothing of reference torques
-SAVE_DATA: False               # Save plot_data to npz
+SAVE_DATA: True               # Save plot_data to npz
 RECORD_SOLVER_DATA: False     # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
 INIT_LOG: True                # Initial logs summarizing parameters
 init_log_display_time: 1      # How long (s) to display the initial logs ?

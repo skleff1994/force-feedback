@@ -48,7 +48,7 @@ print("Initial frame translation = ", M_ee.translation.copy())
 #################
 N_h = config['N_h']
 dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot) 
+ug = pin_utils.get_u_grav(q0, robot.model) 
 y0 = np.concatenate([x0, ug])
 
 LPF_TYPE = 1
@@ -67,15 +67,11 @@ print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
                                                 cost_w_reg=1e-3, 
+                                                w_reg_ref=None,
                                                 cost_w_lim=10.,
                                                 tau_plus=True, 
                                                 lpf_type=LPF_TYPE,
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
-# for i in range(N_h-1):
-#   if(i<=int(N_h/10)):
-#     ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = 100
-#   if(i>=5*N_h/10):
-#     ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight /= 1.1
 
 
 # Solve and extract solution trajectories

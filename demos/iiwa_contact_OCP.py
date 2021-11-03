@@ -65,11 +65,11 @@ for i in range(nq+1):
     f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
     f_ext.append(pin.Force(f_JOINT))
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-ug = pin_utils.get_u_grav(q0, robot)
+ug = pin_utils.get_u_grav(q0, robot.model)
 print("u0 = ", u0)
 print("ug = ", ug)
 # Overwrite reference for torque regularization
-# config['ctrlRegRef'] = u0
+# config['ctrlRegRef'] = np.zeros(7)
 
 # Create
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
@@ -77,23 +77,14 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
 
 # Solve and extract solution trajectories
 xs_init = [x0 for i in range(N_h+1)]
-us_init = [u0  for i in range(N_h)]
+us_init = [ug  for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-
-ddp2 = ocp_utils.init_DDP(robot, config, np.zeros(nq+nv), callbacks=True,
-                                            WHICH_COSTS=config['WHICH_COSTS']) 
-
-ddp2.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 #  Plot
 PLOT = True
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data(ddp)
-    ddp_data2 = data_utils.extract_ddp_data(ddp2)
-    fig, ax = plot_utils.plot_ddp_results( [ddp_data, ddp_data2], 
-                                            which_plots=['all'], 
-                                            markers=['.', None],
-                                            colors=['r', 'g'], SHOW=True)
+    fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['all'], SHOW=True)
     
 
 VISUALIZE = False
