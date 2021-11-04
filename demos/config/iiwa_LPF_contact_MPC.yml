@@ -4,8 +4,8 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 1000        # Control frequency
-plan_freq: 1000        # Planning frequency
+ctrl_freq: 500        # Control frequency
+plan_freq: 500        # Planning frequency
 T_tot: 1.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False               # Add delay in reference torques (low-level)
@@ -45,43 +45,49 @@ contactModelGains: [0., 0.]
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['force', 'stateReg', 'ctrlRegGrav']  
+WHICH_COSTS: ['force', 'velocity', 'stateReg'] #, 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [1., 1., 1., 1., 1., 1.]
-frameForceWeight: 10.
-frameForceWeightTerminal: 10.
+frameForceWeight: 1
+frameForceWeightTerminal: 1   
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
  # 'friction' : end-effector frame friction cone 
 mu:  0.7
-frictionConeWeight: 1.
+frictionConeWeight: 1
 frictionConeFrameName: 'contact'
 
  # 'stateReg' : state regularization  
-stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: .1
-stateRegWeightTerminal: .1
+stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
+stateRegWeight: 0.1
+stateRegWeightTerminal: 10
 stateRegRef: 'DEFAULT'
 
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.01
-ctrlRegWeightTerminal: 0.01
-ctrlRegRef: 'DEFAULT' # reference not used for 'ctrlRegGrav'
+ctrlRegWeight: 0.00
+ctrlRegWeightTerminal: 10
+ctrlRegRef: 'DEFAULT'  # default 0 if None
+
+# 'wReg' : unfiltered torque regularization
+wRegWeight: 0.0001
+
+# 'wLim' : unfiltered torque limit
+wLimWeight: 10.
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: .01
-frameTranslationWeightTerminal: .01 
+frameTranslationWeight: 1.
+frameTranslationWeightTerminal: 1.
 frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: .1
+frameVelocityWeight: 1.
 frameVelocityWeightTerminal: .1
 frameVelocityRef: 'DEFAULT'    
 frameVelocityFrameName: 'contact'
@@ -108,7 +114,6 @@ ctrlLimRef: 'DEFAULT'
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, 0.]
-
 
 
 # # # # # # # # # # # # # # # # # # # # # #

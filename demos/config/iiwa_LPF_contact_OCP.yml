@@ -42,7 +42,7 @@ stateRegRef: 'DEFAULT'
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.00
-ctrlRegWeightTerminal: 0.0
+ctrlRegWeightTerminal: 0.1
 ctrlRegRef: 'DEFAULT'  # default 0 if None
 
 # 'wReg' : unfiltered torque regularization

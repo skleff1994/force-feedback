@@ -63,11 +63,8 @@ print("-------------------------------------------------------------------")
 #################
 N_h = config['N_h']
 dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot.model)
-y0 = np.concatenate([x0, ug])
 
-
-LPF_TYPE = 0
+LPF_TYPE = 1
 # Approx. LPF obtained from Z.O.H. discretization on CT LPF 
 if(LPF_TYPE==0):
     alpha = np.exp(-2*np.pi*config['f_c']*dt)
@@ -79,6 +76,10 @@ if(LPF_TYPE==2):
     y = np.cos(2*np.pi*config['f_c']*dt)
     alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
 
+
+print("--------------------------------------")
+print("              INIT OCP                ")
+print("--------------------------------------")
 
 # Warm start and reg
 import pinocchio as pin
@@ -93,20 +94,17 @@ for i in range(nq+1):
     f_ext.append(f_JOINT)
 # print(f_ext)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+# ug = pin_utils.get_u_grav(q0, robot.model)
+y0 = np.concatenate([x0, u0])
 
-
-print("--------------------------------------")
-print("              INIT OCP                ")
-print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                cost_w_reg=1e-3, 
-                                                cost_w_lim=10.,
-                                                tau_plus=True, 
-                                                lpf_type=LPF_TYPE,
-                                                WHICH_COSTS=config['WHICH_COSTS']) 
+                                                w_reg_ref='gravity',
+                                                TAU_PLUS=False, 
+                                                LPF_TYPE=LPF_TYPE,
+                                                WHICH_COSTS=config['WHICH_COSTS'] ) 
 
 WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = True
+PLOT_INIT = False
 
 if(WEIGHT_PROFILE):
   #  Schedule weights for target reaching
@@ -119,11 +117,11 @@ if(WEIGHT_PROFILE):
 
 xs_init = [y0 for i in range(N_h+1)]
 us_init = [u0 for i in range(N_h)]
+ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
-if(SOLVE_AND_PLOT_INIT):
-  ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-  # ddp_data = data_utils.extract_ddp_data_LPF(ddp)
-  # fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
+if(PLOT_INIT):
+  ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+  fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
@@ -145,7 +143,7 @@ y_buffer_OCP = []                                             # buffer for desi
 w_buffer_OCP = []                                             # buffer for desired states delayed by OCP computation time
 buffer_sim = []                                               # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
-WHICH_PLOTS = ['f'] #['y','w', 'p', 'f']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS = ['all'] #['y','w', 'p', 'f']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 DELAY_SIM = config['DELAY_SIM']                               # Add delay in reference torques (low-level)
 DELAY_OCP = config['DELAY_OCP']                               # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES = config['SCALE_TORQUES']                       # Affine scaling of reference torque
@@ -228,14 +226,6 @@ for i in range(sim_data['N_simu']):
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
-        # for k,m in enumerate(ddp.problem.runningModels):
-        #   m.differential.costs.costs['translation'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=1., alpha=5., alpha_cut=0.65)
-          # m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(i, sim_data['N_simu'], min_weight=0.001, max_weight=0.1)
-          # m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(i, sim_data['N_simu'], min_weight=0.01, max_weight=0.1)
-        # if(i%1000==0):
-        #   print("Placement = ", ddp.problem.runningModels[0].differential.costs.costs['translation'].weight )
-        #   print("stateReg  = ", ddp.problem.runningModels[0].differential.costs.costs['stateReg'].weight )
-        #   print("ctrlReg decreasing from ", ddp.problem.runningModels[0].differential.costs.costs['ctrlReg'].weight, " to ", ddp.problem.runningModels[-1].differential.costs.costs['ctrlReg'].weight )
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['Y_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -297,8 +287,8 @@ for i in range(sim_data['N_simu']):
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
         # Select reference control and state for the current CTRL cycle
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        w_ref_CTRL = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev) #w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+        w_ref_CTRL = w_curr 
         f_ref_CTRL = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
@@ -313,8 +303,8 @@ for i in range(sim_data['N_simu']):
 
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-    w_ref_SIMU  = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)# w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+    y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+    w_ref_SIMU  = w_curr 
     f_ref_SIMU  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
 
     # First prediction = measurement = initialization of MPC
@@ -325,7 +315,7 @@ for i in range(sim_data['N_simu']):
     sim_data['F_des_SIMU'][i, :] = f_ref_SIMU 
 
     # Torque applied by motor on actuator : interpolate current torque and predicted torque 
-    tau_ref_SIMU =  y_ref_SIMU[-nu:] # y_curr[-nu:]+ COEF * EPS * (y_pred[-nu:] - y_curr[-nu:]) # (dt_sim/dt_mpc) # 
+    tau_ref_SIMU =  y_ref_SIMU[-nu:] 
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
     tau_mea_SIMU = tau_ref_SIMU 
     if(SCALE_TORQUES):
@@ -341,11 +331,8 @@ for i in range(sim_data['N_simu']):
         pass
       else:                          
         tau_mea_SIMU = buffer_sim.pop(-sim_data['delay_sim_cycle'])
-    # # Actuation model = LPF on interpolated values?
-    # alpha_ = 1./float(1+2*np.pi*config['f_c']*dt)
-    # tau_mea_SIMU = alpha_*tau_mea_SIMU + (1-alpha_)*w_curr # in fact u_des as long as old actuation model is desactivated
     #  Send output of actuation torque to the RBD simulator 
-    pybullet_simulator.send_joint_command(tau_mea_SIMU)#w_curr)  #y_ref_CTRL[-nu:]
+    pybullet_simulator.send_joint_command(tau_mea_SIMU)
     env.step()
     # Measure new state from simulation :
     q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
