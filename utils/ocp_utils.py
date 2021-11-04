@@ -559,13 +559,10 @@ def init_DDP(robot, config, x0, callbacks=False,
 
 # Setup OCP and solver using Crocoddyl
 def init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                    cost_w_reg=0.1,
-                                    w_reg_ref=None,
-                                    cost_w_lim=1., 
-                                    tau_plus=True,
-                                    lpf_type=0,
-                                    WHICH_COSTS=['all'],
-                                    CONTACT=False):
+                                    w_reg_ref='gravity',
+                                    TAU_PLUS=False,
+                                    LPF_TYPE=0,
+                                    WHICH_COSTS=['all']):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       INPUT: 
@@ -573,10 +570,9 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           config      : dict from YAML config file describing task and MPC params
           x0          : initial state of shooting problem
           callbacks   : display Crocoddyl's DDP solver callbacks
-          cost_w_reg  : cost weight on reg. of unfiltered input w around u_grav
-          cost_w_lim  : cost weight on limit of unfiltered input w 
-          tau_plus    : use "tau_plus" integration if True, "tau" otherwise
-          lpf_type    : use expo moving avg (0), classical lpf (1) or exact (2)
+          w_reg_ref   : reference for reg. cost on unfiltered input w
+          TAU_PLUS    : use "TAU_PLUS" integration if True, "TAU" otherwise
+          LPF_TYPE    : use expo moving avg (0), classical lpf (1) or exact (2)
           WHICH_COSTS : which cost terms in the running & terminal cost?
                           'placement', 'velocity', 'stateReg', 'ctrlReg', 'ctrlRegGrav'
                           'stateLim', 'ctrlLim', 'translation', 'friction', 'force'
@@ -772,13 +768,13 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     # LPF parameters (a.k.a simplified actuation model)
     f_c = config['f_c']    
     # Approx. LPF obtained from Z.O.H. discretization on CT LPF 
-    if(lpf_type==0):
+    if(LPF_TYPE==0):
         alpha = np.exp(-2*np.pi*f_c*dt)
     # Approx. LPF obtained from 1st order Euler int. on CT LPF
-    if(lpf_type==1):
+    if(LPF_TYPE==1):
         alpha = 1./float(1+2*np.pi*f_c*dt)
     # Exact LPF obtained from E.M.A model (IIR)
-    if(lpf_type==2):
+    if(LPF_TYPE==2):
         y = np.cos(2*np.pi*f_c*dt)
         alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
     print("[OCP] LOW-PASS FILTER : ")
@@ -789,12 +785,12 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     if(w_reg_ref is None or w_reg_ref == 'gravity'):
       # If no reference is provided, assume default reg w.r.t. gravity torque
       w_gravity_reg = True
-      cost_ref_w_reg = np.zeros(nq)
+      w_reg_ref = np.zeros(nq)
     else:
       # Otherwise, use provided constant torque reference for w_reg
       w_gravity_reg = False
-      cost_ref_w_reg = w_reg_ref
-    print("[OCP] w_reg_ref = ", w_reg_ref)
+    print("[OCP] w_gravity_reg = ", w_gravity_reg)
+
     # Create IAMs
     runningModels = []
     for i in range(N_h):
@@ -819,7 +815,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         costs.addCost("force", frameForceCost, config['frameForceWeight'])
       if('all' in WHICH_COSTS or 'friction' in WHICH_COSTS):
         costs.addCost("friction", frictionConeCost, config['frictionConeWeight'])
-      print("[OCP] Check 1")
       # Create DAM (Contact or FreeFwd)
       if(CONTACT):
         dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
@@ -828,23 +823,20 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                   costs, 
                                                                   inv_damping=0., 
                                                                   enable_force=True)
-        print("[OCP] Check 2")
       else:
         dam = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, actuation, costs)
-        print("[OCP] Check 3")
       # IAM LPF
       runningModels.append(crocoddyl.IntegratedActionModelLPF( dam, 
-                                                              stepTime=dt, 
-                                                              withCostResidual=True, 
-                                                              fc=f_c, 
-                                                              cost_weight_w_reg=cost_w_reg, 
-                                                              cost_ref_w_reg=cost_ref_w_reg,
-                                                              w_gravity_reg=w_gravity_reg,
-                                                              cost_weight_w_lim=cost_w_lim,
-                                                              tau_plus_integration=tau_plus,
-                                                              filter=lpf_type,
-                                                              is_terminal=False))
-      print("[OCP] Check 4")
+                                                               stepTime=dt, 
+                                                               withCostResidual=True, 
+                                                               fc=f_c, 
+                                                               cost_weight_w_reg=config['wRegWeight'], 
+                                                               cost_ref_w_reg=w_reg_ref,
+                                                               w_gravity_reg=w_gravity_reg,
+                                                               cost_weight_w_lim=config['wLimWeight'],
+                                                               tau_plus_integration=TAU_PLUS,
+                                                               filter=LPF_TYPE,
+                                                               is_terminal=False))
       # Add armature
       runningModels[i].differential.armature = np.asarray(config['armature'])
       
@@ -882,18 +874,18 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     else:
       dam_t = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, actuation, terminal_costs)    
     
-    # Terminal IAM
+    # Terminal IAM [TODO: add boost default args in bindings]
     terminalModel = crocoddyl.IntegratedActionModelLPF( dam_t, 
-                                                      stepTime=0., 
-                                                      withCostResidual=True, 
-                                                      fc=f_c, 
-                                                      cost_weight_w_reg=cost_w_reg, 
-                                                      cost_ref_w_reg=cost_ref_w_reg,
-                                                      w_gravity_reg=w_gravity_reg,
-                                                      cost_weight_w_lim=cost_w_lim,
-                                                      tau_plus_integration=tau_plus,
-                                                      filter=lpf_type,
-                                                      is_terminal=True)                                          
+                                                        stepTime=0., 
+                                                        withCostResidual=True, 
+                                                        fc=f_c, 
+                                                        cost_weight_w_reg=config['wRegWeight'], 
+                                                        cost_ref_w_reg=w_reg_ref,
+                                                        w_gravity_reg=w_gravity_reg,
+                                                        cost_weight_w_lim=config['wLimWeight'],
+                                                        tau_plus_integration=TAU_PLUS,
+                                                        filter=LPF_TYPE,
+                                                        is_terminal=True)                                 
     
     # Add armature
     terminalModel.differential.armature = np.asarray(config['armature'])

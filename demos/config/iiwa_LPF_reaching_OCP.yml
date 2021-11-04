@@ -28,6 +28,12 @@ ctrlRegWeight: 0.00
 ctrlRegWeightTerminal: 10
 ctrlRegRef: 'DEFAULT'  # default 0 if None
 
+# 'wReg' : unfiltered torque regularization
+wRegWeight: 0.0001
+
+# 'wLim' : unfiltered torque limit
+wLimWeight: 10.
+
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 2.

@@ -66,11 +66,9 @@ print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-4, 
-                                                w_reg_ref=None,
-                                                cost_w_lim=10.,
-                                                tau_plus=False, 
-                                                lpf_type=LPF_TYPE,
+                                                w_reg_ref='gravity',
+                                                TAU_PLUS=False, 
+                                                LPF_TYPE=LPF_TYPE,
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 
 
@@ -78,7 +76,7 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True,
 xs_init = [y0 for i in range(N_h+1)]
 us_init = [ug for i in range(N_h)]
 
-INIT_LOGS = True
+INIT_LOGS = False
 if(INIT_LOGS):
     print("--------------------------------------")
     print("              WARM START              ")

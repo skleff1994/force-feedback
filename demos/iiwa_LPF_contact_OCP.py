@@ -73,33 +73,22 @@ for i in range(nq+1):
     f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
     f_ext.append(pin.Force(f_JOINT))
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-ug = pin_utils.get_u_grav(q0, robot.model)
-#  Overwrite reference for torque regularization
-# config['ctrlRegRef'] = u0
+# ug = pin_utils.get_u_grav(q0, robot.model)
 # Define initial state
-y0 = np.concatenate([x0, ug])
+y0 = np.concatenate([x0, u0])
+
 
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-3, 
-                                                w_reg_ref=None,
-                                                cost_w_lim=10.,
-                                                tau_plus=True, 
-                                                lpf_type=LPF_TYPE,
-                                                WHICH_COSTS=config['WHICH_COSTS'],
-                                                CONTACT=True) 
-
-# # Half reach time (in OCP nodes)
-# for i in range(N_h-1):
-#     if(i<=25):
-#         ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = .1
+                                                w_reg_ref= 'gravity', 
+                                                TAU_PLUS=False, 
+                                                LPF_TYPE=LPF_TYPE,
+                                                WHICH_COSTS=config['WHICH_COSTS'] ) 
 
 # Solve and extract solution trajectories
 xs_init = [y0 for i in range(N_h+1)]
-us_init = [y0[-nq:] for i in range(N_h)]
+us_init = [u0 for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
-print(pin_utils.get_u_grav(ddp.xs[-1][:nq], robot.model))
-print(ug)
 VISUALIZE = False
 pause = 0.01 # in s
 if(VISUALIZE):
@@ -163,7 +152,9 @@ if(PLOT):
     print("-----------------------------------")
     #  Plot
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
-    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['y', 'w'], 
+    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], 
+                                                        colors=['r'], 
+                                                        markers=['.'], 
                                                         SHOW=True)
 
 # tau_filtered = np.zeros((N_h+1, nq))
