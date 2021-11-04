@@ -3,6 +3,7 @@ from robot_properties_kuka.iiwaWrapper import IiwaRobot
 import pybullet as p
 import numpy as np
 import pinocchio as pin
+import pybullet_data
 
 # Load KUKA arm in PyBullet environment
 def init_kuka_simulator(dt=1e3, x0=None):
@@ -51,6 +52,25 @@ def get_contact_wrench(pybullet_simulator, id_endeff):
         wrench_croco = -pybullet_simulator.pin_robot.data.oMf[id_endeff].actInv(wrench_WORLD)
         force =+ wrench_croco.vector
         return force
+
+
+def get_contact_joint_torques(pybullet_simulator, id_endeff):
+    '''
+    Get contact wrench in LOCAL contact frame
+    '''
+    wrench = get_contact_wrench(pybullet_simulator, id_endeff)
+    jac = pybullet_simulator.pin_robot.data.J
+    joint_torques = jac.T @ wrench
+    return joint_torques
+
+
+
+def display_target(p_des):
+    p.setAdditionalSearchPath(pybullet_data.getDataPath())
+    target =  p.loadURDF("sphere_small.urdf", basePosition=list(p_des), globalScaling=1, useFixedBase=True)
+    # Disable collisons
+    p.setCollisionFilterGroupMask(target, -1, 0, 0)
+
 
 # Load contact surface in PyBullet for contact experiments
 def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=False):

@@ -307,7 +307,7 @@ def init_sim_data_LPF(config, robot, y0):
       if(config['frameVelocityRef']=='DEFAULT'):
         sim_data['v_ee_ref'] = np.zeros(3)
       else:
-        sim_data['v_ee_ref'] = config['frameVelocityRef']
+        sim_data['v_ee_ref'] = config['frameVelocityRef'][:3]
     # target frame velocity = zero if no cost on frame velocity
     else:
       sim_data['v_ee_ref'] = np.zeros(3)

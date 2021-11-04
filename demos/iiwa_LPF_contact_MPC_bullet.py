@@ -63,7 +63,7 @@ print("-------------------------------------------------------------------")
 #################
 N_h = config['N_h']
 dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot)
+ug = pin_utils.get_u_grav(q0, robot.model)
 y0 = np.concatenate([x0, ug])
 
 
@@ -350,13 +350,7 @@ for i in range(sim_data['N_simu']):
     # Measure new state from simulation :
     q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
     # Measure force from simulation
-    _, force_measured = pybullet_simulator.get_force()
-    if(len(force_measured)==0):
-        f_mea_SIMU = np.zeros(6)
-    else:
-        f_mea_SIMU = force_measured[0]
-    if(i%50==0): 
-      print(f_mea_SIMU)
+    f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Record data (unnoised)
