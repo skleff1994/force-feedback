@@ -61,7 +61,7 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, WHICH_COSTS=config['
 
 # import time
 # time.sleep(1.)
-ug = pin_utils.get_u_grav(q0, robot)
+ug = pin_utils.get_u_grav(q0, robot.model)
 
 # Solve and extract solution trajectories
 xs_init = [x0 for i in range(N_h+1)]

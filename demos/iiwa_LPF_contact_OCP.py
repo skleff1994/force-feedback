@@ -80,7 +80,7 @@ ug = pin_utils.get_u_grav(q0, robot.model)
 y0 = np.concatenate([x0, ug])
 
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-9, 
+                                                cost_w_reg=1e-3, 
                                                 w_reg_ref=None,
                                                 cost_w_lim=10.,
                                                 tau_plus=True, 
@@ -98,6 +98,8 @@ xs_init = [y0 for i in range(N_h+1)]
 us_init = [y0[-nq:] for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
+print(pin_utils.get_u_grav(ddp.xs[-1][:nq], robot.model))
+print(ug)
 VISUALIZE = False
 pause = 0.01 # in s
 if(VISUALIZE):

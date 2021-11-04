@@ -66,10 +66,10 @@ print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                cost_w_reg=1e-3, 
+                                                cost_w_reg=1e-4, 
                                                 w_reg_ref=None,
                                                 cost_w_lim=10.,
-                                                tau_plus=True, 
+                                                tau_plus=False, 
                                                 lpf_type=LPF_TYPE,
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 
@@ -103,7 +103,8 @@ if(INIT_LOGS):
     print("norm(taus-u_g) = ", np.linalg.norm(np.array(ddp.xs)[:,-nu:] - ug))#/N_h)
     print("norm(us-u_g)   = ", np.linalg.norm(np.array(ddp.us - ug)))#/N_h)
 
-ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+# ddp.reg_max = 1e-3
+ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False) # regInit=0.)
 
 VISUALIZE = False
 if(VISUALIZE):
@@ -132,7 +133,10 @@ if(PLOT):
     print("-----------------------------------")
     #  Plot
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
-    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], colors=['r'], markers=['.'], SHOW=True)
+    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], 
+                                                        colors=['r'], 
+                                                        markers=['.'], 
+                                                        SHOW=True)
 
 # tau_filtered = np.zeros((N_h+1, nq))
 # tau_filtered[0,:] = ug

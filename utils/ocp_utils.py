@@ -522,15 +522,15 @@ def init_DDP(robot, config, x0, callbacks=False,
     
     # Add cost models
     if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
+      terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
+      terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal'])
+      terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
+      terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
-      terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
+      terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal']*dt)
 
     # Add armature
     terminalModel.differential.armature = np.asarray(config['armature']) 
@@ -786,7 +786,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     print("          alpha = ", alpha)
 
     # Regularization cost of unfiltered torque (inside IAM_LPF in Crocoddyl)
-    if(w_reg_ref is None):
+    if(w_reg_ref is None or w_reg_ref == 'gravity'):
       # If no reference is provided, assume default reg w.r.t. gravity torque
       w_gravity_reg = True
       cost_ref_w_reg = np.zeros(nq)
@@ -794,7 +794,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       # Otherwise, use provided constant torque reference for w_reg
       w_gravity_reg = False
       cost_ref_w_reg = w_reg_ref
-
+    print("[OCP] w_reg_ref = ", w_reg_ref)
     # Create IAMs
     runningModels = []
     for i in range(N_h):
@@ -819,7 +819,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         costs.addCost("force", frameForceCost, config['frameForceWeight'])
       if('all' in WHICH_COSTS or 'friction' in WHICH_COSTS):
         costs.addCost("friction", frictionConeCost, config['frictionConeWeight'])
-
+      print("[OCP] Check 1")
       # Create DAM (Contact or FreeFwd)
       if(CONTACT):
         dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
@@ -828,9 +828,10 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                   costs, 
                                                                   inv_damping=0., 
                                                                   enable_force=True)
+        print("[OCP] Check 2")
       else:
         dam = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, actuation, costs)
-      
+        print("[OCP] Check 3")
       # IAM LPF
       runningModels.append(crocoddyl.IntegratedActionModelLPF( dam, 
                                                               stepTime=dt, 
@@ -843,7 +844,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                               tau_plus_integration=tau_plus,
                                                               filter=lpf_type,
                                                               is_terminal=False))
-
+      print("[OCP] Check 4")
       # Add armature
       runningModels[i].differential.armature = np.asarray(config['armature'])
       
@@ -854,21 +855,21 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     # Terminal cost function 
     terminal_costs = crocoddyl.CostModelSum(state, nu=actuation.nu)
     if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
-      terminal_costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal'])
+      terminal_costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
-      terminal_costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal'])
+      terminal_costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
-      terminal_costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal'])
+      terminal_costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
-      terminal_costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal'])
+      terminal_costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
-      terminal_costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeightTerminal'])
+      terminal_costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
-      terminal_costs.addCost("ctrlRegGrav", uRegGravCost, config['ctrlRegWeightTerminal'])
+      terminal_costs.addCost("ctrlRegGrav", uRegGravCost, config['ctrlRegWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
-      terminal_costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal'])
+      terminal_costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal']*dt)
     if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
-      terminal_costs.addCost("force", frameForceCost, config['frameForceWeightTerminal'])
+      terminal_costs.addCost("force", frameForceCost, config['frameForceWeightTerminal']*dt)
 
     # Terminal DAM (Contact or FreeFwd)
     if(CONTACT):
