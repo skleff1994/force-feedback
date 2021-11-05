@@ -23,12 +23,16 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
   - Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualization
 '''
 
+
+
 import numpy as np  
 from utils import path_utils, raisim_utils, ocp_utils, pin_utils, plot_utils, data_utils
-import time 
-
-# Fix seed 
+import time
+np.set_printoptions(precision=4, linewidth=180)
 np.random.seed(1)
+
+
+
 
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
@@ -39,35 +43,26 @@ print("--------------------------------------")
 # Read config file
 config_name = 'iiwa_LPF_reaching_MPC'
 config = path_utils.load_config_file(config_name)
-# Load Kuka config from URDF
-urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
-mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
-iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
-
-# Load Raisim environment
-LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
-env = raisim_utils.RaiEnv(LICENSE_PATH, dt=1e-3)
-robot = env.add_robot(iiwa_config, init_config=None)
-env.launch_server()
-
-# Initialize simulation
+# Initialize simulator and reset robot model to intial state
+dt_simu = 1./float(config['simu_freq']) 
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
-x0 = np.concatenate([q0, v0])   
+x0 = np.concatenate([q0, v0])  
+env, robot = raisim_utils.init_kuka_RAISIM(dt=dt_simu, x0=x0) 
 id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv; nu = nq
-# Update robot model with initial state
-robot.reset_state(q0, v0)
-robot.forward_robot(q0, v0)
-M_ee = robot.data.oMf[id_endeff]
-print("Initial placement : \n")
-print(M_ee)
+print("-----------------------")
+print("[Raisim] Created robot ")
+print("-----------------------")
 
 
-#################
+
+
+
+# # # # # # # # # 
 ### OCP SETUP ###
-#################
+# # # # # # # # # 
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
@@ -83,11 +78,14 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False,
 xs_init = [y0 for i in range(config['N_h']+1)]
 us_init = [ug for i in range(config['N_h'])]
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-
+# Plot initial solution
 PLOT_INIT = False
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data_LPF(ddp)
   fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
+
+
+
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
@@ -121,6 +119,8 @@ dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
 
+
+
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
 # # # # # # # # # # # #
@@ -152,7 +152,6 @@ if(config['INIT_LOG']):
   print("-------------------------------------------------------------------")
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
-
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -286,6 +285,8 @@ print('--------------------------------')
 print('Simulation exited successfully !')
 print('--------------------------------')
 
+
+
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
@@ -308,3 +309,5 @@ plot_utils.plot_mpc_results_LPF(plot_data, which_plots=WHICH_PLOTS,
 # Save optionally
 if(config['SAVE_DATA']):
   data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)
+
+env.server.killServer()

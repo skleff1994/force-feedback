@@ -14,15 +14,23 @@ Trajectory optimization using Crocoddyl
 The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
 
+
+
+
 import numpy as np  
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
-
 np.set_printoptions(precision=4, linewidth=180)
+
+
+
 
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
+print("--------------------------------------")
+print("              LOAD MODEL              ")
+print("--------------------------------------")
 # Read config file
 config = path_utils.load_config_file('iiwa_contact_OCP')
 q0 = np.asarray(config['q0'])
@@ -38,48 +46,25 @@ nu = nq
 # Update robot model with initial state
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
-M_ee = robot.data.oMf[id_endeff]
-print("EE frame placement : \n")
-print(M_ee)
-
-#################
-### OCP SETUP ###
-#################
-N_h = config['N_h']
-dt = config['dt']
-# Contact frame placement 
 M_ct = robot.data.oMf[id_endeff].copy()
-print("Contact frame placement : \n")
-print(M_ct)
 
 
-# Warm start and reg
-import pinocchio as pin
-f_ext = []
-for i in range(nq+1):
-    # CONTACT --> WORLD
-    W_M_ct = M_ct.copy()
-    f_WORLD = W_M_ct.actionInverse.T.dot(np.asarray(config['frameForceRef']))
-    # WORLD --> JOINT
-    j_M_W = robot.data.oMi[i].copy().inverse()
-    f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
-    f_ext.append(pin.Force(f_JOINT))
-u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-ug = pin_utils.get_u_grav(q0, robot.model)
-print("u0 = ", u0)
-print("ug = ", ug)
-# Overwrite reference for torque regularization
-# config['ctrlRegRef'] = np.zeros(7)
 
-# Create
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
+# # # # # # # # # 
+### OCP SETUP ###
+# # # # # # # # # 
+print("--------------------------------------")
+print("              INIT OCP                ")
+print("--------------------------------------")
+# Setup Croco OCP and create solver
+ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-
-# Solve and extract solution trajectories
-xs_init = [x0 for i in range(N_h+1)]
-us_init = [ug  for i in range(N_h)]
+# Warmstart and solve
+f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
+u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+xs_init = [x0 for i in range(config['N_h']+1)]
+us_init = [u0 for i in range(config['N_h'])]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-
 #  Plot
 PLOT = True
 if(PLOT):

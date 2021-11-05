@@ -5,6 +5,8 @@ import eigenpy
 from numpy.linalg import pinv
 import time
 
+DEFAULT_ARMATURE_KUKA = [.1, .1, .1, .1, .1, .1, .0]
+
 def get_p(q, pin_robot, id_endeff):
     '''
     Returns end-effector positions given q trajectory 
@@ -59,7 +61,7 @@ def get_v_(q, dq, model, id_endeff):
     return v
 
 
-def get_f_(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0], REG=0.):
+def get_f_(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -93,7 +95,7 @@ def get_f_(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0], R
         # f[i,:] = np.linalg.solve( J @ Minv @ J.T + REGMAT,  J @ Minv @ (h - tau[i,:]) + gamma.vector )
     return f
 
-def get_f_lambda(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0], REG=0.):
+def get_f_lambda(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -125,7 +127,7 @@ def get_f_lambda(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, 
     return f
 
 
-def get_f_kkt(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0], REG=0.):
+def get_f_kkt(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -155,7 +157,7 @@ def get_f_kkt(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0]
     return f
 
 
-def get_u_grav(q, model, armature=[.1, .1, .1, .1, .1, .1, .0]):
+def get_u_grav(q, model, armature=DEFAULT_ARMATURE_KUKA):
     '''
     Return gravity torque at q
     '''
@@ -164,7 +166,7 @@ def get_u_grav(q, model, armature=[.1, .1, .1, .1, .1, .1, .0]):
     return pin.computeGeneralizedGravity(model, data, q)
 
 
-def get_tau(q, v, a, f, model, armature=[.1, .1, .1, .1, .1, .1, .0]):
+def get_tau(q, v, a, f, model, armature=DEFAULT_ARMATURE_KUKA):
     '''
     Return torque using rnea
     '''

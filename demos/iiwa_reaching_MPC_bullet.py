@@ -21,13 +21,17 @@ import numpy as np
 from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils
 import pybullet as p
 import time 
-
-# Fix seed 
 np.random.seed(1)
+np.set_printoptions(precision=4, linewidth=180)
+
+
 
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
+print("--------------------------------------")
+print("              INIT SIM                ")
+print("--------------------------------------")
 # Read config file
 config_name = 'iiwa_reaching_MPC'
 config      = path_utils.load_config_file(config_name)
@@ -46,53 +50,40 @@ print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
 print("-------------------------------------------------------------------")
 
 
-#################
-### OCP SETUP ###
-#################
-N_h = config['N_h']
-dt  = config['dt']
-ug  = pin_utils.get_u_grav(q0, robot.model)
 
+# # # # # # # # # 
+### OCP SETUP ###
+# # # # # # # # # 
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, WHICH_COSTS=config['WHICH_COSTS']) 
-
-WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = False
-
-if(WEIGHT_PROFILE):
-  #  Schedule weights for target reaching
-  for k,m in enumerate(ddp.problem.runningModels):
-      m.differential.costs.costs['translation'].weight = ocp_utils.cost_weight_tanh(k, N_h, max_weight=10., alpha=5., alpha_cut=0.65)
-      m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
-      m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
-      # print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
-      # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
-
-xs_init = [x0 for i in range(N_h+1)]
-us_init = [ug for i in range(N_h)]
-
-if(SOLVE_AND_PLOT_INIT):
-  ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-  # for i in range(N_h):
-  #   print(ddp.problem.runningDatas[i].differential.costs.costs['ctrlReg'].activation.a_value)
-  # print(ddp.problem.terminalData.differential.costs.costs['ctrlReg'].activation.a_value)
+ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
+                                            WHICH_COSTS=config['WHICH_COSTS']) 
+# Warm start and solve
+ug  = pin_utils.get_u_grav(q0, robot.model)
+xs_init = [x0 for i in range(config['N_h']+1)]
+us_init = [ug for i in range(config['N_h'])]
+ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+# Plot initial solution
+PLOT_INIT = False
+if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data(ddp)
   fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+
+
+
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
+print("--------------------------------------")
+print("              INIT MPC                ")
+print("--------------------------------------")
 sim_data = data_utils.init_sim_data(config, robot, x0)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
 freq_CTRL = sim_data['ctrl_freq']
 freq_SIMU = sim_data['simu_freq']
-  # Initialize PID errors and control gains
-err_u_P = np.zeros(nq)
-err_u_I = np.zeros(nq)
-err_u_D = np.zeros(nq)
   # Replan & control counters
 nb_plan = 0
 nb_ctrl = 0
@@ -109,10 +100,13 @@ NOISE_TORQUES     = config['NOISE_TORQUES']                 # Add Gaussian noise
 FILTER_TORQUES    = config['FILTER_TORQUES']                # Moving average smoothing of reference torques
 NOISE_STATE       = config['NOISE_STATE']                   # Add Gaussian noise on the measured state 
 FILTER_STATE      = config['FILTER_STATE']                  # Moving average smoothing of reference torques
-dt_ocp            = dt                                      # OCP sampling rate 
+dt_ocp            = config['dt']                            # OCP sampling rate 
 dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
+
+
+
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -145,7 +139,6 @@ if(config['INIT_LOG']):
   print("-------------------------------------------------------------------")
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
-
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -277,6 +270,9 @@ for i in range(sim_data['N_simu']):
 print('--------------------------------')
 print('Simulation exited successfully !')
 print('--------------------------------')
+
+
+
 
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #

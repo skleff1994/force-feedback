@@ -18,14 +18,17 @@ The goal of this script is to simulate MPC with state feedback, optionally
 imperfect actuation (bias, noise, delays) at higher frequency
 '''
 
+
+
+
 import numpy as np  
 from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils
 import time 
-
 np.set_printoptions(precision=4, linewidth=180)
-
-# Fix seed 
 np.random.seed(1)
+
+
+
 
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
@@ -59,9 +62,10 @@ print("-------------------------------------------------------------------")
 
 
 
-#################
+
+# # # # # # # # # 
 ### OCP SETUP ###
-#################
+# # # # # # # # # 
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
@@ -74,7 +78,7 @@ u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 xs_init = [x0 for i in range(config['N_h']+1)]
 us_init = [u0 for i in range(config['N_h'])]
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-
+# Plot
 PLOT_INIT = False
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data(ddp)
@@ -145,33 +149,6 @@ if(config['INIT_LOG']):
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
 
-# Interpolation  
-
- # ^ := MPC update steps
- # | := current MPC update step
-
- # MPC ITER #1
-  #      x_0         x_1         x_2 ...                    --> pred(MPC=O) size N_h
-  # OCP : O           O           O                           ref_O = x_1
-  # MPC : M     M     M     M     M                           ref_M = x_0 + Interp_[O->M] (x_1 - x_0)
-  # CTR : C  C  C  C  C  C  C  C  C                           ref_C = x_0 + Interp_[O->C] (x_1 - x_0)
-  # SIM : SSSSSSSSSSSSSSSSSSSSSSSSS                           ref_S = x_0 + Interp_[O->S] (x_1 - x_0)
-  #       |     ^     ^     ^     ^  ...
- # MPC ITER #2
-  #            x_0         x_1         x_2 ...              --> pred(MPC=1) size N_h
-  #             O           O           O                     ...
-  #             M     M     M     M     M
-  #             C  C  C  C  C  C  C  C  C
-  #             SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #             |     ^     ^     ^     ^  ...
- # MPC ITER #3
-  #                  x_0         x_1         x_2 ...        --> pred(MPC=2) size N_h
-  #                   O           O           O               ...
-  #                   M     M     M     M     M
-  #                   C  C  C  C  C  C  C  C  C
-  #                   SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #                   |     ^     ^     ^     ^  ...
- # ...
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 

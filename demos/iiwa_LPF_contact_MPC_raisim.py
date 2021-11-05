@@ -24,64 +24,54 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 '''
 
 
+
 import numpy as np
 import time
 from utils import raisim_utils, path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 np.set_printoptions(precision=4, linewidth=180)
-
-# Fix seed 
 np.random.seed(1)
+
+
+
 
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
+print("--------------------------------------")
+print("              INIT SIM                ")
+print("--------------------------------------")
 # Read config file
 config_name = 'iiwa_LPF_contact_MPC'
 config = path_utils.load_config_file(config_name)
-# Load Kuka config from URDF
-urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
-mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
-iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
-
-# Load Raisim environment
-LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
-env = raisim_utils.RaiEnv(LICENSE_PATH, dt=1./config['simu_freq'])
-robot = env.add_robot(iiwa_config, init_config=None)
-env.launch_server()
-
-# Initialize simulation
+# Initialize simulator and reset robot model to intial state
+dt_simu = 1./float(config['simu_freq']) 
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
-x0 = np.concatenate([q0, v0])   
+x0 = np.concatenate([q0, v0])  
+env, robot = raisim_utils.init_kuka_RAISIM(dt=dt_simu, x0=x0) 
 id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv; nu = nq
-# Update robot model with initial state
-robot.reset_state(q0, v0)
-robot.forward_robot(q0, v0)
-print(robot.get_state())
-M_ee = robot.data.oMf[id_endeff]
-print("Initial placement : \n")
-print(M_ee)
-
-
 # Display contact surface
 id_endeff = robot.model.getFrameId('contact')
   # Placement of reference of the contact in Crocoddyl (Baumgarte integration and friction cost)
-M_ct              = M_ee.copy() 
+M_ct              = robot.data.oMf[id_endeff].copy() 
   # Initial placement of contacted object in simulator
 contact_placement = M_ct.copy()
-offset = iiwa_config.tennis_ball_radius #+ 0.001  
+offset = robot.config.tennis_ball_radius #+ 0.001  
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 # env.display_ball(contact_placement, radius=0.1) 
 env.display_wall(contact_placement)
-print("-----------------------")
-print("[Raisim] Created robot ")
-print("-----------------------")
+print("-----------------------------------------")
+print("[Raisim] Created robot and contact object")
+print("-----------------------------------------")
 
-#################
+
+
+
+# # # # # # # # # 
 ### OCP SETUP ###
-#################
+# # # # # # # # # 
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
@@ -94,21 +84,25 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False,
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
-
 # Warmstart and solve
 xs_init = [y0 for i in range(config['N_h']+1)]
 us_init = [u0 for i in range(config['N_h'])]
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-
+# Plot initial solution
 PLOT_INIT = False
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data_LPF(ddp)
   fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
 
+
+
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
+print("--------------------------------------")
+print("              INIT MPC                ")
+print("--------------------------------------")
 sim_data = data_utils.init_sim_data_LPF(config, robot, y0)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
@@ -134,6 +128,8 @@ dt_ocp = config['dt']                                         # OCP sampling rat
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
+
+
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###

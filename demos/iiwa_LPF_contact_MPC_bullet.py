@@ -26,9 +26,10 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 import numpy as np  
 from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils
 import time 
-
-# Fix seed 
 np.random.seed(1)
+
+
+
 
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
@@ -62,9 +63,10 @@ print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
 print("-------------------------------------------------------------------")
 
 
-#################
+
+# # # # # # # # # 
 ### OCP SETUP ###
-#################
+# # # # # # # # # 
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
@@ -77,12 +79,11 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False,
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
-
 # Warmstart and solve
 xs_init = [y0 for i in range(config['N_h']+1)]
 us_init = [u0 for i in range(config['N_h'])]
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-
+# Plot initial solution
 PLOT_INIT = False
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data_LPF(ddp)
@@ -120,6 +121,8 @@ dt_ocp = config['dt']                                         # OCP sampling rat
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
+
+
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###

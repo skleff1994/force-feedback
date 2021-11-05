@@ -20,69 +20,61 @@ The goal of this script is to simulate closed-loop MPC on a simple reaching task
 import numpy as np  
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, raisim_utils
 import time 
-
-# Fix seed 
 np.random.seed(1)
+np.set_printoptions(precision=4, linewidth=180)
+
 
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
+print("--------------------------------------")
+print("              INIT SIM                ")
+print("--------------------------------------")
 # Read config file
-config_name = 'iiwa_reaching_MPC'
+config_name = 'iiwa_LPF_reaching_MPC'
 config = path_utils.load_config_file(config_name)
-# Load Kuka config from URDF
-urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
-mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
-iiwa_config = raisim_utils.IiwaMinimalConfig(urdf_path, mesh_path)
-
-# Load Raisim environment
-LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
-env = raisim_utils.RaiEnv(LICENSE_PATH, dt=1e-3)
-robot = env.add_robot(iiwa_config, init_config=None)
-env.launch_server()
-
-# Initialize simulation
+# Initialize simulator and reset robot model to intial state
+dt_simu = 1./float(config['simu_freq']) 
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
-x0 = np.concatenate([q0, v0])   
+x0 = np.concatenate([q0, v0])  
+env, robot = raisim_utils.init_kuka_RAISIM(dt=dt_simu, x0=x0) 
 id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv; nu = nq
-# Update robot model with initial state
-robot.reset_state(q0, v0)
-robot.forward_robot(q0, v0)
-print(robot.get_state())
-M_ee = robot.data.oMf[id_endeff]
-print("Initial placement : \n")
-print(M_ee)
+print("-----------------------")
+print("[Raisim] Created robot ")
+print("-----------------------")
 
 
-
-#################
+# # # # # # # # # 
 ### OCP SETUP ###
-#################
-N_h = config['N_h']
-dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot)
-
+# # # # # # # # # 
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, WHICH_COSTS=config['WHICH_COSTS']) 
-
-SOLVE_AND_PLOT_INIT = False
-
-xs_init = [x0 for i in range(N_h+1)]
-us_init = [ug for i in range(N_h)]
-
-if(SOLVE_AND_PLOT_INIT):
-  ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
+                                            WHICH_COSTS=config['WHICH_COSTS']) 
+# Warm start and solve
+ug  = pin_utils.get_u_grav(q0, robot.model)
+xs_init = [x0 for i in range(config['N_h']+1)]
+us_init = [ug for i in range(config['N_h'])]
+ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+# Plot initial solution
+PLOT_INIT = False
+if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data(ddp)
-  fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], which_plots=['x','u','p'], SHOW=True)
+  fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+
+
+
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
+print("--------------------------------------")
+print("              INIT MPC                ")
+print("--------------------------------------")
 sim_data = data_utils.init_sim_data(config, robot, x0)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
@@ -108,10 +100,12 @@ NOISE_TORQUES = config['NOISE_TORQUES']                       # Add Gaussian noi
 FILTER_TORQUES = config['FILTER_TORQUES']                     # Moving average smoothing of reference torques
 NOISE_STATE = config['NOISE_STATE']                           # Add Gaussian noise on the measured state 
 FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
-dt_ocp = dt                                                   # OCP sampling rate 
+dt_ocp = config['dt']                                                   # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
+
+
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -145,33 +139,6 @@ if(config['INIT_LOG']):
   print("Simulation will start...")
   time.sleep(config['init_log_display_time'])
 
-# Interpolation  
-
- # ^ := MPC computations
- # | := current MPC computation
-
- # MPC ITER #1
-  #      x_0         x_1         x_2 ...                    --> pred(MPC=O) size N_h
-  # OCP : O           O           O                           ref_O = x_1
-  # MPC : M     M     M     M     M                           ref_M = x_0 + Interp_[O->M] (x_1 - x_0)
-  # CTR : C  C  C  C  C  C  C  C  C                           ref_C = x_0 + Interp_[O->C] (x_1 - x_0)
-  # SIM : SSSSSSSSSSSSSSSSSSSSSSSSS                           ref_S = x_0 + Interp_[O->S] (x_1 - x_0)
-  #       |     ^     ^     ^     ^  ...
- # MPC ITER #2
-  #            x_0         x_1         x_2 ...              --> pred(MPC=1) size N_h
-  #             O           O           O                     ...
-  #             M     M     M     M     M
-  #             C  C  C  C  C  C  C  C  C
-  #             SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #             |     ^     ^     ^     ^  ...
- # MPC ITER #3
-  #                        x_0         x_1         x_2 ...  --> pred(MPC=2) size N_h
-  #                         O           O           O         ...
-  #                         M     M     M     M     M
-  #                         C  C  C  C  C  C  C  C  C
-  #                         SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #                         |     ^     ^     ^     ^  ...
- # ...
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 

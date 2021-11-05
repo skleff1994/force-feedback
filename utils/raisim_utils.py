@@ -10,6 +10,32 @@ from scipy.spatial.transform import Rotation
 from numpy.linalg import norm
 import pinocchio as pin
 
+DEFAULT_URDF_PATH = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
+DEFAULT_MESH_PATH = "/home/skleff/robot_properties_kuka_RAISIM"
+LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
+
+# Load KUKA arm in Raisim environment
+def init_kuka_RAISIM(dt=1e3, x0=None):
+    '''
+    Loads KUKA LBR iiwa model in Raisim using the 
+    Pinocchio-Raisim wrapper to simplify interactions
+    '''
+    # Create Raisim sim environment + initialize sumulator
+    iiwa_config = IiwaMinimalConfig(DEFAULT_URDF_PATH, DEFAULT_MESH_PATH)
+    # Load Raisim environment
+    env = RaiEnv(LICENSE_PATH, dt=dt)
+    robot = env.add_robot(iiwa_config, init_config=None)
+    env.launch_server()
+    # Initialize
+    if(x0 is None):
+        q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
+        dq0 = np.zeros(robot.model.nv)
+    else:
+        q0 = x0[:robot.model.nq]
+        dq0 = x0[robot.model.nv:]
+    robot.reset_state(q0, dq0)
+    robot.forward_robot(q0, dq0)
+    return env, robot
 
 
 class IiwaMinimalConfig:
@@ -40,6 +66,7 @@ class PinRaiRobotWrapper:
 
         self.world = world
         #Set up Pinocchio data
+        self.config = robot_config
         self.model = robot_config.model 
         self.data = self.model.createData()
 
@@ -174,7 +201,6 @@ class PinRaiRobotWrapper:
             #print(self.data.oMf[self.end_eff_ids[i]].translation)
             ee_positions[i*3:i*3 + 3 ] = self.data.oMf[self.end_eff_ids[i]].translation
         return ee_positions
-
 
 
 class RaiEnv:
@@ -374,6 +400,8 @@ class RaiEnv:
         wall.setPosition(p)
         return wall
 
+
+
 # def rotationMatrixFromTwoVectors(a, b):
 #     a_copy = a / np.linalg.norm(a)
 #     b_copy = b / np.linalg.norm(b)
@@ -385,31 +413,3 @@ class RaiEnv:
 #     ab_skew = pin.skew(a_cross_b)
 #     return np.eye(3) + ab_skew + np.dot(ab_skew, ab_skew) * (1 - c) / s**2
         
-# Load KUKA arm in Raisim environment
-def init_kuka_RAISIM(dt=1e3, x0=None):
-    '''
-    Loads KUKA LBR iiwa model in Raisim using the 
-    Pinocchio-Raisim wrapper to simplify interactions
-    '''
-    # Create Raisim sim environment + initialize sumulator
-    urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa.urdf"
-    mesh_path = "/home/skleff/robot_properties_kuka_RAISIM"
-    iiwa_config = IiwaMinimalConfig(urdf_path, mesh_path)
-
-    # Load Raisim environment
-    LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
-    env = RaiEnv(LICENSE_PATH)
-    robot = env.add_robot(iiwa_config, init_config=None)
-    env.launch_server()
-    #Raisim parameters for forward prediction
-    env.world.setTimeStep(dt)
-    # Initialize
-    if(x0 is None):
-        q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
-        dq0 = np.zeros(robot.model.nv)
-    else:
-        q0 = x0[:robot.model.nq]
-        dq0 = x0[robot.pin_robot.model.nv:]
-    robot.reset_state(q0, dq0)
-    robot.forward_robot(q0, dq0)
-    return env, robot
