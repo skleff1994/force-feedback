@@ -33,6 +33,9 @@ np.random.seed(1)
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
+print("--------------------------------------")
+print("              INIT SIM                ")
+print("--------------------------------------")
 # Read config file
 config_name = 'iiwa_LPF_reaching_MPC'
 config = path_utils.load_config_file(config_name)
@@ -57,7 +60,6 @@ nx = nq+nv; nu = nq
 # Update robot model with initial state
 robot.reset_state(q0, v0)
 robot.forward_robot(q0, v0)
-print(robot.get_state())
 M_ee = robot.data.oMf[id_endeff]
 print("Initial placement : \n")
 print(M_ee)
@@ -66,70 +68,38 @@ print(M_ee)
 #################
 ### OCP SETUP ###
 #################
-N_h = config['N_h']
-dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot.model)
-y0 = np.concatenate([x0, ug])
-
-
-LPF_TYPE = 0
-# Approx. LPF obtained from Z.O.H. discretization on CT LPF 
-if(LPF_TYPE==0):
-    alpha = np.exp(-2*np.pi*config['f_c']*dt)
-# Approx. LPF obtained from 1st order Euler int. on CT LPF
-if(LPF_TYPE==1):
-    alpha = 1./float(1+2*np.pi*config['f_c']*dt)
-# Exact LPF obtained from E.M.A model (IIR)
-if(LPF_TYPE==2):
-    y = np.cos(2*np.pi*config['f_c']*dt)
-    alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
+# Setup Crocoddyl OCP and create solver
+ug = pin_utils.get_u_grav(q0, robot.model)
+y0 = np.concatenate([x0, ug])
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
                                                 w_reg_ref='gravity',
                                                 TAU_PLUS=True, 
-                                                LPF_TYPE=LPF_TYPE,
+                                                LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
+# Warm start and solve 
+xs_init = [y0 for i in range(config['N_h']+1)]
+us_init = [ug for i in range(config['N_h'])]
+ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
-
-WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = False
-
-if(WEIGHT_PROFILE):
-  #  Schedule weights for target reaching
-  for k,m in enumerate(ddp.problem.runningModels):
-      m.differential.costs.costs['translation'].weight = ocp_utils.cost_weight_tanh(k, N_h, max_weight=10., alpha=5., alpha_cut=0.65)
-      m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
-      m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
-      # print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
-      # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
-
-xs_init = [y0 for i in range(N_h+1)]
-us_init = [ug for i in range(N_h)]
-
-if(SOLVE_AND_PLOT_INIT):
-  xs_init = [y0 for i in range(N_h+1)]
-  us_init = [ug for i in range(N_h)]# ddp.problem.quasiStatic(xs_init[:-1])
-  ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-  # for i in range(N_h):
-  #   print(ddp.problem.runningDatas[i].differential.costs.costs['ctrlReg'].activation.a_value)
-  # print(ddp.problem.terminalData.differential.costs.costs['ctrlReg'].activation.a_value)
+PLOT_INIT = False
+if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data_LPF(ddp)
   fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
+print("--------------------------------------")
+print("              INIT MPC                ")
+print("--------------------------------------")
 sim_data = data_utils.init_sim_data_LPF(config, robot, y0)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
 freq_CTRL = sim_data['ctrl_freq']
 freq_SIMU = sim_data['simu_freq']
-  # Initialize PID errors and control gains
-err_u_P = np.zeros(nq)
-err_u_I = np.zeros(nq)
-err_u_D = np.zeros(nq)
   # Replan & control counters
 nb_plan = 0
 nb_ctrl = 0
@@ -146,7 +116,7 @@ NOISE_TORQUES = config['NOISE_TORQUES']                       # Add Gaussian noi
 FILTER_TORQUES = config['FILTER_TORQUES']                     # Moving average smoothing of reference torques
 NOISE_STATE = config['NOISE_STATE']                           # Add Gaussian noise on the measured state 
 FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
-dt_ocp = dt                                                   # OCP sampling rate 
+dt_ocp = config['dt']                                         # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
@@ -194,14 +164,6 @@ for i in range(sim_data['N_simu']):
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
-        # for k,m in enumerate(ddp.problem.runningModels):
-        #   m.differential.costs.costs['translation'].weight = ocp_utils.cost_weight_tanh(i, sim_data['N_simu'], max_weight=1., alpha=5., alpha_cut=0.65)
-          # m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(i, sim_data['N_simu'], min_weight=0.001, max_weight=0.1)
-          # m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(i, sim_data['N_simu'], min_weight=0.01, max_weight=0.1)
-        # if(i%1000==0):
-        #   print("Placement = ", ddp.problem.runningModels[0].differential.costs.costs['translation'].weight )
-        #   print("stateReg  = ", ddp.problem.runningModels[0].differential.costs.costs['stateReg'].weight )
-        #   print("ctrlReg decreasing from ", ddp.problem.runningModels[0].differential.costs.costs['ctrlReg'].weight, " to ", ddp.problem.runningModels[-1].differential.costs.costs['ctrlReg'].weight )
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['Y_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -215,7 +177,6 @@ for i in range(sim_data['N_simu']):
         y_curr = sim_data['Y_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
         y_pred = sim_data['Y_pred'][nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
         w_curr = sim_data['W_pred'][nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
-        # w_pred = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
         # Record solver data (optional)
         if(config['RECORD_SOLVER_DATA']):
           sim_data['K'][nb_plan, :, :, :] = np.array(ddp.K)         # Ricatti gains
@@ -243,7 +204,7 @@ for i in range(sim_data['N_simu']):
             w_curr = w_buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
         # Select reference control and state for the current PLAN cycle
         y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        w_ref_PLAN  = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        w_ref_PLAN  = w_curr 
         if(nb_plan==0):
           sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
         sim_data['W_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
@@ -257,8 +218,8 @@ for i in range(sim_data['N_simu']):
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
         # Select reference control and state for the current CTRL cycle
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-        w_ref_CTRL = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev) #w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+        y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+        w_ref_CTRL = w_curr 
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
@@ -271,8 +232,8 @@ for i in range(sim_data['N_simu']):
 
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)# y_curr + COEF * OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-    w_ref_SIMU  = w_curr #w_pred_prev + OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)# w_pred_prev + COEF * OCP_TO_PLAN_RATIO * (w_curr - w_pred_prev)
+    y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+    w_ref_SIMU  = w_curr 
 
     # First prediction = measurement = initialization of MPC
     if(i==0):
@@ -281,7 +242,7 @@ for i in range(sim_data['N_simu']):
     sim_data['Y_des_SIMU'][i+1, :] = y_ref_SIMU 
 
     # Torque applied by motor on actuator : interpolate current torque and predicted torque 
-    tau_ref_SIMU =  y_ref_SIMU[-nu:] # y_curr[-nu:]+ COEF * EPS * (y_pred[-nu:] - y_curr[-nu:]) # (dt_sim/dt_mpc) # 
+    tau_ref_SIMU =  y_ref_SIMU[-nu:] 
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
     tau_mea_SIMU = tau_ref_SIMU 
     if(SCALE_TORQUES):
@@ -297,11 +258,8 @@ for i in range(sim_data['N_simu']):
         pass
       else:                          
         tau_mea_SIMU = buffer_sim.pop(-sim_data['delay_sim_cycle'])
-    # # Actuation model = LPF on interpolated values?
-    # alpha_ = 1./float(1+2*np.pi*config['f_c']*dt)
-    # tau_mea_SIMU = alpha_*tau_mea_SIMU + (1-alpha_)*w_curr # in fact u_des as long as old actuation model is desactivated
     #  Send output of actuation torque to the RBD simulator 
-    robot.send_joint_command(tau_mea_SIMU)#w_curr)  #y_ref_CTRL[-nu:]
+    robot.send_joint_command(tau_mea_SIMU)
     env.step()
     # Measure new state from simulation :
     q_mea_SIMU, v_mea_SIMU = robot.get_state()

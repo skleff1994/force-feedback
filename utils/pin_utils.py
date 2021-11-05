@@ -2,6 +2,8 @@
 import numpy as np
 import pinocchio as pin
 import eigenpy
+from numpy.linalg import pinv
+import time
 
 def get_p(q, pin_robot, id_endeff):
     '''
@@ -56,19 +58,6 @@ def get_v_(q, dq, model, id_endeff):
         v[i,:] = J.dot(dq[i])[:3] # expressed in LOCAL frame 
     return v
 
-
-# def get_f(q, v, tau, pin_robot, id_endeff, dt=1e-2):
-#     '''
-#     Returns contact force in LOCAL frame based on FD estimate of joint acc
-#         q         : joint positions
-#         v         : joint velocities
-#         a         : joint acceleration
-#         tau       : joint torques
-#         pin_robot : Pinocchio wrapper
-#         id_endeff : id of EE frame
-#         dt        : step size for FD estimate of joint acceleration
-#     '''
-#     return get_f_(q, v, tau, pin_robot.model, id_endeff, dt=dt)
 
 def get_f_(q, v, tau, model, id_endeff, armature=[.1, .1, .1, .1, .1, .1, .0], REG=0.):
     '''
@@ -184,10 +173,23 @@ def get_tau(q, v, a, f, model, armature=[.1, .1, .1, .1, .1, .1, .0]):
     return pin.rnea(model, data, q, v, a, f)
 
 
-
-from numpy.linalg import pinv
-import time
-import matplotlib.pyplot as plt
+def get_external_joint_torques(M_contact, wrench, robot):
+    '''
+    Computes the joint torques induced by an external contact force
+    '''
+    f_ext = []
+    if(type(wrench)=='list'):
+        wrench = np.array(wrench)
+    # Compute joint torques due to desired external force 
+    for i in range(robot.model.nq+1):
+        # CONTACT --> WORLD
+        W_M_ct = M_contact.copy()
+        f_WORLD = W_M_ct.actionInverse.T.dot(wrench)
+        # WORLD --> JOINT
+        j_M_W = robot.data.oMi[i].copy().inverse()
+        f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
+        f_ext.append(pin.Force(f_JOINT))
+    return f_ext
 
 def IK_position(robot, q, frame_id, p_des, LOGS=False, DISPLAY=False, DT=1e-2, IT_MAX=1000, EPS=1e-6, sleep=0.01):
     '''

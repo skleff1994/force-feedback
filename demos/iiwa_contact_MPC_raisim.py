@@ -30,6 +30,9 @@ np.random.seed(1)
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
+print("--------------------------------------")
+print("              INIT SIM                ")
+print("--------------------------------------")
 # Read config file
 config_name = 'iiwa_contact_MPC'
 config = path_utils.load_config_file(config_name)
@@ -74,60 +77,40 @@ print("-----------------------")
 print("[Raisim] Created robot ")
 print("-----------------------")
 
+
 #################
 ### OCP SETUP ###
 #################
-N_h = config['N_h']
-dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot)
-# Warm start and reg
-import pinocchio as pin
-f_ext = []
-for i in range(nq+1):
-    # CONTACT --> WORLD
-    W_M_ct = contact_placement.copy()
-    f_WORLD = W_M_ct.act(pin.Force(np.asarray(config['frameForceRef'])))
-    # WORLD --> JOINT
-    j_M_W = robot.data.oMi[i].copy().inverse()
-    f_JOINT = j_M_W.act(f_WORLD)
-    f_ext.append(f_JOINT)
-# print(f_ext)
-u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-config['ctrlRegRef'] = u0
-
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
+# Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-SOLVE_AND_PLOT_INIT = True
+# Warmstart and solve
+f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
+u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+xs_init = [x0 for i in range(config['N_h']+1)]
+us_init = [u0 for i in range(config['N_h'])]
+ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
+PLOT_INIT = False
+if(PLOT_INIT):
+  ddp_data = data_utils.extract_ddp_data(ddp)
+  fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
-xs_init = [x0 for i in range(N_h+1)]
-us_init = [u0 for i in range(N_h)]
-
-if(SOLVE_AND_PLOT_INIT):
-  ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-  # ddp_data = data_utils.extract_ddp_data(ddp)
-  # fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], which_plots=['x','u','p', 'f'], SHOW=True)
-        # for k,m in enumerate(ddp.problem.runningModels):
-        #   m.differential.
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
+print("--------------------------------------")
+print("              INIT MPC                ")
+print("--------------------------------------")
 sim_data = data_utils.init_sim_data(config, robot, x0)
-
-# print(sim_data['f_ee_ref'])
-# time.sleep(10)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
 freq_CTRL = sim_data['ctrl_freq']
 freq_SIMU = sim_data['simu_freq']
-  # Initialize PID errors and control gains
-err_u_P = np.zeros(nq)
-err_u_I = np.zeros(nq)
-err_u_D = np.zeros(nq)
   # Replan & control counters
 nb_plan = 0
 nb_ctrl = 0
@@ -144,7 +127,7 @@ NOISE_TORQUES = config['NOISE_TORQUES']                       # Add Gaussian noi
 FILTER_TORQUES = config['FILTER_TORQUES']                     # Moving average smoothing of reference torques
 NOISE_STATE = config['NOISE_STATE']                           # Add Gaussian noise on the measured state 
 FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
-dt_ocp = dt                                                   # OCP sampling rate 
+dt_ocp = config['dt']                                         # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
@@ -192,9 +175,6 @@ for i in range(sim_data['N_simu']):
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
-        # Update OCP 
-        # for k,m in enumerate(ddp.problem.runningModels):
-        #   m.differential.
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -204,7 +184,7 @@ for i in range(sim_data['N_simu']):
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
         sim_data['X_pred'][nb_plan, :, :] = np.array(ddp.xs)
         sim_data['U_pred'][nb_plan, :, :] = np.array(ddp.us)
-        sim_data ['F_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(N_h)])
+        sim_data ['F_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
         # Extract relevant predictions for interpolations
         x_curr = sim_data['X_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
         x_pred = sim_data['X_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
@@ -238,7 +218,7 @@ for i in range(sim_data['N_simu']):
             u_curr = u_buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
         # Select reference control and state for the current PLAN cycle
         x_ref_PLAN  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-        u_ref_PLAN  = u_curr #u_pred_prev + OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev)
+        u_ref_PLAN  = u_curr 
         f_ref_PLAN  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         if(nb_plan==0):
           sim_data['X_des_PLAN'][nb_plan, :] = x_curr  
@@ -254,7 +234,7 @@ for i in range(sim_data['N_simu']):
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
         # Select reference control and state for the current CTRL cycle
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)# x_curr + COEF * OCP_TO_PLAN_RATIO * (x_pred - x_curr)
+        x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
         u_ref_CTRL = u_curr 
         f_ref_CTRL = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         # First prediction = measurement = initialization of MPC
@@ -270,7 +250,7 @@ for i in range(sim_data['N_simu']):
 
     # Select reference control and state for the current SIMU cycle
     COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-    x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)# x_curr + COEF * OCP_TO_PLAN_RATIO * (x_pred - x_curr)
+    x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
     u_ref_SIMU  = u_curr 
     f_ref_SIMU  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
 

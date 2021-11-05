@@ -60,7 +60,7 @@ ug = pin_utils.get_u_grav(q0, robot.model)
 y0 = np.concatenate([x0, ug])
 
 
-LPF_TYPE = 1
+LPF_TYPE = 0
 # Approx. LPF obtained from Z.O.H. discretization on CT LPF 
 if(LPF_TYPE==0):
     alpha = np.exp(-2*np.pi*config['f_c']*dt)

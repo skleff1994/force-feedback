@@ -33,6 +33,9 @@ np.random.seed(1)
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
+print("--------------------------------------")
+print("              INIT SIM                ")
+print("--------------------------------------")
 # Read config file
 config_name = 'iiwa_LPF_contact_MPC'
 config = path_utils.load_config_file(config_name)
@@ -62,80 +65,41 @@ print("-------------------------------------------------------------------")
 #################
 ### OCP SETUP ###
 #################
-N_h = config['N_h']
-dt = config['dt']
-
-LPF_TYPE = 1
-# Approx. LPF obtained from Z.O.H. discretization on CT LPF 
-if(LPF_TYPE==0):
-    alpha = np.exp(-2*np.pi*config['f_c']*dt)
-# Approx. LPF obtained from 1st order Euler int. on CT LPF
-if(LPF_TYPE==1):
-    alpha = 1./float(1+2*np.pi*config['f_c']*dt)
-# Exact LPF obtained from E.M.A model (IIR)
-if(LPF_TYPE==2):
-    y = np.cos(2*np.pi*config['f_c']*dt)
-    alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
-
-
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
-
-# Warm start and reg
-import pinocchio as pin
-f_ext = []
-# Compute joint torques due to desired external force 
-for i in range(nq+1):
-    # CONTACT --> WORLD
-    W_M_ct = contact_frame_placement.copy()
-    f_WORLD = W_M_ct.actionInverse.T.dot(np.asarray(config['frameForceRef']))
-    # WORLD --> JOINT
-    j_M_W = robot.data.oMi[i].copy().inverse()
-    f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
-    f_ext.append(pin.Force(f_JOINT))
+# Create DDP solver + compute warm start torque
+f_ext = pin_utils.get_external_joint_torques(contact_frame_placement, config['frameForceRef'], robot)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-# ug = pin_utils.get_u_grav(q0, robot.model)
 y0 = np.concatenate([x0, u0])
-# Create DDP solver
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
                                                 w_reg_ref='gravity',
                                                 TAU_PLUS=False, 
-                                                LPF_TYPE=LPF_TYPE,
+                                                LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 
-WEIGHT_PROFILE = False
-PLOT_INIT = False
-
-if(WEIGHT_PROFILE):
-  #  Schedule weights for target reaching
-  for k,m in enumerate(ddp.problem.runningModels):
-      m.differential.costs.costs['translation'].weight = ocp_utils.cost_weight_tanh(k, N_h, max_weight=10., alpha=5., alpha_cut=0.65)
-      m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
-      m.differential.costs.costs['ctrlReg'].weight  = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.001, max_weight=0.1)
-      # print("IAM["+str(k)+"].ee = "+str(m.differential.costs.costs['placement'].weight)+
-      # " | IAM["+str(k)+"].xReg = "+str(m.differential.costs.costs['stateReg'].weight))
-
-xs_init = [y0 for i in range(N_h+1)]
-us_init = [u0 for i in range(N_h)]
+# Warmstart and solve
+xs_init = [y0 for i in range(config['N_h']+1)]
+us_init = [u0 for i in range(config['N_h'])]
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
+PLOT_INIT = False
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data_LPF(ddp)
   fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
+
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
+print("--------------------------------------")
+print("              INIT MPC                ")
+print("--------------------------------------")
 sim_data = data_utils.init_sim_data_LPF(config, robot, y0)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
 freq_CTRL = sim_data['ctrl_freq']
 freq_SIMU = sim_data['simu_freq']
-  # Initialize PID errors and control gains
-err_u_P = np.zeros(nq)
-err_u_I = np.zeros(nq)
-err_u_D = np.zeros(nq)
   # Replan & control counters
 nb_plan = 0
 nb_ctrl = 0
@@ -152,7 +116,7 @@ NOISE_TORQUES = config['NOISE_TORQUES']                       # Add Gaussian noi
 FILTER_TORQUES = config['FILTER_TORQUES']                     # Moving average smoothing of reference torques
 NOISE_STATE = config['NOISE_STATE']                           # Add Gaussian noise on the measured state 
 FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
-dt_ocp = dt                                                   # OCP sampling rate 
+dt_ocp = config['dt']                                         # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
@@ -236,7 +200,7 @@ for i in range(sim_data['N_simu']):
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
         sim_data['Y_pred'][nb_plan, :, :] = np.array(ddp.xs)
         sim_data['W_pred'][nb_plan, :, :] = np.array(ddp.us)
-        sim_data ['F_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(N_h)])
+        sim_data ['F_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
 
         # Extract relevant predictions for interpolations
         y_curr = sim_data['Y_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )

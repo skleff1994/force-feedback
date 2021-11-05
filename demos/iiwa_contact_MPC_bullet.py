@@ -30,6 +30,9 @@ np.random.seed(1)
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
+print("--------------------------------------")
+print("              INIT SIM                ")
+print("--------------------------------------")
 # Read config file
 config_name = 'iiwa_contact_MPC'
 config = path_utils.load_config_file(config_name)
@@ -54,58 +57,41 @@ print("-------------------------------------------------------------------")
 print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
 print("-------------------------------------------------------------------")
 
-# time.sleep(10)
+
+
 #################
 ### OCP SETUP ###
 #################
-N_h = config['N_h']
-dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot)
-# Warm start and reg
-import pinocchio as pin
-f_ext = []
-for i in range(nq+1):
-    # CONTACT --> WORLD
-    W_M_ct = contact_placement.copy()
-    f_WORLD = W_M_ct.act(pin.Force(np.asarray(config['frameForceRef'])))
-    # WORLD --> JOINT
-    j_M_W = robot.data.oMi[i].copy().inverse()
-    f_JOINT = j_M_W.act(f_WORLD)
-    f_ext.append(f_JOINT)
-# print(f_ext)
-u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-
-config['ctrlRegRef'] = u0
 print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
+# Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
+# Warmstart and solve
+f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
+u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+xs_init = [x0 for i in range(config['N_h']+1)]
+us_init = [u0 for i in range(config['N_h'])]
+ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
-WEIGHT_PROFILE = False
-SOLVE_AND_PLOT_INIT = True
+PLOT_INIT = False
+if(PLOT_INIT):
+  ddp_data = data_utils.extract_ddp_data(ddp)
+  fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
-
-xs_init = [x0 for i in range(N_h+1)]
-us_init = [u0 for i in range(N_h)]
-
-if(SOLVE_AND_PLOT_INIT):
-  ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-  # ddp_data = data_utils.extract_ddp_data(ddp, CONTACT=True)
-  # fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
+print("--------------------------------------")
+print("              INIT MPC                ")
+print("--------------------------------------")
 sim_data = data_utils.init_sim_data(config, robot, x0)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
 freq_CTRL = sim_data['ctrl_freq']
 freq_SIMU = sim_data['simu_freq']
-  # Initialize PID errors and control gains
-err_u_P = np.zeros(nq)
-err_u_I = np.zeros(nq)
-err_u_D = np.zeros(nq)
   # Replan & control counters
 nb_plan = 0
 nb_ctrl = 0
@@ -114,7 +100,7 @@ x_buffer_OCP = []                                             # buffer for desi
 u_buffer_OCP = []                                             # buffer for desired states delayed by OCP computation time
 buffer_sim = []                                               # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
-WHICH_PLOTS = ['all']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS = ['all']                                         # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 DELAY_SIM = config['DELAY_SIM']                               # Add delay in reference torques (low-level)
 DELAY_OCP = config['DELAY_OCP']                               # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES = config['SCALE_TORQUES']                       # Affinescaling of reference torque
@@ -122,7 +108,7 @@ NOISE_TORQUES = config['NOISE_TORQUES']                       # Add Gaussian noi
 FILTER_TORQUES = config['FILTER_TORQUES']                     # Moving average smoothing of reference torques
 NOISE_STATE = config['NOISE_STATE']                           # Add Gaussian noise on the measured state 
 FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
-dt_ocp = dt                                                   # OCP sampling rate 
+dt_ocp = config['dt']                                         # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
@@ -206,7 +192,7 @@ for i in range(sim_data['N_simu']):
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
         sim_data['X_pred'][nb_plan, :, :] = np.array(ddp.xs)
         sim_data['U_pred'][nb_plan, :, :] = np.array(ddp.us)
-        sim_data ['F_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(N_h)])
+        sim_data ['F_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
         # Extract relevant predictions for interpolations
         x_curr = sim_data['X_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
         x_pred = sim_data['X_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
@@ -307,12 +293,6 @@ for i in range(sim_data['N_simu']):
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
-    # # Measure normal force from simulation (WORLD frame)
-    # _, force_measured = pybullet_simulator.get_force()
-    # if(len(force_measured)==0):
-    #     f_mea_SIMU_WORLD = np.zeros(6)
-    # else:
-    #     f_mea_SIMU_WORLD = force_measured[0]
     if(i%50==0): 
       print(f_mea_SIMU)
     # Record data (unnoised)

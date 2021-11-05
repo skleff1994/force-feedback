@@ -26,6 +26,7 @@ log_rate: 500                  # Display sim status once very 'log_rate' sim cyc
 
 
 # General
+LPF_TYPE: 0                                          # \in {0,1,2} : which formula to use for LPF cutoff freq   
 f_c: 2.                                               # Low-pass filter cut-off frequency
 dt: 0.02                                             # OCP integration step 
 N_h: 50                                              # Horizon length in nodes

@@ -37,7 +37,7 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint veloc
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'
 contactModelRotationRef: 'DEFAULT'
-contactModelGains: [1., 0.1]
+contactModelGains: [0., 10.]
 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
