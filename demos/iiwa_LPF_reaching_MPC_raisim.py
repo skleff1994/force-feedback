@@ -68,7 +68,7 @@ print(M_ee)
 #################
 N_h = config['N_h']
 dt = config['dt']
-ug = pin_utils.get_u_grav(q0, robot)
+ug = pin_utils.get_u_grav(q0, robot.model)
 y0 = np.concatenate([x0, ug])
 
 
@@ -87,11 +87,11 @@ print("--------------------------------------")
 print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                cost_w_reg=1e-6, 
-                                                cost_w_lim=10.,
-                                                tau_plus=True, 
-                                                lpf_type=LPF_TYPE,
-                                                WHICH_COSTS=config['WHICH_COSTS']) 
+                                                w_reg_ref='gravity',
+                                                TAU_PLUS=True, 
+                                                LPF_TYPE=LPF_TYPE,
+                                                WHICH_COSTS=config['WHICH_COSTS'] ) 
+
 
 WEIGHT_PROFILE = False
 SOLVE_AND_PLOT_INIT = False
