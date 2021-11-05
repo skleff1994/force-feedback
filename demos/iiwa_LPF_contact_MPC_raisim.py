@@ -9,10 +9,10 @@
 """
 
 '''
-The robot is tasked with reaching a static EE target 
+The robot is tasked with exerting a constant normal force with its EE 
 Trajectory optimization using Crocoddyl in closed-loop MPC 
 (feedback from stateLPF y=(q,v,tau), control w = unfiltered torque)
-Using PyBullet simulator & GUI for rigid-body dynamics + visualization
+Using Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualization
 
 The goal of this script is to simulate MPC with torque feedback where
 the actuation dynamics is modeled as a low pass filter (LPF) in the optimization.
@@ -20,7 +20,7 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
     and filtered torques while the letter 'w' denotes the unfiltered torque 
     input to the actuation model. 
   - We optimize (y*,w*) using Crocoddyl but we send tau* to the simulator (NOT w*)
-  - Simulator = custom actuation model (not LPF) + PyBullet RBD
+  - Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualization
 '''
 
 
@@ -49,12 +49,11 @@ q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])  
 env, robot = raisim_utils.init_kuka_RAISIM(dt=dt_simu, x0=x0) 
-id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv; nu = nq
 # Display contact surface
-id_endeff = robot.model.getFrameId('contact')
-  # Placement of reference of the contact in Crocoddyl (Baumgarte integration and friction cost)
+id_endeff = robot.model.getFrameId(config['contactModelFrameName'])
+# Placement of reference of the contact in Crocoddyl (Baumgarte integration and friction cost)
 M_ct              = robot.data.oMf[id_endeff].copy() 
   # Initial placement of contacted object in simulator
 contact_placement = M_ct.copy()

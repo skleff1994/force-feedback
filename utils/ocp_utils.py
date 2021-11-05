@@ -8,7 +8,6 @@
 @brief Initializes the OCP + DDP solver
 """
 
-from os import POSIX_FADV_NOREUSE
 import crocoddyl
 import numpy as np
 import pinocchio as pin

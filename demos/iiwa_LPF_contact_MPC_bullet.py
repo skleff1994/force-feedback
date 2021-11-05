@@ -23,9 +23,12 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
   - Simulator = custom actuation model (not LPF) + PyBullet RBD
 '''
 
+
+
 import numpy as np  
 from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils
 import time 
+np.set_printoptions(precision=4, linewidth=180)
 np.random.seed(1)
 
 
