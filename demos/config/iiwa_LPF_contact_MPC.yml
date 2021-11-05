@@ -4,9 +4,9 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 1000        # Control frequency
-plan_freq: 1000        # Planning frequency
-T_tot: .5              # Simu duration (s)
+ctrl_freq: 500        # Control frequency
+plan_freq: 500        # Planning frequency
+T_tot: 2.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False               # Add delay in reference torques (low-level)
 DELAY_OCP: False               # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -45,25 +45,25 @@ contactModelGains: [0., 10.]
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['force',  'placement', 'stateReg',  'stateLim'] #, 'ctrlRegGrav']  
+WHICH_COSTS: ['force', 'velocity', 'placement', 'stateReg',  'stateLim'] #, 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [1., 1., 1., 1., 1., 1.]
-frameForceWeight: 1
-frameForceWeightTerminal: 1  
+frameForceWeight: 5
+frameForceWeightTerminal: 5
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
  # 'friction' : end-effector frame friction cone 
-mu:  0.7
-frictionConeWeight: 100
+mu:  0.5
+frictionConeWeight: 1
 frictionConeFrameName: 'contact'
 
  # 'stateReg' : state regularization  
-stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.5
-stateRegWeightTerminal: 10 
+stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 10000, 2., 2., 2., 2., 2., 2., 2.]
+stateRegWeight: 0.01
+stateRegWeightTerminal: 0.01 
 stateRegRef: 'DEFAULT'
 
  # 'ctrlReg' : torque regularization 
@@ -86,16 +86,16 @@ frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
-frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: 0.1
-frameVelocityWeightTerminal: 0.1
+frameVelocityWeights:  [0.1, 0.1, 0.1, 1., 1., 1.]
+frameVelocityWeight: 0.5
+frameVelocityWeightTerminal: 0.5
 frameVelocityRef: 'DEFAULT'    
 frameVelocityFrameName: 'contact'
 
  # 'placement' : end-effector frame placement (translation + rotation)
-framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 1.
-framePlacementWeightTerminal: 1.
+framePlacementWeights:  [0.1, 0.1, 0.1, 1., 1., 1.]
+framePlacementWeight: 0.1
+framePlacementWeightTerminal: .1
 framePlacementTranslationRef: 'DEFAULT'
 framePlacementRotationRef: 'DEFAULT'
 framePlacementFrameName: 'contact'

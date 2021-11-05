@@ -44,15 +44,16 @@ x0 = np.concatenate([q0, v0])
 env, pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
 # Get pin wrapper
 robot = pybullet_simulator.pin_robot
-# Get dimensions 
+# Get dimensions and pinocchio frame id of contact 
 nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
-# Display contact surface
-id_endeff = robot.model.getFrameId('contact')
-contact_placement = robot.data.oMf[id_endeff].copy()
-M_ct = robot.data.oMf[id_endeff].copy()
-offset = 0.032
-contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-sim_utils.display_contact_surface(contact_placement, with_collision=True)
+id_endeff = robot.model.getFrameId(config['contactModelFrameName'])
+# Get initial placement of that contact frame
+contact_frame_placement = robot.data.oMf[id_endeff].copy()
+# Display contact surface at contact frame + some offset along z-axis in LOCAL frame 
+contact_surface_placement = contact_frame_placement.copy()
+offset = 0.036
+contact_surface_placement.translation = contact_surface_placement.act(np.array([0., 0., offset])) 
+sim_utils.display_contact_surface(contact_surface_placement, with_collision=True)
 print("-------------------------------------------------------------------")
 print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
 print("-------------------------------------------------------------------")
@@ -84,19 +85,19 @@ print("--------------------------------------")
 # Warm start and reg
 import pinocchio as pin
 f_ext = []
+# Compute joint torques due to desired external force 
 for i in range(nq+1):
     # CONTACT --> WORLD
-    W_M_ct = contact_placement.copy()
-    f_WORLD = W_M_ct.act(pin.Force(np.asarray(config['frameForceRef'])))
+    W_M_ct = contact_frame_placement.copy()
+    f_WORLD = W_M_ct.actionInverse.T.dot(np.asarray(config['frameForceRef']))
     # WORLD --> JOINT
     j_M_W = robot.data.oMi[i].copy().inverse()
-    f_JOINT = j_M_W.act(f_WORLD)
-    f_ext.append(f_JOINT)
-# print(f_ext)
+    f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
+    f_ext.append(pin.Force(f_JOINT))
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 # ug = pin_utils.get_u_grav(q0, robot.model)
 y0 = np.concatenate([x0, u0])
-
+# Create DDP solver
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
                                                 w_reg_ref='gravity',
                                                 TAU_PLUS=False, 
