@@ -50,7 +50,7 @@ nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
 id_endeff = robot.model.getFrameId('contact')
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
-offset = 0.0320
+offset = 0.032
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 sim_utils.display_contact_surface(contact_placement, with_collision=True)
 print("-------------------------------------------------------------------")
