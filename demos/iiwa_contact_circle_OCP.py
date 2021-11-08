@@ -1,31 +1,39 @@
 """
 @package force_feedback
-@file iiwa_contact_switch_OCP.py
+@file iiwa_contact_circle_OCP.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
 @date 2020-05-18
-@brief OCP for contact task with the KUKA iiwa 
+@brief OCP for static EE pose task with the KUKA iiwa 
 """
 
 '''
-The robot is tasked with approaching then contacting an object
-with its EE applying a constant normal force  
+The robot is tasked with exerting a constant normal force at its EE
+while drawing a circle on the contact surface
 Trajectory optimization using Crocoddyl
 The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
 
+
+
+
 import numpy as np  
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
-
 np.set_printoptions(precision=4, linewidth=180)
+
+
+
 
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
+print("--------------------------------------")
+print("              LOAD MODEL              ")
+print("--------------------------------------")
 # Read config file
-config = path_utils.load_config_file('iiwa_contact_switch_OCP')
+config = path_utils.load_config_file('iiwa_contact_circle_OCP')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
@@ -39,82 +47,33 @@ nu = nq
 # Update robot model with initial state
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
-M_ee = robot.data.oMf[id_endeff].copy()
-print("EE frame placement : \n")
-print(M_ee)
+M_ct = robot.data.oMf[id_endeff].copy()
 
 
-#################
+
+# # # # # # # # # 
 ### OCP SETUP ###
-#################
-N_h = config['N_h']
-dt = config['dt']
-# Contact frame placement 
-M_ct = M_ee.copy()
-M_ct.translation = M_ee.act(np.array([0., 0., .05]))
-print("Contact frame placement : \n")
-print(M_ct)
-
-
-# Warm start and reg
-import pinocchio as pin
-f_ext = []
-for i in range(nq+1):
-    # CONTACT --> WORLD
-    W_X_ct = M_ct.action
-    # WORLD --> JOINT
-    j_X_W  = robot.data.oMi[i].actionInverse
-    # CONTACT --> JOINT
-    j_X_ee = W_X_ct.dot(j_X_W)
-    # ADJOINT INVERSE (wrenches)
-    f_joint = j_X_ee.T.dot(np.asarray(config['f_des']))
-    f_ext.append(pin.Force(f_joint))
-# print(f_ext)
+# # # # # # # # # 
+print("--------------------------------------")
+print("              INIT OCP                ")
+print("--------------------------------------")
+# Setup Croco OCP and create solver
+ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
+                                            WHICH_COSTS=config['WHICH_COSTS']) 
+# Warmstart and solve
+f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-ug = pin_utils.get_u_grav(q0, robot)
-print("u0 = ", u0)
-print("ug = ", ug)
-
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
-                                            WHICH_COSTS=config['WHICH_COSTS'],
-                                            CONTACT=True,
-                                            contact_placement=M_ct,
-                                            u_reg_ref=u0) 
-
-
-# Custom phases in the OCP 
-N_switch = N_h//4
-# Schedule cost weights for the task (time-based switch)
-for i in range(N_h):
-    if(i<=N_switch):
-        # First phase = reach EE placement
-        ddp.problem.runningModels[i].differential.contacts.changeContactStatus("contact", False)
-        ddp.problem.runningModels[i].differential.costs.changeCostStatus("force", False)
-        ddp.problem.runningModels[i].differential.costs.changeCostStatus("ctrlReg", False) # only grav first
-        ddp.problem.runningModels[i].differential.costs.costs["placement"].weight = 1.
-       #   ddp.problem.runningModels[i].differential.costs.costs["stateReg"].ref = 10.
-    else:
-        # Second phase = apply constant normal force
-        ddp.problem.runningModels[i].differential.contacts.changeContactStatus("contact", True)
-        ddp.problem.runningModels[i].differential.costs.changeCostStatus("force", True)
-        ddp.problem.runningModels[i].differential.costs.changeCostStatus("placement", False)
-        ddp.problem.runningModels[i].differential.costs.changeCostStatus("ctrlReg", True)
-        ddp.problem.runningModels[i].differential.costs.changeCostStatus("ctrlRegGrav", False)
-        # ddp.problem.runningModels[i].differential.costs.costs["stateReg"].weight = 10.
-
-# Solve and extract solution trajectories
-xs_init = [x0 for i in range(N_switch)] + [x0 for i in range(N_switch, N_h+1)]
-us_init = [ug for i in range(N_switch)] + [u0 for i in range(N_switch, N_h)]
+xs_init = [x0 for i in range(config['N_h']+1)]
+us_init = [u0 for i in range(config['N_h'])]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-
 #  Plot
 PLOT = True
 if(PLOT):
-    ddp_data = data_utils.extract_ddp_data(ddp, CONTACT=True)
-    fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], SHOW=True)
+    ddp_data = data_utils.extract_ddp_data(ddp)
+    fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['all'], SHOW=True)
     
 
-VISUALIZE = True
+VISUALIZE = False
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
@@ -126,7 +85,7 @@ if(VISUALIZE):
     # Display force if any
     if('force' in config['WHICH_COSTS']):
         # Display placement of contact in WORLD frame
-        M_contact = M_ct.copy()
+        M_contact = M_ee.copy()
         offset = np.array([0., 0., 0.03])
         M_contact.translation = M_contact.act(offset)
         tf_contact = list(pin.SE3ToXYZQUAT(M_contact))

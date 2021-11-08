@@ -244,16 +244,39 @@ def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5
     '''
     return max(min(np.exp(1/(alpha*r+1))-1, max_weight), min_weight)
 
-# N=1000
-# r = np.linspace(1,2, N+1)
-# a = np.zeros(N+1)
-# for i in range(1001):
-#     a[i] = activation_decreasing_exponential(r[i], alpha=0.01, max_weight=10., min_weight=1.)
-# import matplotlib.pyplot as plt
-# plt.plot(r, a)
-# plt.grid()
-# plt.show()
 
+def circle_point_LOCAL(i, dt=0.01, radius=1.):
+  '''
+  Returns the i^th point (x,y,z) in LOCAL frame of a circle trajectory 
+  with a total of N points, N determined by a sampling time dt
+  '''
+  # Number of points in circle
+  N = int(2*np.pi/dt)
+  # LOCAL coordinates 
+  xi_LOCAL = radius*np.cos(2*np.pi*i/N)
+  yi_LOCAL = radius*np.sin(i*dt)
+  zi_LOCAL = 0.
+  return np.array([xi_LOCAL, yi_LOCAL, zi_LOCAL])
+
+
+def circle_point_WORLD(i, M_ct, dt=0.01, radius=1.):
+  '''
+  Returns the i^th point (x,y,z) in WORLD frame of a circle trajectory 
+  with a total of N points, N determined by a sampling time dt
+  '''
+  return M_ct.act(circle_point_LOCAL(i, dt=dt, radius=radius))
+
+
+def circle_trajectory_WORLD(M_ct, dt=0.01, radius=1.):
+  '''
+  Generate a circle EE trajectory (x,y,z)_0 , ..., (x,y,z)_N in WORLD frame
+  '''
+  N = int(2*np.pi/dt)
+  # First generate LOCAL 
+  traj_WORLD = np.array((3,N))
+  for i in range(N):
+    traj_WORLD[i,:] = M_ct.act(circle_point_LOCAL(i, dt, radius))
+  return traj_WORLD
 
 
 
@@ -314,7 +337,7 @@ def init_DDP(robot, config, x0, callbacks=False,
     
     # Construct cost function terms
     # State regularization
-    if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
+    if('stateReg' in WHICH_COSTS):
       # Default reference = initial state
       if(config['stateRegRef']=='DEFAULT'):
         stateRegRef = np.concatenate([np.asarray(config['q0']), np.asarray(config['dq0'])]) #np.zeros(nq+nv) 
@@ -325,7 +348,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                             crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                             crocoddyl.ResidualModelState(state, stateRegRef, actuation.nu))
     # Control regularization
-    if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
+    if('ctrlReg' in WHICH_COSTS):
       # Default reference = zero torque 
       if(config['ctrlRegRef']=='DEFAULT'):
         u_reg_ref = np.zeros(nq)
@@ -337,7 +360,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                             residual)
     # Control regularization (gravity)
-    if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+    if('ctrlRegGrav' in WHICH_COSTS):
       # Contact or not?
       if(CONTACT):
         residual = crocoddyl.ResidualModelContactControlGrav(state)
@@ -348,7 +371,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                             residual)
     # State limits penalization
-    if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
+    if('stateLim' in WHICH_COSTS):
       # Default reference = zero state
       if(config['stateLimRef']=='DEFAULT'):
         stateLimRef = np.zeros(nq+nv)
@@ -361,7 +384,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                             crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(x_min, x_max), stateLimWeights), 
                                             crocoddyl.ResidualModelState(state, stateLimRef, actuation.nu))
     # Control limits penalization
-    if('all' in WHICH_COSTS or 'ctrlLim' in WHICH_COSTS):
+    if('ctrlLim' in WHICH_COSTS):
       # Default reference = zero torque
       if(config['ctrlLimRef']=='DEFAULT'):
         ctrlLimRef = np.zeros(nq)
@@ -374,7 +397,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                               crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max), ctrlLimWeights), 
                                               crocoddyl.ResidualModelControl(state, ctrlLimRef))
     # End-effector placement 
-    if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
+    if('placement' in WHICH_COSTS):
       framePlacementFrameId = robot.model.getFrameId(config['framePlacementFrameName'])
       # Default translation reference = initial translation
       if(config['framePlacementTranslationRef']=='DEFAULT'):
@@ -395,7 +418,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                                                             framePlacementRef, 
                                                                                             actuation.nu)) 
     # End-effector velocity
-    if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS): 
+    if('velocity' in WHICH_COSTS): 
       frameVelocityFrameId = robot.model.getFrameId(config['frameVelocityFrameName'])
       # Default reference = zero velocity
       if(config['frameVelocityRef']=='DEFAULT'):
@@ -411,11 +434,18 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                                                           pin.WORLD, 
                                                                                           actuation.nu)) 
     # Frame translation cost
-    if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
+    if('translation' in WHICH_COSTS):
       frameTranslationFrameId = robot.model.getFrameId(config['frameTranslationFrameName'])
       # Default reference translation = initial translation
       if(config['frameTranslationRef']=='DEFAULT'):
         frameTranslationRef = robot.data.oMf[frameTranslationFrameId].translation.copy()
+      # Time-varying (tracking) problem with CIRCLE ref.
+      if(config['frameTranslationRef']=='CIRCLE'):
+        frameTranslationRef = robot.data.oMf[frameTranslationFrameId].translation.copy()
+        # read config file up to horizon and set references for each IAM below ?
+        # during MPC, update references for all nodes at each OCP update by advancing 
+        # of 1 step in the ref traj file?
+        # Or generate the ref on the fly? YES 
       else:
         frameTranslationRef = np.asarray(config['frameTranslationRef'])
       frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
@@ -426,7 +456,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                                                               frameTranslationRef, 
                                                                                               actuation.nu)) 
     # Frame force cost
-    if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+    if('force' in WHICH_COSTS):
       if(not CONTACT):
         print("[OCP] ERROR : Force cost but no contact model is defined !!! ")
       # Default force reference = zero force
@@ -444,7 +474,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                                                        6, 
                                                                                        actuation.nu))
     # Friction cone 
-    if('all' in WHICH_COSTS or 'friction' in WHICH_COSTS):
+    if('friction' in WHICH_COSTS):
       if(not CONTACT):
         print("[OCP] ERROR :  Friction cost but no contact model is defined !!! ")
       cone_rotation = contactModelPlacementRef.rotation
@@ -475,25 +505,28 @@ def init_DDP(robot, config, x0, callbacks=False,
         runningModels.append(crocoddyl.IntegratedActionModelEuler(dam, stepTime=dt))
         
         # Add cost models
-        if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
+        if('placement' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
-        if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
+        if('translation' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeight'])
-        if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
+          if(config['frameTranslationRef']=='CIRCLE'):
+            M = robot.data.oMf[frameTranslationFrameId].translation.copy()
+            runningModels[i].differential.costs.costs['translation'].cost.reference = circle_point_WORLD(i, M, dt=dt, radius=0.3)
+        if('velocity' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
-        if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
+        if('stateReg' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['stateRegWeight'])
-        if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
+        if('ctrlReg' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeight'])
-        if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+        if('ctrlRegGrav' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("ctrlRegGrav", uRegGravCost, config['ctrlRegWeight'])
-        if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
+        if('stateLim' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
-        if('all' in WHICH_COSTS or 'ctrlLim' in WHICH_COSTS):
+        if('ctrlLim' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
-        if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+        if('force' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("force", frameForceCost, config['frameForceWeight'])
-        if('all' in WHICH_COSTS or 'friction' in WHICH_COSTS):
+        if('friction' in WHICH_COSTS):
           runningModels[i].differential.costs.addCost("friction", frictionConeCost, config['frictionConeWeight'])
 
         # Add armature
@@ -520,15 +553,15 @@ def init_DDP(robot, config, x0, callbacks=False,
     terminalModel = crocoddyl.IntegratedActionModelEuler( dam_t, stepTime=0. )
     
     # Add cost models
-    if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
+    if('placement' in WHICH_COSTS):
       terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
+    if('velocity' in WHICH_COSTS):
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
+    if('translation' in WHICH_COSTS):
       terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
+    if('stateReg' in WHICH_COSTS):
       terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
+    if('stateLim' in WHICH_COSTS):
       terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal']*dt)
 
     # Add armature
@@ -621,7 +654,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
 
     # Cost function terms
     # State regularization
-    if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
+    if('stateReg' in WHICH_COSTS):
       # Default reference = initial state
       if(config['stateRegRef']=='DEFAULT'):
         stateRegRef = y0[:nx] #np.zeros(nq+nv) 
@@ -632,7 +665,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                             crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
                                             crocoddyl.ResidualModelState(state, stateRegRef, actuation.nu))
     # Control regularization
-    if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
+    if('ctrlReg' in WHICH_COSTS):
       # Default reference = zero torque 
       if(config['ctrlRegRef']=='DEFAULT'):
         u_reg_ref = np.zeros(nq)
@@ -644,7 +677,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                             residual)
     # Control regularization (gravity)
-    if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+    if('ctrlRegGrav' in WHICH_COSTS):
       # Contact or not?
       if(CONTACT):
         residual = crocoddyl.ResidualModelContactControlGrav(state)
@@ -655,7 +688,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                             crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
                                             residual)
     # State limits penalization
-    if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
+    if('stateLim' in WHICH_COSTS):
       # Default reference = zero state
       if(config['stateLimRef']=='DEFAULT'):
         stateLimRef = np.zeros(nq+nv)
@@ -668,7 +701,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                             crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(x_min, x_max), stateLimWeights), 
                                             crocoddyl.ResidualModelState(state, stateLimRef, actuation.nu))
     # Control limits penalization
-    if('all' in WHICH_COSTS or 'ctrlLim' in WHICH_COSTS):
+    if('ctrlLim' in WHICH_COSTS):
       # Default reference = zero torque
       if(config['ctrlLimRef']=='DEFAULT'):
         ctrlLimRef = np.zeros(nq)
@@ -681,7 +714,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                               crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max), ctrlLimWeights), 
                                               crocoddyl.ResidualModelControl(state, ctrlLimRef))
     # End-effector placement 
-    if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
+    if('placement' in WHICH_COSTS):
       framePlacementFrameId = robot.model.getFrameId(config['framePlacementFrameName'])
       # Default translation reference = initial translation
       if(config['framePlacementTranslationRef']=='DEFAULT'):
@@ -702,7 +735,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                                             framePlacementRef, 
                                                                                             actuation.nu)) 
     # End-effector velocity
-    if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS): 
+    if('velocity' in WHICH_COSTS): 
       frameVelocityFrameId = robot.model.getFrameId(config['frameVelocityFrameName'])
       # Default reference = zero velocity
       if(config['frameVelocityRef']=='DEFAULT'):
@@ -718,7 +751,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                                           pin.WORLD, 
                                                                                           actuation.nu)) 
     # Frame translation cost
-    if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
+    if('translation' in WHICH_COSTS):
       frameTranslationFrameId = robot.model.getFrameId(config['frameTranslationFrameName'])
       # Default reference translation = initial translation
       if(config['frameTranslationRef']=='DEFAULT'):
@@ -733,7 +766,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                                               frameTranslationRef, 
                                                                                               actuation.nu)) 
     # Frame force cost
-    if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+    if('force' in WHICH_COSTS):
       if(not CONTACT):
         print("[OCP] ERROR : Force cost but no contact model is defined !!! ")
       # Default force reference = zero force
@@ -751,7 +784,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                                        6, 
                                                                                        actuation.nu))
     # Friction cone 
-    if('all' in WHICH_COSTS or 'friction' in WHICH_COSTS):
+    if('friction' in WHICH_COSTS):
       if(not CONTACT):
         print("[OCP] ERROR :  Friction cost but no contact model is defined !!! ")
       cone_rotation = contactModelPlacementRef.rotation
@@ -794,25 +827,25 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     runningModels = []
     for i in range(N_h):
       costs = crocoddyl.CostModelSum(state, nu=actuation.nu)
-      if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
+      if('placement' in WHICH_COSTS):
         costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
-      if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
+      if('translation' in WHICH_COSTS):
         costs.addCost("translation", frameTranslationCost, config['frameTranslationWeight'])
-      if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
+      if('velocity' in WHICH_COSTS):
         costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
-      if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
+      if('stateReg' in WHICH_COSTS):
         costs.addCost("stateReg", xRegCost, config['stateRegWeight'])
-      if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
+      if('ctrlReg' in WHICH_COSTS):
         costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeight']) 
-      if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+      if('ctrlRegGrav' in WHICH_COSTS):
         costs.addCost("ctrlRegGrav", uRegGravCost, config['ctrlRegWeight'])
-      if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
+      if('stateLim' in WHICH_COSTS):
         costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
-      if('all' in WHICH_COSTS or 'ctrlLim' in WHICH_COSTS):
+      if('ctrlLim' in WHICH_COSTS):
         costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
-      if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+      if('force' in WHICH_COSTS):
         costs.addCost("force", frameForceCost, config['frameForceWeight'])
-      if('all' in WHICH_COSTS or 'friction' in WHICH_COSTS):
+      if('friction' in WHICH_COSTS):
         costs.addCost("friction", frictionConeCost, config['frictionConeWeight'])
       # Create DAM (Contact or FreeFwd)
       if(CONTACT):
@@ -845,21 +878,21 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
 
     # Terminal cost function 
     terminal_costs = crocoddyl.CostModelSum(state, nu=actuation.nu)
-    if('all' in WHICH_COSTS or 'placement' in WHICH_COSTS):
+    if('placement' in WHICH_COSTS):
       terminal_costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'translation' in WHICH_COSTS):
+    if('translation' in WHICH_COSTS):
       terminal_costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'velocity' in WHICH_COSTS):
+    if('velocity' in WHICH_COSTS):
       terminal_costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'stateReg' in WHICH_COSTS):
+    if('stateReg' in WHICH_COSTS):
       terminal_costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'ctrlReg' in WHICH_COSTS):
+    if('ctrlReg' in WHICH_COSTS):
       terminal_costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'ctrlRegGrav' in WHICH_COSTS):
+    if('ctrlRegGrav' in WHICH_COSTS):
       terminal_costs.addCost("ctrlRegGrav", uRegGravCost, config['ctrlRegWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'stateLim' in WHICH_COSTS):
+    if('stateLim' in WHICH_COSTS):
       terminal_costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal']*dt)
-    if('all' in WHICH_COSTS or 'force' in WHICH_COSTS):
+    if('force' in WHICH_COSTS):
       terminal_costs.addCost("force", frameForceCost, config['frameForceWeightTerminal']*dt)
 
     # Terminal DAM (Contact or FreeFwd)

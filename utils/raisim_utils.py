@@ -4,7 +4,6 @@
 
 import time
 import numpy as np
-from numpy.lib.function_base import place
 import raisimpy as raisim
 from scipy.spatial.transform import Rotation
 from numpy.linalg import norm
