@@ -245,7 +245,7 @@ def IK_placement(robot, q0, frame_id, oMf_des, DT=1e-2, IT_MAX=1000, EPS=1e-6, D
         J = pin.computeFrameJacobian(model, data, q, frame_id)                 
         vq = - J.T.dot(np.linalg.solve(J.dot(J.T) + DAMP * np.eye(6), err))
         q = pin.integrate(model, q, vq * DT)
-        robot.display(q)                                   
+        # robot.display(q)                                   
         time.sleep(0.1)
         i += 1
     return q, vq, errs

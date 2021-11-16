@@ -245,40 +245,35 @@ def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5
     return max(min(np.exp(1/(alpha*r+1))-1, max_weight), min_weight)
 
 
-def circle_point_LOCAL(i, dt=0.01, radius=1.):
+def circle_point_LOCAL(t, radius=1., omega=1., origin=[0.,0.,0.]):
   '''
-  Returns the i^th point (x,y,z) in LOCAL frame of a circle trajectory 
-  with a total of N points, N determined by a sampling time dt
+  Returns the LOCAL frame coordinates of the point reached at time t
+  on a circle trajectory with given radius and angular frequency 
+  Can be shifted by origin in LOCAL coordinates
   '''
-  # Number of points in circle
-  N = int(2*np.pi/dt)
   # LOCAL coordinates 
-  xi_LOCAL = radius*np.cos(2*np.pi*i/N)
-  yi_LOCAL = radius*np.sin(i*dt)
-  zi_LOCAL = 0.
-  return np.array([xi_LOCAL, yi_LOCAL, zi_LOCAL])
+  return np.array([radius*np.cos(omega*t)-origin[0], radius*np.sin(omega*t)-origin[1], 0.-origin[2]])
 
 
-def circle_point_WORLD(i, M_ct, dt=0.01, radius=1.):
-  '''
-  Returns the i^th point (x,y,z) in WORLD frame of a circle trajectory 
-  with a total of N points, N determined by a sampling time dt
-  '''
-  return M_ct.act(circle_point_LOCAL(i, dt=dt, radius=radius))
-
-
-def circle_trajectory_WORLD(M_ct, dt=0.01, radius=1.):
+def circle_trajectory_WORLD(M_ct, dt=0.01, radius=1., omega=1.):
   '''
   Generate a circle EE trajectory (x,y,z)_0 , ..., (x,y,z)_N in WORLD frame
   '''
-  N = int(2*np.pi/dt)
+  # Final time
+  T = 2*np.pi/omega
+  # Number of points in the circle
+  N = int(T//dt)
+  # print(T, N)
   # First generate LOCAL 
-  traj_WORLD = np.array((3,N))
+  traj_WORLD = np.zeros((N, 3))
   for i in range(N):
-    traj_WORLD[i,:] = M_ct.act(circle_point_LOCAL(i, dt, radius))
+    traj_WORLD[i,:] = M_ct.act(circle_point_LOCAL(i*dt, radius=radius, omega=omega, origin=[radius, 0., 0.]))
   return traj_WORLD
 
-
+# X = circle_trajectory_WORLD(pin.SE3.Identity(), dt=0.1, radius=1, omega=3)
+# import matplotlib.pyplot as plt
+# plt.plot(X[:,0], X[:,1])
+# plt.show()
 
 # Setup OCP and solver using Crocoddyl
 def init_DDP(robot, config, x0, callbacks=False, 
@@ -656,17 +651,19 @@ def init_DDP(robot, config, x0, callbacks=False,
       terminalModel.differential.contacts.addContact("contact", contact6d, active=True)
     
     print("[OCP] Created IAMs.")  
-    # Create the shooting problem
-    problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
-    # Creating the DDP solver 
-    ddp = crocoddyl.SolverFDDP(problem)
 
+  # Create the shooting problem
+    problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
+  # Creating the DDP solver 
+    ddp = crocoddyl.SolverFDDP(problem)
+  # Callbacks
     if(callbacks):
       ddp.setCallbacks([crocoddyl.CallbackLogger(),
                         crocoddyl.CallbackVerbose()])
     
     print("[OCP] OCP is ready ! (CONTACT="+str(CONTACT)+")")
     print("[OCP]   Costs = "+str(WHICH_COSTS))
+
     return ddp
 
 

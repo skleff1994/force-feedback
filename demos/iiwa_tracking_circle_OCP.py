@@ -20,6 +20,12 @@ from robot_properties_kuka.config import IiwaConfig
 
 np.set_printoptions(precision=4, linewidth=180)
 
+
+import time
+import matplotlib.pyplot as plt
+
+
+
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
@@ -56,21 +62,45 @@ dt = config['dt']
 # Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-
+# print(pin_utils.IK_position(robot, q0, id_endeff, M_ee.translation, DT=0.01, IT_MAX=1000, sleep=0., LOGS=False))
+# time.sleep(100)
 # Create circle 
-ref = x0.copy()
-for k,m in enumerate(ddp.problem.runningModels):
-    # print("BEFORE :", m.differential.costs.costs['translation'].cost.residual.reference)
-    m.differential.costs.costs['translation'].cost.residual.reference = ocp_utils.circle_point_WORLD(k, M_ee.copy(), dt=dt, radius=0.5)
-    # print("AFTER :", m.differential.costs.costs['translation'].cost.residual.reference)
-    
+EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=0.05, radius=.1, omega=3.)
+EE_ref_LOCAL = np.zeros(EE_ref.shape)
+for i in range(EE_ref.shape[0]):
+    EE_ref_LOCAL[i,:] = M_ee.actInv(EE_ref[i,:])
+# # plt.plot(EE_ref[:,0], EE_ref[:,1])
+# plt.plot(EE_ref_LOCAL[:,0], EE_ref_LOCAL[:,1])
+# plt.show()
 
-# Warmstart and solve
-ug = pin_utils.get_u_grav(q0, robot.model)
-xs_init = [x0 for i in range(N_h+1)]
-us_init = [ug  for i in range(N_h)]
+models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+xs_init = [] 
+us_init = []
+q_ws = q0
+for k,m in enumerate(models):
+    # Reference for EE translation = circle trajectory
+    m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k]
+
+    # Warm start state = IK of circle trajectory
+    M_des = M_ee.copy()
+    M_des.translation = EE_ref[k]
+    q_ws, v_ws, eps = pin_utils.IK_placement(robot, q0, id_endeff, M_des, DT=1e-2, IT_MAX=100)
+    print(q_ws, v_ws)
+    # print(eps[-1])
+    xs_init.append(np.concatenate([q_ws, v_ws]))
+    # Warm start control = gravity compensation of xs_init 
+    if(k<N_h):
+        us_init.append(pin_utils.get_u_grav(q_ws, robot.model))
+
+# ug  = pin_utils.get_u_grav(q0, robot.model)
+# xs_init = [x0 for i in range(config['N_h']+1)]
+# us_init = [ug for i in range(config['N_h'])]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
+# p = pin_utils.get_p_(np.array(xs_init)[:,:nq], robot.model, id_endeff)
+# import matplotlib.pyplot as plt
+# plt.plot(p[:,0], p[:,1])
+# plt.show()
 
 #  Plot
 PLOT = True
