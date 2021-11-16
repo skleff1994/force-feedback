@@ -119,24 +119,6 @@ def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=
 
 
 
-# # Load simulator
-# def load_simulator(config, simulator='PYBULLET'):
-#     # Load robot (pinocchio RobotWrapper object)
-#     robot = IiwaConfig.buildRobotWrapper()
-#     # Load simulator 
-#     if(simulator=='PYBULLET'):
-#         from bullet_utils.env import BulletEnvWithGround
-#         from robot_properties_kuka.iiwaWrapper import IiwaRobot
-#         env = BulletEnvWithGround()
-#         simu = env.add_robot(IiwaRobot)
-#     elif(simulator=='CONSIM'):
-#         from consim_py.simulator import RobotSimulator
-#         from robot_properties_kuka.iiwaWrapper import IiwaConfig
-#         simu = RobotSimulator(config, robot)
-#     return robot, simu
-
-
-
 # def weighted_moving_average(series, lookback = None):
 #     if not lookback:
 #         lookback = len(series)
@@ -183,46 +165,3 @@ def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=
 # plt.show()
 
 
-    # contact_points = p.getContactPoints(1, 2)
-    # for id_pt, pt in enumerate(contact_points):
-    #   F_mea_pyb[i, :] += pt[9]
-    #   print("      Contact point n°"+str(id_pt)+" : ")
-    #   print("             - normal vec   = "+str(pt[7]))
-    #   # print("             - m_ct.trans   = "+str(M_ct.actInv(np.array(pt[7]))))
-    #   # print("             - distance     = "+str(pt[8])+" (m)")
-    #   # print("             - normal force = "+str(pt[9])  +" (N)")
-    #   # print("             - lat1 force   = "+str(pt[10]) +" (N)")
-    #   # print("             - lat2 force   = "+str(pt[12]) +" (N)")
-
-# def animateCartpole(xs, sleep=50):
-#     print("processing the animation ... ")
-#     cart_size = 1.
-#     pole_length = 5.
-#     fig = plt.figure()
-#     ax = plt.axes(xlim=(-8, 8), ylim=(-6, 6))
-#     patch = plt.Rectangle((0., 0.), cart_size, cart_size, fc='b')
-#     line, = ax.plot([], [], 'k-', lw=2)
-#     time_text = ax.text(0.02, 0.95, '', transform=ax.transAxes)
-
-#     def init():
-#         ax.add_patch(patch)
-#         line.set_data([], [])
-#         time_text.set_text('')
-#         return patch, line, time_text
-
-#     def animate(i):
-#         x_cart = np.asscalar(xs[i][0])
-#         y_cart = 0.
-#         theta = np.asscalar(xs[i][1])
-#         patch.set_xy([x_cart - cart_size / 2, y_cart - cart_size / 2])
-#         x_pole = np.cumsum([x_cart, -pole_length * sin(theta)])
-#         y_pole = np.cumsum([y_cart, pole_length * cos(theta)])
-#         line.set_data(x_pole, y_pole)
-#         time = i * sleep / 1000.
-#         time_text.set_text('time = %.1f sec' % time)
-#         return patch, line, time_text
-
-#     anim = animation.FuncAnimation(fig, animate, init_func=init, frames=len(xs), interval=sleep, blit=True)
-#     print("... processing done")
-#     plt.show()
-#     return anim

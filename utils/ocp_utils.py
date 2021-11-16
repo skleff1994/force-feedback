@@ -296,10 +296,10 @@ def init_DDP(robot, config, x0, callbacks=False,
       OUTPUT:
         FDDP solver
 
-     A cost term on a variable z(x,u) has the generic form w * r( a( z(x,u) ) )
+     A cost term on a variable z(x,u) has the generic form w * a( r( z(x,u) - z0 ) )
      where w <--> cost weight, e.g. 'stateRegWeight' in config file
-           r <--> residual model depending on some reference, e.g. 'stateRegRef'
-                  Wen set to 'None' in config file, default references are hard-coded here
+           r <--> residual model depending on some reference z0, e.g. 'stateRegRef'
+                  When ref is set to 'DEFAULT' in YAML file, default references hard-coded here are used
            a <--> weighted activation, with weights e.g. 'stateRegWeights' in config file 
            z <--> can be state x, control u, frame position or velocity, contact force, etc.
     '''
