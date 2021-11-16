@@ -380,7 +380,7 @@ class RaiEnv:
         ball.setPosition(p)
         return ball
 
-    def display_wall(self, placement, width=0.01):
+    def display_wall(self, placement, width=0.01, TILT=[0.,0.,0.]):
         '''
         Create contact plane object in raisim and display it
         '''
@@ -391,6 +391,9 @@ class RaiEnv:
         p = placement.act(np.array([0.,0., width]))
         R = placement.rotation.T
         placement_wall = pin.SE3(R, p)
+        # Optionally tilt contact surface (default 0)
+        TILT_rotation = pin.utils.rpyToMatrix(TILT[0], TILT[1], TILT[2])
+        placement_wall.rotation = TILT_rotation.dot(placement_wall.rotation)
         # Get quaternion (px, py, pz, x, y, z, w)
         quat = np.array(list(pin.se3ToXYZQUAT(placement_wall)))
         # pin.Quaternion(quat)
