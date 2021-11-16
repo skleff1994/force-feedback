@@ -56,20 +56,21 @@ dt = config['dt']
 # Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
+
+# Create circle 
+ref = x0.copy()
+for k,m in enumerate(ddp.problem.runningModels):
+    # print("BEFORE :", m.differential.costs.costs['translation'].cost.residual.reference)
+    m.differential.costs.costs['translation'].cost.residual.reference = ocp_utils.circle_point_WORLD(k, M_ee.copy(), dt=dt, radius=0.5)
+    # print("AFTER :", m.differential.costs.costs['translation'].cost.residual.reference)
+    
+
 # Warmstart and solve
 ug = pin_utils.get_u_grav(q0, robot.model)
 xs_init = [x0 for i in range(N_h+1)]
 us_init = [ug  for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
-# # Half reach time (in OCP nodes)
-# PHASE = 50
-# for i in range(N_h-1):
-#     ddp.problem.runningModels[i].differential.costs.costs['placement'].weight = ocp_utils.cost_weight_linear(i, PHASE, min_weight=.1, max_weight=10.)
-#     # ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_normal_clamped(i, PHASE, min_weight=0.01, max_weight=10., peak=2)
-#     # print(ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight)
-#     ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = ocp_utils.cost_weight_parabolic(i, PHASE, min_weight=0.05, max_weight=0.5)
-#     ddp.problem.runningModels[i].differential.costs.costs['velocity'].weight = ocp_utils.cost_weight_parabolic(i, PHASE, min_weight=0.001, max_weight=10.)
 
 #  Plot
 PLOT = True
@@ -77,24 +78,26 @@ if(PLOT):
     ddp_data = data_utils.extract_ddp_data(ddp)
     fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
 
-VISUALIZE = False
-pause = 0.01 # in s
-if(VISUALIZE):
-    import time
-    robot.initDisplay(loadModel=True)
-    robot.display(q0)
-    viewer = robot.viz.viewer
-    # viewer.gui.addFloor('world/floor')
-    # viewer.gui.refresh()
-    log_rate = int(N_h/10)
-    print("Visualizing...")
-    time.sleep(1.)
-    for i in range(N_h):
-        # Iter log
-        viewer.gui.refresh()
-        robot.display(ddp.xs[i][:nq])
-        if(i%log_rate==0):
-            print("Display config n°"+str(i))
-        time.sleep(pause)
+
+# # Visualize
+# VISUALIZE = False
+# pause = 0.01 # in s
+# if(VISUALIZE):
+#     import time
+#     robot.initDisplay(loadModel=True)
+#     robot.display(q0)
+#     viewer = robot.viz.viewer
+#     # viewer.gui.addFloor('world/floor')
+#     # viewer.gui.refresh()
+#     log_rate = int(N_h/10)
+#     print("Visualizing...")
+#     time.sleep(1.)
+#     for i in range(N_h):
+#         # Iter log
+#         viewer.gui.refresh()
+#         robot.display(ddp.xs[i][:nq])
+#         if(i%log_rate==0):
+#             print("Display config n°"+str(i))
+#         time.sleep(pause)
 
 

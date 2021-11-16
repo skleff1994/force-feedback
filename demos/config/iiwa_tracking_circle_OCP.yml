@@ -16,7 +16,7 @@ WHICH_COSTS: ['translation', 'stateReg', 'ctrlRegGrav']
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
 stateRegWeight: 0.5
-stateRegWeightTerminal: 1
+stateRegWeightTerminal: 0.5
 stateRegRef: 'DEFAULT' # TRACKING ?
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
@@ -27,8 +27,8 @@ ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 1.
-frameTranslationWeightTerminal: .1 
-frameTranslationRef: 'CIRCLE' 
+frameTranslationWeightTerminal: 1.
+frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
