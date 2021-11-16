@@ -72,15 +72,30 @@ def display_target(p_des):
     p.setCollisionFilterGroupMask(target, -1, 0, 0)
 
 
+# def rotationMatrixFromTwoVectors(a, b):
+#     a_copy = a / np.linalg.norm(a)
+#     b_copy = b / np.linalg.norm(b)
+#     a_cross_b = np.cross(a_copy, b_copy, axis=0)
+#     s = np.linalg.norm(a_cross_b)
+#     if s == 0:
+#         return np.eye(3)
+#     c = a_copy.dot(b_copy) 
+#     ab_skew = pin.skew(a_cross_b)
+#     return np.eye(3) + ab_skew + ( (1 - c) / (s**2) ) * ab_skew.dot(ab_skew) 
+
+
 # Load contact surface in PyBullet for contact experiments
-def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=False):
+def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=False, TILT=[0., 0., 0.]):
     '''
     Create contact surface object in pybullet and display it
       M       : contact placement
       robotId : id of the robot 
 
     '''
-
+    # Tilt contact surface (default 0)
+    TILT_rotation = pin.utils.rpyToMatrix(TILT[0], TILT[1], TILT[2])
+    M.rotation = TILT_rotation.dot(M.rotation)
+    # Get quaternion
     quat = pin.SE3ToXYZQUAT(M)
     visualShapeId = p.createVisualShape(shapeType=p.GEOM_CYLINDER,
                                         radius=radius,
@@ -103,6 +118,7 @@ def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=
                                         useMaximalCoordinates=True)
                     
       # Desactivate collisions for all links except end-effector of robot
+      # TODO: do not hard-code the PyBullet EE id
       for i in range(p.getNumJoints(robotId)):
         p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
       p.setCollisionFilterPair(contactId, robotId, -1, 8, 1)
