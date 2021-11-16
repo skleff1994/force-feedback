@@ -157,6 +157,14 @@ for i in range(sim_data['N_simu']):
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
+        # robot.data.oMf[id_endeff].copy()
+        # EE_ref = ocp_utils.circle_trajectory_WORLD(, dt=0.01, radius=.5, omega=2.
+        # Update translation EE reference 
+        # models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+        # for k,m in enumerate(models):
+        #     pref = 
+        #     m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k]
+
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
