@@ -1,15 +1,15 @@
 """
 @package force_feedback
-@file iiwa_reaching_OCP.py
+@file iiwa_tracking_cirlce_OCP.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
 @date 2020-05-18
-@brief OCP for static EE pose task with the KUKA iiwa 
+@brief OCP for tracking EE circle with the KUKA iiwa 
 """
 
 '''
-The robot is tasked with reaching a static EE target 
+The robot is tasked with tracking a circle EE trajectory
 Trajectory optimization using Crocoddyl
 The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
@@ -27,7 +27,7 @@ print("--------------------------------------")
 print("              LOAD MODEL              ")
 print("--------------------------------------")
 # Read config file
-config = path_utils.load_config_file('iiwa_reaching_OCP')
+config = path_utils.load_config_file('iiwa_tracking_circle_OCP')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
