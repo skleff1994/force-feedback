@@ -18,7 +18,7 @@ The goal of this script is to simulate closed-loop MPC on a simple reaching task
 '''
 
 import numpy as np  
-from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils
+from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils
 import pybullet as p
 import time 
 np.random.seed(1)
@@ -95,7 +95,7 @@ print("Initial OCP solving...")
 # solve
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 # Plot initial solution
-PLOT_INIT = True
+PLOT_INIT = False
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data(ddp)
   fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
@@ -135,8 +135,9 @@ dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
 print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
 
-
-
+communication = mpc_utils.CommunicationModel(config)
+actuation     = mpc_utils.ActuationModel(config)
+sensing       = mpc_utils.SensingModel(config)
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -179,7 +180,6 @@ for i in range(sim_data['N_simu']):
 
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
-        # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
         if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
           models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
           for k,m in enumerate(models):
@@ -188,7 +188,6 @@ for i in range(sim_data['N_simu']):
               else:
                 ref = EE_ref[-1]
               m.differential.costs.costs['translation'].cost.residual.reference = ref
-
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -202,7 +201,6 @@ for i in range(sim_data['N_simu']):
         x_curr = sim_data['X_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
         x_pred = sim_data['X_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
         u_curr = sim_data['U_pred'][nb_plan, 0, :]    # u0* = optimal control   
-        # u_pred = sim_data['U_pred'][nb_plan, 1, :]  # u1* = predicted optimal control  
         # Record solver data (optional)
         if(config['RECORD_SOLVER_DATA']):
           sim_data['K'][nb_plan, :, :, :] = np.array(ddp.K)         # Ricatti gains
@@ -211,41 +209,24 @@ for i in range(sim_data['N_simu']):
           sim_data['xreg'][nb_plan] = ddp.x_reg                     # Reg solver on x
           sim_data['ureg'][nb_plan] = ddp.u_reg                     # Reg solver on u
           sim_data['J_rank'][nb_plan] = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
-        # Initialize control prediction
-        if(nb_plan==0):
-          u_pred_prev = u_curr
-        else:
-          u_pred_prev = sim_data['U_pred'][nb_plan-1, 1, :]
-        # Optionally delay due to OCP resolution time 
-        if(DELAY_OCP):
-          x_buffer_OCP.append(x_pred)
-          u_buffer_OCP.append(u_curr)
-          if(len(x_buffer_OCP)<sim_data['delay_OCP_cycle']): 
-            pass
-          else:                            
-            x_pred = x_buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
-          if(len(u_buffer_OCP)<sim_data['delay_OCP_cycle']): 
-            pass
-          else:
-            u_curr = u_buffer_OCP.pop(-sim_data['delay_OCP_cycle'])
+        # Model communication between computer --> robot
+        x_pred, u_curr = communication.step(x_pred, u_curr)
         # Select reference control and state for the current PLAN cycle
         x_ref_PLAN  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-        u_ref_PLAN  = u_curr #u_pred_prev + OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev)
+        u_ref_PLAN  = u_curr 
         if(nb_plan==0):
           sim_data['X_des_PLAN'][nb_plan, :] = x_curr  
         sim_data['U_des_PLAN'][nb_plan, :]   = u_ref_PLAN   
         sim_data['X_des_PLAN'][nb_plan+1, :] = x_ref_PLAN    
-
         # Increment planning counter
         nb_plan += 1
 
+
   # If we are in a control cycle select reference torque to send to the actuator
     if(i%int(freq_SIMU/freq_CTRL) == 0):        
-        # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
         # Select reference control and state for the current CTRL cycle
-        COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)# x_curr + COEF * OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-        u_ref_CTRL = u_curr #u_pred_prev + OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev) #u_pred_prev + COEF * OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev)
+        x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
+        u_ref_CTRL = u_curr 
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['X_des_CTRL'][nb_ctrl, :] = x_curr  
@@ -254,34 +235,18 @@ for i in range(sim_data['N_simu']):
         # Increment control counter
         nb_ctrl += 1
         
-  # Simulate actuation with PI torque tracking controller (low-level control frequency)
 
+  # Simulate actuation with PI torque tracking controller (low-level control frequency)
     # Select reference control and state for the current SIMU cycle
-    COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
     x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
     u_ref_SIMU  = u_curr 
-
     # First prediction = measurement = initialization of MPC
     if(i==0):
       sim_data['X_des_SIMU'][i, :] = x_curr  
     sim_data['U_des_SIMU'][i, :]   = u_ref_SIMU  
     sim_data['X_des_SIMU'][i+1, :] = x_ref_SIMU 
-
-    # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
-    tau_mea_SIMU = u_ref_SIMU 
-    if(SCALE_TORQUES):
-      tau_mea_SIMU = sim_data['alpha'] * tau_mea_SIMU + sim_data['beta']
-    if(FILTER_TORQUES):
-      n_sum = min(i, config['u_avg_filter_length'])
-      for k in range(n_sum):
-        tau_mea_SIMU += sim_data['X_mea_SIMU'][i-k-1, -nu:]
-      tau_mea_SIMU = tau_mea_SIMU / (n_sum + 1)
-    if(DELAY_SIM):
-      buffer_sim.append(tau_mea_SIMU)            
-      if(len(buffer_sim)<sim_data['delay_sim_cycle']):    
-        pass
-      else:                          
-        tau_mea_SIMU = buffer_sim.pop(-sim_data['delay_sim_cycle'])
+    # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
+    tau_mea_SIMU = actuation.step(i, u_ref_SIMU, sim_data['U_des_SIMU'])   
     #  Send output of actuation torque to the RBD simulator 
     pybullet_simulator.send_joint_command(tau_mea_SIMU)
     p.stepSimulation()
@@ -292,19 +257,10 @@ for i in range(sim_data['N_simu']):
     # Record data (unnoised)
     x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
     sim_data['X_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU
-    # Optional noise + filtering
-    if(NOISE_STATE):# and float(i)/freq_SIMU <= 0.2):
-      noise_q = np.random.normal(0., sim_data['var_q'], nq)
-      noise_v = np.random.normal(0., sim_data['var_v'], nv)
-      noise_tau = np.random.normal(0., sim_data['var_u'], nu)
-      x_mea_SIMU += np.concatenate([noise_q, noise_v]).T
-    if(FILTER_STATE):
-      n_sum = min(i, config['x_avg_filter_length'])
-      for k in range(n_sum):
-        x_mea_SIMU += sim_data['X_mea_SIMU'][i-k-1, :]
-      x_mea_SIMU = x_mea_SIMU / (n_sum + 1)
-    # Record noised data
-    sim_data['X_mea_SIMU'][i+1, :] = x_mea_SIMU 
+    # Sensor model (optional noise + filtering)
+    sim_data['X_mea_SIMU'][i+1, :] = sensing.step(i, x_mea_SIMU, sim_data['X_mea_SIMU'])
+
+
 
 print('--------------------------------')
 print('Simulation exited successfully !')
