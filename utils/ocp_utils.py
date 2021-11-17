@@ -252,7 +252,7 @@ def circle_point_LOCAL(t, radius=1., omega=1., origin=[0.,0.,0.]):
   Can be shifted by origin in LOCAL coordinates
   '''
   # LOCAL coordinates 
-  return np.array([radius*np.cos(omega*t)-origin[0], radius*np.sin(omega*t)-origin[1], 0.-origin[2]])
+  return np.array([radius*(1-np.cos(-omega*t)), radius*np.sin(-omega*t), 0.])
 
 
 def circle_trajectory_WORLD(M_ct, dt=0.01, radius=1., omega=1.):
@@ -267,7 +267,7 @@ def circle_trajectory_WORLD(M_ct, dt=0.01, radius=1., omega=1.):
   # First generate LOCAL 
   traj_WORLD = np.zeros((N, 3))
   for i in range(N):
-    traj_WORLD[i,:] = M_ct.act(circle_point_LOCAL(i*dt, radius=radius, omega=omega, origin=[radius, 0., 0.]))
+    traj_WORLD[i,:] = M_ct.act(circle_point_LOCAL(i*dt, radius=radius, omega=omega, origin=[0., 0., 0.]))
   return traj_WORLD
 
 # X = circle_trajectory_WORLD(pin.SE3.Identity(), dt=0.1, radius=1, omega=3)

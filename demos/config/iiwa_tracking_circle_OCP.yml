@@ -2,7 +2,7 @@
 
 # General
 dt: 0.01                                             # OCP integration step 
-N_h: 200                                             # Horizon length in nodes
+N_h: 500                                             # Horizon length in nodes
 maxiter: 100                                         # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
@@ -14,7 +14,7 @@ WHICH_COSTS: ['translation', 'stateReg', 'ctrlRegGrav']
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
-stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
+stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
 stateRegWeight: 0.1
 stateRegWeightTerminal: 0.1
 stateRegRef: 'DEFAULT' # TRACKING ?
@@ -26,8 +26,8 @@ ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 10.
-frameTranslationWeightTerminal: 10.
+frameTranslationWeight: 100.
+frameTranslationWeightTerminal: 100.
 frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
 

@@ -65,7 +65,7 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
 # print(pin_utils.IK_position(robot, q0, id_endeff, M_ee.translation, DT=0.01, IT_MAX=1000, sleep=0., LOGS=False))
 # time.sleep(100)
 # Create circle 
-EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=0.05, radius=.1, omega=3.)
+EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=0.01, radius=.1, omega=3.)
 # EE_ref_LOCAL = np.zeros(EE_ref.shape)
 # for i in range(EE_ref.shape[0]):
 #     EE_ref_LOCAL[i,:] = M_ee.actInv(EE_ref[i,:])
@@ -76,9 +76,14 @@ models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 # xs_init = [] 
 # us_init = []
 # q_ws = q0
+
+# Reference for EE translation = circle trajectory
 for k,m in enumerate(models):
-    # Reference for EE translation = circle trajectory
-    m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k]
+    if(k<EE_ref.shape[0]):
+    
+        m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k]
+    else:
+        m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[-1]
     # # Warm start state = IK of circle trajectory
     # M_des = M_ee.copy()
     # M_des.translation = EE_ref[k]
@@ -103,28 +108,46 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 PLOT = True
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data(ddp)
-    fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
+    fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['p'], markers=['.'], colors=['b'], SHOW=True)
 
 
-# # Visualize
-# VISUALIZE = False
-# pause = 0.01 # in s
-# if(VISUALIZE):
-#     import time
-#     robot.initDisplay(loadModel=True)
-#     robot.display(q0)
-#     viewer = robot.viz.viewer
-#     # viewer.gui.addFloor('world/floor')
-#     # viewer.gui.refresh()
-#     log_rate = int(N_h/10)
-#     print("Visualizing...")
-#     time.sleep(1.)
-#     for i in range(N_h):
-#         # Iter log
-#         viewer.gui.refresh()
-#         robot.display(ddp.xs[i][:nq])
-#         if(i%log_rate==0):
-#             print("Display config n°"+str(i))
-#         time.sleep(pause)
-
-
+# Visualize
+VISUALIZE = True
+pause = 0.05 # in s
+if(VISUALIZE):
+    import time
+    import pinocchio as pin
+    robot.initDisplay(loadModel=True)
+    robot.display(q0)
+    viewer = robot.viz.viewer
+    log_rate = int(N_h/10)
+    draw_rate = int(N_h/100)
+    print("Visualizing...")
+    time.sleep(1)
+    # Clean previous node if any
+    for i in range(N_h):
+        if(viewer.gui.nodeExists('world/EE_'+str(i))):
+            viewer.gui.deleteNode('world/EE_'+str(i), True)
+    if(viewer.gui.nodeExists('world/ee')):
+        viewer.gui.deleteNode('world/ee', True)
+    viewer.gui.addSphere('world/ee', .03, [0. ,1. ,0, 1.])
+    viewer.gui.addLandmark('world/ee', .5)
+    viewer.gui.applyConfiguration('world/ee', list(pin.SE3ToXYZQUAT(M_ee.copy())))
+    viewer.gui.refresh()
+    for i in range(N_h):
+        # Iter log
+        viewer.gui.refresh()
+        robot.display(ddp.xs[i][:nq])
+        if(i%draw_rate==0):
+            m_ee = M_ee.copy()
+            m_ee.translation = models[i].differential.costs.costs['translation'].cost.residual.reference
+            tf_ee = list(pin.SE3ToXYZQUAT(m_ee))
+            viewer.gui.addSphere('world/EE_'+str(i), .01, [1. ,0 ,0, 1.])
+            viewer.gui.applyConfiguration('world/EE_'+str(i), tf_ee)
+        if(i%log_rate==0):
+            print("Display config n°"+str(i))
+        time.sleep(pause)
+    # time.sleep(5)
+    # for i in range(N_h):
+    #     if(viewer.gui.nodeExists('world/EE_'+str(i))):
+    #         viewer.gui.deleteNode('world/EE_'+str(i), True)
