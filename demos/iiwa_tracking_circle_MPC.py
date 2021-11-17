@@ -60,19 +60,42 @@ print("              INIT OCP                ")
 print("--------------------------------------")
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-# Create circle 
-EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=0.01, radius=.5, omega=2.)
+# Create circle trajectory (WORLD frame)
+EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=config['dt'], 
+                                                        radius=config['frameCircleTrajectoryRadius'], 
+                                                        omega=config['frameCircleTrajectoryVelocity'])
+# Set EE translation cost model references (i.e. setup tracking problem)
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 for k,m in enumerate(models):
-    m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k]
-
-# Warm start and solve
-ug  = pin_utils.get_u_grav(q0, robot.model)
-xs_init = [x0 for i in range(config['N_h']+1)]
-us_init = [ug for i in range(config['N_h'])]
+    if(k<EE_ref.shape[0]):
+        ref = EE_ref[k]
+    else:
+        ref = EE_ref[-1]
+    m.differential.costs.costs['translation'].cost.residual.reference = ref
+print("Setup tracking problem.")
+# Warm start state = IK of circle trajectory
+print("Computing warm-start...")
+WARM_START_IK = True
+if(WARM_START_IK):
+    xs_init = [] 
+    us_init = []
+    q_ws = q0
+    for k,m in enumerate(models):
+        ref = m.differential.costs.costs['translation'].cost.residual.reference
+        q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
+        # print(q_ws, v_ws)
+        xs_init.append(np.concatenate([q_ws, v_ws]))
+    us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(config['N_h'])]
+# Classical warm start using initial config
+else:
+    ug  = pin_utils.get_u_grav(q0, robot.model)
+    xs_init = [x0 for i in range(config['N_h']+1)]
+    us_init = [ug for i in range(config['N_h'])]
+print("Initial OCP solving...")
+# solve
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 # Plot initial solution
-PLOT_INIT = False
+PLOT_INIT = True
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data(ddp)
   fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
@@ -157,13 +180,14 @@ for i in range(sim_data['N_simu']):
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
-        # robot.data.oMf[id_endeff].copy()
-        # EE_ref = ocp_utils.circle_trajectory_WORLD(, dt=0.01, radius=.5, omega=2.
-        # Update translation EE reference 
-        # models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-        # for k,m in enumerate(models):
-        #     pref = 
-        #     m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k]
+        if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
+          models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+          for k,m in enumerate(models):
+              if(k+nb_plan<EE_ref.shape[0]):
+                ref = EE_ref[k+nb_plan]
+              else:
+                ref = EE_ref[-1]
+              m.differential.costs.costs['translation'].cost.residual.reference = ref
 
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]

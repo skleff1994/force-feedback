@@ -263,7 +263,7 @@ def circle_trajectory_WORLD(M_ct, dt=0.01, radius=1., omega=1.):
   T = 2*np.pi/omega
   # Number of points in the circle
   N = int(T//dt)
-  # print(T, N)
+  # print("OCP SETUP ", T, N)
   # First generate LOCAL 
   traj_WORLD = np.zeros((N, 3))
   for i in range(N):

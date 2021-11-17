@@ -4,8 +4,8 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 1000        # Control frequency
-plan_freq: 1000        # Planning frequency
+ctrl_freq: 250        # Control frequency
+plan_freq: 250        # Planning frequency
 T_tot: 1.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False              # Add delay in reference torques (low-level)
@@ -26,22 +26,21 @@ log_rate: 500                 # Display sim status once very 'log_rate' sim cycl
 
 
 # General
-dt: 0.02                                             # OCP integration step 
-N_h: 100                                             # Horizon length in nodes
+dt: 0.01                                             # OCP integration step 
+N_h: 200                                             # Horizon length in nodes
 maxiter: 5                                           # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
-tau0: [0., -2.3274, 0., 0.012262, 0., -0.010595, 0.] # Initial robot joint torque
 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['translation', 'velocity', 'ctrlRegGrav', 'stateReg', 'stateLim'] 
+WHICH_COSTS: ['translation', 'ctrlRegGrav', 'stateReg'] 
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
-stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 2., 2., 2., 2., 2., 2., 2.]
+stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
 stateRegWeight: 0.1
 stateRegWeightTerminal: 0.1
 stateRegRef: 'DEFAULT'
@@ -49,34 +48,25 @@ stateRegRef: 'DEFAULT'
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 2., 10., 15.]
-ctrlRegWeight: 0.003
-ctrlRegWeightTerminal: 0.003
+ctrlRegWeight: 0.01
 ctrlRegRef: 'DEFAULT' # reference not used for 'ctrlRegGrav'
 
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 20.
-frameTranslationWeightTerminal: 20. 
-frameTranslationRef: [-0.5, -0.5, 0.7]
+frameTranslationWeight: 100.
+frameTranslationWeightTerminal: 100. 
+frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
-
+frameCircleTrajectoryRadius: 0.1  # in m
+frameCircleTrajectoryVelocity: 3. # in rad/s
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
 frameVelocityWeight: 0.1
 frameVelocityWeightTerminal: 10.
-frameVelocityRef: [0., 0., 0., 0., 0., 0.]    
+frameVelocityRef: 'DEFAULT'
 frameVelocityFrameName: 'contact'
-
-
- # 'placement' : end-effector frame placement (translation + rotation)
-framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0.1
-framePlacementWeightTerminal: 0.1
-framePlacementTranslationRef: [-0.5, -0.5, 0.7]
-framePlacementRotationRef: 'DEFAULT'
-framePlacementFrameName: 'contact'
 
 
  # 'stateLim' : state limits
