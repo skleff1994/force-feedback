@@ -30,6 +30,244 @@ def load_data(npz_file):
 
 
 
+class MPCSimulator():
+
+  def __init__(self, config, robot, ddp):
+  
+    self.config = config
+    self.robot = robot
+    self.ddp = ddp
+    self.x0 = ddp.problem.x0
+    # allocate and initialize data
+    self.data = {}
+    self.init_params()
+    self.init_sim_data()
+
+  def set_params(self):
+    '''
+    Initialize parameters from config file and robot model
+    '''
+    # MPC & simulation parameters
+    self.data['T_tot'] = self.config['T_tot']                               # Total duration of simulation (s)
+    self.data['simu_freq'] = self.config['simu_freq']                       # Simulation frequency
+    self.data['ctrl_freq'] = self.config['ctrl_freq']                       # Control frequency (reference sent to motors)
+    self.data['plan_freq'] = self.config['plan_freq']                       # Planning frequency (OCP solution update rate)
+    self.data['N_plan'] = int(self.data['T_tot']*self.data['plan_freq'])    # Total number of planning steps in the simulation
+    self.data['N_ctrl'] = int(self.data['T_tot']*self.data['ctrl_freq'])    # Total number of control steps in the simulation 
+    self.data['N_simu'] = int(self.data['T_tot']*self.data['simu_freq'])    # Total number of simulation steps 
+    self.data['T_h'] = self.config['N_h']*self.config['dt']                 # Duration of the MPC horizon (s)
+    self.data['N_h'] = self.config['N_h']                                   # Number of nodes in MPC horizon
+    self.data['dt_ctrl'] = float(1./self.data['ctrl_freq'])                 # Duration of 1 control cycle (s)
+    self.data['dt_plan'] = float(1./self.data['plan_freq'])                 # Duration of 1 planning cycle (s)
+    self.data['dt_simu'] = float(1./self.data['simu_freq'])                 # Duration of 1 simulation cycle (s)
+    # Misc params
+    self.data['pin_model'] = self.robot.model
+    self.data['nq'] = self.data['pin_model'].nq
+    self.data['nv'] = self.data['pin_model'].nv
+    self.data['nu'] = self.data['pin_model'].nq
+    self.data['nx'] = self.data['nq'] + self.data['nv']
+    self.data['id_endeff'] = self.data['pin_model'].getFrameId('contact') # hard-coded contact frame here !!!
+    dt_ocp            = self.config['dt']                                 # OCP sampling rate 
+    dt_mpc            = float(1./self.data['plan_freq'])                  # planning rate
+    self.OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                              # ratio
+
+
+  def init_data(self):
+    '''
+    Main initialization of simulation data 
+    '''
+    # Simulation
+    self.simu_steps_counter = 0        # number of sim step
+    self.plan_steps_counter = 0        # number of plan steps
+    self.ctrl_steps_counter = 0        # number of control steps
+    # Predictions
+    self.data['X_pred'] = np.zeros((self.data['N_plan'], self.config['N_h']+1, self.data['nx'])) # Predicted states  ( ddp.xs : {x* = (q*, v*)} )
+    self.data['U_pred'] = np.zeros((self.data['N_plan'], self.config['N_h'], self.data['nu']))   # Predicted torques ( ddp.us : {u*} )
+    self.data['F_pred'] = np.zeros((self.data['N_plan'], self.config['N_h'], 6))                # Predicted EE contact forces
+    self.data['X_des_PLAN'] = np.zeros((self.data['N_plan']+1, self.data['nx']))            # Predicted states at planner frequency  ( x* interpolated at PLAN freq )
+    self.data['U_des_PLAN'] = np.zeros((self.data['N_plan'], self.data['nu']))              # Predicted torques at planner frequency ( u* interpolated at PLAN freq )
+    self.data['F_des_PLAN'] = np.zeros((self.data['N_plan'], 6))                           # Predicted EE contact forces planner frequency  
+    self.data['X_des_CTRL'] = np.zeros((self.data['N_ctrl']+1, self.data['nx']))            # Reference state at motor drivers freq ( x* interpolated at CTRL freq )
+    self.data['U_des_CTRL'] = np.zeros((self.data['N_ctrl'], self.data['nu']))              # Reference input at motor drivers freq ( u* interpolated at CTRL freq )
+    self.data['F_des_CTRL'] = np.zeros((self.data['N_ctrl'], 6))                           # Reference EE contact force at motor drivers freq
+    self.data['X_des_SIMU'] = np.zeros((self.data['N_simu']+1, self.data['nx']))            # Reference state at actuation freq ( x* interpolated at SIMU freq )
+    self.data['U_des_SIMU'] = np.zeros((self.data['N_simu'], self.data['nu']))              # Reference input at actuation freq ( u* interpolated at SIMU freq )
+    self.data['F_des_SIMU'] = np.zeros((self.data['N_simu'], 6))                           # Reference EE contact force at actuation freq
+    # Measurements
+    self.data['X_mea_SIMU'] = np.zeros((self.data['N_simu']+1, self.data['nx']))            # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq )
+    self.data['X_mea_no_noise_SIMU'] = np.zeros((self.data['N_simu']+1, self.data['nx']))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq ) without noise
+    self.data['F_mea_SIMU'] = np.zeros((self.data['N_simu'], 6)) 
+    self.data['X_mea_SIMU'][0, :] = self.x0
+    self.data['X_mea_no_noise_SIMU'][0, :] = self.x0
+    # References for reg / goal terms
+    # xReg
+    if('stateReg' in self.config['WHICH_COSTS']):
+      self.data['state_ref'] = np.zeros((self.data['N_plan']+1, self.data['nx']))
+    # uReg
+    if('ctrlReg' or 'ctrlRegGrav' in self.config['WHICH_COSTS']):
+      self.data['ctrl_ref'] = np.zeros((self.data['N_plan']+1, self.data['nu']))
+    # EE position
+    if('translation' or 'placement' in self.config['WHICH_COSTS']):
+      self.data['p_ee_ref'] = np.zeros((self.data['N_plan']+1, 3))
+    # EE velocity 
+    if('velocity' in self.config['WHICH_COSTS']):
+      self.data['v_ee_ref'] = np.zeros((self.data['N_plan']+1, 3))
+    # EE force
+    if('force' in self.config['WHICH_COSTS']):
+      self.data['f_ee_ref'] = np.zeros((self.data['N_plan'], 6))
+    # Scaling of desired torque
+    alpha = np.random.uniform(low=self.config['alpha_min'], high=self.config['alpha_max'], size=(self.data['nq'],))
+    beta = np.random.uniform(low=self.config['beta_min'], high=self.config['beta_max'], size=(self.data['nq'],))
+    self.data['alpha'] = alpha
+    self.data['beta'] = beta
+    # White noise on desired torque and measured state
+    self.data['var_q'] = np.asarray(self.config['var_q'])
+    self.data['var_v'] = np.asarray(self.config['var_v'])
+    self.data['var_u'] = 0.5*np.asarray(self.config['var_u']) 
+    # White noise on desired torque and measured state
+    self.data['gain_P'] = self.config['Kp']*np.eye(self.data['nq'])
+    self.data['gain_I'] = self.config['Ki']*np.eye(self.data['nq'])
+    self.data['gain_D'] = self.config['Kd']*np.eye(self.data['nq'])
+    # Delays
+    self.data['delay_OCP_cycle'] = int(self.config['delay_OCP_ms'] * 1e-3 * self.data['plan_freq']) # in planning cycles
+    self.data['delay_sim_cycle'] = int(self.config['delay_sim_cycle'])                              # in simu cycles
+    self.x_buffer_OCP = []                                           # buffer for desired controls delayed by OCP computation time
+    self.u_buffer_OCP = []                                           # buffer for desired states delayed by OCP computation time
+    self.buffer_sim   = []                                           # buffer for measured torque delayed by e.g. actuation and/or sensing 
+    # Other stuff
+    self.data['RECORD_SOLVER_DATA'] = self.config['RECORD_SOLVER_DATA']
+    if(self.data['RECORD_SOLVER_DATA']):
+      self.data['K'] = np.zeros((self.data['N_plan'], self.config['N_h'], self.data['nq'], self.data['nx']))     # Ricatti gains (K_0)
+      self.data['Vxx'] = np.zeros((self.data['N_plan'], self.config['N_h']+1, self.data['nx'], self.data['nx'])) # Hessian of the Value Function  
+      self.data['Quu'] = np.zeros((self.data['N_plan'], self.config['N_h'], self.data['nu'], self.data['nu']))   # Hessian of the Value Function 
+      self.data['xreg'] = np.zeros(self.data['N_plan'])                                                   # State reg in solver (diag of Vxx)
+      self.data['ureg'] = np.zeros(self.data['N_plan'])                                                   # Control reg in solver (diag of Quu)
+      self.data['J_rank'] = np.zeros(self.data['N_plan'])                                                 # Rank of Jacobian
+  
+
+  def record_PLAN_STEP_data(self):
+    '''
+    Record simulation data at the current MPC cycle (to be called each time OCP is re-solved)
+      Records predicted state, control over whole horizon 
+      Records solver data optionally
+    '''
+    i = self.plan_steps_counter.copy()
+    self.data['X_pred'][i, :, :] = np.array(self.ddp.xs)
+    self.data['U_pred'][i, :, :] = np.array(self.ddp.us)
+    # Extract relevant predictions for interpolations
+    self.x_curr = self.data['X_pred'][i, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
+    self.x_pred = self.data['X_pred'][i, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
+    self.u_curr = self.data['U_pred'][i, 0, :]    # u0* = optimal control   
+    # Record references of 1st cost model (node 0)
+    dam = self.ddp.problem.runningModels[0].differential
+    if('ctrlReg' in dam.costs.costs.todict().keys()):
+      self.data['ctrl_ref'][i, :] = dam.costs.costs['ctrlReg'].cost.residual.reference
+    elif('ctrlRegGrav' in dam.costs.costs.todict().keys()):
+      self.data['ctrl_ref'][i, :] = dam.costs.costs['ctrlRegGrav'].cost.residual.reference
+    if('stateReg' in dam.costs.costs.todict().keys()):
+      self.data['v_ee_ref'][i, :] = dam.costs.costs['stateReg'].cost.residual.reference.vector[:3]
+    if('translation' in dam.costs.costs.todict().keys()):
+      self.data['p_ee_ref'][i, :] = dam.costs.costs['translation'].cost.residual.reference
+    elif('placement' in dam.costs.costs.todict().keys()):
+      self.data['p_ee_ref'][i, :] = dam.costs.costs['translation'].cost.residual.reference.translation
+    if('velocity' in dam.costs.costs.todict().keys()):
+      self.data['v_ee_ref'][i, :] = dam.costs.costs['velocity'].cost.residual.reference.vector[:3]
+    if('force' in dam.costs.costs.todict().keys()):
+      self.data['f_ee_ref'][i, :] = dam.costs.costs['force'].cost.residual.reference.vector
+    # Record solver data (optional)
+    if(self.config['RECORD_SOLVER_DATA']):
+      self.data['K'][i, :, :, :] = np.array(self.ddp.K)         # Ricatti gains
+      self.data['Vxx'][i, :, :, :] = np.array(self.ddp.Vxx)     # Hessians of V.F. 
+      self.data['Quu'][i, :, :, :] = np.array(self.ddp.Quu)     # Hessians of Q 
+      self.data['xreg'][i] = self.ddp.x_reg                     # Reg solver on x
+      self.data['ureg'][i] = self.ddp.u_reg                     # Reg solver on u
+      self.data['J_rank'][i] = np.linalg.matrix_rank(self.ddp.problem.runningDatas[0].differential.pinocchio.J)
+    # Initialize control prediction
+    if(i==0):
+      self.u_pred_prev = self.u_curr
+    else:
+      self.u_pred_prev = self.data['U_pred'][i-1, 1, :]
+
+
+    # Optionally delay due to OCP resolution time 
+    if(self.config['DELAY_OCP']):
+      self.x_buffer_OCP.append(self.x_pred)
+      self.u_buffer_OCP.append(self.u_curr)
+      if(len(self.x_buffer_OCP)<self.data['delay_OCP_cycle']): 
+        pass
+      else:                            
+        self.x_pred = self.x_buffer_OCP.pop(-self.data['delay_OCP_cycle'])
+      if(len(self.u_buffer_OCP)<self.data['delay_OCP_cycle']): 
+        pass
+      else:
+        self.u_curr = self.u_buffer_OCP.pop(-self.data['delay_OCP_cycle'])
+    
+    
+    # Compute & record reference control and state for the current PLAN cycle
+    self.x_ref_PLAN  = self.x_curr + self.OCP_TO_PLAN_RATIO * (self.x_pred - self.x_curr)
+    self.u_ref_PLAN  = self.u_curr 
+    if(i==0):
+      self.data['X_des_PLAN'][i, :] = self.x_curr  
+    self.data['U_des_PLAN'][i, :]   = self.u_ref_PLAN   
+    self.data['X_des_PLAN'][i+1, :] = self.x_ref_PLAN    
+    # Increment counter
+    self.plan_steps_counter += 1
+
+
+  def ctrl_step(self):
+    '''
+    Record data at each CTRL cycle:
+      State ref = current (initial) state + "tiny" step in the direction of next OCP predicted state
+      "tiny"    = ratio (OCP sampling frequency / replanning frequency)
+    '''
+    # COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN) # for interpolation PLAN->CTRL
+    self.x_ref_CTRL = self.x_curr + self.OCP_TO_PLAN_RATIO * (self.x_pred - self.x_curr)
+    self.u_ref_CTRL = self.u_curr
+    # First prediction = measurement = initialization of MPC
+    if(self.ctrl_steps_counter==0):
+      self.data['X_des_CTRL'][self.ctrl_steps_counter, :] = self.x_curr  
+    self.data['U_des_CTRL'][self.ctrl_steps_counter, :]   = self.u_ref_CTRL  
+    self.data['X_des_CTRL'][self.ctrl_steps_counter+1, :] = self.x_ref_CTRL   
+    # Increment counter
+    self.ctrl_steps_counter += 1
+
+
+  def simu_step(self, i):
+    # COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN) # for interpolation CTRL->SIMU
+    self.x_ref_SIMU  = self.x_curr + self.OCP_TO_PLAN_RATIO * (self.x_pred - self.x_curr)
+    self.u_ref_SIMU  = self.u_curr 
+    # First prediction = measurement = initialization of MPC
+    if(i==0):
+      self.data['X_des_SIMU'][i, :] = self.x_curr  
+    self.data['U_des_SIMU'][i, :]   = self.u_ref_SIMU  
+    self.data['X_des_SIMU'][i+1, :] = self.x_ref_SIMU 
+
+  
+  def step_actuator(self, i):
+    '''
+    Simple actuation model : reference torque -> measured torque
+    '''
+    measured_torque = self.u_ref_SIMU 
+    # Affine scaling
+    if(self.config['SCALE_TORQUES']):
+      measured_torque = self.data['alpha'] * measured_torque + self.data['beta']
+    # Filtering (moving average)
+    if(self.config['FILTER_TORQUES']):
+      n_sum = min(i, self.config['u_avg_filter_length'])
+      for k in range(n_sum):
+        measured_torque += self.data['X_mea_SIMU'][i-k-1, -self.data['nu']:]
+      measured_torque = measured_torque / (n_sum + 1)
+    # Delay measured torque 
+    if(self.config['DELAY_SIM']):
+      self.buffer_sim.append(measured_torque)            
+      if(len(self.buffer_sim)<self.data['delay_sim_cycle']):    
+        pass
+      else:                          
+        measured_torque = self.buffer_sim.pop(-self.sim_data.data['delay_sim_cycle'])
+    self.tau_mea_SIMU
+
+
+
 
 #### Classical MPC
 # Initialize simulation data for MPC simulation
