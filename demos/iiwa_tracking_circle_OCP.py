@@ -62,47 +62,39 @@ dt = config['dt']
 # Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-# print(pin_utils.IK_position(robot, q0, id_endeff, M_ee.translation, DT=0.01, IT_MAX=1000, sleep=0., LOGS=False))
-# time.sleep(100)
-# Create circle 
+# Create circle trajectory (WORLD frame)
 EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=0.01, radius=.1, omega=3.)
-# EE_ref_LOCAL = np.zeros(EE_ref.shape)
-# for i in range(EE_ref.shape[0]):
-#     EE_ref_LOCAL[i,:] = M_ee.actInv(EE_ref[i,:])
-# # plt.plot(EE_ref[:,0], EE_ref[:,1])
-# plt.plot(EE_ref_LOCAL[:,0], EE_ref_LOCAL[:,1])
-# plt.show()
-models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-# xs_init = [] 
-# us_init = []
-# q_ws = q0
 
-# Reference for EE translation = circle trajectory
+# Set EE translation cost model references (i.e. setup tracking problem)
+models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 for k,m in enumerate(models):
     if(k<EE_ref.shape[0]):
-    
-        m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k]
+        ref = EE_ref[k]
     else:
-        m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[-1]
-    # # Warm start state = IK of circle trajectory
-    # M_des = M_ee.copy()
-    # M_des.translation = EE_ref[k]
-    # q_ws, v_ws, eps = pin_utils.IK_placement(robot, q0, id_endeff, M_des, DT=1e-2, IT_MAX=100)
-    # print(q_ws, v_ws)
-    # # print(eps[-1])
-    # xs_init.append(np.concatenate([q_ws, v_ws]))
-    # # Warm start control = gravity compensation of xs_init 
-    # if(k<N_h):
-    #     us_init.append(pin_utils.get_u_grav(q_ws, robot.model))
-ug  = pin_utils.get_u_grav(q0, robot.model)
-xs_init = [x0 for i in range(config['N_h']+1)]
-us_init = [ug for i in range(config['N_h'])]
-ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+        ref = EE_ref[-1]
+    m.differential.costs.costs['translation'].cost.residual.reference = ref
 
-# p = pin_utils.get_p_(np.array(xs_init)[:,:nq], robot.model, id_endeff)
-# import matplotlib.pyplot as plt
-# plt.plot(p[:,0], p[:,1])
-# plt.show()
+# Warm start state = IK of circle trajectory
+WARM_START_IK = True
+if(WARM_START_IK):
+    xs_init = [] 
+    us_init = []
+    q_ws = q0
+    for k,m in enumerate(models):
+        ref = m.differential.costs.costs['translation'].cost.residual.reference
+        q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
+        print(q_ws, v_ws)
+        xs_init.append(np.concatenate([q_ws, v_ws]))
+    us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(N_h)]
+
+# Classical warm start using initial config
+else:
+    ug  = pin_utils.get_u_grav(q0, robot.model)
+    xs_init = [x0 for i in range(config['N_h']+1)]
+    us_init = [ug for i in range(config['N_h'])]
+
+# Solve 
+ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 #  Plot
 PLOT = True
@@ -135,7 +127,6 @@ if(VISUALIZE):
     viewer.gui.applyConfiguration('world/ee', list(pin.SE3ToXYZQUAT(M_ee.copy())))
     viewer.gui.refresh()
     for i in range(N_h):
-        # Iter log
         viewer.gui.refresh()
         robot.display(ddp.xs[i][:nq])
         if(i%draw_rate==0):
@@ -147,7 +138,10 @@ if(VISUALIZE):
         if(i%log_rate==0):
             print("Display config n°"+str(i))
         time.sleep(pause)
-    # time.sleep(5)
-    # for i in range(N_h):
-    #     if(viewer.gui.nodeExists('world/EE_'+str(i))):
-    #         viewer.gui.deleteNode('world/EE_'+str(i), True)
+
+# EE_ref_LOCAL = np.zeros(EE_ref.shape)
+# for i in range(EE_ref.shape[0]):
+#     EE_ref_LOCAL[i,:] = M_ee.actInv(EE_ref[i,:])
+# # plt.plot(EE_ref[:,0], EE_ref[:,1])
+# plt.plot(EE_ref_LOCAL[:,0], EE_ref_LOCAL[:,1])
+# plt.show()
