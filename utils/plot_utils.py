@@ -182,6 +182,8 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,0].plot(t_span_simu, plot_data['q_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
         ax[i,0].plot(t_span_simu, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,0].plot(t_span_simu, plot_data['q_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
+        if('stateReg' in plot_data['WHICH_COSTS']):
+            ax[i,0].plot(t_span_plan[:-1], plot_data['state_ref'][:,i], color='k', linestyle='-.', marker=None, label='Reference', alpha=0.5)
         ax[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -193,6 +195,8 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,1].plot(t_span_simu, plot_data['v_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU)', alpha=0.5)
         ax[i,1].plot(t_span_simu, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,1].plot(t_span_simu, plot_data['v_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
+        if('stateReg' in plot_data['WHICH_COSTS']):
+            ax[i,1].plot(t_span_plan[:-1], plot_data['state_ref'][:,i+nq], color='k', linestyle='-.', marker=None, label='Reference', alpha=0.5)
         ax[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -204,7 +208,9 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,2].plot(t_span_simu, plot_data['tau_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
         ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
-        ax[i,2].plot(t_span_simu, plot_data['grav'][:,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
+        if('ctrlReg' or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
+            ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color='k', linestyle='-.', marker=None, label='Reference', alpha=0.5)
+        # ax[i,2].plot(t_span_simu, plot_data['grav'][:,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
         ax[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
         ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -317,7 +323,7 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i].plot(t_span_plan, plot_data['w_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Prediction (PLAN)', alpha=0.6)
         # ax[i].plot(t_span_ctrl, plot_data['w_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Prediction (CTRL)', alpha=0.6)
         ax[i].plot(t_span_simu, plot_data['w_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Prediction (SIMU)', alpha=0.6)
-        ax[i].plot(t_span_simu, plot_data['grav'][:-1,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
+        ax[i].plot(t_span_simu, plot_data['grav'][:-1,i], color='k', marker=None, linestyle='-.', label='Reg reference (grav)', alpha=0.6)
         ax[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
         ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))

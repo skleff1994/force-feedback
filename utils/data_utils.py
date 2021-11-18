@@ -66,9 +66,7 @@ def init_sim_data(config, robot, x0):
     sim_data['id_endeff'] = sim_data['pin_model'].getFrameId('contact') # hard-coded contact frame here !!!
     # Cost references 
     sim_data['ctrl_ref'] = np.zeros((sim_data['N_plan'], sim_data['nu']))
-    sim_data['ctrl_ref'] = np.zeros((sim_data['N_plan'], sim_data['nu']))
     sim_data['state_ref'] = np.zeros((sim_data['N_plan'], sim_data['nx']))
-    sim_data['p_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
     sim_data['p_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
     sim_data['v_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
     sim_data['f_ee_ref'] = np.zeros((sim_data['N_plan'], 6))
@@ -217,19 +215,10 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['T_h'] = sim_data['T_h']; plot_data['N_h'] = sim_data['N_h']
     plot_data['alpha'] = sim_data['alpha']; plot_data['beta'] = sim_data['beta']
     # Record cost references
-  # if('ctrlReg' in sim_data['WHICH_COSTS']):
     plot_data['ctrl_ref'] = sim_data['ctrl_ref']
-  # if('ctrlRegGrav' in sim_data['WHICH_COSTS']):
-    plot_data['ctrl_ref'] = sim_data['ctrl_ref']
-  # if('stateReg' in sim_data['WHICH_COSTS']):
     plot_data['state_ref'] = sim_data['state_ref']
-  # if('translation' in sim_data['WHICH_COSTS']):
     plot_data['p_ee_ref'] = sim_data['p_ee_ref']
-  # if('placement' in sim_data['WHICH_COSTS']):
-    plot_data['p_ee_ref'] = sim_data['p_ee_ref']
-  # if('velocity' in sim_data['WHICH_COSTS']):
     plot_data['v_ee_ref'] = sim_data['v_ee_ref']
-  # if('force' in sim_data['WHICH_COSTS']):
     plot_data['f_ee_ref'] = sim_data['f_ee_ref']
     # Control predictions
     plot_data['u_pred'] = sim_data['U_pred']
@@ -325,6 +314,8 @@ def init_sim_data_LPF(config, robot, y0):
     Initialize simulation data from config file (for torque feedback MPC based on LPF)
     '''
     sim_data = {}
+    # Get costs names
+    sim_data['WHICH_COSTS'] = config['WHICH_COSTS']
     # MPC & simulation parameters
     sim_data['T_tot'] = config['T_tot']                               # Total duration of simulation (s)
     sim_data['simu_freq'] = config['simu_freq']                       # Simulation frequency
@@ -347,44 +338,11 @@ def init_sim_data_LPF(config, robot, y0):
     sim_data['ny'] = sim_data['nx'] + sim_data['nu']
     sim_data['id_endeff'] = sim_data['pin_model'].getFrameId('contact')
     # Cost references 
-    pin.framesForwardKinematics(robot.model, robot.data, y0[:sim_data['nq']])
-    pin.computeJointJacobians(robot.model, robot.data, y0[:sim_data['nq']])
-    # target translation = frame translation cost reference if any
-    if('translation' in config['WHICH_COSTS']):
-      if(config['frameTranslationRef']=='DEFAULT'):
-        sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
-      else:
-        sim_data['p_ee_ref'] = config['frameTranslationRef']
-    # target translation = frame placement cost reference if any 
-    elif('placement' in config['WHICH_COSTS']):
-      if(config['framePlacementTranslationRef']=='DEFAULT'):
-        sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
-      else:
-        sim_data['p_ee_ref'] = config['framePlacementTranslationRef']
-    # target translation = initial translation if no cost on translation
-    else:
-      sim_data['p_ee_ref'] = robot.data.oMf[sim_data['id_endeff']].translation.copy()
-    
-    # target velocity = frame velocity cost reference if any
-    if('velocity' in config['WHICH_COSTS']):
-      if(config['frameVelocityRef']=='DEFAULT'):
-        sim_data['v_ee_ref'] = np.zeros(3)
-      else:
-        sim_data['v_ee_ref'] = config['frameVelocityRef'][:3]
-    # target frame velocity = zero if no cost on frame velocity
-    else:
-      sim_data['v_ee_ref'] = np.zeros(3)
-    
-    # target force = frame contact force reference if any
-    if('force' in config['WHICH_COSTS']):
-      if(config['frameForceRef']=='DEFAULT'):
-        sim_data['f_ee_ref'] = np.zeros(6)
-      else:
-        sim_data['f_ee_ref'] = config['frameForceRef']
-    # target force = zero if no cost on force
-    else:
-      sim_data['f_ee_ref'] = np.zeros(6)
-
+    sim_data['ctrl_ref'] = np.zeros((sim_data['N_plan'], sim_data['nu']))
+    sim_data['state_ref'] = np.zeros((sim_data['N_plan'], sim_data['nx']))
+    sim_data['p_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
+    sim_data['v_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
+    sim_data['f_ee_ref'] = np.zeros((sim_data['N_plan'], 6))
     # Predictions
     sim_data['Y_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'])) # Predicted states  ( ddp.xs : {y* = (q*, v*, tau*)} )
     sim_data['W_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {w*} )
@@ -446,6 +404,35 @@ def init_sim_data_LPF(config, robot, y0):
     return sim_data
 
 
+
+
+# Record cost references
+def record_cost_references_LPF(ddp, sim_data, nb_plan):
+  '''
+  Handy function for MPC + clean plots
+  Extract and record cost references of DAM into sim_data at i^th simulation step
+  for the whole horizon (all nodes) 
+  '''
+  # Get nodes
+  m = ddp.problem.runningModels[0]
+  # Extract references and record
+  if('ctrlReg' in sim_data['WHICH_COSTS']):
+    sim_data['ctrl_ref'][nb_plan, :] = m.differential.costs.costs['stateReg'].cost.residual.reference
+  if('ctrlRegGrav' in sim_data['WHICH_COSTS']):
+    q = sim_data['Y_pred'][nb_plan, 0, :sim_data['nq']]
+    sim_data['ctrl_ref'][nb_plan, :] = pin_utils.get_u_grav(q, m.differential.pinocchio)
+  if('force' in sim_data['WHICH_COSTS']):
+    sim_data['f_ee_ref'][nb_plan, :] = m.differential.costs.costs['force'].cost.residual.reference.vector
+  if('stateReg' in sim_data['WHICH_COSTS']):
+    sim_data['state_ref'][nb_plan, :] = m.differential.costs.costs['stateReg'].cost.residual.reference
+  if('translation' in sim_data['WHICH_COSTS']):
+    sim_data['p_ee_ref'][nb_plan, :] = m.differential.costs.costs['translation'].cost.residual.reference
+  if('velocity' in sim_data['WHICH_COSTS']):
+    sim_data['v_ee_ref'][nb_plan, :] = m.differential.costs.costs['velocity'].cost.residual.reference.vector[:3]
+  if('placement' in sim_data['WHICH_COSTS']):
+    sim_data['p_ee_ref'][nb_plan, :] = m.differential.costs.costs['placement'].cost.residual.reference.translation
+
+
 # Extract MPC simu-specific plotting data from sim data (LPF)
 def extract_plot_data_from_sim_data_LPF(sim_data):
     '''
@@ -453,6 +440,7 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     '''
     logger.info('Extracting plot data from MPC simulation data (LPF)...')
     plot_data = {}
+    plot_data['WHICH_COSTS'] = sim_data['WHICH_COSTS']
     # Robot model & params
     plot_data['pin_model'] = sim_data['pin_model']
     nq = plot_data['pin_model'].nq; plot_data['nq'] = nq
@@ -466,8 +454,12 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     plot_data['dt_plan'] = sim_data['dt_plan']; plot_data['dt_ctrl'] = sim_data['dt_ctrl']; plot_data['dt_simu'] = sim_data['dt_simu']
     plot_data['T_h'] = sim_data['T_h']; plot_data['N_h'] = sim_data['N_h']
     plot_data['alpha'] = sim_data['alpha']; plot_data['beta'] = sim_data['beta']
+    # Record cost references
+    plot_data['ctrl_ref'] = sim_data['ctrl_ref']
+    plot_data['state_ref'] = sim_data['state_ref']
     plot_data['p_ee_ref'] = sim_data['p_ee_ref']
     plot_data['v_ee_ref'] = sim_data['v_ee_ref']
+    plot_data['f_ee_ref'] = sim_data['f_ee_ref']
     # Control predictions
     plot_data['w_pred'] = sim_data['W_pred']
       # Extract 1st prediction

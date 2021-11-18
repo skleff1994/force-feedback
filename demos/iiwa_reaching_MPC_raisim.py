@@ -120,15 +120,11 @@ for i in range(sim_data['N_simu']):
         x_curr = sim_data['X_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
         x_pred = sim_data['X_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
         u_curr = sim_data['U_pred'][nb_plan, 0, :]    # u0* = optimal control   
-        # u_pred = sim_data['U_pred'][nb_plan, 1, :]  # u1* = predicted optimal control  
+        # Record cost references
+        data_utils.record_cost_references(ddp, sim_data, nb_plan)
         # Record solver data (optional)
         if(config['RECORD_SOLVER_DATA']):
-          sim_data['K'][nb_plan, :, :, :] = np.array(ddp.K)         # Ricatti gains
-          sim_data['Vxx'][nb_plan, :, :, :] = np.array(ddp.Vxx)     # Hessians of V.F. 
-          sim_data['Quu'][nb_plan, :, :, :] = np.array(ddp.Quu)     # Hessians of Q 
-          sim_data['xreg'][nb_plan] = ddp.x_reg                     # Reg solver on x
-          sim_data['ureg'][nb_plan] = ddp.u_reg                     # Reg solver on u
-          sim_data['J_rank'][nb_plan] = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
+          data_utils.record_solver_data(ddp, sim_data, nb_plan) 
         # Model communication between computer --> robot
         x_pred, u_curr = communication.step(x_pred, u_curr)
         # Select reference control and state for the current PLAN cycle
