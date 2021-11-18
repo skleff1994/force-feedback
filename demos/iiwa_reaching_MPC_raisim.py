@@ -82,7 +82,6 @@ nb_plan = 0
 nb_ctrl = 0
   # Sim options
 WHICH_PLOTS       = ['x','u', 'p']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
-FILTER_STATE      = config['FILTER_STATE']                  # Moving average smoothing of reference torques
 dt_ocp            = config['dt']                            # OCP sampling rate 
 dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio

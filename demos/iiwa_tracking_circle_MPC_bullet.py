@@ -11,7 +11,7 @@
 '''
 The robot is tasked with tracking a circle EE trajectory
 Trajectory optimization using Crocoddyl in closed-loop MPC 
-(feedback from stateLPF x=(q,v), control u = tau 
+(feedback from state x=(q,v), control u = tau 
 Using PyBullet simulator & GUI for rigid-body dynamics + visualization
 
 The goal of this script is to simulate closed-loop MPC
