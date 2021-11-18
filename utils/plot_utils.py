@@ -1457,8 +1457,8 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
     # Set ylim if any
     TOL = 1e-3
     if(AUTOSCALE):
-        ax_p_ylim = 1.1*max(np.max(np.abs(plot_data['f_ee_mea']-plot_data['f_ee_ref'])), TOL)
-        ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['f_ee_mea']-plot_data['f_ee_ref'])), TOL)
+        ax_p_ylim = 1.1*max(np.max(np.abs(plot_data['f_ee_mea'])), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['f_ee_mea'])), TOL)
         for i in range(3):
             ax[i,0].set_ylim(-ax_p_ylim, ax_p_ylim) 
             ax[i,1].set_ylim(-ax_v_ylim, ax_v_ylim) 

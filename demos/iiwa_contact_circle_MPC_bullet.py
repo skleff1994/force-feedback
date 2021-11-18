@@ -61,23 +61,15 @@ sim_utils.display_contact_surface(contact_placement, with_collision=True)
 # # # # # # # # # 
 ### OCP SETUP ###
 # # # # # # # # # 
+# Init shooting problem and solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-# Create circle trajectory (WORLD frame)
+# Create circle trajectory (WORLD frame) and setup tracking problem
 EE_ref = ocp_utils.circle_trajectory_WORLD(contact_placement.copy(), dt=config['dt'], 
                                                         radius=config['frameCircleTrajectoryRadius'], 
                                                         omega=config['frameCircleTrajectoryVelocity'])
-# Set EE translation cost model references (i.e. setup tracking problem)
-models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-for k,m in enumerate(models):
-    if(k<EE_ref.shape[0]):
-        p_ee_ref = EE_ref[k]
-    else:
-        p_ee_ref = EE_ref[-1]
-    # Cost translation
-    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
-    # Contact model
-    m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
+ocp_utils.set_ee_tracking_problem(ddp, EE_ref, CONTACT=True)
+
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
 if(WARM_START_IK):
@@ -85,7 +77,7 @@ if(WARM_START_IK):
     xs_init = [] 
     us_init = []
     q_ws = q0
-    for k,m in enumerate(models):
+    for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
         ref = m.differential.costs.costs['translation'].cost.residual.reference
         q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
         xs_init.append(np.concatenate([q_ws, v_ws]))
@@ -95,6 +87,7 @@ else:
     ug  = pin_utils.get_u_grav(q0, robot.model)
     xs_init = [x0 for i in range(config['N_h']+1)]
     us_init = [ug for i in range(config['N_h'])]
+
 # solve
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
@@ -144,15 +137,7 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # Update EE ref at each node of the OCP 
         if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
-          models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-          for k,m in enumerate(models):
-              if(k+nb_plan<EE_ref.shape[0]):
-                ref = EE_ref[k+nb_plan]
-              else:
-                ref = EE_ref[-1]
-              m.differential.costs.costs['translation'].cost.residual.reference = ref
-              m.differential.contacts.contacts["contact"].contact.reference.translation = ref 
-
+          ocp_utils.set_ee_tracking_problem(ddp, EE_ref, CONTACT=True, mpc_cycle=nb_plan)
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -169,15 +154,11 @@ for i in range(sim_data['N_simu']):
         u_curr = sim_data['U_pred'][nb_plan, 0, :]    # u0* = optimal control   
         f_curr = sim_data['F_pred'][nb_plan, 0, :]
         f_pred = sim_data['F_pred'][nb_plan, 1, :]
-        # u_pred = sim_data['U_pred'][nb_plan, 1, :]  # u1* = predicted optimal control  
+        # Record cost references
+        data_utils.record_cost_references(ddp, sim_data, nb_plan)
         # Record solver data (optional)
         if(config['RECORD_SOLVER_DATA']):
-          sim_data['K'][nb_plan, :, :, :] = np.array(ddp.K)         # Ricatti gains
-          sim_data['Vxx'][nb_plan, :, :, :] = np.array(ddp.Vxx)     # Hessians of V.F. 
-          sim_data['Quu'][nb_plan, :, :, :] = np.array(ddp.Quu)     # Hessians of Q 
-          sim_data['xreg'][nb_plan] = ddp.x_reg                     # Reg solver on x
-          sim_data['ureg'][nb_plan] = ddp.u_reg                     # Reg solver on u
-          sim_data['J_rank'][nb_plan] = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
+          data_utils.record_solver_data(ddp, sim_data, nb_plan)   
         # Model communication between computer --> robot
         x_pred, u_curr = communication.step(x_pred, u_curr)
         # Select reference control and state for the current PLAN cycle

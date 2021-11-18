@@ -275,6 +275,27 @@ def circle_trajectory_WORLD(M_ct, dt=0.01, radius=1., omega=1.):
   logger.info("Generated circle trajectory in WORLD frame (T="+str(T)+", N="+str(N)+").")
   return traj_WORLD
 
+
+def set_ee_tracking_problem(ddp, p_ee_ref_trajectory, CONTACT=False, mpc_cycle=0):
+  '''
+  Changes the reference of each node's translation cost model 
+  based on the provided trajectory
+  Also updates contact model reference placement if CONTACT=True
+  mpc_cycle : default O, to replace by MPC cycle number if used inside MPC loop
+  '''
+  # Extract nodes
+  models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+  # Set cost reference for each node of the OCP according to ref traj
+  for k,m in enumerate(models):
+      if(k+mpc_cycle<p_ee_ref_trajectory.shape[0]):
+          p_ee_ref = p_ee_ref_trajectory[k+mpc_cycle]
+      else:
+          p_ee_ref = p_ee_ref_trajectory[-1]
+      m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
+      if(CONTACT):
+        m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
+
+
 # X = circle_trajectory_WORLD(pin.SE3.Identity(), dt=0.1, radius=1, omega=3)
 # import matplotlib.pyplot as plt
 # plt.plot(X[:,0], X[:,1])
