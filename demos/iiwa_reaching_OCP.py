@@ -20,12 +20,18 @@ from robot_properties_kuka.config import IiwaConfig
 
 np.set_printoptions(precision=4, linewidth=180)
 
+import logging
+FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
+FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
+logging.basicConfig(format=FORMAT_SHORT)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
-print("--------------------------------------")
-print("              LOAD MODEL              ")
-print("--------------------------------------")
 # Read config file
 config = path_utils.load_config_file('iiwa_reaching_OCP')
 q0 = np.asarray(config['q0'])
@@ -48,9 +54,6 @@ M_ee = robot.data.oMf[id_endeff]
 # # # # # # # # # 
 ### OCP SETUP ###
 # # # # # # # # # 
-print("--------------------------------------")
-print("              INIT OCP                ")
-print("--------------------------------------")
 N_h = config['N_h']
 dt = config['dt']
 # Setup Croco OCP and create solver
@@ -67,7 +70,7 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 # for i in range(N_h-1):
 #     ddp.problem.runningModels[i].differential.costs.costs['placement'].weight = ocp_utils.cost_weight_linear(i, PHASE, min_weight=.1, max_weight=10.)
 #     # ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_normal_clamped(i, PHASE, min_weight=0.01, max_weight=10., peak=2)
-#     # print(ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight)
+#     # logger.info(ddp.problem.runningModels[i].differential.costs.costs['stateReg'].weight)
 #     ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].weight = ocp_utils.cost_weight_parabolic(i, PHASE, min_weight=0.05, max_weight=0.5)
 #     ddp.problem.runningModels[i].differential.costs.costs['velocity'].weight = ocp_utils.cost_weight_parabolic(i, PHASE, min_weight=0.001, max_weight=10.)
 
@@ -87,14 +90,14 @@ if(VISUALIZE):
     # viewer.gui.addFloor('world/floor')
     # viewer.gui.refresh()
     log_rate = int(N_h/10)
-    print("Visualizing...")
+    logger.info("Visualizing...")
     time.sleep(1.)
     for i in range(N_h):
         # Iter log
         viewer.gui.refresh()
         robot.display(ddp.xs[i][:nq])
         if(i%log_rate==0):
-            print("Display config n°"+str(i))
+            logger.info("Display config n°"+str(i))
         time.sleep(pause)
 
 

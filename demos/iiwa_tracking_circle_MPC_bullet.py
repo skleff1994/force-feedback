@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_reaching_MPC_bullet.py
+@file iiwa_tracking_cirlce_MPC_bullet.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
@@ -9,12 +9,12 @@
 """
 
 '''
-The robot is tasked with reaching a static EE target 
+The robot is tasked with tracking a circle EE trajectory
 Trajectory optimization using Crocoddyl in closed-loop MPC 
 (feedback from stateLPF x=(q,v), control u = tau 
 Using PyBullet simulator & GUI for rigid-body dynamics + visualization
 
-The goal of this script is to simulate closed-loop MPC on a simple reaching task 
+The goal of this script is to simulate closed-loop MPC
 '''
 
 import numpy as np  
@@ -72,6 +72,7 @@ for k,m in enumerate(models):
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
 if(WARM_START_IK):
+    logger.info("Computing warm-start using Inverse Kinematics...")
     xs_init = [] 
     us_init = []
     q_ws = q0
@@ -126,7 +127,7 @@ for i in range(sim_data['N_simu']):
       print('')
       logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
       print('')
-      
+
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):

@@ -23,6 +23,7 @@ def init_kuka_RAISIM(dt=1e3, x0=None):
     Loads KUKA LBR iiwa model in Raisim using the 
     Pinocchio-Raisim wrapper to simplify interactions
     '''
+    logger.info("Initializing simulator...")
     # Create Raisim sim environment + initialize sumulator
     iiwa_config = IiwaMinimalConfig(DEFAULT_URDF_PATH, DEFAULT_MESH_PATH)
     # Load Raisim environment
@@ -377,6 +378,7 @@ class RaiEnv:
         '''
         Create contact sphere object in raisim and display it
         '''
+        logger.info("Creating RaiSim target ball...")
         ball = self.world.addSphere(radius, 100, material="default")
         ball.setBodyType(raisim.BodyType.STATIC)
         ball.setAppearance("0,1,0,0.1")
@@ -388,6 +390,7 @@ class RaiEnv:
         '''
         Create contact plane object in raisim and display it
         '''
+        logger.info("Creating RaiSim contact surface...")
         wall = self.world.addBox(1, 1, width, 10, material="default")
         wall.setBodyType(raisim.BodyType.STATIC)
         wall.setAppearance("0,1,0,1")
@@ -399,7 +402,7 @@ class RaiEnv:
         TILT_rotation = pin.utils.rpyToMatrix(TILT[0], TILT[1], TILT[2])
         placement_wall.rotation = TILT_rotation.dot(placement_wall.rotation)
         # Get quaternion (px, py, pz, x, y, z, w)
-        quat = np.array(list(pin.se3ToXYZQUAT(placement_wall)))
+        quat = np.array(list(pin.SE3ToXYZQUAT(placement_wall)))
         # pin.Quaternion(quat)
         # WARNING: RaiSim takes quaternion as (w, x, y, z) (angle first)
         wall.setOrientation(quat[6], quat[3], quat[4], quat[5])

@@ -17,21 +17,22 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import numpy as np  
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
-
 np.set_printoptions(precision=4, linewidth=180)
-
-
 import time
-import matplotlib.pyplot as plt
+
+import logging
+FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
+FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
+logging.basicConfig(format=FORMAT_SHORT)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
-print("--------------------------------------")
-print("              LOAD MODEL              ")
-print("--------------------------------------")
 # Read config file
 config = path_utils.load_config_file('iiwa_tracking_circle_OCP')
 q0 = np.asarray(config['q0'])
@@ -54,9 +55,6 @@ M_ee = robot.data.oMf[id_endeff]
 # # # # # # # # # 
 ### OCP SETUP ###
 # # # # # # # # # 
-print("--------------------------------------")
-print("              INIT OCP                ")
-print("--------------------------------------")
 N_h = config['N_h']
 dt = config['dt']
 # Setup Croco OCP and create solver
@@ -77,13 +75,13 @@ for k,m in enumerate(models):
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
 if(WARM_START_IK):
+    logger.info("Computing warm-start using Inverse Kinematics...")
     xs_init = [] 
     us_init = []
     q_ws = q0
     for k,m in enumerate(models):
         ref = m.differential.costs.costs['translation'].cost.residual.reference
         q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
-        print(q_ws, v_ws)
         xs_init.append(np.concatenate([q_ws, v_ws]))
     us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(N_h)]
 
@@ -114,7 +112,7 @@ if(VISUALIZE):
     viewer = robot.viz.viewer
     log_rate = int(N_h/10)
     draw_rate = int(N_h/100)
-    print("Visualizing...")
+    logger.info("Visualizing...")
     time.sleep(1)
     # Clean previous node if any
     for i in range(N_h):
@@ -136,7 +134,7 @@ if(VISUALIZE):
             viewer.gui.addSphere('world/EE_'+str(i), .01, [1. ,0 ,0, 1.])
             viewer.gui.applyConfiguration('world/EE_'+str(i), tf_ee)
         if(i%log_rate==0):
-            print("Display config n°"+str(i))
+            logger.info("Display config n°"+str(i))
         time.sleep(pause)
 
 # EE_ref_LOCAL = np.zeros(EE_ref.shape)

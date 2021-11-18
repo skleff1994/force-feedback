@@ -24,14 +24,18 @@ from robot_properties_kuka.config import IiwaConfig
 np.set_printoptions(precision=4, linewidth=180)
 
 
+import logging
+FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
+FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
+logging.basicConfig(format=FORMAT_SHORT)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
-print("--------------------------------------")
-print("              LOAD MODEL              ")
-print("--------------------------------------")
 # Read config file
 config = path_utils.load_config_file('iiwa_contact_circle_OCP')
 q0 = np.asarray(config['q0'])
@@ -54,9 +58,6 @@ M_ct = robot.data.oMf[id_endeff].copy()
 # # # # # # # # # 
 ### OCP SETUP ###
 # # # # # # # # # 
-print("--------------------------------------")
-print("              INIT OCP                ")
-print("--------------------------------------")
 # Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
@@ -104,7 +105,7 @@ if(PLOT):
 #         M_contact_aligned.rotation = M_contact_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))#.dot(M_contact_aligned.rotation) 
 #         tf_contact_aligned = list(pin.SE3ToXYZQUAT(M_contact_aligned))
 #         arrow_length = 0.02*np.linalg.norm(f_des_LOCAL)
-#         print(arrow_length)
+#         logger.info(arrow_length)
 #         if(gui.nodeExists('world/ref_wrench')):
 #             gui.deleteNode('world/ref_wrench', True)
 #         gui.addArrow('world/ref_wrench', .01, arrow_length, [.5, 0., 0., 1.])
@@ -143,7 +144,7 @@ if(PLOT):
 #     viewer.gui.refresh()
 #     log_rate = int(N_h/10)
 #     f = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(N_h)]
-#     print("Visualizing...")
+#     logger.info("Visualizing...")
 
 #     # Clean arrows if any
 #     if(gui.nodeExists('world/force')):
@@ -170,7 +171,7 @@ if(PLOT):
 
 #         viewer.gui.refresh()
 #         # if(i%log_rate==0):
-#         print("Display config n°"+str(i))
+#         logger.info("Display config n°"+str(i))
 #         time.sleep(pause)
 
 

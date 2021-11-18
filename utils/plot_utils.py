@@ -399,7 +399,6 @@ def plot_mpc_force_LPF(plot_data, PLOT_PREDICTIONS=False,
                                      SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                      SHOW=SHOW, AUTOSCALE=AUTOSCALE)
 
-
 # Plot Ricatti SVD
 def plot_mpc_ricatti_svd_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                             SHOW=True):
@@ -685,7 +684,6 @@ def plot_mpc_jacobian_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
 
 
 
-
 ### Plot from DDP solver (LPF)
 
 def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None, colors=None, sampling_plot=1, SHOW=False):
@@ -695,6 +693,7 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
         INPUT 
         DDP_DATA    : DDP data or list of ddp data (cf. data_utils.extract_ddp_data())
     '''
+    logger.info("Plotting DDP solver data (LPF)...")
     if(type(DDP_DATA) != list):
         DDP_DATA = [DDP_DATA]
     if(labels==None):
@@ -915,6 +914,9 @@ def plot_ddp_force_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
     Plot ddp results (force)
     '''
     return plot_ddp_force(ddp_data, fig=fig, ax=ax, label=label, marker=marker, color=color, alpha=alpha, MAKE_LEGEND=MAKE_LEGEND, SHOW=SHOW)
+
+
+
 
 
 
@@ -1462,7 +1464,6 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
     
     return fig, ax
 
-
 # Plot Ricatti SVD
 def plot_mpc_ricatti_svd(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                             SHOW=True):
@@ -1906,6 +1907,7 @@ def plot_ddp_results(DDP_DATA, which_plots='all', labels=None, markers=None, col
         INPUT 
         DDP_DATA         : DDP data or list of ddp data (cf. data_utils.extract_ddp_data())
     '''
+    logger.info("Plotting DDP solver data...")
     if(type(DDP_DATA) != list):
         DDP_DATA = [DDP_DATA]
     if(labels==None):
@@ -2292,6 +2294,9 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
     if(SHOW):
         plt.show()
     return fig, ax
+
+
+
 
 
 # Animate and plot point mass from X,U trajs 
