@@ -120,7 +120,7 @@ for i in range(sim_data['N_simu']):
       print('')
 
 
-  # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
+  # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
         # Reset x0 to measured state + warm-start solution
@@ -163,7 +163,7 @@ for i in range(sim_data['N_simu']):
         # Increment planning counter
         nb_plan += 1
 
-  # If we are in a control cycle select reference torque to send to the actuator
+  # If we are in a control cycle select reference torque to send to the actuator (motor driver input frequency)
     if(i%int(freq_SIMU/freq_CTRL) == 0):        
         # Select reference control and state for the current CTRL cycle
         x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
@@ -178,7 +178,7 @@ for i in range(sim_data['N_simu']):
         # Increment control counter
         nb_ctrl += 1
         
-  # Simulate actuation and step PyBullet (low-level control frequency)
+  # Simulate actuation/sensing and step simulator (physics simulation frequency)
 
     # Select reference control and state for the current SIMU cycle
     x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)

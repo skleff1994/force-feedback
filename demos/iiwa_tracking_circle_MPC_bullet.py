@@ -128,7 +128,7 @@ for i in range(sim_data['N_simu']):
       logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
       print('')
 
-  # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
+  # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
           models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
@@ -172,7 +172,7 @@ for i in range(sim_data['N_simu']):
         nb_plan += 1
 
 
-  # If we are in a control cycle select reference torque to send to the actuator
+  # If we are in a control cycle select reference torque to send to the actuator (motor driver input frequency)
     if(i%int(freq_SIMU/freq_CTRL) == 0):        
         # Select reference control and state for the current CTRL cycle
         x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
@@ -186,7 +186,7 @@ for i in range(sim_data['N_simu']):
         nb_ctrl += 1
         
 
-  # Simulate actuation with PI torque tracking controller (low-level control frequency)
+  # Simulate actuation/sensing and step simulator (physics simulation frequency)
     # Select reference control and state for the current SIMU cycle
     x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
     u_ref_SIMU  = u_curr 
