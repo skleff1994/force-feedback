@@ -133,8 +133,17 @@ if(VISUALIZE):
     robot.display(q0)
     viewer = robot.viz.viewer; gui = viewer.gui
 
-    draw_rate = int(N_h/100)
-    log_rate = int(N_h/10)
+    draw_rate = int(N_h/50)
+    log_rate  = int(N_h/10)
+    
+    ref_color  = [1., 0., 0., 1.]
+    real_color = [0., 0., 1., 0.3]
+    ct_color   = [0., 1., 0., 1.]
+    
+    ref_size    = 0.01
+    real_size   = 0.02
+    ct_size     = 0.02
+    wrench_coef = 0.02
 
     # Display contact point as sphere + landmark
     if('contactModelFrameName' in config.keys()):
@@ -150,7 +159,7 @@ if(VISUALIZE):
             gui.deleteNode('world/contact_point', True)
             gui.deleteLandmark('world/contact_point')
         # Display contact point node as green sphere
-        gui.addSphere('world/contact_point', .02, [0., 1. ,0, .3])
+        gui.addSphere('world/contact_point', ct_size, ct_color)
         gui.addLandmark('world/contact_point', .25)
         gui.applyConfiguration('world/contact_point', tf_contact)
         
@@ -165,12 +174,12 @@ if(VISUALIZE):
                 # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
             ct_frame_placement_aligned.rotation = ct_frame_placement_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
             tf_contact_aligned = list(pin.SE3ToXYZQUAT(ct_frame_placement_aligned))
-            arrow_length = 0.02*np.linalg.norm(f_des_LOCAL)
+            arrow_length = wrench_coef*np.linalg.norm(f_des_LOCAL)
             # Remove force arrow if already displayed
             if(gui.nodeExists('world/ref_wrench')):
                 gui.deleteNode('world/ref_wrench', True)
             # Display force arrow
-            gui.addArrow('world/ref_wrench', .01, arrow_length, [.5, 0., 0., 1.])
+            gui.addArrow('world/ref_wrench', ref_size, arrow_length, ref_color)
             gui.applyConfiguration('world/ref_wrench', tf_contact_aligned )
             
             viewer.gui.refresh()
@@ -227,7 +236,7 @@ if(VISUALIZE):
         gui.deleteNode('world/force', True)
     # Display force arrow
     if('force' in config['WHICH_COSTS']):
-        gui.addArrow('world/force', .02, arrow_length, [.0, 0., 0.5, 0.3])
+        gui.addArrow('world/force', real_size, arrow_length, real_color)
 
     time.sleep(1.)
 
@@ -243,13 +252,13 @@ if(VISUALIZE):
                 m_ee_ref = ee_frame_placement.copy()
                 m_ee_ref.translation = models[i].differential.costs.costs['translation'].cost.residual.reference
                 tf_ee_ref = list(pin.SE3ToXYZQUAT(m_ee_ref))
-                viewer.gui.addSphere('world/EE_ref'+str(i), .01, [1. ,0 ,0, .3])
+                viewer.gui.addSphere('world/EE_ref'+str(i), ref_size, ref_color)
                 viewer.gui.applyConfiguration('world/EE_ref'+str(i), tf_ee_ref)
             # EE trajectory
             robot.framesForwardKinematics(q)
             m_ee = robot.data.oMf[id_endeff].copy()
             tf_ee = list(pin.SE3ToXYZQUAT(m_ee))
-            viewer.gui.addSphere('world/EE_'+str(i), .01, [0. , 0. , 1., 1.])
+            viewer.gui.addSphere('world/EE_'+str(i), real_size, real_color)
             viewer.gui.applyConfiguration('world/EE_'+str(i), tf_ee)
         
         # Move contact point 
@@ -262,7 +271,7 @@ if(VISUALIZE):
         if('force' in config['WHICH_COSTS']):
             # Display wrench
             wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector
-            gui.resizeArrow('world/force', 0.02, 0.02*np.linalg.norm(wrench))
+            gui.resizeArrow('world/force', real_size, wrench_coef*np.linalg.norm(wrench))
             m_ct_aligned = m_ct.copy()
                 # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
                 # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
