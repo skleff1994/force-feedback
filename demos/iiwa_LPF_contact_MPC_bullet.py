@@ -170,6 +170,8 @@ for i in range(sim_data['N_simu']):
         w_curr = sim_data['W_pred'][nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
         f_curr = sim_data['F_pred'][nb_plan, 0, :]
         f_pred = sim_data['F_pred'][nb_plan, 1, :]
+        # Record cost references
+        data_utils.record_cost_references_LPF(ddp, sim_data, nb_plan)
         # Record solver data (optional)
         if(config['RECORD_SOLVER_DATA']):
           data_utils.record_solver_data(ddp, sim_data, nb_plan)
