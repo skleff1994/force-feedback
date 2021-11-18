@@ -39,6 +39,8 @@ frameTranslationWeight: 100.
 frameTranslationWeightTerminal: 100.
 frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
+frameCircleTrajectoryRadius: 0.1  # in m
+frameCircleTrajectoryVelocity: 3. # in rad/s
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]

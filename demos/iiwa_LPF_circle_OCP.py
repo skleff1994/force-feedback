@@ -58,19 +58,19 @@ M_ee = robot.data.oMf[id_endeff]
 N_h = config['N_h']
 dt = config['dt']
 # Setup Croco OCP and create solver
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                            WHICH_COSTS=config['WHICH_COSTS']) 
-# Create circle trajectory (WORLD frame)
-EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=dt, radius=.1, omega=3.)
-
-# Set EE translation cost model references (i.e. setup tracking problem)
-models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-for k,m in enumerate(models):
-    if(k<EE_ref.shape[0]):
-        ref = EE_ref[k]
-    else:
-        ref = EE_ref[-1]
-    m.differential.costs.costs['translation'].cost.residual.reference = ref
+ug = pin_utils.get_u_grav(q0, robot.model) 
+y0 = np.concatenate([x0, ug])
+LPF_TYPE = 1
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
+                                                w_reg_ref='gravity',
+                                                TAU_PLUS=False, 
+                                                LPF_TYPE=LPF_TYPE,
+                                                WHICH_COSTS=config['WHICH_COSTS'] ) 
+# Create circle trajectory (WORLD frame) and setup tracking problem
+EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=config['dt'], 
+                                                        radius=config['frameCircleTrajectoryRadius'], 
+                                                        omega=config['frameCircleTrajectoryVelocity'])
+ocp_utils.set_ee_tracking_problem(ddp, EE_ref)
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
@@ -79,7 +79,7 @@ if(WARM_START_IK):
     xs_init = [] 
     us_init = []
     q_ws = q0
-    for k,m in enumerate(models):
+    for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
         ref = m.differential.costs.costs['translation'].cost.residual.reference
         q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
         xs_init.append(np.concatenate([q_ws, v_ws]))

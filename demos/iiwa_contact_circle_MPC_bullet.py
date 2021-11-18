@@ -93,7 +93,7 @@ ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 
 # Plot initial solution
-PLOT_INIT = True
+PLOT_INIT = False
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data(ddp)
   fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
