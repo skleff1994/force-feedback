@@ -1,4 +1,4 @@
-# OCP parameters for static end-effector pose reaching task
+# OCP parameters for static end-effector pose reaching task (LPF)
 
 # General 
 f_c: 2                                               # Low-pass filter cut-off frequency

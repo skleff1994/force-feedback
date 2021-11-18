@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_tracking_cirlce_MPC_bullet.py
+@file iiwa_cirlce_MPC_bullet.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
@@ -36,7 +36,7 @@ logger.setLevel(logging.INFO)
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
 # Read config file
-config_name = 'iiwa_tracking_circle_MPC'
+config_name = 'iiwa_circle_MPC'
 config      = path_utils.load_config_file(config_name)
 # Create a Pybullet simulation environment + set simu freq
 dt_simu = 1./float(config['simu_freq'])  
@@ -130,6 +130,7 @@ for i in range(sim_data['N_simu']):
 
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
+        # Update EE ref at each node of the OCP 
         if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
           models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
           for k,m in enumerate(models):

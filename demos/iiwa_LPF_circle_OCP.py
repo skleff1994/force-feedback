@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_tracking_cirlce_OCP.py
+@file iiwa_LPF_cirlce_OCP.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -34,7 +34,7 @@ logger.setLevel(logging.INFO)
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('iiwa_tracking_circle_OCP')
+config = path_utils.load_config_file('iiwa_LPF_circle_OCP')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   

@@ -1,32 +1,29 @@
 """
 @package force_feedback
-@file iiwa_contact_MPC_bullet.py
+@file iiwa_contact_cirlce_MPC_bullet.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
-@copyright Copyright (c) 2021, New York University & LAAS-CNRS
-@date 2021-10-28
-@brief Closed-loop MPC for force task with the KUKA iiwa (PyBullet)
+@copyright Copyright (c) 2020, New York University and LAAS-CNRS
+@date 2020-05-18
+@brief Closed-loop MPC for static target task with the KUKA iiwa 
 """
 
 '''
-The robot is tasked with exerting a constant normal force  
+The robot is tasked with exerting a constant normal force at its EE
+while drawing a circle on the contact surface
 Trajectory optimization using Crocoddyl in closed-loop MPC 
-(feedback from state x=(q,v), control u = tau) 
+(feedback from state x=(q,v), control u = tau 
 Using PyBullet simulator & GUI for rigid-body dynamics + visualization
 
-The goal of this script is to simulate MPC with state feedback, optionally
-imperfect actuation (bias, noise, delays) at higher frequency
+The goal of this script is to simulate closed-loop MPC
 '''
-
-
-
 
 import numpy as np  
 from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils
+import pybullet as p
 import time 
-np.set_printoptions(precision=4, linewidth=180)
 np.random.seed(1)
-
+np.set_printoptions(precision=4, linewidth=180)
 
 import logging
 FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
@@ -36,13 +33,12 @@ logging.basicConfig(format=FORMAT_SHORT)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
 # Read config file
-config_name = 'iiwa_contact_MPC'
-config = path_utils.load_config_file(config_name)
+config_name = 'iiwa_contact_circle_MPC'
+config      = path_utils.load_config_file(config_name)
 # Create a Pybullet simulation environment + set simu freq
 dt_simu = 1./float(config['simu_freq'])  
 q0 = np.asarray(config['q0'])
@@ -62,25 +58,54 @@ contact_placement.translation = contact_placement.act(np.array([0., 0., offset])
 sim_utils.display_contact_surface(contact_placement, with_collision=True)
 
 
-
-
 # # # # # # # # # 
 ### OCP SETUP ###
 # # # # # # # # # 
-# Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-# Warmstart and solve
-f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
-u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-xs_init = [x0 for i in range(config['N_h']+1)]
-us_init = [u0 for i in range(config['N_h'])]
+# Create circle trajectory (WORLD frame)
+EE_ref = ocp_utils.circle_trajectory_WORLD(contact_placement.copy(), dt=config['dt'], 
+                                                        radius=config['frameCircleTrajectoryRadius'], 
+                                                        omega=config['frameCircleTrajectoryVelocity'])
+# Set EE translation cost model references (i.e. setup tracking problem)
+models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+for k,m in enumerate(models):
+    if(k<EE_ref.shape[0]):
+        p_ee_ref = EE_ref[k]
+    else:
+        p_ee_ref = EE_ref[-1]
+    # Cost translation
+    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
+    # Contact model
+    m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
+# Warm start state = IK of circle trajectory
+WARM_START_IK = True
+if(WARM_START_IK):
+    logger.info("Computing warm-start using Inverse Kinematics...")
+    xs_init = [] 
+    us_init = []
+    q_ws = q0
+    for k,m in enumerate(models):
+        ref = m.differential.costs.costs['translation'].cost.residual.reference
+        q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
+        xs_init.append(np.concatenate([q_ws, v_ws]))
+    us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(config['N_h'])]
+# Classical warm start using initial config
+else:
+    ug  = pin_utils.get_u_grav(q0, robot.model)
+    xs_init = [x0 for i in range(config['N_h']+1)]
+    us_init = [ug for i in range(config['N_h'])]
+# solve
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-# Plot
-PLOT_INIT = False
+
+
+# Plot initial solution
+PLOT_INIT = True
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data(ddp)
   fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+
+
 
 
 # # # # # # # # # # #
@@ -95,7 +120,7 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS       = ['x','u', 'p']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS       = ['x','u', 'p', 'f']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 dt_ocp            = config['dt']                            # OCP sampling rate 
 dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
@@ -104,11 +129,6 @@ OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
 communication = mpc_utils.CommunicationModel(config)
 actuation     = mpc_utils.ActuationModel(config)
 sensing       = mpc_utils.SensorModel(config)
-
-
-# # # # # # # # # # # #
-### SIMULATION LOOP ###
-# # # # # # # # # # # #
 
 
 # SIMULATE
@@ -122,7 +142,17 @@ for i in range(sim_data['N_simu']):
 
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
-        # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
+        # Update EE ref at each node of the OCP 
+        if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
+          models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+          for k,m in enumerate(models):
+              if(k+nb_plan<EE_ref.shape[0]):
+                ref = EE_ref[k+nb_plan]
+              else:
+                ref = EE_ref[-1]
+              m.differential.costs.costs['translation'].cost.residual.reference = ref
+              m.differential.contacts.contacts["contact"].contact.reference.translation = ref 
+
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
