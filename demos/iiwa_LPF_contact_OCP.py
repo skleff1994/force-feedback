@@ -20,14 +20,20 @@ from robot_properties_kuka.config import IiwaConfig
 import matplotlib.pyplot as plt 
 np.set_printoptions(precision=4, linewidth=180)
 import time
+import pinocchio as pin
+
+import logging
+FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
+FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
+logging.basicConfig(format=FORMAT_SHORT)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 # # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
-print("--------------------------------------")
-print("              LOAD CONFIG             ")
-print("--------------------------------------")
 # Read config file
 config = path_utils.load_config_file('iiwa_LPF_contact_OCP')
 q0 = np.asarray(config['q0'])
@@ -41,28 +47,15 @@ robot.computeJointJacobians(q0)
 id_endeff = robot.model.getFrameId('contact')
 M_ee = robot.data.oMf[id_endeff]
 nq = robot.model.nq; nv = robot.model.nv; nx = nq+nv; nu = nq
-print("Initial frame translation = ", M_ee.translation.copy())
 
-#################
+
+# # # # # # # # # 
 ### OCP SETUP ###
-#################
+# # # # # # # # # 
 N_h = config['N_h']
 dt = config['dt']
-
 LPF_TYPE = 1
-# Approx. LPF obtained from Z.O.H. discretization on CT LPF 
-if(LPF_TYPE==0):
-    alpha = np.exp(-2*np.pi*config['f_c']*dt)
-# Approx. LPF obtained from 1st order Euler int. on CT LPF
-if(LPF_TYPE==1):
-    alpha = 1./float(1+2*np.pi*config['f_c']*dt)
-# Exact LPF obtained from E.M.A model (IIR)
-if(LPF_TYPE==2):
-    y = np.cos(2*np.pi*config['f_c']*dt)
-    alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
-
 # Warm start and reg
-import pinocchio as pin
 f_ext = []
 for i in range(nq+1):
     # CONTACT --> WORLD
@@ -76,14 +69,12 @@ u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 # ug = pin_utils.get_u_grav(q0, robot.model)
 # Define initial state
 y0 = np.concatenate([x0, u0])
-
-
+# Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
                                                 w_reg_ref= 'gravity', 
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=LPF_TYPE,
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
-
 # Solve and extract solution trajectories
 xs_init = [y0 for i in range(N_h+1)]
 us_init = [u0 for i in range(N_h)]
@@ -147,9 +138,6 @@ if(VISUALIZE):
 
 PLOT = True
 if(PLOT):
-    print("-----------------------------------")
-    print("              PLOTS                ")
-    print("-----------------------------------")
     #  Plot
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
     fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], 

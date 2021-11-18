@@ -895,8 +895,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         y = np.cos(2*np.pi*f_c*dt)
         alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
     logger.info("Setup Low-Pass Filter (LPF)")
-    logger.info("          f_c   = ", f_c)
-    logger.info("          alpha = ", alpha)
+    logger.info("          f_c   = "+str(f_c))
+    logger.info("          alpha = "+str(alpha))
 
     # Regularization cost of unfiltered torque (inside IAM_LPF in Crocoddyl)
     if(w_reg_ref is None or w_reg_ref == 'gravity'):

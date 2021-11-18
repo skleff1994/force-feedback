@@ -101,13 +101,14 @@ class CommunicationModel:
 
 class SensorModel:
 
-    def __init__(self, config, nq=7, nv=7):
+    def __init__(self, config, nq=7, nv=7, ntau=0):
         '''
         Sensing model with parameters defined in config YAML file
         '''
         self.config = config
         self.nq = nq
         self.nv = nv
+        self.ntau = ntau
         # White noise on desired torque and measured state
         self.var_q = np.asarray(self.config['var_q'])
         self.var_v = np.asarray(self.config['var_v'])
@@ -125,7 +126,11 @@ class SensorModel:
         if(self.NOISE_STATE):
           noise_q = np.random.normal(0., self.var_q, self.nq)
           noise_v = np.random.normal(0., self.var_v, self.nv)
-          measured_state += np.concatenate([noise_q, noise_v]).T
+          if(self.ntau != 0):
+            noise_tau = np.random.normal(0., self.var_u, self.ntau)
+            measured_state += np.concatenate([noise_q, noise_v, noise_tau]).T
+          else:
+            measured_state += np.concatenate([noise_q, noise_v]).T
         # Optional filtering on measured state
         if(self.FILTER_STATE):
           n_sum = min(i, self.config['x_avg_filter_length'])
