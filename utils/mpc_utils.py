@@ -2,6 +2,9 @@
 import numpy as np
 np.random.seed(1)
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class ActuationModel:
 
@@ -26,6 +29,9 @@ class ActuationModel:
         self.SCALE_TORQUES     = config['SCALE_TORQUES']                 # Affinescaling of reference torque
         self.FILTER_TORQUES    = config['FILTER_TORQUES']                # Moving average smoothing of reference torques
         self.TORQUE_TRACKING   = False                                   # NOT READY
+        logger.info("Created ActuationModel(DELAY_SIM="+str(self.DELAY_SIM)+
+                    ", SCALE_TORQUES="+str(self.SCALE_TORQUES)+
+                    ", FILTER_TORQUES="+str(self.FILTER_TORQUES)+").")
 
     def step(self, i, reference_torque, memory):
         '''
@@ -69,6 +75,7 @@ class CommunicationModel:
         self.u_buffer_OCP = []                                           # buffer for desired controls delayed by OCP computation time
         # Sensing model options
         self.DELAY_OCP         = config['DELAY_OCP']                     # Add delay in OCP solution (i.e. ~1ms resolution time)
+        logger.info("Created CommunicationModel(DELAY_OCP="+str(self.DELAY_OCP)+").")
 
     def step(self, predicted_state, current_control):
         '''
@@ -92,7 +99,7 @@ class CommunicationModel:
 
 
 
-class SensingModel:
+class SensorModel:
 
     def __init__(self, config, nq=7, nv=7):
         '''
@@ -108,6 +115,7 @@ class SensingModel:
         # Sensing model options
         self.NOISE_STATE       = config['NOISE_STATE']                   # Add Gaussian noise on the measured state 
         self.FILTER_STATE      = config['FILTER_STATE']                  # Moving average smoothing of reference torques
+        logger.info("Created SensorModel(NOISE_STATE="+str(self.NOISE_STATE)+", FILTER_STATE="+str(self.FILTER_STATE)+").")
 
     def step(self, i, measured_state, memory):
         '''

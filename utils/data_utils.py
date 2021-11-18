@@ -4,27 +4,32 @@ import os
 from utils import pin_utils
 import pinocchio as pin
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 # Save data (dict) into compressed npz
 def save_data(sim_data, save_name=None, save_dir=None):
     '''
     Saves data to a compressed npz file (binary)
     '''
-    print('Compressing & saving data...')
+    logger.info('Compressing & saving data...')
     if(save_name is None):
         save_name = 'sim_data_NO_NAME'+str(time.time())
     if(save_dir is None):
         save_dir = os.path.abspath(os.path.join(os.path.dirname(__file__),'../data'))
     save_path = save_dir+'/'+save_name+'.npz'
     np.savez_compressed(save_path, data=sim_data)
-    print("Saved data to "+str(save_path)+" !")
+    logger.info("Saved data to "+str(save_path)+" !")
+
 
 # Loads dict from compressed npz
 def load_data(npz_file):
     '''
     Loads a npz archive of sim_data into a dict
     '''
-    print('Loading data...')
+    logger.info('Loading data...')
     d = np.load(npz_file, allow_pickle=True)
     return d['data'][()]
 
@@ -141,14 +146,46 @@ def init_sim_data(config, robot, x0):
       sim_data['xreg'] = np.zeros(sim_data['N_plan'])                                                   # State reg in solver (diag of Vxx)
       sim_data['ureg'] = np.zeros(sim_data['N_plan'])                                                   # Control reg in solver (diag of Quu)
       sim_data['J_rank'] = np.zeros(sim_data['N_plan'])                                                 # Rank of Jacobian
+    logger.info("Initialized MPC simulation data.")
+
+    if(config['INIT_LOG']):
+      print('')
+      print('                       *************************')
+      print('                       ** Simulation is ready **') 
+      print('                       *************************')        
+      print("-------------------------------------------------------------------")
+      print('- Total simulation duration            : T_tot           = '+str(sim_data['T_tot'])+' s')
+      print('- Simulation frequency                 : f_simu          = '+str(float(sim_data['simu_freq']/1000.))+' kHz')
+      print('- Control frequency                    : f_ctrl          = '+str(float(sim_data['ctrl_freq']/1000.))+' kHz')
+      print('- Replanning frequency                 : f_plan          = '+str(float(sim_data['plan_freq']/1000.))+' kHz')
+      print('- Total # of simulation steps          : N_simu          = '+str(sim_data['N_simu']))
+      print('- Total # of control steps             : N_ctrl          = '+str(sim_data['N_ctrl']))
+      print('- Total # of planning steps            : N_plan          = '+str(sim_data['N_plan']))
+      print('- Duration of MPC horizon              : T_ocp           = '+str(sim_data['T_h'])+' s')
+      print('- OCP integration step                 : dt              = '+str(config['dt'])+' s')
+      print('- Simulate delay in low-level torque?  : DELAY_SIM       = '+str(config['DELAY_SIM'])+' ('+str(sim_data['delay_sim_cycle'])+' cycles)')
+      print('- Simulate delay in OCP solution?      : DELAY_OCP       = '+str(config['DELAY_OCP'])+' ('+str(config['delay_OCP_ms'])+' ms)')
+      print('- Affine scaling of ref. ctrl torque?  : SCALE_TORQUES   = '+str(config['SCALE_TORQUES']))
+      if(config['SCALE_TORQUES']):
+        print('    a='+str(sim_data['alpha'])+'\n')
+        print('    b='+str(sim_data['beta'])+')')
+      print('- Noise on torques?                    : NOISE_TORQUES   = '+str(config['NOISE_TORQUES']))
+      print('- Filter torques?                      : FILTER_TORQUES  = '+str(config['FILTER_TORQUES']))
+      print('- Noise on state?                      : NOISE_STATE     = '+str(config['NOISE_STATE']))
+      print('- Filter state?                        : FILTER_STATE    = '+str(config['FILTER_STATE']))
+      print("-------------------------------------------------------------------")
+      print('')
+      time.sleep(config['init_log_display_time'])
+
     return sim_data
+
 
 # Extract MPC simu-specific plotting data from sim data
 def extract_plot_data_from_sim_data(sim_data):
     '''
     Extract plot data from simu data
     '''
-    print('Extracting plotting data from simulation data...')
+    logger.info('Extracting plot data from simulation data...')
     
     plot_data = {}
     # Robot model & params
@@ -248,8 +285,6 @@ def extract_plot_data_from_sim_data(sim_data):
       # Get solve regs
       plot_data['xreg'] = sim_data['xreg']
       plot_data['ureg'] = sim_data['ureg']
-
-
     return plot_data
 
 
@@ -379,6 +414,7 @@ def init_sim_data_LPF(config, robot, y0):
       sim_data['xreg'] = np.zeros(sim_data['N_plan'])                                                   # State reg in solver (diag of Vxx)
       sim_data['ureg'] = np.zeros(sim_data['N_plan'])                                                   # Control reg in solver (diag of Quu)
       sim_data['J_rank'] = np.zeros(sim_data['N_plan'])                                                 # Rank of Jacobian
+    logger.info("Initialized MPC simulation data (LPF).")
     return sim_data
 
 
@@ -387,7 +423,7 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     '''
     Extract plot data from simu data (for torque feedback MPC based on LPF)
     '''
-    print('Extracting plotting data from simulation data...')
+    logger.info('Extracting plot data from MPC simulation data (LPF)...')
     plot_data = {}
     # Robot model & params
     plot_data['pin_model'] = sim_data['pin_model']
@@ -506,6 +542,7 @@ def extract_ddp_data(ddp):
     '''
     Record relevant data from ddp solver in order to plot 
     '''
+    logger.info("Extracting DDP solver data...")
     # Store data
     ddp_data = {}
     # OCP params
@@ -574,9 +611,7 @@ def extract_ddp_data_LPF(ddp):
     '''
     Record relevant data from ddp solver in order to plot 
     '''
-    '''
-    Record relevant data from ddp solver in order to plot 
-    '''
+    logger.info("Extracting DDP solver data (LPF)...")
     # Store data
     ddp_data = {}
     # OCP params

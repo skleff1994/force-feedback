@@ -9,6 +9,10 @@ from scipy.spatial.transform import Rotation
 from numpy.linalg import norm
 import pinocchio as pin
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 DEFAULT_URDF_PATH = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
 DEFAULT_MESH_PATH = "/home/skleff/robot_properties_kuka_RAISIM"
 LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'

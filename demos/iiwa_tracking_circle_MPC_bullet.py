@@ -24,14 +24,17 @@ import time
 np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
+import logging
+FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
+FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
+logging.basicConfig(format=FORMAT_SHORT)
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
-print("--------------------------------------")
-print("              INIT SIM                ")
-print("--------------------------------------")
 # Read config file
 config_name = 'iiwa_tracking_circle_MPC'
 config      = path_utils.load_config_file(config_name)
@@ -45,9 +48,6 @@ env, pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
 robot = pybullet_simulator.pin_robot
 # Get dimensions 
 nq, nv = robot.model.nq, robot.model.nv; nu = nq
-print("-------------------------------------------------------------------")
-print("[PyBullet] Created robot (id = "+str(pybullet_simulator.robotId)+")")
-print("-------------------------------------------------------------------")
 id_endeff = robot.model.getFrameId('contact')
 M_ee = robot.data.oMf[id_endeff]
 
@@ -55,9 +55,6 @@ M_ee = robot.data.oMf[id_endeff]
 # # # # # # # # # 
 ### OCP SETUP ###
 # # # # # # # # # 
-print("--------------------------------------")
-print("              INIT OCP                ")
-print("--------------------------------------")
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
 # Create circle trajectory (WORLD frame)
@@ -72,9 +69,7 @@ for k,m in enumerate(models):
     else:
         ref = EE_ref[-1]
     m.differential.costs.costs['translation'].cost.residual.reference = ref
-print("Setup tracking problem.")
 # Warm start state = IK of circle trajectory
-print("Computing warm-start...")
 WARM_START_IK = True
 if(WARM_START_IK):
     xs_init = [] 
@@ -83,7 +78,6 @@ if(WARM_START_IK):
     for k,m in enumerate(models):
         ref = m.differential.costs.costs['translation'].cost.residual.reference
         q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
-        # print(q_ws, v_ws)
         xs_init.append(np.concatenate([q_ws, v_ws]))
     us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(config['N_h'])]
 # Classical warm start using initial config
@@ -91,7 +85,6 @@ else:
     ug  = pin_utils.get_u_grav(q0, robot.model)
     xs_init = [x0 for i in range(config['N_h']+1)]
     us_init = [ug for i in range(config['N_h'])]
-print("Initial OCP solving...")
 # solve
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 # Plot initial solution
@@ -106,9 +99,6 @@ if(PLOT_INIT):
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
-print("--------------------------------------")
-print("              INIT MPC                ")
-print("--------------------------------------")
 sim_data = data_utils.init_sim_data(config, robot, x0)
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
@@ -117,67 +107,26 @@ freq_SIMU = sim_data['simu_freq']
   # Replan & control counters
 nb_plan = 0
 nb_ctrl = 0
-  # Buffers for delays
-x_buffer_OCP = []                                           # buffer for desired controls delayed by OCP computation time
-u_buffer_OCP = []                                           # buffer for desired states delayed by OCP computation time
-buffer_sim   = []                                           # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
 WHICH_PLOTS       = ['x','u', 'p']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
-DELAY_SIM         = config['DELAY_SIM']                     # Add delay in reference torques (low-level)
-DELAY_OCP         = config['DELAY_OCP']                     # Add delay in OCP solution (i.e. ~1ms resolution time)
-SCALE_TORQUES     = config['SCALE_TORQUES']                 # Affinescaling of reference torque
-NOISE_TORQUES     = config['NOISE_TORQUES']                 # Add Gaussian noise on reference torques
-FILTER_TORQUES    = config['FILTER_TORQUES']                # Moving average smoothing of reference torques
-NOISE_STATE       = config['NOISE_STATE']                   # Add Gaussian noise on the measured state 
-FILTER_STATE      = config['FILTER_STATE']                  # Moving average smoothing of reference torques
 dt_ocp            = config['dt']                            # OCP sampling rate 
 dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
-print("Scaling OCP-->PLAN : ", OCP_TO_PLAN_RATIO) 
 
+# Additional simulation blocks 
 communication = mpc_utils.CommunicationModel(config)
 actuation     = mpc_utils.ActuationModel(config)
-sensing       = mpc_utils.SensingModel(config)
+sensing       = mpc_utils.SensorModel(config)
 
-# # # # # # # # # # # #
-### SIMULATION LOOP ###
-# # # # # # # # # # # #
-if(config['INIT_LOG']):
-  print('                  ***********************')
-  print('                  * Simulation is ready *') 
-  print('                  ***********************')        
-  print("-------------------------------------------------------------------")
-  print('- Total simulation duration            : T_tot  = '+str(sim_data['T_tot'])+' s')
-  print('- Simulation frequency                 : f_simu = '+str(float(freq_SIMU/1000.))+' kHz')
-  print('- Control frequency                    : f_ctrl = '+str(float(freq_CTRL/1000.))+' kHz')
-  print('- Replanning frequency                 : f_plan = '+str(float(freq_PLAN/1000.))+' kHz')
-  print('- Total # of simulation steps          : N_simu = '+str(sim_data['N_simu']))
-  print('- Total # of control steps             : N_ctrl = '+str(sim_data['N_ctrl']))
-  print('- Total # of planning steps            : N_plan = '+str(sim_data['N_plan']))
-  print('- Duration of MPC horizon              : T_ocp  = '+str(sim_data['T_h'])+' s')
-  print('- OCP integration step                 : dt     = '+str(config['dt'])+' s')
-  print("-------------------------------------------------------------------")
-  print('- Simulate delay in low-level torque?  : DELAY_SIM                = '+str(DELAY_SIM)+' ('+str(sim_data['delay_sim_cycle'])+' cycles)')
-  print('- Simulate delay in OCP solution?      : DELAY_OCP                = '+str(DELAY_OCP)+' ('+str(config['delay_OCP_ms'])+' ms)')
-  print('- Affine scaling of ref. ctrl torque?  : SCALE_TORQUES            = '+str(SCALE_TORQUES))
-  if(SCALE_TORQUES):
-    print('    a='+str(sim_data['alpha'])+'\n')
-    print('    b='+str(sim_data['beta'])+')')
-  print('- Noise on torques?                    : NOISE_TORQUES            = '+str(NOISE_TORQUES))
-  print('- Filter torques?                      : FILTER_TORQUES           = '+str(FILTER_TORQUES))
-  print('- Noise on state?                      : NOISE_STATE              = '+str(NOISE_STATE))
-  print('- Filter state?                        : FILTER_STATE             = '+str(FILTER_STATE))
-  print("-------------------------------------------------------------------")
-  print("Simulation will start...")
-  time.sleep(config['init_log_display_time'])
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
 
     if(i%config['log_rate']==0 and config['LOG']): 
-      print("  ")
-      print("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
-
+      print('')
+      logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
+      print('')
+      
   # Solve OCP if we are in a planning cycle (MPC frequency & control frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
@@ -261,22 +210,14 @@ for i in range(sim_data['N_simu']):
     sim_data['X_mea_SIMU'][i+1, :] = sensing.step(i, x_mea_SIMU, sim_data['X_mea_SIMU'])
 
 
-
-print('--------------------------------')
-print('Simulation exited successfully !')
-print('--------------------------------')
-
-
-
-
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/force-feedback/data'
 save_name = config_name+'_bullet_'+\
-                        '_BIAS='+str(SCALE_TORQUES)+\
-                        '_NOISE='+str(NOISE_STATE or NOISE_TORQUES)+\
-                        '_DELAY='+str(DELAY_OCP or DELAY_SIM)+\
+                        '_BIAS='+str(config['SCALE_TORQUES'])+\
+                        '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
+                        '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
                         '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
 
 # Extract plot data from sim data

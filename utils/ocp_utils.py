@@ -13,6 +13,10 @@ import numpy as np
 import pinocchio as pin
 from utils import pin_utils
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 # Interpolator
 def linear_interpolation(data, N):
     '''
@@ -45,10 +49,10 @@ def linear_interpolation_demo():
     for i in range(data.shape[0]):
         data[i] = i**2
     N = 5
-    print("Input data = \n")
-    print(data)
+    logger.info("Input data = \n")
+    logger.info(data)
     # Interpolate
-    print("Interpolate with "+str(N)+" intermediate knots")
+    logger.info("Interpolate with "+str(N)+" intermediate knots")
     interp = linear_interpolation(data, N)
     # Plot
     import matplotlib.pyplot as plt
@@ -263,11 +267,12 @@ def circle_trajectory_WORLD(M_ct, dt=0.01, radius=1., omega=1.):
   T = 2*np.pi/omega
   # Number of points in the circle
   N = int(T//dt)
-  # print("OCP SETUP ", T, N)
+  # logger.info("OCP SETUP ", T, N)
   # First generate LOCAL 
   traj_WORLD = np.zeros((N, 3))
   for i in range(N):
     traj_WORLD[i,:] = M_ct.act(circle_point_LOCAL(i*dt, radius=radius, omega=omega, origin=[0., 0., 0.]))
+  logger.info("Generated circle trajectory in WORLD frame (T="+str(T)+", N="+str(N)+").")
   return traj_WORLD
 
 # X = circle_trajectory_WORLD(pin.SE3.Identity(), dt=0.1, radius=1, omega=3)
@@ -483,7 +488,7 @@ def init_DDP(robot, config, x0, callbacks=False,
         # Frame force cost
         if('force' in WHICH_COSTS):
           if(not CONTACT):
-            print("[OCP] ERROR : Force cost but no contact model is defined !!! ")
+            logger.error("Force cost but no contact model is defined ! ")
           # Default force reference = zero force
           if(config['frameForceRef']=='DEFAULT'):
             frameForceRef = pin.Force( np.zeros(6) )
@@ -503,7 +508,7 @@ def init_DDP(robot, config, x0, callbacks=False,
         # Friction cone 
         if('friction' in WHICH_COSTS):
           if(not CONTACT):
-            print("[OCP] ERROR :  Friction cost but no contact model is defined !!! ")
+            logger.error("Friction cost but no contact model is defined !!! ")
           cone_rotation = contactModelPlacementRef.rotation
           # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
           mu = config['mu']
@@ -650,7 +655,7 @@ def init_DDP(robot, config, x0, callbacks=False,
     if(CONTACT):
       terminalModel.differential.contacts.addContact("contact", contact6d, active=True)
     
-    print("[OCP] Created IAMs.")  
+    logger.info("Created IAMs.")  
 
   # Create the shooting problem
     problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
@@ -661,8 +666,7 @@ def init_DDP(robot, config, x0, callbacks=False,
       ddp.setCallbacks([crocoddyl.CallbackLogger(),
                         crocoddyl.CallbackVerbose()])
     
-    print("[OCP] OCP is ready ! (CONTACT="+str(CONTACT)+")")
-    print("[OCP]   Costs = "+str(WHICH_COSTS))
+    logger.info("OCP is ready : COSTS = "+str(WHICH_COSTS)+', CONTACT = '+str(CONTACT)+'.')
 
     return ddp
 
@@ -849,7 +853,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     # Frame force cost
     if('force' in WHICH_COSTS):
       if(not CONTACT):
-        print("[OCP] ERROR : Force cost but no contact model is defined !!! ")
+        logger.error("Force cost but no contact model is defined !!! ")
       # Default force reference = zero force
       if(config['frameForceRef']=='DEFAULT'):
         frameForceRef = pin.Force( np.zeros(6) )
@@ -867,7 +871,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     # Friction cone 
     if('friction' in WHICH_COSTS):
       if(not CONTACT):
-        print("[OCP] ERROR :  Friction cost but no contact model is defined !!! ")
+        logger.error("Friction cost but no contact model is defined !!! ")
       cone_rotation = contactModelPlacementRef.rotation
       # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
       mu = config['mu']
@@ -890,19 +894,21 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     if(LPF_TYPE==2):
         y = np.cos(2*np.pi*f_c*dt)
         alpha = 1-(y-1+np.sqrt(y**2 - 4*y +3)) 
-    print("[OCP] LOW-PASS FILTER : ")
-    print("          f_c   = ", f_c)
-    print("          alpha = ", alpha)
+    logger.info("Setup Low-Pass Filter (LPF)")
+    logger.info("          f_c   = ", f_c)
+    logger.info("          alpha = ", alpha)
 
     # Regularization cost of unfiltered torque (inside IAM_LPF in Crocoddyl)
     if(w_reg_ref is None or w_reg_ref == 'gravity'):
       # If no reference is provided, assume default reg w.r.t. gravity torque
       w_gravity_reg = True
-      w_reg_ref = np.zeros(nq)
+      w_reg_ref = np.zeros(nq) # dummy reference not used
+      log_msg_w_reg = 'gravity torque'
     else:
-      # Otherwise, use provided constant torque reference for w_reg
+      # Otherwise, take the user-provided constant torque reference for w_reg
       w_gravity_reg = False
-    print("[OCP] w_gravity_reg = ", w_gravity_reg)
+      log_msg_w_reg = 'constant reference'
+    logger.info("Unfiltered torque regularization w.r.t. "+str(log_msg_w_reg)+".")
 
     # Create IAMs
     runningModels = []
@@ -1007,7 +1013,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     if(CONTACT):
       terminalModel.differential.contacts.addContact("contact", contact6d, active=True)
 
-    print("[OCP] Created IAMs.")
+    logger.info('Created IAMs.')
 
     # Create the shooting problem
     problem = crocoddyl.ShootingProblem(y0, runningModels, terminalModel)
@@ -1021,6 +1027,5 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     ddp.xs = [y0 for i in range(N_h+1)]
     ddp.us = [pin_utils.get_u_grav(y0[:nq], robot.model) for i in range(N_h)]
     
-    print("[OCP] OCP is ready ! (CONTACT="+str(CONTACT)+")")
-    print("[OCP]   Costs = "+str(WHICH_COSTS))
+    logger.info("OCP is ready : COSTS = "+str(WHICH_COSTS)+', CONTACT = '+str(CONTACT)+'.')
     return ddp

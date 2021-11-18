@@ -5,12 +5,18 @@ import numpy as np
 import pinocchio as pin
 import pybullet_data
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 # Load KUKA arm in PyBullet environment
 def init_kuka_simulator(dt=1e3, x0=None):
     '''
     Loads KUKA LBR iiwa model in PyBullet using the 
     Pinocchio-PyBullet wrapper to simplify interactions
     '''
+    # Info log
+    logger.info("Initializing simulator...")
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.GUI, dt=dt)
     pybullet_simulator = env.add_robot(IiwaRobot())
@@ -64,13 +70,12 @@ def get_contact_joint_torques(pybullet_simulator, id_endeff):
     return joint_torques
 
 
-
 def display_target(p_des):
+    logger.info("Creating PyBullet target ball...")
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
     target =  p.loadURDF("sphere_small.urdf", basePosition=list(p_des), globalScaling=1, useFixedBase=True)
     # Disable collisons
     p.setCollisionFilterGroupMask(target, -1, 0, 0)
-
 
 
 # Load contact surface in PyBullet for contact experiments
@@ -81,6 +86,7 @@ def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=
       robotId : id of the robot 
 
     '''
+    logger.info("Creating PyBullet contact surface...")
     # Tilt contact surface (default 0)
     TILT_rotation = pin.utils.rpyToMatrix(TILT[0], TILT[1], TILT[2])
     M.rotation = TILT_rotation.dot(M.rotation)

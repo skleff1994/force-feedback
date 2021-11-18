@@ -2,6 +2,10 @@ import importlib_resources
 import yaml
 import os
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 # Load a yaml file (e.g. simu config file)
 def load_yaml_file(yaml_file):
     '''
@@ -32,6 +36,7 @@ def load_config_file(config_name):
     '''
     Loads YAML config file in demos/config as a dict
     '''
+    logger.info("Loading config file '"+str(config_name)+"'...")
     config_path = os.path.abspath(os.path.join(os.path.dirname(__file__),'../demos', 'config/'))
     config_file = config_path+"/"+config_name+".yml"
     config = load_yaml_file(config_file)

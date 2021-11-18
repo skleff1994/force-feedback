@@ -4,7 +4,9 @@ import matplotlib
 import numpy as np
 from utils import pin_utils
 
-
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 ### Plot from MPC simulation (LPF)
 
@@ -110,7 +112,7 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting state data...')
+    logger.info('Plotting state data...')
     T_tot = plot_data['T_tot']
     N_simu = plot_data['N_simu']
     N_ctrl = plot_data['N_ctrl']
@@ -263,7 +265,7 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting control data...')
+    logger.info('Plotting control data...')
     T_tot = plot_data['T_tot']
     N_simu = plot_data['N_simu']
     N_ctrl = plot_data['N_ctrl']
@@ -428,7 +430,7 @@ def plot_mpc_ricatti_diag_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=No
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Ricatti diagonal...')
+    logger.info('Plotting Ricatti diagonal...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -496,7 +498,7 @@ def plot_mpc_Vxx_eig_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Vxx eigenvalues...')
+    logger.info('Plotting Vxx eigenvalues...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -562,7 +564,7 @@ def plot_mpc_Vxx_diag_LPF(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Vxx diagonal...')
+    logger.info('Plotting Vxx diagonal...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -1018,7 +1020,7 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting state data...')
+    logger.info('Plotting state data...')
     T_tot = plot_data['T_tot']
     N_simu = plot_data['N_simu']
     N_plan = plot_data['N_plan']
@@ -1138,7 +1140,7 @@ def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting control data...')
+    logger.info('Plotting control data...')
     T_tot = plot_data['T_tot']
     N_simu = plot_data['N_simu']
     N_plan = plot_data['N_plan']
@@ -1236,7 +1238,7 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
       AUTOSCALE                 : rescale y-axis of endeff plot 
                                   based on maximum value taken
     '''
-    print('Plotting end-eff data...')
+    logger.info('Plotting end-eff data...')
     T_tot = plot_data['T_tot']
     N_simu = plot_data['N_simu']
     N_ctrl = plot_data['N_ctrl']
@@ -1361,7 +1363,7 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
       AUTOSCALE                 : rescale y-axis of endeff plot 
                                   based on maximum value taken
     '''
-    print('Plotting force data...')
+    logger.info('Plotting force data...')
     T_tot = plot_data['T_tot']
     N_simu = plot_data['N_simu']
     N_ctrl = plot_data['N_ctrl']
@@ -1475,7 +1477,7 @@ def plot_mpc_ricatti_svd(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Ricatti singular values...')
+    logger.info('Plotting Ricatti singular values...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -1528,7 +1530,7 @@ def plot_mpc_ricatti_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Ricatti diagonal...')
+    logger.info('Plotting Ricatti diagonal...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -1589,7 +1591,7 @@ def plot_mpc_Vxx_eig(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Vxx eigenvalues...')
+    logger.info('Plotting Vxx eigenvalues...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -1651,7 +1653,7 @@ def plot_mpc_Vxx_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Vxx diagonal...')
+    logger.info('Plotting Vxx diagonal...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -1713,7 +1715,7 @@ def plot_mpc_Quu_eig(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Quu eigenvalues...')
+    logger.info('Plotting Quu eigenvalues...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -1764,7 +1766,7 @@ def plot_mpc_Quu_diag(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting Quu diagonal...')
+    logger.info('Plotting Quu diagonal...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -1815,7 +1817,7 @@ def plot_mpc_solver(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting solver data...')
+    logger.info('Plotting solver data...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -1863,7 +1865,7 @@ def plot_mpc_jacobian(plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
       SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
       SHOW                      : show plots
     '''
-    print('Plotting solver data...')
+    logger.info('Plotting solver data...')
     T_tot = plot_data['T_tot']
     N_plan = plot_data['N_plan']
     dt_plan = plot_data['dt_plan']
@@ -2298,13 +2300,13 @@ def animatePointMass(xs, sleep=1):
     Animate the point mass system with state trajectory xs
     '''
     # Check which model is used
-    print(len(xs[0]))
+    logger.info(len(xs[0]))
     if(len(xs[0])>2):
         with_contact = True
     else:
         with_contact = False
 
-    print("processing the animation ... ")
+    logger.info("processing the animation ... ")
     cart_size = 1.
     fig = plt.figure()
     ax = plt.axes(xlim=(-7, 7), ylim=(-5, 5))
@@ -2327,7 +2329,7 @@ def animatePointMass(xs, sleep=1):
         return patch, line, time_text
 
     anim = animation.FuncAnimation(fig, animate, init_func=init, frames=len(xs), interval=sleep, blit=True)
-    print("... processing done")
+    logger.info("... processing done")
     plt.grid(True)
     plt.show()
     return anim

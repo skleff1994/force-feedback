@@ -5,6 +5,10 @@ import eigenpy
 from numpy.linalg import pinv
 import time
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 DEFAULT_ARMATURE_KUKA = [.1, .1, .1, .1, .1, .1, .0]
 
 def get_p(q, pin_robot, id_endeff):
