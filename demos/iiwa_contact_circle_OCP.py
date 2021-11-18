@@ -51,7 +51,8 @@ nu = nq
 # Update robot model with initial state
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
-M_ct = robot.data.oMf[id_endeff].copy()
+ee_frame_placement = robot.data.oMf[id_endeff].copy()
+
 
 
 
@@ -63,41 +64,44 @@ dt = config['dt']
 # Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
+
 # Create circle trajectory (WORLD frame)
-EE_ref = ocp_utils.circle_trajectory_WORLD(M_ct.copy(), dt=dt, radius=.1, omega=3.)
+EE_ref = ocp_utils.circle_trajectory_WORLD(ee_frame_placement.copy(), dt=dt, radius=.1, omega=3.)
 
 # Set EE translation cost model references (i.e. setup tracking problem) and contact model references
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 for k,m in enumerate(models):
     if(k<EE_ref.shape[0]):
-        ref = EE_ref[k]
+        p_ee_ref = EE_ref[k]
     else:
-        ref = EE_ref[-1]
+        p_ee_ref = EE_ref[-1]
     # Cost translation
-    m.differential.costs.costs['translation'].cost.residual.reference = ref
+    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
     # Contact model
-    m.differential.contacts.contacts["contact"].contact.reference.translation = ref
-# Warm start 
-f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
- # Warm start state = IK of circle trajectory
-WARM_START_IK = False
+    m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
+
+# Warm start state = IK of circle trajectory
+WARM_START_IK = True
 if(WARM_START_IK):
     logger.info("Computing warm-start using Inverse Kinematics...")
     xs_init = [] 
     us_init = []
     q_ws = q0
     for k,m in enumerate(models):
-        ref = m.differential.costs.costs['translation'].cost.residual.reference
-        Mref = M_ct.copy()
-        Mref.translation = ref
+        # Get ref placement
+        p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
+        Mref = ee_frame_placement.copy()
+        Mref.translation = p_ee_ref
+        # Get corresponding forces at each joint
         f_ext = pin_utils.get_external_joint_torques(Mref, config['frameForceRef'], robot)
-        q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
+        # Get joint state from IK
+        q_ws, v_ws, _ = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)
         xs_init.append(np.concatenate([q_ws, v_ws]))
-    us_init = [pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model) for i in range(N_h)]
-
+        if(k<N_h):
+            us_init.append(pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model))
 # Classical warm start using initial config
 else:
-    f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
+    f_ext = pin_utils.get_external_joint_torques(ee_frame_placement, config['frameForceRef'], robot)
     u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
     xs_init = [x0 for i in range(config['N_h']+1)]
     us_init = [u0 for i in range(config['N_h'])]
@@ -105,127 +109,184 @@ else:
 # Solve initial
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
+
+
+
 #  Plot
-PLOT = True
+PLOT = False
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data(ddp)
     fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['all'], SHOW=True)
-    
+
+
+
+
 
 VISUALIZE = True
-pause = 0.01 # in s
+pause = 0.1 # in s
 if(VISUALIZE):
     import time
     import pinocchio as pin
+
+    # Init viewer
     robot.initViewer(loadModel=True)
     robot.display(q0)
     viewer = robot.viz.viewer; gui = viewer.gui
+
     draw_rate = int(N_h/100)
-    # Display force if any
-    if('force' in config['WHICH_COSTS']):
-        # Display placement of contact in WORLD frame
-        M_contact = M_ct.copy()
-        offset = np.array([0., 0., 0.03])
-        M_contact.translation = M_contact.act(offset)
-        tf_contact = list(pin.SE3ToXYZQUAT(M_contact))
+    log_rate = int(N_h/10)
+
+    # Display contact point as sphere + landmark
+    if('contactModelFrameName' in config.keys()):
+
+        # Placement of contact in WORLD frame = EE placement + tennis ball radius offset
+        ct_frame_placement = ee_frame_placement.copy()
+        offset = 0.036
+        ct_frame_placement.translation = ct_frame_placement.act(np.array([0., 0., offset])) 
+        tf_contact = list(pin.SE3ToXYZQUAT(ct_frame_placement))
+
+        # Delete contact point node if already displayed
         if(gui.nodeExists('world/contact_point')):
             gui.deleteNode('world/contact_point', True)
             gui.deleteLandmark('world/contact_point')
-        gui.addSphere('world/contact_point', .01, [1. ,0 ,0, 1.])
-        gui.addLandmark('world/contact_point', .3)
+        # Display contact point node as green sphere
+        gui.addSphere('world/contact_point', .02, [0., 1. ,0, .3])
+        gui.addLandmark('world/contact_point', .25)
         gui.applyConfiguration('world/contact_point', tf_contact)
-        # Display contact force
-        f_des_LOCAL = np.asarray(config['frameForceRef'])
-        M_contact_aligned = M_contact.copy()
-            # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
-            # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
-        M_contact_aligned.rotation = M_contact_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))#.dot(M_contact_aligned.rotation) 
-        tf_contact_aligned = list(pin.SE3ToXYZQUAT(M_contact_aligned))
-        arrow_length = 0.02*np.linalg.norm(f_des_LOCAL)
-        logger.info(arrow_length)
-        if(gui.nodeExists('world/ref_wrench')):
-            gui.deleteNode('world/ref_wrench', True)
-        gui.addArrow('world/ref_wrench', .01, arrow_length, [.5, 0., 0., 1.])
-        gui.applyConfiguration('world/ref_wrench', tf_contact_aligned )
-        # tf = viewer.gui.getNodeGlobalTransform('world/pinocchio/visuals/contact_0')
-    # viewer.gui.addFloor('world/floor')
-    
-    # Display friction cones if any
-    if('friction' in config['WHICH_COSTS']):
-        mu = config['mu']
-        frictionConeColor = [1., 1., 0., 0.3]
-        m_generatrices = np.matrix(np.empty([3, 4]))
-        m_generatrices[:, 0] = np.matrix([mu, mu, 1.]).T
-        m_generatrices[:, 0] = m_generatrices[:, 0] / np.linalg.norm(m_generatrices[:, 0])
-        m_generatrices[:, 1] = m_generatrices[:, 0]
-        m_generatrices[0, 1] *= -1.
-        m_generatrices[:, 2] = m_generatrices[:, 0]
-        m_generatrices[:2, 2] *= -1.
-        m_generatrices[:, 3] = m_generatrices[:, 0]
-        m_generatrices[1, 3] *= -1.
-        generatrices = m_generatrices
+        
+        viewer.gui.refresh()
 
-        v = [[0., 0., 0.]]
-        for k in range(m_generatrices.shape[1]):
-            v.append(m_generatrices[:3, k].T.tolist()[0])
-        v.append(m_generatrices[:3, 0].T.tolist()[0])
-        result = robot.viewer.gui.addCurve('world/cone', v, frictionConeColor)
-        robot.viewer.gui.setCurveMode('world/cone', 'TRIANGLE_FAN')
-        for k in range(m_generatrices.shape[1]):
-            l = robot.viewer.gui.addLine('world/cone_ray/' + str(k), [0., 0., 0.],
-                                                m_generatrices[:3, k].T.tolist()[0], frictionConeColor)
-        robot.viewer.gui.setScale('world/cone', [.5, .5, .5])
-        robot.viewer.gui.setVisibility('world/cone', "ALWAYS_ON_TOP")
-        # robot.viewer.gui.setVisibility(lineGroup, "ALWAYS_ON_TOP")
+        # Display reference contact wrench as red arrow
+        if('force' in config['WHICH_COSTS']):
+            # Display contact force as arrow
+            f_des_LOCAL = np.asarray(config['frameForceRef'])
+            ct_frame_placement_aligned = ct_frame_placement.copy()
+                # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
+                # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
+            ct_frame_placement_aligned.rotation = ct_frame_placement_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+            tf_contact_aligned = list(pin.SE3ToXYZQUAT(ct_frame_placement_aligned))
+            arrow_length = 0.02*np.linalg.norm(f_des_LOCAL)
+            # Remove force arrow if already displayed
+            if(gui.nodeExists('world/ref_wrench')):
+                gui.deleteNode('world/ref_wrench', True)
+            # Display force arrow
+            gui.addArrow('world/ref_wrench', .01, arrow_length, [.5, 0., 0., 1.])
+            gui.applyConfiguration('world/ref_wrench', tf_contact_aligned )
+            
+            viewer.gui.refresh()
 
-    # Clean previous node if any
-    for i in range(N_h):
+        # Display friction cones 
+        if('friction' in config['WHICH_COSTS']):
+            mu = config['mu']
+            frictionConeColor = [1., 1., 0., 0.3]
+            m_generatrices = np.matrix(np.empty([3, 4]))
+            m_generatrices[:, 0] = np.matrix([mu, mu, 1.]).T
+            m_generatrices[:, 0] = m_generatrices[:, 0] / np.linalg.norm(m_generatrices[:, 0])
+            m_generatrices[:, 1] = m_generatrices[:, 0]
+            m_generatrices[0, 1] *= -1.
+            m_generatrices[:, 2] = m_generatrices[:, 0]
+            m_generatrices[:2, 2] *= -1.
+            m_generatrices[:, 3] = m_generatrices[:, 0]
+            m_generatrices[1, 3] *= -1.
+            generatrices = m_generatrices
+            v = [[0., 0., 0.]]
+            for k in range(m_generatrices.shape[1]):
+                v.append(m_generatrices[:3, k].T.tolist()[0])
+            v.append(m_generatrices[:3, 0].T.tolist()[0])
+            result = robot.viewer.gui.addCurve('world/cone', v, frictionConeColor)
+            robot.viewer.gui.setCurveMode('world/cone', 'TRIANGLE_FAN')
+            for k in range(m_generatrices.shape[1]):
+                l = robot.viewer.gui.addLine('world/cone_ray/' + str(k), [0., 0., 0.],
+                                                    m_generatrices[:3, k].T.tolist()[0], frictionConeColor)
+            robot.viewer.gui.setScale('world/cone', [.5, .5, .5])
+            robot.viewer.gui.setVisibility('world/cone', "ALWAYS_ON_TOP")
+
+            viewer.gui.refresh()
+
+    # Display reference trajectory as red spheres
+    if('translation' in config['WHICH_COSTS']):
+
+        # Remove circle ref traj and EE traj if already displayed
+        for i in range(N_h):
+            if(viewer.gui.nodeExists('world/EE_ref'+str(i))):
+                viewer.gui.deleteNode('world/EE_ref'+str(i), True)
+        
+        viewer.gui.refresh()
+
+    # Display EE trajectory as blue spheres
+    for i in range(N_h):      
         if(viewer.gui.nodeExists('world/EE_'+str(i))):
             viewer.gui.deleteNode('world/EE_'+str(i), True)
-    if(viewer.gui.nodeExists('world/ee')):
-        viewer.gui.deleteNode('world/ee', True)
-    viewer.gui.addSphere('world/ee', .03, [0. ,1. ,0, 1.])
-    viewer.gui.addLandmark('world/ee', .5)
-    viewer.gui.applyConfiguration('world/ee', list(pin.SE3ToXYZQUAT(M_ct.copy())))
-    viewer.gui.refresh()
 
     viewer.gui.refresh()
-    log_rate = int(N_h/10)
-    f = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(N_h)]
+    
     logger.info("Visualizing...")
 
-    # Clean arrows if any
+    # Clean force arrow if already displayed
     if(gui.nodeExists('world/force')):
         gui.deleteNode('world/force', True)
+    # Display force arrow
     if('force' in config['WHICH_COSTS']):
         gui.addArrow('world/force', .02, arrow_length, [.0, 0., 0.5, 0.3])
 
     time.sleep(1.)
-    for i in range(N_h):
-        # Iter log
-        robot.display(ddp.xs[i][:nq])
-        if(i%draw_rate==0):
-            m_ee = M_ct.copy()
-            m_ee.translation = models[i].differential.costs.costs['translation'].cost.residual.reference
-            tf_ee = list(pin.SE3ToXYZQUAT(m_ee))
-            viewer.gui.addSphere('world/EE_'+str(i), .01, [1. ,0 ,0, 1.])
-            viewer.gui.applyConfiguration('world/EE_'+str(i), tf_ee)
 
-        # Display force
-        if('force' in config['WHICH_COSTS']):
-            gui.resizeArrow('world/force', 0.02, 0.02*np.linalg.norm(f[i]))
-            gui.applyConfiguration('world/force', tf_contact_aligned )
+    for i in range(N_h):
+        # Display robot in config q
+        q = ddp.xs[i][:nq]
+        robot.display(q)
+
+        # Display EE traj and ref circle traj
+        if(i%draw_rate==0):
+            if('translation' in config['WHICH_COSTS']):
+                # EE ref circle trajectory
+                m_ee_ref = ee_frame_placement.copy()
+                m_ee_ref.translation = models[i].differential.costs.costs['translation'].cost.residual.reference
+                tf_ee_ref = list(pin.SE3ToXYZQUAT(m_ee_ref))
+                viewer.gui.addSphere('world/EE_ref'+str(i), .01, [1. ,0 ,0, .3])
+                viewer.gui.applyConfiguration('world/EE_ref'+str(i), tf_ee_ref)
+            # EE trajectory
+            robot.framesForwardKinematics(q)
+            m_ee = robot.data.oMf[id_endeff].copy()
+            tf_ee = list(pin.SE3ToXYZQUAT(m_ee))
+            viewer.gui.addSphere('world/EE_'+str(i), .01, [0. , 0. , 1., 1.])
+            viewer.gui.applyConfiguration('world/EE_'+str(i), tf_ee)
         
+        # Move contact point 
+        m_ct = m_ee.copy()
+        m_ct.translation = m_ct.act(np.array([0., 0., offset])) 
+        tf_ct = list(pin.SE3ToXYZQUAT(m_ct))
+        gui.applyConfiguration('world/contact_point', tf_ct)
+
+        # Display force (magnitude and placement)
+        if('force' in config['WHICH_COSTS']):
+            # Display wrench
+            wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector
+            gui.resizeArrow('world/force', 0.02, 0.02*np.linalg.norm(wrench))
+            m_ct_aligned = m_ct.copy()
+                # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
+                # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
+            m_ct_aligned.rotation = m_ct_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+            gui.applyConfiguration('world/force', list(pin.SE3ToXYZQUAT(m_ct_aligned)) )
+            # Move reference wrench 
+            m_ct_ref_aligned = m_ee_ref.copy()
+            m_ct_ref_aligned.translation = m_ct_ref_aligned.act(np.array([0., 0., offset])) 
+            m_ct_ref_aligned.rotation = m_ct_ref_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+            tf_ct_ref_aligned = list(pin.SE3ToXYZQUAT(m_ct_ref_aligned))
+            gui.applyConfiguration('world/ref_wrench', tf_ct_ref_aligned)
+
         # Display the friction cones
         if('friction' in config['WHICH_COSTS']):
-            position = M_contact
-            position.rotation = M_contact.rotation
+            position = m_ee
+            position.rotation = m_ee.rotation
             robot.viewer.gui.applyConfiguration('world/cone', list(np.array(pin.SE3ToXYZQUAT(position)).squeeze()))
             robot.viewer.gui.setVisibility('world/cone', "ON")
 
         viewer.gui.refresh()
-        # if(i%log_rate==0):
-        logger.info("Display config n°"+str(i))
+
+        if(i%log_rate==0):
+            logger.info("Display config n°"+str(i))
+
         time.sleep(pause)
 
 
