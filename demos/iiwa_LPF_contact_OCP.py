@@ -45,7 +45,7 @@ robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
 # Get initial frame placement + dimensions of joint space
 id_endeff = robot.model.getFrameId('contact')
-M_ee = robot.data.oMf[id_endeff]
+M_ct = robot.data.oMf[id_endeff]
 nq = robot.model.nq; nv = robot.model.nv; nx = nq+nv; nu = nq
 
 
@@ -56,15 +56,7 @@ N_h = config['N_h']
 dt = config['dt']
 LPF_TYPE = 1
 # Warm start and reg
-f_ext = []
-for i in range(nq+1):
-    # CONTACT --> WORLD
-    W_M_ct = M_ee.copy()
-    f_WORLD = W_M_ct.actionInverse.T.dot(np.asarray(config['frameForceRef']))
-    # WORLD --> JOINT
-    j_M_W = robot.data.oMi[i].copy().inverse()
-    f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
-    f_ext.append(pin.Force(f_JOINT))
+f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 # ug = pin_utils.get_u_grav(q0, robot.model)
 # Define initial state
@@ -92,7 +84,7 @@ if(VISUALIZE):
     # Display force if any
     if('force' in config['WHICH_COSTS']):
         # Display placement of contact in WORLD frame
-        M_contact = M_ee.copy()
+        M_contact = M_ct.copy()
         offset = np.array([0., 0., 0.03])
         M_contact.translation = M_contact.act(offset)
         tf_contact = list(pin.SE3ToXYZQUAT(M_contact))
