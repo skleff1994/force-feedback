@@ -12,7 +12,7 @@ tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initi
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'translation', 'velocity',
-WHICH_COSTS: ['translation', 'stateReg', 'ctrlRegGrav']  
+WHICH_COSTS: ['translation', 'stateReg']  
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
