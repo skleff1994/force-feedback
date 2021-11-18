@@ -243,9 +243,6 @@ for i in range(sim_data['N_simu']):
     sim_data['Y_mea_SIMU'][i+1, :] = sensing.step(i, y_mea_SIMU, sim_data['Y_mea_SIMU'])
     sim_data['F_mea_SIMU'][i, :] = f_mea_SIMU
 
-print('--------------------------------')
-print('Simulation exited successfully !')
-print('--------------------------------')
 
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #

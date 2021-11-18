@@ -105,10 +105,6 @@ freq_SIMU = sim_data['simu_freq']
   # Replan & control counters
 nb_plan = 0
 nb_ctrl = 0
-  # Buffers for delays
-y_buffer_OCP = []                                             # buffer for desired controls delayed by OCP computation time
-w_buffer_OCP = []                                             # buffer for desired states delayed by OCP computation time
-buffer_sim = []                                               # buffer for measured torque delayed by e.g. actuation and/or sensing 
   # Sim options
 WHICH_PLOTS = ['y','w', 'p']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 dt_ocp = config['dt']                                         # OCP sampling rate 
