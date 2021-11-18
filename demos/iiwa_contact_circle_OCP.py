@@ -66,7 +66,9 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
                                             WHICH_COSTS=config['WHICH_COSTS']) 
 
 # Create circle trajectory (WORLD frame)
-EE_ref = ocp_utils.circle_trajectory_WORLD(ee_frame_placement.copy(), dt=dt, radius=.1, omega=3.)
+EE_ref = ocp_utils.circle_trajectory_WORLD(ee_frame_placement.copy(), dt=config['dt'], 
+                                                        radius=config['frameCircleTrajectoryRadius'], 
+                                                        omega=config['frameCircleTrajectoryVelocity'])
 
 # Set EE translation cost model references (i.e. setup tracking problem) and contact model references
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]

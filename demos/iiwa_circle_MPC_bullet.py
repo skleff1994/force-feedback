@@ -109,7 +109,7 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS       = ['x','u', 'p']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS       = ['x', 'p']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 dt_ocp            = config['dt']                            # OCP sampling rate 
 dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
@@ -160,6 +160,8 @@ for i in range(sim_data['N_simu']):
           sim_data['xreg'][nb_plan] = ddp.x_reg                     # Reg solver on x
           sim_data['ureg'][nb_plan] = ddp.u_reg                     # Reg solver on u
           sim_data['J_rank'][nb_plan] = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
+        # Record cost references for offline plots
+        data_utils.record_cost_references(ddp, sim_data, nb_plan)
         # Model communication between computer --> robot
         x_pred, u_curr = communication.step(x_pred, u_curr)
         # Select reference control and state for the current PLAN cycle

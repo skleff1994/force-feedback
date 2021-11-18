@@ -1081,6 +1081,9 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
         ax_x[i,0].plot(t_span_simu, plot_data['q_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
         ax_x[i,0].plot(t_span_simu, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax_x[i,0].plot(t_span_simu, plot_data['q_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
+        # Plot joint position regularization reference
+        if('stateReg' in plot_data['WHICH_COSTS']):
+            ax_x[i,0].plot(t_span_plan[:-1], plot_data['state_ref'][:, i], linestyle='-.', color='k', marker=None, label='xReg_ref', alpha=0.5)
         ax_x[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
         ax_x[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -1092,6 +1095,8 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
         ax_x[i,1].plot(t_span_simu, plot_data['v_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU)', alpha=0.5)
         ax_x[i,1].plot(t_span_simu, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax_x[i,1].plot(t_span_simu, plot_data['v_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
+        if('stateReg' in plot_data['WHICH_COSTS']):
+            ax_x[i,1].plot(t_span_plan[:-1], plot_data['state_ref'][:, i+nq], linestyle='-.', color='k', marker=None, label='xReg_ref', alpha=0.5)
         ax_x[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
         ax_x[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -1192,6 +1197,9 @@ def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False,
         # ax[i].plot(t_span_ctrl, plot_data['w_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Prediction (CTRL)', alpha=0.6)
         ax_u[i].plot(t_span_simu, plot_data['u_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Prediction (SIMU)', alpha=0.6)
         ax_u[i].plot(t_span_simu, plot_data['grav'][:-1,i], color='k', marker=None, linestyle='-.', label='Reg', alpha=0.6)
+        # Plot reference
+        if('ctrlReg' or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
+            ax_u[i].plot(t_span_plan, plot_data['ctrl_ref'][:, i], linestyle='-.', color='k', marker=None, label='uReg_ref', alpha=0.5)
         ax_u[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
         ax_u[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_u[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -1266,8 +1274,8 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
                 t0_horizon = j*dt_plan
                 tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
                 # Set up lists of (x,y) points for predicted positions
-                points_p = np.array([tspan_x_pred, p_ee_pred_i[j,:]-plot_data['p_ee_ref'][i]]).transpose().reshape(-1,1,2)
-                points_v = np.array([tspan_x_pred, v_ee_pred_i[j,:]-plot_data['v_ee_ref'][i]]).transpose().reshape(-1,1,2)
+                points_p = np.array([tspan_x_pred, p_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                points_v = np.array([tspan_x_pred, v_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
                 # Set up lists of segments
                 segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
                 segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
@@ -1288,31 +1296,37 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
                 # Scatter to highlight points
                 colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
                 my_colors = cm(colors)
-                ax[i,0].scatter(tspan_x_pred, p_ee_pred_i[j,:]-plot_data['p_ee_ref'][i], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
-                ax[i,1].scatter(tspan_x_pred, v_ee_pred_i[j,:]-plot_data['v_ee_ref'][i], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
-       
+                ax[i,0].scatter(tspan_x_pred, p_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+                ax[i,1].scatter(tspan_x_pred, v_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+
         # EE position
-        ax[i,0].plot(t_span_plan, plot_data['p_ee_des_PLAN'][:,i]-plot_data['p_ee_ref'][i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        ax[i,0].plot(t_span_plan, plot_data['p_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
         # ax[i,0].plot(t_span_ctrl, plot_data['p_ee_des_CTRL'][:,i]-plot_data['p_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
-        ax[i,0].plot(t_span_simu, plot_data['p_ee_des_SIMU'][:,i]-plot_data['p_ee_ref'][i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
-        ax[i,0].plot(t_span_simu, plot_data['p_ee_mea'][:,i]-plot_data['p_ee_ref'][i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax[i,0].plot(t_span_simu, plot_data['p_ee_mea_no_noise'][:,i]-[plot_data['p_ee_ref'][i]]*(N_simu+1), 'r-', label='measured', linewidth=2)
-        ax[i,0].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='err=0', alpha=0.5)
-        ax[i,0].set_ylabel('$\\Delta P^{EE}_%s$  (m)'%xyz[i], fontsize=16)
+        ax[i,0].plot(t_span_simu, plot_data['p_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['p_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,0].plot(t_span_simu, plot_data['p_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
+        # Plot reference
+        if('translation' in plot_data['WHICH_COSTS']):
+            ax[i,0].plot(t_span_plan[:-1], plot_data['p_ee_ref'][:,i], 'k-.', linewidth=2., label='Reference', alpha=0.5)
+        ax[i,0].set_ylabel('$P^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax[i,0].grid(True)
         # EE velocity
-        ax[i,1].plot(t_span_plan, plot_data['v_ee_des_PLAN'][:,i]-plot_data['v_ee_ref'][i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        ax[i,1].plot(t_span_plan, plot_data['v_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
         # ax[i,1].plot(t_span_ctrl, plot_data['v_ee_des_CTRL'][:,i]-plot_data['v_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
-        ax[i,1].plot(t_span_simu, plot_data['v_ee_des_SIMU'][:,i]-plot_data['v_ee_ref'][i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
-        ax[i,1].plot(t_span_simu, plot_data['v_ee_mea'][:,i]-plot_data['v_ee_ref'][i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax[i,1].plot(t_span_simu, plot_data['v_ee_mea_no_noise'][:,i]-[plot_data['v_ee_ref'][i]]*(N_simu+1), 'r-', label='Measured', linewidth=2)
-        ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='err=0', alpha=0.5)
-        ax[i,1].set_ylabel('$\\Delta V^{EE}_%s$  (m)'%xyz[i], fontsize=16)
+        ax[i,1].plot(t_span_simu, plot_data['v_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['v_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,1].plot(t_span_simu, plot_data['v_ee_mea_no_noise'][:,i], 'r-', label='Measured', linewidth=2)
+        # Plot reference 
+        if('velocity' in plot_data['WHICH_COSTS']):
+            ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='Reference', alpha=0.5)
+        ax[i,1].set_ylabel('$V^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax[i,1].grid(True)
+
+
     # Align
     fig.align_ylabels(ax[:,0])
     fig.align_ylabels(ax[:,1])
@@ -1321,8 +1335,8 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
     # Set ylim if any
     TOL = 1e-3
     if(AUTOSCALE):
-        ax_p_ylim = 1.1*max(np.max(np.abs(plot_data['p_ee_mea']-plot_data['p_ee_ref'])), TOL)
-        ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['v_ee_mea']-plot_data['v_ee_ref'])), TOL)
+        ax_p_ylim = 1.1*max(np.max(np.abs(plot_data['p_ee_mea'])), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['v_ee_mea'])), TOL)
         for i in range(3):
             ax[i,0].set_ylim(-ax_p_ylim, ax_p_ylim) 
             ax[i,1].set_ylim(-ax_v_ylim, ax_v_ylim) 
@@ -1330,7 +1344,7 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
     handles_p, labels_p = ax[0,0].get_legend_handles_labels()
     fig.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
     # Titles
-    fig.suptitle('End-effector trajectories errors', size=18)
+    fig.suptitle('End-effector trajectories', size=18)
     # Save figs
     if(SAVE):
         figs = {'p': fig}
@@ -1392,7 +1406,7 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
                 t0_horizon = j*dt_plan
                 tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
                 # Set up lists of (x,y) points for predicted positions
-                points_f = np.array([tspan_x_pred, f_ee_pred_i[j,:]-plot_data['f_ee_ref'][i]]).transpose().reshape(-1,1,2)
+                points_f = np.array([tspan_x_pred, f_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
                 # Set up lists of segments
                 segs_f = np.concatenate([points_f[:-1], points_f[1:]], axis=1)
                 # Make collections segments
@@ -1407,26 +1421,30 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
                 # Scatter to highlight points
                 colors = np.r_[np.linspace(0.1, 1, N_h-1), 1] 
                 my_colors = cm(colors)
-                ax[i,0].scatter(tspan_x_pred, f_ee_pred_i[j,:]-plot_data['f_ee_ref'][i], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+                ax[i,0].scatter(tspan_x_pred, f_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
        
         # EE position
-        ax[i,0].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,i]-plot_data['f_ee_ref'][i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
-        # ax[i,0].plot(t_span_ctrl, plot_data['p_ee_des_CTRL'][:,i]-plot_data['p_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
-        ax[i,0].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,i]-plot_data['f_ee_ref'][i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
-        ax[i,0].plot(t_span_simu, plot_data['f_ee_mea'][:,i]-plot_data['f_ee_ref'][i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        # ax[i,0].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,i]-[plot_data['p_ee_ref'][i]]*(N_simu+1), 'r-', label='measured', linewidth=2)
-        ax[i,0].plot(t_span_plan, [0.]*(N_plan), 'k-.', linewidth=2., label='err=0', alpha=0.5)
+        ax[i,0].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,0].plot(t_span_ctrl, plot_data['f_ee_des_CTRL'][:,i], 'g-', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['f_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        # ax[i,0].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
+        # Plot reference
+        if('force' in plot_data['WHICH_COSTS']):
+            ax[i,0].plot(t_span_plan, plot_data['f_ee_ref'][:,i], 'k-.', linewidth=2., label='Reference', alpha=0.5)
         ax[i,0].set_ylabel('$\\lambda^{EE}_%s$  (N)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax[i,0].grid(True)
         # EE velocity
-        ax[i,1].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,3+i]-plot_data['f_ee_ref'][3+i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
-        # ax[i,1].plot(t_span_ctrl, plot_data['v_ee_des_CTRL'][:,i]-plot_data['v_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
-        ax[i,1].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,3+i]-plot_data['f_ee_ref'][3+i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
-        ax[i,1].plot(t_span_simu, plot_data['f_ee_mea'][:,3+i]-plot_data['f_ee_ref'][3+i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,1].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,3+i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,1].plot(t_span_ctrl, plot_data['f_ee_des_CTRL'][:,i], 'g-', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,3+i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['f_ee_mea'][:,3+i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         # ax[i,1].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,3+i]-[plot_data['f_ee_ref'][3+i]]*(N_simu+1), 'r-', label='Measured', linewidth=2)
-        ax[i,1].plot(t_span_plan, [0.]*(N_plan), 'k-.', linewidth=2., label='err=0', alpha=0.5)
+        # Plot reference
+        if('force' in plot_data['WHICH_COSTS']):
+            ax[i,1].plot(t_span_plan, plot_data['f_ee_ref'][:,+i], 'k-.', linewidth=2., label='Reference', alpha=0.5)
         ax[i,1].set_ylabel('$\\tau^{EE}_%s$  (Nm)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -1448,7 +1466,7 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
     handles_p, labels_p = ax[0,0].get_legend_handles_labels()
     fig.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
     # Titles
-    fig.suptitle('End-effector forces errors', size=18)
+    fig.suptitle('End-effector forces', size=18)
     # Save figs
     if(SAVE):
         figs = {'f': fig}
