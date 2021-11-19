@@ -45,7 +45,7 @@ logger.setLevel(logging.DEBUG)
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
 # Read config file
-config_name = 'iiwa_LPF_circle_MPC'
+config_name = 'iiwa_LPF_contact_circle_MPC'
 config = path_utils.load_config_file(config_name)
 # Create a Pybullet simulation environment + set simu freq
 dt_simu = 1./float(config['simu_freq'])  
@@ -58,7 +58,12 @@ robot = pybullet_simulator.pin_robot
 # Get dimensions 
 id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
-M_ee = robot.data.oMf[id_endeff]
+ee_frame_placement = robot.data.oMf[id_endeff].copy()
+contact_placement = robot.data.oMf[id_endeff].copy()
+M_ct = robot.data.oMf[id_endeff].copy()
+offset = 0.03348 #0.0335
+contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
+sim_utils.display_contact_surface(contact_placement, with_collision=True)
 
 
 
@@ -69,26 +74,32 @@ M_ee = robot.data.oMf[id_endeff]
 N_h = config['N_h']
 dt = config['dt']
 # Setup Croco OCP and create solver
-ug = pin_utils.get_u_grav(q0, robot.model) 
-y0 = np.concatenate([x0, ug])
+f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
+u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+y0 = np.concatenate([x0, u0])
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
                                                 w_reg_ref='gravity',
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 # Create circle trajectory (WORLD frame) and setup tracking problem
-EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=config['dt'], 
+EE_ref = ocp_utils.circle_trajectory_WORLD(ee_frame_placement.copy(), dt=config['dt'], 
                                                         radius=config['frameCircleTrajectoryRadius'], 
                                                         omega=config['frameCircleTrajectoryVelocity'])
 # ocp_utils.set_ee_tracking_problem(ddp, EE_ref)
-# Set EE translation cost model references (i.e. setup tracking problem)
+# Set EE translation cost model references (i.e. setup tracking problem) and contact model references
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 for k,m in enumerate(models):
     if(k<EE_ref.shape[0]):
-        ref = EE_ref[k]
+        p_ee_ref = EE_ref[k]
     else:
-        ref = EE_ref[-1]
-    m.differential.costs.costs['translation'].cost.residual.reference = ref
+        p_ee_ref = EE_ref[-1]
+    # Cost translation
+    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
+    # Contact model
+    m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
+
+
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
@@ -98,9 +109,15 @@ if(WARM_START_IK):
     us_init = []
     q_ws = q0
     for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
+        # Get ref placement
         p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
+        Mref = ee_frame_placement.copy()
+        Mref.translation = p_ee_ref
+        # Get corresponding forces at each joint
+        f_ext = pin_utils.get_external_joint_torques(Mref, config['frameForceRef'], robot)
+        # Get joint state from IK
         q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)
-        tau_ws = pin_utils.get_u_grav(q_ws, robot.model)
+        tau_ws = pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model)
         xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
         if(k<N_h):
             us_init.append(tau_ws)
@@ -108,13 +125,13 @@ if(WARM_START_IK):
 # Classical warm start using initial config
 else:
     xs_init = [y0 for i in range(config['N_h']+1)]
-    us_init = [ug for i in range(config['N_h'])]
+    us_init = [u0 for i in range(config['N_h'])]
 
 # Solve 
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 #  Plot
-PLOT = False
+PLOT = True
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
     fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
@@ -138,10 +155,13 @@ WHICH_PLOTS = ['y','w', 'p']                                  # Which plots to 
 FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
 dt_ocp = config['dt']                                         # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
-OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # inverse = number of mpc steps over a shooting interval
-OCP_TO_SIMU_RATIO = dt_simu / dt_ocp                         # inverse = number of simu steps over a shooting interval
-logger.info("OCP_TO_PLAN_RATIO = "+str(OCP_TO_PLAN_RATIO))
-logger.info("OCP_TO_SIMU_RATIO = "+str(OCP_TO_SIMU_RATIO))
+OCP_TO_PLAN_RATIO  = dt_mpc / dt_ocp                         # ratio
+PLAN_TO_SIMU_RATIO = dt_simu / dt_mpc                        # Must be an integer !!!!
+OCP_TO_SIMU_RATIO  = dt_simu / dt_ocp                        # Must be an integer !!!!
+if(1./PLAN_TO_SIMU_RATIO%1 != 0):
+  logger.warning("SIMU->MPC ratio not an integer ! (1./PLAN_TO_SIMU_RATIO = "+str(1./PLAN_TO_SIMU_RATIO)+")")
+if(1./OCP_TO_SIMU_RATIO%1 != 0):
+  logger.warning("SIMU->OCP ratio not an integer ! (1./OCP_TO_SIMU_RATIO  = "+str(1./OCP_TO_SIMU_RATIO)+")")
 
 # Additional simulation blocks 
 communication = mpc_utils.CommunicationModel(config)
@@ -165,6 +185,7 @@ for i in range(sim_data['N_simu']):
       logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
       print('')
 
+
   # If the current simulation cycle matches an OCP node, update tracking problem
     if(i%int(1./OCP_TO_SIMU_RATIO)==0):
         # Shift all cost references forward accros OCP nodes except and duplicate last one
@@ -173,8 +194,11 @@ for i in range(sim_data['N_simu']):
           shift = int(i*OCP_TO_SIMU_RATIO)
           if(k+shift < EE_ref.shape[0]):
             m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k+shift]
+            m.differential.contacts.contacts["contact"].contact.reference.translation = EE_ref[k+shift] 
           else:
             m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[-1]
+            m.differential.contacts.contacts["contact"].contact.reference.translation = EE_ref[-1] 
+
 
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):       

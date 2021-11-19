@@ -1467,6 +1467,7 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
         ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['f_ee_mea'])), TOL)
         for i in range(3):
             ax[i,0].set_ylim(-ax_p_ylim, ax_p_ylim) 
+            # ax[i,0].set_ylim(-30, 10) 
             ax[i,1].set_ylim(-ax_v_ylim, ax_v_ylim) 
 
     handles_p, labels_p = ax[0,0].get_legend_handles_labels()

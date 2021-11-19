@@ -54,7 +54,7 @@ id_endeff = robot.model.getFrameId('contact')
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
-offset = 0.036 #0.0335
+offset = 0.03348 #0.0335
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 sim_utils.display_contact_surface(contact_placement, with_collision=True)
 
@@ -105,7 +105,7 @@ ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 
 # Plot initial solution
-PLOT_INIT = True
+PLOT_INIT = False
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data(ddp)
   fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
@@ -125,7 +125,7 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS       = ['x','u', 'p', 'f']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS       = ['f']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 dt_ocp            = config['dt']                            # OCP sampling rate 
 dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
 OCP_TO_PLAN_RATIO  = dt_mpc / dt_ocp                         # ratio
@@ -251,7 +251,7 @@ for i in range(sim_data['N_simu']):
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
-    if(i%50==0): 
+    if(i<50): 
       print(f_mea_SIMU)
     # Record data (unnoised)
     x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
