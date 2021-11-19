@@ -70,10 +70,10 @@ def get_contact_joint_torques(pybullet_simulator, id_endeff):
     return joint_torques
 
 
-def display_target(p_des):
+def display_target(p_des, SCALING=1.):
     logger.info("Creating PyBullet target ball...")
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
-    target =  p.loadURDF("sphere_small.urdf", basePosition=list(p_des), globalScaling=1, useFixedBase=True)
+    target =  p.loadURDF("sphere_small.urdf", basePosition=list(p_des), globalScaling=SCALING, useFixedBase=True)
     # Disable collisons
     p.setCollisionFilterGroupMask(target, -1, 0, 0)
 

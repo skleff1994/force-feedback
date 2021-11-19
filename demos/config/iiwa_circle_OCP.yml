@@ -15,13 +15,13 @@ WHICH_COSTS: ['translation', 'stateReg', 'ctrlRegGrav']
 # Cost function weights and activations
  # 'stateReg' : state regularization  
 stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.1
-stateRegWeightTerminal: 0.1
+stateRegWeight: 0.01
+stateRegWeightTerminal: 0.01
 stateRegRef: 'DEFAULT' # TRACKING ?
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.01
+ctrlRegWeight: 0.001
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 

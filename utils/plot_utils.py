@@ -2147,7 +2147,7 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
     v = x[:,nq:nq+nv]
     p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
     v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
-    if('translation' in ddp_data['active_costs']):
+    if('translation' or 'placement' in ddp_data['active_costs']):
         p_ee_ref = np.array(ddp_data['translation_ref'])
     else:
         p_ee_ref = np.array([p_ee[0,:] for i in range(N+1)])
@@ -2169,7 +2169,7 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
         ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
 
         # Plot EE target frame translation in WORLD frame
-        if('translation' in ddp_data['active_costs']):
+        if('translation' or 'placement' in ddp_data['active_costs']):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('reference' in labels):
                 handles.pop(labels.index('reference'))

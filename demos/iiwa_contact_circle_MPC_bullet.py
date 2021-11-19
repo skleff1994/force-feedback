@@ -137,6 +137,7 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # Update EE ref at each node of the OCP 
         if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
+          print()
           ocp_utils.set_ee_tracking_problem(ddp, EE_ref, CONTACT=True, mpc_cycle=nb_plan)
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]

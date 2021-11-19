@@ -63,7 +63,15 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False,
 EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=config['dt'], 
                                                         radius=config['frameCircleTrajectoryRadius'], 
                                                         omega=config['frameCircleTrajectoryVelocity'])
-ocp_utils.set_ee_tracking_problem(ddp, EE_ref)
+# ocp_utils.set_ee_tracking_problem(ddp, EE_ref)
+# Set EE translation cost model references (i.e. setup tracking problem)
+models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+for k,m in enumerate(models):
+    if(k<EE_ref.shape[0]):
+        ref = EE_ref[k]
+    else:
+        ref = EE_ref[-1]
+    m.differential.costs.costs['translation'].cost.residual.reference = ref
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
@@ -107,15 +115,26 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS       = ['all']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
-dt_ocp            = config['dt']                            # OCP sampling rate 
-dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
-OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
+WHICH_PLOTS        = ['all']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+dt_ocp             = config['dt']                            # OCP sampling rate 
+dt_mpc             = float(1./sim_data['plan_freq'])         # planning rate
+OCP_TO_PLAN_RATIO  = dt_mpc / dt_ocp                         # ratio
+PLAN_TO_SIMU_RATIO = dt_simu / dt_mpc                        # Must be an integer !!!!
+OCP_TO_SIMU_RATIO  = dt_simu / dt_ocp                        # Must be an integer !!!!
+if(1./PLAN_TO_SIMU_RATIO%1 != 0):
+  logger.warning("SIMU->MPC ratio not an integer ! (1./PLAN_TO_SIMU_RATIO = "+str(1./PLAN_TO_SIMU_RATIO)+")")
+if(1./OCP_TO_SIMU_RATIO%1 != 0):
+  logger.warning("SIMU->OCP ratio not an integer ! (1./OCP_TO_SIMU_RATIO  = "+str(1./OCP_TO_SIMU_RATIO)+")")
 
 # Additional simulation blocks 
 communication = mpc_utils.CommunicationModel(config)
 actuation     = mpc_utils.ActuationModel(config)
 sensing       = mpc_utils.SensorModel(config)
+
+# Display target circle
+for i in range(EE_ref.shape[0]):
+  if(i%20==0):
+    sim_utils.display_target(EE_ref[i], SCALING=0.2)
 
 
 # SIMULATE
@@ -126,11 +145,22 @@ for i in range(sim_data['N_simu']):
       logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
       print('')
 
+  # If the current simulation cycle matches an OCP node, update tracking problem
+    if(i%int(1./OCP_TO_SIMU_RATIO)==0):
+        # Shift all cost references forward accros OCP nodes except and duplicate last one
+        models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+        for k,m in enumerate(models):
+          shift = int(i*OCP_TO_SIMU_RATIO)
+          if(k+shift < EE_ref.shape[0]):
+            m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k+shift]
+          else:
+            m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[-1]
+
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # Update EE ref at each node of the OCP 
-        if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
-          ocp_utils.set_ee_tracking_problem(ddp, EE_ref, mpc_cycle=nb_plan)
+        # if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
+        #   ocp_utils.set_ee_tracking_problem(ddp, EE_ref, mpc_cycle=nb_plan)
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]

@@ -6,7 +6,7 @@
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 250         # Control frequency
 plan_freq: 250         # Planning frequency
-T_tot: .1              # Simu duration (s)
+T_tot: 1.                # Simu duration (s)
 # Simulation options
 DELAY_SIM: False              # Add delay in reference torques (low-level)
 DELAY_OCP: False              # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -41,14 +41,14 @@ WHICH_COSTS: ['translation', 'ctrlRegGrav', 'stateReg']
 # Cost function weights and activations
  # 'stateReg' : state regularization  
 stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.1
-stateRegWeightTerminal: 0.1
+stateRegWeight: 0.01
+stateRegWeightTerminal: 0.01
 stateRegRef: 'DEFAULT'
 
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 2., 10., 15.]
-ctrlRegWeight: 0.01
+ctrlRegWeight: 0.001
 ctrlRegRef: 'DEFAULT' # reference not used for 'ctrlRegGrav'
 
 
@@ -82,7 +82,7 @@ ctrlLimWeight: 10.
 ctrlLimRef: 'DEFAULT'
 
 # armature
-armature: [.1, .1, .1, .1, .1, .1, .01]
+armature: [.1, .1, .1, .1, .1, .1, .0]
 
 
 

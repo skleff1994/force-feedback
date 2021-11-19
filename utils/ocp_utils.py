@@ -15,7 +15,7 @@ from utils import pin_utils
 
 import logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # Interpolator
 def linear_interpolation(data, N):
@@ -276,24 +276,70 @@ def circle_trajectory_WORLD(M_ct, dt=0.01, radius=1., omega=1.):
   return traj_WORLD
 
 
-def set_ee_tracking_problem(ddp, p_ee_ref_trajectory, CONTACT=False, mpc_cycle=0):
+def set_ee_tracking_problem(ddp, ref_traj, CONTACT=False, mpc_cycle=0, ratio=0.):
   '''
   Changes the reference of each node's translation cost model 
   based on the provided trajectory
   Also updates contact model reference placement if CONTACT=True
-  mpc_cycle : default O, to replace by MPC cycle number if used inside MPC loop
+  mpc_cycle           : default O, to replace by MPC cycle number if used inside MPC loop
+  interpolation ratio : interpolate between consecutive nodes
   '''
   # Extract nodes
+  logger.debug("RESET tracking problem")
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-  # Set cost reference for each node of the OCP according to ref traj
+  
+  # For all nodes
   for k,m in enumerate(models):
-      if(k+mpc_cycle<p_ee_ref_trajectory.shape[0]):
-          p_ee_ref = p_ee_ref_trajectory[k+mpc_cycle]
+    
+    # if mpc_cycle matches a shooting node 
+    if(ratio != 0 and mpc_cycle%int(1./ratio)==0):
+      # shift all refs forward 
+      shift = int(mpc_cycle*ratio)
+      if(k+shift < ref_traj.shape[0]):
+        ref = ref_traj[k+shift]
+      # duplicate last ref if reached end of horizon
       else:
-          p_ee_ref = p_ee_ref_trajectory[-1]
-      m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
-      if(CONTACT):
-        m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
+        ref = ref_traj[-1]
+    
+    # otherwise 
+    else:
+      # inteperpolate ref bewteen consecutive nodes
+      if(k < ref_traj.shape[0]):
+        # ref_curr = ref_traj[k]
+        # ref_next = ref_traj[k+1]
+        ref      = ref_traj[k] #ref_curr + ratio * (ref_next - ref_curr)
+      # if no k+1 stay at final ref
+      else:
+        ref = ref_traj[-1]
+
+    # Set reference
+    if('translation' in m.differential.costs.costs.todict()):
+      # if(k%10==0):
+      #   logger.debug(ref)
+      m.differential.costs.costs['translation'].cost.residual.reference = ref
+    else:
+      logger.error("Cannot set reference: no cost on EE translation is defined !")
+    
+    # Set contact ref if necessary
+    if(CONTACT):
+      m.differential.contacts.contacts["contact"].contact.reference.translation = ref 
+
+  # # Set cost reference for each node of the OCP according to ref traj
+  # for k,m in enumerate(models):
+  #     if(k+1 < p_ee_ref_trajectory.shape[0]):
+  #         p_ee_ref_curr = p_ee_ref_trajectory[k]
+  #         p_ee_ref_next = p_ee_ref_trajectory[k+1]
+  #         p_ee_ref      = p_ee_ref_curr + interpolation_coef * (p_ee_ref_next - p_ee_ref_curr)
+  #         # p_ee_ref = p_ee_ref_trajectory[k+mpc_cycle] +
+  #     else:
+  #         p_ee_ref = p_ee_ref_trajectory[-1]
+  #     # Set ref
+  #     if('translation' in m.differential.costs.costs.todict()):
+  #       m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
+  #     else:
+  #       logger.error("Cannot set reference: no cost on EE translation is defined !")
+  #     if(CONTACT):
+  #       m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
 
 
 # Setup OCP and solver using Crocoddyl

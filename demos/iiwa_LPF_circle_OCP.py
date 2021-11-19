@@ -80,8 +80,16 @@ if(WARM_START_IK):
     us_init = []
     q_ws = q0
     for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
-        ref = m.differential.costs.costs['translation'].cost.residual.reference
-        q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
+        # if('placement' in m.differential.costs.costs.todict().keys()):
+        #     # M_ee_ref = M_ee.copy()
+        #     # M_ee_ref.translation = m.differential.costs.costs['placement'].cost.residual.reference.translation 
+        #     # q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, M_ee_ref, DT=1e-1, IT_MAX=2)
+        #     p_ee_ref = m.differential.costs.costs['placement'].cost.residual.reference.translation 
+        #     q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)
+        #     # print(q_ws, v_ws)
+        if('translation' in m.differential.costs.costs.todict().keys()):
+            p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
+            q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)
         tau_ws = pin_utils.get_u_grav(q_ws, robot.model)
         xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
         if(k<N_h):
@@ -103,7 +111,7 @@ if(PLOT):
 
 
 
-VISUALIZE = True
+VISUALIZE = False
 pause = 0.02 # in s
 if(VISUALIZE):
     import time
@@ -125,7 +133,7 @@ if(VISUALIZE):
     wrench_coef = 0.02
 
     # Display reference trajectory as red spheres
-    if('translation' in config['WHICH_COSTS']):
+    if('translation' or 'placement' in config['WHICH_COSTS']):
 
         # Remove circle ref traj and EE traj if already displayed
         for i in range(N_h):
@@ -152,10 +160,13 @@ if(VISUALIZE):
 
         # Display EE traj and ref circle traj
         if(i%draw_rate==0):
-            if('translation' in config['WHICH_COSTS']):
+            if('translation' or 'placement' in config['WHICH_COSTS']):
                 # EE ref circle trajectory
                 m_ee_ref = M_ee.copy()
-                m_ee_ref.translation = models[i].differential.costs.costs['translation'].cost.residual.reference
+                if('translation' in config['WHICH_COSTS']):
+                    m_ee_ref.translation = models[i].differential.costs.costs['translation'].cost.residual.reference
+                elif('placement' in config['WHICH_COSTS']):
+                    m_ee_ref = models[i].differential.costs.costs['placement'].cost.residual.reference.copy()
                 tf_ee_ref = list(pin.SE3ToXYZQUAT(m_ee_ref))
                 viewer.gui.addSphere('world/EE_ref'+str(i), ref_size, ref_color)
                 viewer.gui.applyConfiguration('world/EE_ref'+str(i), tf_ee_ref)
