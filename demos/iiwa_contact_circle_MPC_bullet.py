@@ -51,6 +51,7 @@ robot = pybullet_simulator.pin_robot
 nq, nv = robot.model.nq, robot.model.nv; nu = nq
 # Display contact surface
 id_endeff = robot.model.getFrameId('contact')
+ee_frame_placement = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
 offset = 0.036 #0.0335
@@ -65,10 +66,21 @@ sim_utils.display_contact_surface(contact_placement, with_collision=True)
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
 # Create circle trajectory (WORLD frame) and setup tracking problem
-EE_ref = ocp_utils.circle_trajectory_WORLD(contact_placement.copy(), dt=config['dt'], 
+EE_ref = ocp_utils.circle_trajectory_WORLD(ee_frame_placement, dt=config['dt'], 
                                                         radius=config['frameCircleTrajectoryRadius'], 
                                                         omega=config['frameCircleTrajectoryVelocity'])
-ocp_utils.set_ee_tracking_problem(ddp, EE_ref, CONTACT=True)
+# ocp_utils.set_ee_tracking_problem(ddp, EE_ref, CONTACT=True)
+# Set EE translation cost model references (i.e. setup tracking problem) and contact model references
+models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+for k,m in enumerate(models):
+    if(k<EE_ref.shape[0]):
+        p_ee_ref = EE_ref[k] 
+    else:
+        p_ee_ref = EE_ref[-1]
+    # Cost translation
+    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref  
+    # Contact model
+    m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
@@ -93,7 +105,7 @@ ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 
 # Plot initial solution
-PLOT_INIT = False
+PLOT_INIT = True
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data(ddp)
   fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
@@ -116,12 +128,25 @@ nb_ctrl = 0
 WHICH_PLOTS       = ['x','u', 'p', 'f']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 dt_ocp            = config['dt']                            # OCP sampling rate 
 dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
-OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
+OCP_TO_PLAN_RATIO  = dt_mpc / dt_ocp                         # ratio
+PLAN_TO_SIMU_RATIO = dt_simu / dt_mpc                        # Must be an integer !!!!
+OCP_TO_SIMU_RATIO  = dt_simu / dt_ocp                        # Must be an integer !!!!
+if(1./PLAN_TO_SIMU_RATIO%1 != 0):
+  logger.warning("SIMU->MPC ratio not an integer ! (1./PLAN_TO_SIMU_RATIO = "+str(1./PLAN_TO_SIMU_RATIO)+")")
+if(1./OCP_TO_SIMU_RATIO%1 != 0):
+  logger.warning("SIMU->OCP ratio not an integer ! (1./OCP_TO_SIMU_RATIO  = "+str(1./OCP_TO_SIMU_RATIO)+")")
 
 # Additional simulation blocks 
 communication = mpc_utils.CommunicationModel(config)
 actuation     = mpc_utils.ActuationModel(config)
 sensing       = mpc_utils.SensorModel(config)
+
+
+# Display target circle
+for i in range(EE_ref.shape[0]):
+  if(i%20==0):
+    sim_utils.display_target(EE_ref[i], SCALING=0.2)
+
 
 
 # SIMULATE
@@ -132,13 +157,25 @@ for i in range(sim_data['N_simu']):
       logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
       print('')
 
+  # If the current simulation cycle matches an OCP node, update tracking problem
+    if(i%int(1./OCP_TO_SIMU_RATIO)==0):
+        # Shift all cost references forward accros OCP nodes except and duplicate last one
+        models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+        for k,m in enumerate(models):
+          shift = int(i*OCP_TO_SIMU_RATIO)
+          if(k+shift < EE_ref.shape[0]):
+            m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k+shift]
+            m.differential.contacts.contacts["contact"].contact.reference.translation = EE_ref[k+shift] 
+          else:
+            m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[-1]
+            m.differential.contacts.contacts["contact"].contact.reference.translation = EE_ref[-1] 
 
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # Update EE ref at each node of the OCP 
-        if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
-          print()
-          ocp_utils.set_ee_tracking_problem(ddp, EE_ref, CONTACT=True, mpc_cycle=nb_plan)
+        # if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
+        #   print()
+        #   ocp_utils.set_ee_tracking_problem(ddp, EE_ref, CONTACT=True, mpc_cycle=nb_plan)
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
