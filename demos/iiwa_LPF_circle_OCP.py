@@ -60,11 +60,10 @@ dt = config['dt']
 # Setup Croco OCP and create solver
 ug = pin_utils.get_u_grav(q0, robot.model) 
 y0 = np.concatenate([x0, ug])
-LPF_TYPE = 1
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
                                                 w_reg_ref='gravity',
                                                 TAU_PLUS=False, 
-                                                LPF_TYPE=LPF_TYPE,
+                                                LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 # Create circle trajectory (WORLD frame) and setup tracking problem
 EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=config['dt'], 
@@ -88,13 +87,6 @@ if(WARM_START_IK):
     us_init = []
     q_ws = q0
     for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
-        # if('placement' in m.differential.costs.costs.todict().keys()):
-        #     # M_ee_ref = M_ee.copy()
-        #     # M_ee_ref.translation = m.differential.costs.costs['placement'].cost.residual.reference.translation 
-        #     # q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, M_ee_ref, DT=1e-1, IT_MAX=2)
-        #     p_ee_ref = m.differential.costs.costs['placement'].cost.residual.reference.translation 
-        #     q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)
-        #     # print(q_ws, v_ws)
         if('translation' in m.differential.costs.costs.todict().keys()):
             p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
             q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)

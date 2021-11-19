@@ -1,4 +1,4 @@
-# OCP parameters for end-effector reaching task
+# OCP LPF parameters for end-effector circle force task
 
 # General 
 LPF_TYPE: 1
@@ -10,35 +10,51 @@ q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint confi
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initial robot joint torque
 
+# 6D dontact models 
+contactModelFrameName: 'contact'
+contactModelTranslationRef: 'DEFAULT'
+contactModelRotationRef: 'DEFAULT'
+contactModelGains: [100., 10.]
+
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
-#                           'translation', 'velocity',
-# WHICH_COSTS: ['translation', 'stateReg', 'velocity' , 'ctrlRegGrav']  
-WHICH_COSTS: ['translation', 'stateReg', 'velocity' , 'ctrlRegGrav']  
+#                           'force', 'friction', 'translation', 'velocity', 'placement'
+WHICH_COSTS: ['force', 'translation', 'stateReg']
 
 # Cost function weights and activations
+ # 'force' : end-effector frame force (translation + rotation)
+frameForceWeights:  [1., 1., 1., 1., 1., 1.]
+frameForceWeight: 1
+frameForceRef: [0., 0., -20, 0., 0., 0.]    
+frameForceFrameName: 'contact'
+
+ # 'friction' : end-effector frame friction cone 
+mu:  0.5
+frictionConeWeight: 1
+frictionConeFrameName: 'contact'
+
  # 'stateReg' : state regularization  
-stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 1., 1., 1., 1., 1., 1., 1.]
+stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
 stateRegWeight: 0.01
-stateRegWeightTerminal: 1
+stateRegWeightTerminal: 1.
 stateRegRef: 'DEFAULT' # TRACKING ?
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.005
+ctrlRegWeight: 0.1
 ctrlRegWeightTerminal: 0.
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.00002
+wRegWeight: 0.0005
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 10.
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 100.
-frameTranslationWeightTerminal: 100.
+frameTranslationWeight: 1.
+frameTranslationWeightTerminal: 1.
 frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
@@ -46,15 +62,15 @@ frameCircleTrajectoryVelocity: 3. # in rad/s
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: 0.
-frameVelocityWeightTerminal: 100
+frameVelocityWeight: .1
+frameVelocityWeightTerminal: .1
 frameVelocityRef: 'DEFAULT'    
 frameVelocityFrameName: 'contact'
 
  # 'placement' : end-effector frame placement (translation + rotation)
-framePlacementWeights:  [1., 1., 1., 0., 0., 0.]
+framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
 framePlacementWeight: 0.1
-framePlacementWeightTerminal: .1
+framePlacementWeightTerminal: 0.1
 framePlacementTranslationRef: 'DEFAULT'
 framePlacementRotationRef: 'DEFAULT'
 framePlacementFrameName: 'contact'

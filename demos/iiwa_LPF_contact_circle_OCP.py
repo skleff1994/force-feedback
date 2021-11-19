@@ -37,7 +37,7 @@ logger.setLevel(logging.INFO)
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
 # Read config file
-config = path_utils.load_config_file('iiwa_contact_circle_OCP')
+config = path_utils.load_config_file('iiwa_LPF_contact_circle_OCP')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
@@ -52,7 +52,7 @@ nu = nq
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
-
+M_ct = robot.data.oMf[id_endeff]
 
 
 
@@ -62,12 +62,18 @@ ee_frame_placement = robot.data.oMf[id_endeff].copy()
 N_h = config['N_h']
 dt = config['dt']
 # Setup Croco OCP and create solver
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                            WHICH_COSTS=config['WHICH_COSTS']) 
-
+f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
+u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+y0 = np.concatenate([x0, u0])
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
+                                                w_reg_ref='gravity',
+                                                TAU_PLUS=False, 
+                                                LPF_TYPE=config['LPF_TYPE'],
+                                                WHICH_COSTS=config['WHICH_COSTS'] )
 # Create circle trajectory (WORLD frame)
-EE_ref = ocp_utils.circle_trajectory_WORLD(ee_frame_placement.copy(), dt=dt, radius=.1, omega=3.)
-
+EE_ref = ocp_utils.circle_trajectory_WORLD(ee_frame_placement.copy(), dt=config['dt'], 
+                                                        radius=config['frameCircleTrajectoryRadius'], 
+                                                        omega=config['frameCircleTrajectoryVelocity'])
 # Set EE translation cost model references (i.e. setup tracking problem) and contact model references
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 for k,m in enumerate(models):
@@ -80,6 +86,8 @@ for k,m in enumerate(models):
     # Contact model
     m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
 
+
+
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
 if(WARM_START_IK):
@@ -87,7 +95,7 @@ if(WARM_START_IK):
     xs_init = [] 
     us_init = []
     q_ws = q0
-    for k,m in enumerate(models):
+    for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
         # Get ref placement
         p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
         Mref = ee_frame_placement.copy()
@@ -95,15 +103,15 @@ if(WARM_START_IK):
         # Get corresponding forces at each joint
         f_ext = pin_utils.get_external_joint_torques(Mref, config['frameForceRef'], robot)
         # Get joint state from IK
-        q_ws, v_ws, _ = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)
-        xs_init.append(np.concatenate([q_ws, v_ws]))
+        q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)
+        tau_ws = pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model)
+        xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
         if(k<N_h):
-            us_init.append(pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model))
+            us_init.append(tau_ws)
+
 # Classical warm start using initial config
 else:
-    f_ext = pin_utils.get_external_joint_torques(ee_frame_placement, config['frameForceRef'], robot)
-    u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
-    xs_init = [x0 for i in range(config['N_h']+1)]
+    xs_init = [y0 for i in range(config['N_h']+1)]
     us_init = [u0 for i in range(config['N_h'])]
 
 # Solve initial
@@ -113,16 +121,16 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
 #  Plot
-PLOT = False
+PLOT = True
 if(PLOT):
-    ddp_data = data_utils.extract_ddp_data(ddp)
-    fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['all'], markers=['.'], SHOW=True)
+    ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+    fig, ax = plot_utils.plot_ddp_results_LPF( ddp_data, which_plots=['all'], markers=['.'], SHOW=True)
 
 
 
 
 
-VISUALIZE = True
+VISUALIZE = False
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
