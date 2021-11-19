@@ -6,7 +6,7 @@ import pinocchio as pin
 
 import logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 # Save data (dict) into compressed npz
@@ -658,7 +658,7 @@ def extract_ddp_data_LPF(ddp):
       # express it in LOCAL contact frame using jMf 
       ee_forces = [data.jMf.actInv(data.f).vector for data in datas] 
       ddp_data['fs'] = [ee_forces[i] for i in range(ddp.problem.T)]
-    # Extract refs for active costs 
+    # Extract cost references of active costs 
     # TODO : active costs may change along horizon : how to deal with that when plotting? 
     ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
     if('stateReg' in ddp_data['active_costs']):
@@ -668,8 +668,7 @@ def extract_ddp_data_LPF(ddp):
         ddp_data['ctrlReg_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].cost.residual.reference for i in range(ddp.problem.T)]
         ddp_data['ctrlReg_ref'].append(ddp.problem.terminalModel.differential.costs.costs['ctrlReg'].cost.residual.reference)
     if('ctrlRegGrav' in ddp_data['active_costs']):
-        ddp_data['ctrlRegGrav_ref'] = [pin_utils.get_u_grav(ddp.xs[i][:ddp_data['nq']], ddp_data['pin_model']) for i in range(ddp.problem.T)]
-        ddp_data['ctrlRegGrav_ref'].append(pin_utils.get_u_grav(ddp.xs[-1][:ddp_data['nq']], ddp_data['pin_model']))
+        ddp_data['ctrlRegGrav_ref'] = [pin_utils.get_u_grav(ddp.xs[i][:ddp_data['nq']], ddp_data['pin_model']) for i in range(ddp.problem.T+1)]
     if('stateLim' in ddp_data['active_costs']):
         ddp_data['stateLim_ub'] = [ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.ub for i in range(ddp.problem.T)]
         ddp_data['stateLim_lb'] = [ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.lb for i in range(ddp.problem.T)]

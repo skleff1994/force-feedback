@@ -89,8 +89,7 @@ if(WARM_START_IK):
 
 # Classical warm start using initial config
 else:
-    ug  = pin_utils.get_u_grav(q0, robot.model)
-    xs_init = [x0 for i in range(config['N_h']+1)]
+    xs_init = [y0 for i in range(config['N_h']+1)]
     us_init = [ug for i in range(config['N_h'])]
 
 # Solve 
@@ -99,13 +98,13 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 #  Plot
 PLOT = True
 if(PLOT):
-    ddp_data = data_utils.extract_ddp_data(ddp)
-    fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['p'], markers=['.'], colors=['b'], SHOW=True)
+    ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
 
 
 
 VISUALIZE = True
-pause = 0.01 # in s
+pause = 0.02 # in s
 if(VISUALIZE):
     import time
     import pinocchio as pin
