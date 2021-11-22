@@ -20,7 +20,7 @@ WHICH_COSTS: ['force', 'translation', 'stateReg', 'ctrlRegGrav']
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeights:  [1., 1., 1., 1., 1., 1.]
+frameForceWeights:  [0., 0., 1., 0., 0., 0.]
 frameForceWeight: 10
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'

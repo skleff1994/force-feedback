@@ -271,7 +271,7 @@ if(VISUALIZE):
         if('force' in config['WHICH_COSTS']):
             # Display wrench
             wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector
-            gui.resizeArrow('world/force', real_size, wrench_coef*np.linalg.norm(wrench))
+            gui.resizeArrow('world/force', real_size, wrench_coef*np.linalg.norm(wrench[2]))
             m_ct_aligned = m_ct.copy()
                 # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
                 # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
