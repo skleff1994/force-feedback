@@ -913,7 +913,7 @@ def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, co
     '''
     Plot ddp results (endeff)
     '''
-    return plot_ddp_endeff(ddp_data, fig=fig, ax=ax, label=label, marker=marker, color=color, alpha=alpha, MAKE_LEGEND=MAKE_LEGEND, SHOW=SHOW)
+    return plot_ddp_endeff_linear(ddp_data, fig=fig, ax=ax, label=label, marker=marker, color=color, alpha=alpha, MAKE_LEGEND=MAKE_LEGEND, SHOW=SHOW)
 
 def plot_ddp_force_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
     '''
@@ -1956,7 +1956,7 @@ def plot_ddp_results(DDP_DATA, which_plots='all', labels=None, markers=None, col
                     fig_u, ax_u = plot_ddp_control(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('xs' in data.keys()):
-                    fig_p, ax_p = plot_ddp_endeff(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    fig_p, ax_p = plot_ddp_endeff_linear(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('fs' in data.keys()):
                     fig_f, ax_f = plot_ddp_force(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
@@ -1970,7 +1970,7 @@ def plot_ddp_results(DDP_DATA, which_plots='all', labels=None, markers=None, col
                         plot_ddp_control(data, fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
                     if('xs' in data.keys()):
-                        plot_ddp_endeff(data, fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                        plot_ddp_endeff_linear(data, fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                     if('fs' in data.keys()):
                         plot_ddp_force(data, fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
@@ -2132,10 +2132,11 @@ def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, marker=None, color
         plt.show()
     return fig, ax
 
-def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
+
+def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
                                                     MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
     '''
-    Plot ddp results (endeff)
+    Plot ddp results (endeff linear position, velocity)
     '''
     # Parameters
     N = ddp_data['T'] 
@@ -2229,13 +2230,117 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, marker=None, color=
     if(MAKE_LEGEND):
         handles, labels = ax[0,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.suptitle('End-effector trajectories: position and velocity', size=18)
+    fig.suptitle('End-effector translation: position and velocity', size=18)
     if(SHOW):
         plt.show()
     return fig, ax
 
+
+def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
+                                                    MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
+    '''
+    Plot ddp results (endeff angular position, velocity)
+    '''
+    # Parameters
+    N = ddp_data['T'] 
+    dt = ddp_data['dt']
+    nq = ddp_data['nq']
+    nv = ddp_data['nv'] 
+    # Extract EE traj
+    x = np.array(ddp_data['xs'])
+    q = x[:,:nq]
+    v = x[:,nq:nq+nv]
+    R_ee    = pin_utils.get_R_(q, ddp_data['pin_model'], ddp_data['frame_id'])
+    Rdot_ee = pin_utils.get_Rdot_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
+    if('rotation' in ddp_data['active_costs']):
+        R_ee_ref = np.array(ddp_data['rotation_ref'])
+    else:
+        R_ee_ref = np.array([R_ee[0,:] for i in range(N+1)])
+    if('velocity' in ddp_data['active_costs']):
+        v_ee_ref = np.array(ddp_data['velocity_ref'])
+    else:
+        v_ee_ref = np.array([v_ee[0,:] for i in range(N+1)])
+    if('contact_translation' in ddp_data):
+        p_ee_contact = np.array(ddp_data['contact_translation'])
+    # Plots
+    tspan = np.linspace(0, N*dt, N+1)
+    if(ax is None or fig is None):
+        fig, ax = plt.subplots(3, 2, sharex='col')
+    if(label is None):
+        label='OCP solution'
+    xyz = ['x', 'y', 'z']
+    for i in range(3):
+        # Plot EE position in WORLD frame
+        ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+
+        # Plot EE target frame translation in WORLD frame
+        if('translation' or 'placement' in ddp_data['active_costs']):
+            handles, labels = ax[i,0].get_legend_handles_labels()
+            if('reference' in labels):
+                handles.pop(labels.index('reference'))
+                ax[i,0].lines.pop(labels.index('reference'))
+                labels.remove('reference')
+            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
+        
+        # Plot CONTACT reference frame translation in WORLD frame
+        if('contact_translation' in ddp_data):
+            handles, labels = ax[i,0].get_legend_handles_labels()
+            if('contact' in labels):
+                handles.pop(labels.index('contact'))
+                ax[i,0].lines.pop(labels.index('contact'))
+                labels.remove('contact')
+            ax[i,0].plot(tspan, p_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
+
+        # Labels, tick labels, grid
+        ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,0].grid(True)
+
+        # Plot EE 'linear) velocities in WORLD frame
+        ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+
+        # Plot EE target frame (linear) velocity in WORLD frame
+        if('velocity' in ddp_data['active_costs']):
+            handles, labels = ax[i,1].get_legend_handles_labels()
+            if('reference' in labels):
+                handles.pop(labels.index('reference'))
+                ax[i,1].lines.pop(labels.index('reference'))
+                labels.remove('reference')
+            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
+        
+        # Labels, tick labels, grid
+        ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax[i,1].grid(True)
+    
+    #x-label + align
+    fig.align_ylabels(ax[:,0])
+    fig.align_ylabels(ax[:,1])
+    ax[i,0].set_xlabel('t (s)', fontsize=16)
+    ax[i,1].set_xlabel('t (s)', fontsize=16)
+
+    # Set ylim if any
+    if(AUTOSCALE):
+        TOL = 0.1
+        ax_p_ylim = 1.1*max(np.max(np.abs(p_ee)), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(v_ee)), TOL)
+        for i in range(3):
+            ax[i,0].set_ylim(p_ee_ref[0,i]-ax_p_ylim, p_ee_ref[0,i]+ax_p_ylim) 
+            ax[i,1].set_ylim(v_ee_ref[0,i]-ax_v_ylim, v_ee_ref[0,i]+ax_v_ylim)
+
+    if(MAKE_LEGEND):
+        handles, labels = ax[0,0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+    fig.suptitle('End-effector translation: position and velocity', size=18)
+    if(SHOW):
+        plt.show()
+    return fig, ax
+
+
 def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
-                                                MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
+                                                MAKE_LEGEND=False, SHOW=True, AUTOSCALE=False):
     '''
     Plot ddp results (force)
     '''

@@ -71,6 +71,9 @@ def get_contact_joint_torques(pybullet_simulator, id_endeff):
 
 
 def display_ball(p_des, RADIUS=1., COLOR=[1.,1.,1.,1.]):
+    '''
+    Create a sphere visual object in PyBullet
+    '''
     logger.info("Creating PyBullet target ball...")
     # p.setAdditionalSearchPath(pybullet_data.getDataPath())
     # target =  p.loadURDF("sphere_small.urdf", basePosition=list(p_des), globalScaling=SCALING, useFixedBase=True)
@@ -95,12 +98,11 @@ def display_ball(p_des, RADIUS=1., COLOR=[1.,1.,1.,1.]):
 
 
 # Load contact surface in PyBullet for contact experiments
-def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=False, TILT=[0., 0., 0.]):
+def display_contact_surface(M, robotId=1, radius=.3, length=0.0, with_collision=False, TILT=[0., 0., 0.]):
     '''
     Create contact surface object in pybullet and display it
       M       : contact placement
       robotId : id of the robot 
-
     '''
     logger.info("Creating PyBullet contact surface...")
     # Tilt contact surface (default 0)

@@ -65,6 +65,66 @@ def get_v_(q, dq, model, id_endeff):
     return v
 
 
+def get_R(q, dq, pin_robot, id_endeff):
+    '''
+    Returns end-effector velocities given q,dq trajectory 
+        q         : joint positions
+        dq        : joint velocities
+        pin_robot : pinocchio wrapper
+        id_endeff : id of EE frame
+    '''
+    return get_R_(q, dq, pin_robot.model, id_endeff)
+
+
+def get_R_(q, model, id_endeff):
+    '''
+    Returns end-effector rotations given q
+        q         : joint positions
+        dq        : joint velocities
+        model     : pinocchio model
+        id_endeff : id of EE frame
+    '''
+    N = np.shape(q)[0]
+    R = []
+    data = model.createData()
+    for i in range(N):
+        # Get jacobian + compute vel
+        pin.framesForwardKinematics(q)
+        R.append(data.oMf[id_endeff].rotation.copy())
+    return R
+
+
+def get_Rdot(q, dq, pin_robot, id_endeff):
+    '''
+    Returns end-effector velocities given q,dq trajectory 
+        q         : joint positions
+        dq        : joint velocities
+        pin_robot : pinocchio wrapper
+        id_endeff : id of EE frame
+    '''
+    return get_R_(q, dq, pin_robot.model, id_endeff)
+
+
+def get_R_(q, model, id_endeff):
+    '''
+    Returns end-effector rotations given q
+        q         : joint positions
+        dq        : joint velocities
+        model     : pinocchio model
+        id_endeff : id of EE frame
+    '''
+    N = np.shape(q)[0]
+    R = []
+    data = model.createData()
+    for i in range(N):
+        # Get jacobian + compute vel
+        pin.framesForwardKinematics(q)
+        R.append(data.oMf[id_endeff].rotation.copy())
+    return R
+
+
+
+
 def get_f_(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc

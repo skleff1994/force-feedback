@@ -249,12 +249,13 @@ def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5
     return max(min(np.exp(1/(alpha*r+1))-1, max_weight), min_weight)
 
 
+# Utils for circle trajectory tracking (position of EE frame) task
 
 def circle_point_LOCAL(t, radius=1., omega=1.):
   '''
   Returns the LOCAL frame coordinates of the point reached at time t
   on a circle trajectory with given radius and angular frequency 
-  Can be shifted by origin in LOCAL coordinates
+  The circle is drawn in the LOCAL (x,y)-plane of the initial frame of interest
   '''
   # LOCAL coordinates 
   return np.array([radius*(1-np.cos(-omega*t)), radius*np.sin(-omega*t), 0.])
@@ -264,12 +265,31 @@ def circle_point_WORLD(t, M_ct, radius=1., omega=1.):
   '''
   Returns the WORLD frame coordinates of the point reached at time t
   on a circle trajectory with given radius and angular frequency 
-  Can be shifted by origin in LOCAL coordinates
+  M_ct is the initial placement of the frame of interest
   '''
   # LOCAL coordinates 
   return M_ct.act(circle_point_LOCAL(t, radius=radius, omega=omega))
 
 
+
+# Utils for rotation trajectory (orientation of EE frame) task
+
+def rotation_matrix_LOCAL(t, omega=1.):
+  '''
+  Returns the LOCAL frame rotation matrix reached at time t
+  on a EE rotation trajectory angular frequency 
+  '''
+  # LOCAL coordinates 
+  return pin.rpy.rpyToMatrix(0., omega*t, 0.)
+
+
+def rotation_matrix_WORLD(t, M_ct, omega=1.):
+  '''
+  Returns the WORLD frame rotation matrix reached at time t
+  on a EE rotation trajectory angular frequency 
+  '''
+  # WORLD coordinates
+  return M_ct.rotation.dot(rotation_matrix_LOCAL(t, omega=omega))
 
 
 
@@ -306,11 +326,18 @@ def init_DDP(robot, config, x0, callbacks=False,
     actuation = crocoddyl.ActuationModelFull(state)
   
   # Contact or not ?
+    # CONTACT6D = False
+    # CONTACT3D = False
+    CONTACT   = False
+    # 6D ?
     if('contactModelFrameName' in config.keys()):
       CONTACT = True
-    else:
-      CONTACT = False
-    
+      if('contactModelRotationRef' in config.keys()):
+        CONTACT_TYPE = '6D'
+      else:
+        CONTACT_TYPE = '3D'
+  
+  
   # Create IAMs
     runningModels = []
     for i in range(N_h):  
@@ -324,16 +351,26 @@ def init_DDP(robot, config, x0, callbacks=False,
               contactModelTranslationRef = robot.data.oMf[contactModelFrameId].translation.copy()
             else:
               contactModelTranslationRef = config['contactModelTranslationRef']
-            # Default contact reference rotation = initial rotation
-            if(config['contactModelRotationRef']=='DEFAULT'):
-              contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
+            
+            # 6D Contact model if rotation is specified in config file
+            if('contactModelRotationRef' in config.keys()):
+              # Default rotation = initial rotation of EE frame
+              if(config['contactModelRotationRef']=='DEFAULT'):
+                contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
+              else:
+                contactModelRotationRef = config['contactModel6DRotationRef']
+              contactModelPlacementRef = pin.SE3(contactModelRotationRef, contactModelTranslationRef)
+              contactModel = crocoddyl.ContactModel6D(state, 
+                                                      contactModelFrameId, 
+                                                      contactModelPlacementRef, 
+                                                      contactModelGains) 
+            # Otherwise (default) 3D contact model
             else:
-              contactModelRotationRef = config['contactModelRotationRef']
-            contactModelPlacementRef = pin.SE3(contactModelRotationRef, contactModelTranslationRef)
-            contact6d = crocoddyl.ContactModel6D(state, 
-                                                contactModelFrameId, 
-                                                contactModelPlacementRef, 
-                                                contactModelGains) 
+              contactModel = crocoddyl.ContactModel3D(state, 
+                                                      contactModelFrameId, 
+                                                      contactModelTranslationRef, 
+                                                      contactModelGains)  
+
             # Create DAMContactDyn                    
             dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
                                                                       actuation, 
@@ -480,6 +517,23 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                                                                   actuation.nu)) 
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeight'])
+        # End-effector orientation 
+        if('rotation' in WHICH_COSTS):
+          frameRotationFrameId = robot.model.getFrameId(config['frameRotationFrameName'])
+          # Default rotation reference = initial rotation
+          if(config['frameRotationRef']=='DEFAULT'):
+            frameRotationRef = robot.data.oMf[frameRotationFrameId].rotation.copy()
+          else:
+            frameRotationRef   = np.asarray(config['frameRotationRef'])
+          frameRotationWeights = np.asarray(config['frameRotationWeights'])
+          frameRotationCost    = crocoddyl.CostModelResidual(state, 
+                                                             crocoddyl.ActivationModelWeightedQuad(frameRotationWeights**2), 
+                                                             crocoddyl.ResidualModelFrameRotation(state, 
+                                                                                                  frameRotationFrameId, 
+                                                                                                  frameRotationRef, 
+                                                                                                  actuation.nu)) 
+          # Add cost term to IAM
+          runningModels[i].differential.costs.addCost("rotation", frameRotationCost, config['frameRotationWeight'])
         # Frame force cost
         if('force' in WHICH_COSTS):
           if(not CONTACT):
@@ -522,7 +576,7 @@ def init_DDP(robot, config, x0, callbacks=False,
       # Contact model
         # Add contact model to current IAM
         if(CONTACT):
-          runningModels[i].differential.contacts.addContact("contact", contact6d, active=True)
+          runningModels[i].differential.contacts.addContact("contact", contactModel, active=True)
 
 
 
@@ -537,16 +591,26 @@ def init_DDP(robot, config, x0, callbacks=False,
         contactModelTranslationRef = robot.data.oMf[contactModelFrameId].translation.copy()
       else:
         contactModelTranslationRef = config['contactModelTranslationRef']
-      # Default contact reference rotation = initial rotation
-      if(config['contactModelRotationRef']=='DEFAULT'):
-        contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
+
+      # Contact model 6D if rotation is specified in config file
+      if('contactModelRotationRef' in config.keys()):
+        # Default contact reference rotation = initial rotation
+        if(config['contactModelRotationRef']=='DEFAULT'):
+          contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
+        else:
+          contactModelRotationRef = config['contactModelRotationRef']
+        contactModelPlacementRef = pin.SE3(contactModelRotationRef, contactModelTranslationRef)
+        contactModel = crocoddyl.ContactModel6D(state, 
+                                                contactModelFrameId, 
+                                                contactModelPlacementRef, 
+                                                contactModelGains) 
+
+      # Otherwise (default) 3D contact model
       else:
-        contactModelRotationRef = config['contactModelRotationRef']
-      contactModelPlacementRef = pin.SE3(contactModelRotationRef, contactModelTranslationRef)
-      contact6d = crocoddyl.ContactModel6D(state, 
-                                          contactModelFrameId, 
-                                          contactModelPlacementRef, 
-                                          contactModelGains) 
+        contactModel = crocoddyl.ContactModel3D(state, 
+                                                contactModelFrameId, 
+                                                contactModelTranslationRef, 
+                                                contactModelGains)
       # Create terminal DAMContactDyn
       dam_t = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
                                                                 actuation, 
@@ -650,13 +714,29 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                                                               actuation.nu)) 
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal']*dt)
-  
+    # End-effector orientation 
+    if('rotation' in WHICH_COSTS):
+      frameRotationFrameId = robot.model.getFrameId(config['frameRotationFrameName'])
+      # Default rotation reference = initial rotation
+      if(config['frameRotationRef']=='DEFAULT'):
+        frameRotationRef = robot.data.oMf[frameRotationFrameId].rotation.copy()
+      else:
+        frameRotationRef   = np.asarray(config['frameRotationRef'])
+      frameRotationWeights = np.asarray(config['frameRotationWeights'])
+      frameRotationCost    = crocoddyl.CostModelResidual(state, 
+                                                          crocoddyl.ActivationModelWeightedQuad(frameRotationWeights**2), 
+                                                          crocoddyl.ResidualModelFrameRotation(state, 
+                                                                                              frameRotationFrameId, 
+                                                                                              frameRotationRef, 
+                                                                                              actuation.nu)) 
+      terminalModel.differential.costs.addCost("rotation", frameRotationCost, config['frameRotationWeightTerminal']*dt)
+
   # Add armature
     terminalModel.differential.armature = np.asarray(config['armature'])   
   
   # Add contact model
     if(CONTACT):
-      terminalModel.differential.contacts.addContact("contact", contact6d, active=True)
+      terminalModel.differential.contacts.addContact("contact", contactModel, active=True)
     
     logger.info("Created IAMs.")  
 
@@ -674,7 +754,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                         crocoddyl.CallbackVerbose()])
   
   # Finish
-    logger.info("OCP is ready : COSTS = "+str(WHICH_COSTS)+', CONTACT = '+str(CONTACT)+'.')
+    logger.info("OCP is ready : COSTS = "+str(WHICH_COSTS)+', CONTACT = '+str(CONTACT)+' ('+str(CONTACT_TYPE)+').')
     return ddp
 
 
