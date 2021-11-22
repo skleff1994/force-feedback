@@ -54,7 +54,7 @@ id_endeff = robot.model.getFrameId('contact')
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
-offset = 0.03348 #0.0335
+offset = 0.03348 #0.0335 gold number = 0.03348 (NO IMPACT, NO PENETRATION)
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 sim_utils.display_contact_surface(contact_placement, with_collision=True)
 
@@ -125,7 +125,7 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS       = ['f']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS       = ['all']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 dt_ocp            = config['dt']                            # OCP sampling rate 
 dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
 OCP_TO_PLAN_RATIO  = dt_mpc / dt_ocp                         # ratio
@@ -142,15 +142,15 @@ actuation     = mpc_utils.ActuationModel(config)
 sensing       = mpc_utils.SensorModel(config)
 
 
-# Display target circle
+# Display target circle  trajectory (reference)
 nb_points = 20 
 for i in range(nb_points):
   t = (i/nb_points)*2*np.pi/OMEGA
   # if(i%20==0):
   pos = ocp_utils.circle_point_WORLD(t, ee_frame_placement, radius=RADIUS, omega=OMEGA)
-  sim_utils.display_target(pos, SCALING=0.2)
+  sim_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
 
-
+draw_rate = 100
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -159,6 +159,13 @@ for i in range(sim_data['N_simu']):
       print('')
       logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
       print('')
+  
+
+    # Display real 
+    if(i%draw_rate==0):
+      pos = robot.data.oMf[id_endeff].translation.copy()
+      # pos = ocp_utils.circle_point_WORLD(i*dt_simu, ee_frame_placement.copy(), radius=RADIUS, omega=OMEGA)
+      sim_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
 
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
@@ -169,7 +176,7 @@ for i in range(sim_data['N_simu']):
         for k,m in enumerate(models):
             # Ref
             t = min(t_simu + k*dt_ocp, 2*np.pi/OMEGA)
-            p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
+            p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement.copy(), 
                                                        radius=RADIUS,
                                                        omega=OMEGA)
             # Cost translation
@@ -252,7 +259,7 @@ for i in range(sim_data['N_simu']):
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
-    if(i<50): 
+    if(i%100==0): 
       print(f_mea_SIMU)
     # Record data (unnoised)
     x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 

@@ -70,12 +70,28 @@ def get_contact_joint_torques(pybullet_simulator, id_endeff):
     return joint_torques
 
 
-def display_target(p_des, SCALING=1.):
+def display_ball(p_des, RADIUS=1., COLOR=[1.,1.,1.,1.]):
     logger.info("Creating PyBullet target ball...")
-    p.setAdditionalSearchPath(pybullet_data.getDataPath())
-    target =  p.loadURDF("sphere_small.urdf", basePosition=list(p_des), globalScaling=SCALING, useFixedBase=True)
-    # Disable collisons
-    p.setCollisionFilterGroupMask(target, -1, 0, 0)
+    # p.setAdditionalSearchPath(pybullet_data.getDataPath())
+    # target =  p.loadURDF("sphere_small.urdf", basePosition=list(p_des), globalScaling=SCALING, useFixedBase=True)
+    # # Disable collisons
+    # p.setCollisionFilterGroupMask(target, -1, 0, 0)
+    # p.changeVisualShape(target, -1, rgbaColor=COLOR)
+    M = pin.SE3.Identity()
+    M.translation = p_des
+    quat = pin.SE3ToXYZQUAT(M)
+    visualBallId = p.createVisualShape(shapeType=p.GEOM_SPHERE,
+                                       radius=RADIUS,
+                                       rgbaColor=COLOR,
+                                       visualFramePosition=quat[:3],
+                                       visualFrameOrientation=quat[3:])
+    ballId = p.createMultiBody(baseMass=0.,
+                               baseInertialFramePosition=[0.,0.,0.],
+                               baseVisualShapeIndex=visualBallId,
+                               basePosition=[0.,0.,0.],
+                               useMaximalCoordinates=True)
+
+    return ballId
 
 
 # Load contact surface in PyBullet for contact experiments
@@ -95,7 +111,7 @@ def display_contact_surface(M, robotId=1, radius=.5, length=0.0, with_collision=
     visualShapeId = p.createVisualShape(shapeType=p.GEOM_CYLINDER,
                                         radius=radius,
                                         length=length,
-                                        rgbaColor=[.8, .1, .1, .7],
+                                        rgbaColor=[.1, .8, .1, .5],
                                         visualFramePosition=quat[:3],
                                         visualFrameOrientation=quat[3:])
     # With collision
