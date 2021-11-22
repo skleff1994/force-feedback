@@ -64,17 +64,16 @@ dt = config['dt']
 # Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-                                            
 # Setup tracking problem with circle ref EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-radius = config['frameCircleTrajectoryRadius'] 
-omega  = config['frameCircleTrajectoryVelocity']
+RADIUS = config['frameCircleTrajectoryRadius'] 
+OMEGA  = config['frameCircleTrajectoryVelocity']
 for k,m in enumerate(models):
     # Ref
-    t = min(k*dt, 2*np.pi/omega)
+    t = min(k*config['dt'], 2*np.pi/OMEGA)
     p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
-                                               radius=radius,
-                                               omega=omega)
+                                               radius=RADIUS,
+                                               omega=OMEGA)
     # Cost translation
     m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
     # Contact model
@@ -298,18 +297,3 @@ if(VISUALIZE):
             logger.info("Display config n°"+str(i))
 
         time.sleep(pause)
-
-
-
-# # Check forces
-# import pinocchio as pin
-# q = np.array(ddp.xs)[:,:nq]
-# v = np.array(ddp.xs)[:,nq:] 
-# u = np.array(ddp.us)
-# f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
-# import matplotlib.pyplot as plt
-# for i in range(3):
-#     ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], '-.', label="(JMiJ')+")
-#     ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], '-.', label="(JMiJ')+")
-# plt.legend()
-# plt.show()

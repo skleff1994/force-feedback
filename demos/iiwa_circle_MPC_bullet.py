@@ -49,7 +49,7 @@ robot = pybullet_simulator.pin_robot
 # Get dimensions 
 nq, nv = robot.model.nq, robot.model.nv; nu = nq
 id_endeff = robot.model.getFrameId('contact')
-M_ee = robot.data.oMf[id_endeff]
+M_ee = robot.data.oMf[id_endeff].copy()
 
 
 # # # # # # # # # 
@@ -58,20 +58,19 @@ M_ee = robot.data.oMf[id_endeff]
 # Init shooting problem and solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-
-# Create circle trajectory (WORLD frame) and setup tracking problem
-EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=config['dt'], 
-                                                        radius=config['frameCircleTrajectoryRadius'], 
-                                                        omega=config['frameCircleTrajectoryVelocity'])
-# ocp_utils.set_ee_tracking_problem(ddp, EE_ref)
-# Set EE translation cost model references (i.e. setup tracking problem)
+# Setup tracking problem with circle ref EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+RADIUS = config['frameCircleTrajectoryRadius'] 
+OMEGA  = config['frameCircleTrajectoryVelocity']
 for k,m in enumerate(models):
-    if(k<EE_ref.shape[0]):
-        ref = EE_ref[k]
-    else:
-        ref = EE_ref[-1]
-    m.differential.costs.costs['translation'].cost.residual.reference = ref
+    # Ref
+    t = min(k*config['dt'], 2*np.pi/OMEGA)
+    p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
+                                               radius=RADIUS,
+                                               omega=OMEGA)
+    # Cost translation
+    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
+
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
@@ -131,10 +130,16 @@ communication = mpc_utils.CommunicationModel(config)
 actuation     = mpc_utils.ActuationModel(config)
 sensing       = mpc_utils.SensorModel(config)
 
+
+
 # Display target circle
-for i in range(EE_ref.shape[0]):
-  if(i%20==0):
-    sim_utils.display_target(EE_ref[i], SCALING=0.2)
+nb_points = 20 
+for i in range(nb_points):
+  t = (i/nb_points)*2*np.pi/OMEGA
+  # if(i%20==0):
+  pos = ocp_utils.circle_point_WORLD(t, M_ee, radius=RADIUS, omega=OMEGA)
+  sim_utils.display_target(pos, SCALING=0.2)
+
 
 
 # SIMULATE
@@ -145,19 +150,20 @@ for i in range(sim_data['N_simu']):
       logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
       print('')
 
-  # If the current simulation cycle matches an OCP node, update tracking problem
-    if(i%int(1./OCP_TO_SIMU_RATIO)==0):
-        # Shift all cost references forward accros OCP nodes except and duplicate last one
-        models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-        for k,m in enumerate(models):
-          shift = int(i*OCP_TO_SIMU_RATIO)
-          if(k+shift < EE_ref.shape[0]):
-            m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k+shift]
-          else:
-            m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[-1]
-
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
+        # Current simulation time
+        t_simu = i*dt_simu 
+        # Setup tracking problem with circle ref EE trajectory
+        models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+        for k,m in enumerate(models):
+            # Ref
+            t = min(t_simu + k*dt_ocp, 2*np.pi/OMEGA)
+            p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
+                                                       radius=RADIUS,
+                                                       omega=OMEGA)
+            # Cost translation
+            m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]

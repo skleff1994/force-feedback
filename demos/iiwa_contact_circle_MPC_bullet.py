@@ -65,7 +65,6 @@ sim_utils.display_contact_surface(contact_placement, with_collision=True)
 # Init shooting problem and solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-
 # Setup tracking problem with circle ref EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -101,6 +100,8 @@ else:
 
 # solve
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+
+
 
 
 # Plot initial solution

@@ -60,19 +60,19 @@ dt = config['dt']
 # Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-# Create circle trajectory (WORLD frame)
-EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=config['dt'], 
-                                                        radius=config['frameCircleTrajectoryRadius'], 
-                                                        omega=config['frameCircleTrajectoryVelocity'])
-
-# Set EE translation cost model references (i.e. setup tracking problem)
+# Setup tracking problem with circle ref EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+RADIUS = config['frameCircleTrajectoryRadius'] 
+OMEGA  = config['frameCircleTrajectoryVelocity']
 for k,m in enumerate(models):
-    if(k<EE_ref.shape[0]):
-        ref = EE_ref[k]
-    else:
-        ref = EE_ref[-1]
-    m.differential.costs.costs['translation'].cost.residual.reference = ref
+    # Ref
+    t = min(k*config['dt'], 2*np.pi/OMEGA)
+    p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
+                                               radius=RADIUS,
+                                               omega=OMEGA)
+    # Cost translation
+    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
+    
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
@@ -176,10 +176,3 @@ if(VISUALIZE):
             logger.info("Display config n°"+str(i))
 
         time.sleep(pause)
-
-# EE_ref_LOCAL = np.zeros(EE_ref.shape)
-# for i in range(EE_ref.shape[0]):
-#     EE_ref_LOCAL[i,:] = M_ee.actInv(EE_ref[i,:])
-# # plt.plot(EE_ref[:,0], EE_ref[:,1])
-# plt.plot(EE_ref_LOCAL[:,0], EE_ref_LOCAL[:,1])
-# plt.show()
