@@ -65,20 +65,19 @@ sim_utils.display_contact_surface(contact_placement, with_collision=True)
 # Init shooting problem and solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
-# Create circle trajectory (WORLD frame) and setup tracking problem
-EE_ref = ocp_utils.circle_trajectory_WORLD(ee_frame_placement, dt=config['dt'], 
-                                                        radius=config['frameCircleTrajectoryRadius'], 
-                                                        omega=config['frameCircleTrajectoryVelocity'])
-# ocp_utils.set_ee_tracking_problem(ddp, EE_ref, CONTACT=True)
-# Set EE translation cost model references (i.e. setup tracking problem) and contact model references
+
+# Setup tracking problem with circle ref EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+RADIUS = config['frameCircleTrajectoryRadius'] 
+OMEGA  = config['frameCircleTrajectoryVelocity']
 for k,m in enumerate(models):
-    if(k<EE_ref.shape[0]):
-        p_ee_ref = EE_ref[k] 
-    else:
-        p_ee_ref = EE_ref[-1]
+    # Ref
+    t = min(k*config['dt'], 2*np.pi/OMEGA)
+    p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
+                                               radius=RADIUS,
+                                               omega=OMEGA)
     # Cost translation
-    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref  
+    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
     # Contact model
     m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
 
@@ -143,9 +142,12 @@ sensing       = mpc_utils.SensorModel(config)
 
 
 # Display target circle
-for i in range(EE_ref.shape[0]):
-  if(i%20==0):
-    sim_utils.display_target(EE_ref[i], SCALING=0.2)
+nb_points = 20 
+for i in range(nb_points):
+  t = (i/nb_points)*2*np.pi/OMEGA
+  # if(i%20==0):
+  pos = ocp_utils.circle_point_WORLD(t, ee_frame_placement, radius=RADIUS, omega=OMEGA)
+  sim_utils.display_target(pos, SCALING=0.2)
 
 
 
@@ -157,25 +159,23 @@ for i in range(sim_data['N_simu']):
       logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
       print('')
 
-  # If the current simulation cycle matches an OCP node, update tracking problem
-    if(i%int(1./OCP_TO_SIMU_RATIO)==0):
-        # Shift all cost references forward accros OCP nodes except and duplicate last one
-        models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-        for k,m in enumerate(models):
-          shift = int(i*OCP_TO_SIMU_RATIO)
-          if(k+shift < EE_ref.shape[0]):
-            m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k+shift]
-            m.differential.contacts.contacts["contact"].contact.reference.translation = EE_ref[k+shift] 
-          else:
-            m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[-1]
-            m.differential.contacts.contacts["contact"].contact.reference.translation = EE_ref[-1] 
-
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
-        # Update EE ref at each node of the OCP 
-        # if(nb_plan%int(1./OCP_TO_PLAN_RATIO)==0):
-        #   print()
-        #   ocp_utils.set_ee_tracking_problem(ddp, EE_ref, CONTACT=True, mpc_cycle=nb_plan)
+        # Current simulation time
+        t_simu = i*dt_simu 
+        # Setup tracking problem with circle ref EE trajectory
+        models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+        for k,m in enumerate(models):
+            # Ref
+            t = min(t_simu + k*dt_ocp, 2*np.pi/OMEGA)
+            p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
+                                                       radius=RADIUS,
+                                                       omega=OMEGA)
+            # Cost translation
+            m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
+            # Contact model
+            m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
+
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]

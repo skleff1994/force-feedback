@@ -249,7 +249,8 @@ def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5
     return max(min(np.exp(1/(alpha*r+1))-1, max_weight), min_weight)
 
 
-def circle_point_LOCAL(t, radius=1., omega=1., origin=[0.,0.,0.]):
+
+def circle_point_LOCAL(t, radius=1., omega=1.):
   '''
   Returns the LOCAL frame coordinates of the point reached at time t
   on a circle trajectory with given radius and angular frequency 
@@ -257,6 +258,16 @@ def circle_point_LOCAL(t, radius=1., omega=1., origin=[0.,0.,0.]):
   '''
   # LOCAL coordinates 
   return np.array([radius*(1-np.cos(-omega*t)), radius*np.sin(-omega*t), 0.])
+
+
+def circle_point_WORLD(t, M_ct, radius=1., omega=1.):
+  '''
+  Returns the WORLD frame coordinates of the point reached at time t
+  on a circle trajectory with given radius and angular frequency 
+  Can be shifted by origin in LOCAL coordinates
+  '''
+  # LOCAL coordinates 
+  return M_ct.act(circle_point_LOCAL(t, radius=radius, omega=omega))
 
 
 def circle_trajectory_WORLD(M_ct, dt=0.01, radius=1., omega=1.):
