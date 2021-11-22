@@ -56,7 +56,7 @@ contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
 offset = 0.03348 #0.0335 gold number = 0.03348 (NO IMPACT, NO PENETRATION)
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-sim_utils.display_contact_surface(contact_placement, with_collision=True)
+sim_utils.display_contact_surface(contact_placement, with_collision=False)
 
 
 # # # # # # # # # 
@@ -105,7 +105,7 @@ ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 
 # Plot initial solution
-PLOT_INIT = False
+PLOT_INIT = True
 if(PLOT_INIT):
   ddp_data = data_utils.extract_ddp_data(ddp)
   fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
@@ -150,7 +150,7 @@ for i in range(nb_points):
   pos = ocp_utils.circle_point_WORLD(t, ee_frame_placement, radius=RADIUS, omega=OMEGA)
   sim_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
 
-draw_rate = 100
+draw_rate = 200
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -160,12 +160,6 @@ for i in range(sim_data['N_simu']):
       logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
       print('')
   
-
-    # Display real 
-    if(i%draw_rate==0):
-      pos = robot.data.oMf[id_endeff].translation.copy()
-      # pos = ocp_utils.circle_point_WORLD(i*dt_simu, ee_frame_placement.copy(), radius=RADIUS, omega=OMEGA)
-      sim_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
 
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
@@ -234,7 +228,7 @@ for i in range(sim_data['N_simu']):
         sim_data['F_des_CTRL'][nb_ctrl, :] = f_ref_CTRL   
         # Increment control counter
         nb_ctrl += 1
-        
+
   # Simulate actuation/sensing and step simulator (physics simulation frequency)
 
     # Select reference control and state for the current SIMU cycle
@@ -267,6 +261,13 @@ for i in range(sim_data['N_simu']):
     # Sensor model (optional noise + filtering)
     sim_data['X_mea_SIMU'][i+1, :] = sensing.step(i, x_mea_SIMU, sim_data['X_mea_SIMU'])
     sim_data['F_mea_SIMU'][i, :] = f_mea_SIMU
+
+
+    # Display real 
+    if(i%draw_rate==0):
+      pos = pybullet_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
+      sim_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
+
 
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
