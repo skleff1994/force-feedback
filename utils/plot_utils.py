@@ -2259,7 +2259,7 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
     w_ee   = pin_utils.get_w_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
     # Cost ref orientation
     if('rotation' in ddp_data['active_costs'] or 'placement' in ddp_data['active_costs']):
-        rpy_ee_ref = pin.utils.matrixToRpy(np.array(ddp_data['rotation_ref']))
+        rpy_ee_ref = np.array([pin.utils.matrixToRpy(np.array(R)) for R in ddp_data['rotation_ref']])
     else:
         rpy_ee_ref = np.array([rpy_ee[0,:] for i in range(N+1)])
     # Cost ref angular velocity

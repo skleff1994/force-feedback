@@ -31,7 +31,7 @@ frameRotationWeight: 50.
 frameRotationWeightTerminal: 50.
 frameRotationRef: 'DEFAULT' 
 frameRotationFrameName: 'contact'
-frameRotationTrajectoryVelocity: 3. # in rad/s
+frameRotationTrajectoryVelocity: 1. # in rad/s
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]

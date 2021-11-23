@@ -62,26 +62,27 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
                                             WHICH_COSTS=config['WHICH_COSTS']) 
 # Setup tracking problem with oritantation ref for EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-OMEGA  = config['frameCircleTrajectoryVelocity']
+OMEGA  = config['frameRotationTrajectoryVelocity']
 for k,m in enumerate(models):
     # Ref
     t = min(k*config['dt'], 2*np.pi/OMEGA)
-    R_ee_ref = ocp_utils.rotation_matrix_WORLD(t, M_ee, 
+    R_ee_ref = ocp_utils.rotation_matrix_WORLD(t, M_ee.copy(), 
                                                omega=OMEGA)
     # Cost translation
-    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
+    m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref
     
 
 # Warm start state = IK of circle trajectory
-WARM_START_IK = True
+WARM_START_IK = False
 if(WARM_START_IK):
     logger.info("Computing warm-start using Inverse Kinematics...")
     xs_init = [] 
     us_init = []
     q_ws = q0
     for k,m in enumerate(models):
-        ref = m.differential.costs.costs['translation'].cost.residual.reference
-        q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
+        Mref = M_ee.copy()
+        Mref.rotation = m.differential.costs.costs['rotation'].cost.residual.reference
+        q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
         xs_init.append(np.concatenate([q_ws, v_ws]))
     us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(N_h)]
 
@@ -98,7 +99,7 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 PLOT = True
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data(ddp)
-    fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['p'], markers=['.'], colors=['b'], SHOW=True)
+    fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
 
 
 VISUALIZE = True

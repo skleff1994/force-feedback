@@ -280,16 +280,16 @@ def rotation_matrix_LOCAL(t, omega=1.):
   on a EE rotation trajectory angular frequency 
   '''
   # LOCAL coordinates 
-  return pin.rpy.rpyToMatrix(0., omega*t, 0.)
+  return pin.rpy.rpyToMatrix(0., 0., omega*t)#, 0.)
 
 
-def rotation_matrix_WORLD(t, M_ct, omega=1.):
+def rotation_matrix_WORLD(t, M_ee, omega=1.):
   '''
   Returns the WORLD frame rotation matrix reached at time t
   on a EE rotation trajectory angular frequency 
   '''
   # WORLD coordinates
-  return M_ct.rotation.dot(rotation_matrix_LOCAL(t, omega=omega))
+  return M_ee.rotation.T.dot(rotation_matrix_LOCAL(t, omega=omega))
 
 
 
