@@ -272,26 +272,6 @@ def circle_point_WORLD(t, M_ct, radius=1., omega=1.):
 
 
 
-# Utils for rotation trajectory (orientation of EE frame) task
-
-def rotation_matrix_LOCAL(t, omega=1.):
-  '''
-  Returns the LOCAL frame rotation matrix reached at time t
-  on a EE rotation trajectory angular frequency 
-  '''
-  # LOCAL coordinates
-  # rpy = pin.utils.matrixToRpy(M_ee.rotation.T) # current RPY in WORLD
-  return pin.rpy.rpyToMatrix(0., 0., np.sin(omega*t))
-
-
-def rotation_matrix_WORLD(t, M_ee, omega=1.):
-  '''
-  Returns the WORLD frame rotation matrix reached at time t
-  on a EE rotation trajectory angular frequency 
-  '''
-  # WORLD coordinates
-  return M_ee.rotation.dot(rotation_matrix_LOCAL(t, omega=omega))
-
 
 
 # Setup OCP and solver using Crocoddyl
@@ -355,7 +335,7 @@ def init_DDP(robot, config, x0, callbacks=False,
               contactModelTranslationRef = config['contactModelTranslationRef']
             
             # 6D Contact model if rotation is specified in config file
-            if('contactModelRotationRef' in config.keys()):
+            if(CONTACT_TYPE=='6D'):
               # Default rotation = initial rotation of EE frame
               if(config['contactModelRotationRef']=='DEFAULT'):
                 contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
@@ -367,7 +347,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                       contactModelPlacementRef, 
                                                       contactModelGains) 
             # Otherwise (default) 3D contact model
-            else:
+            elif(CONTACT_TYPE=='3D'):
               contactModel = crocoddyl.ContactModel3D(state, 
                                                       contactModelFrameId, 
                                                       contactModelTranslationRef, 
@@ -540,6 +520,8 @@ def init_DDP(robot, config, x0, callbacks=False,
         if('force' in WHICH_COSTS):
           if(not CONTACT):
             logger.error("Force cost but no contact model is defined ! ")
+          # 6D contact case
+          # if(CONTACT_TYPE=='6D'):
           # Default force reference = zero force
           if(config['frameForceRef']=='DEFAULT'):
             frameForceRef = pin.Force( np.zeros(6) )
@@ -554,6 +536,22 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                                                           frameForceRef, 
                                                                                           6, 
                                                                                           actuation.nu))
+          # # 3D contact case
+          # elif(CONTACT_TYPE=='3D'):
+          #   # Default force reference = zero force
+          #   if(config['frameForceRef']=='DEFAULT'):
+          #     frameForceRef = np.zeros(3)
+          #   else:
+          #     frameForceRef = np.asarray(config['frameForceRef'])[:3]
+          #   frameForceWeights = np.asarray(config['frameForceWeights'])
+          #   frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
+          #   frameForceCost = crocoddyl.CostModelResidual(state, 
+          #                                               crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+          #                                               crocoddyl.ResidualModelContactForce(state, 
+          #                                                                                   frameForceFrameId, 
+          #                                                                                   frameForceRef, 
+          #                                                                                   3, 
+          #                                                                                   actuation.nu))
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("force", frameForceCost, config['frameForceWeight'])
         # Friction cone 
@@ -595,7 +593,7 @@ def init_DDP(robot, config, x0, callbacks=False,
         contactModelTranslationRef = config['contactModelTranslationRef']
 
       # Contact model 6D if rotation is specified in config file
-      if('contactModelRotationRef' in config.keys()):
+      if(CONTACT_TYPE=='6D'):
         # Default contact reference rotation = initial rotation
         if(config['contactModelRotationRef']=='DEFAULT'):
           contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
@@ -608,7 +606,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                 contactModelGains) 
 
       # Otherwise (default) 3D contact model
-      else:
+      elif(CONTACT_TYPE=='3D'):
         contactModel = crocoddyl.ContactModel3D(state, 
                                                 contactModelFrameId, 
                                                 contactModelTranslationRef, 

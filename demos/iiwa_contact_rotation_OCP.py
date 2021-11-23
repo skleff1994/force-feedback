@@ -63,15 +63,17 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
 # Setup tracking problem with oritantation ref for EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 OMEGA  = config['frameRotationTrajectoryVelocity']
-for k,m in enumerate(models):
-    # Ref
-    t = min(k*config['dt'], 2*np.pi/OMEGA)
-    # Desired RPY in WORLD frame
-    R_ee_ref_WORLD = M_ee.rotation.copy().dot(pin.utils.rpyToMatrix(np.array([0., 0., np.sin(OMEGA*t)])))
-    # Cost translation
-    m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
-    # # Contact model
-    # m.differential.contacts.contacts["contact"].contact.reference.translation = M_ee.translation.copy() 
+# for k,m in enumerate(models):
+#     # Ref
+#     t = min(k*config['dt'], 2*np.pi/OMEGA)
+#     # Desired RPY in WORLD frame
+#     R_ee_ref_WORLD = M_ee.rotation.copy().dot(pin.utils.rpyToMatrix(np.array([0., 0., np.sin(OMEGA*t)])))
+#     # Cost translation
+#     m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
+#     # Contact model
+#     m.differential.contacts.contacts["contact"].contact.reference = M_ee.translation.copy() 
+
+
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = False
@@ -83,9 +85,10 @@ if(WARM_START_IK):
     for k,m in enumerate(models):
         Mref = M_ee.copy()
         Mref.rotation = m.differential.costs.costs['rotation'].cost.residual.reference
+        Mref.translation = M_ee.translation.copy() 
         # Get corresponding forces at each joint
         f_ext = pin_utils.get_external_joint_torques(Mref, config['frameForceRef'], robot)
-        q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
+        q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=10)
         xs_init.append(np.concatenate([q_ws, v_ws]))
         if(k<N_h):
             us_init.append(pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model))
@@ -232,13 +235,19 @@ if(VISUALIZE):
 
         # Display EE traj and ref circle traj
         if(i%draw_rate==0):
-            if('translation' in config['WHICH_COSTS'] or 'placement' in config['WHICH_COSTS'] or 'rotation' in config['WHICH_COSTS']):
+            if('translation' or 'placement' in config['WHICH_COSTS']):
                 # EE ref circle trajectory
                 m_ee_ref = M_ee.copy()
-                m_ee_ref.translation = models[i].differential.costs.costs['translation'].cost.residual.reference
+                if('translation' in config['WHICH_COSTS']):
+                    m_ee_ref.translation = models[i].differential.costs.costs['translation'].cost.residual.reference
+                elif('placement' in config['WHICH_COSTS']):
+                    m_ee_ref = models[i].differential.costs.costs['placement'].cost.residual.reference.copy()
+                elif('rotation' in config['WHICH_COSTS']):
+                    m_ee_ref.rotation = models[i].differential.costs.costs['rotation'].cost.residual.reference
                 tf_ee_ref = list(pin.SE3ToXYZQUAT(m_ee_ref))
                 viewer.gui.addSphere('world/EE_ref'+str(i), ref_size, ref_color)
                 viewer.gui.applyConfiguration('world/EE_ref'+str(i), tf_ee_ref)
+
             # EE trajectory
             robot.framesForwardKinematics(q)
             m_ee = robot.data.oMf[id_endeff].copy()
@@ -246,35 +255,35 @@ if(VISUALIZE):
             viewer.gui.addSphere('world/EE_'+str(i), real_size, real_color)
             viewer.gui.applyConfiguration('world/EE_'+str(i), tf_ee)
         
-            # Move contact point 
-            m_ct = m_ee.copy()
-            m_ct.translation = m_ct.act(np.array([0., 0., offset])) 
-            tf_ct = list(pin.SE3ToXYZQUAT(m_ct))
-            gui.applyConfiguration('world/contact_point', tf_ct)
+        # Move contact point 
+        m_ct = m_ee.copy()
+        m_ct.translation = m_ct.act(np.array([0., 0., offset])) 
+        tf_ct = list(pin.SE3ToXYZQUAT(m_ct))
+        gui.applyConfiguration('world/contact_point', tf_ct)
 
-            # Display force (magnitude and placement)
-            if('force' in config['WHICH_COSTS']):
-                # Display wrench
-                wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector
-                gui.resizeArrow('world/force', real_size, wrench_coef*np.linalg.norm(wrench[2]))
-                m_ct_aligned = m_ct.copy()
-                    # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
-                    # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
-                m_ct_aligned.rotation = m_ct_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
-                gui.applyConfiguration('world/force', list(pin.SE3ToXYZQUAT(m_ct_aligned)) )
-                # Move reference wrench 
-                m_ct_ref_aligned = m_ee_ref.copy()
-                m_ct_ref_aligned.translation = m_ct_ref_aligned.act(np.array([0., 0., offset])) 
-                m_ct_ref_aligned.rotation = m_ct_ref_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
-                tf_ct_ref_aligned = list(pin.SE3ToXYZQUAT(m_ct_ref_aligned))
-                gui.applyConfiguration('world/ref_wrench', tf_ct_ref_aligned)
+        # Display force (magnitude and placement)
+        if('force' in config['WHICH_COSTS']):
+            # Display wrench
+            wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector
+            gui.resizeArrow('world/force', real_size, wrench_coef*np.linalg.norm(wrench[2]))
+            m_ct_aligned = m_ct.copy()
+                # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
+                # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
+            m_ct_aligned.rotation = m_ct_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+            gui.applyConfiguration('world/force', list(pin.SE3ToXYZQUAT(m_ct_aligned)) )
+            # Move reference wrench 
+            m_ct_ref_aligned = m_ee_ref.copy()
+            m_ct_ref_aligned.translation = m_ct_ref_aligned.act(np.array([0., 0., offset])) 
+            m_ct_ref_aligned.rotation = m_ct_ref_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+            tf_ct_ref_aligned = list(pin.SE3ToXYZQUAT(m_ct_ref_aligned))
+            gui.applyConfiguration('world/ref_wrench', tf_ct_ref_aligned)
 
-            # Display the friction cones
-            if('friction' in config['WHICH_COSTS']):
-                position = m_ee
-                position.rotation = m_ee.rotation
-                robot.viewer.gui.applyConfiguration('world/cone', list(np.array(pin.SE3ToXYZQUAT(position)).squeeze()))
-                robot.viewer.gui.setVisibility('world/cone', "ON")
+        # Display the friction cones
+        if('friction' in config['WHICH_COSTS']):
+            position = m_ee
+            position.rotation = m_ee.rotation
+            robot.viewer.gui.applyConfiguration('world/cone', list(np.array(pin.SE3ToXYZQUAT(position)).squeeze()))
+            robot.viewer.gui.setVisibility('world/cone', "ON")
 
         viewer.gui.refresh()
 

@@ -13,17 +13,18 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint veloc
 #      parameter below to make a 6D contact model
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'
-contactModelGains: [0., 10.]
+# contactModelRotationRef: 'DEFAULT'
+contactModelGains: [10., 20.]
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['force', 'rotation', 'stateReg', 'ctrlRegGrav']  
+WHICH_COSTS: ['force', 'stateReg', 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [0., 0., 1., 0., 0., 0.]
-frameForceWeight: 0
+frameForceWeight: 1.
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
