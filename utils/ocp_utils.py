@@ -328,7 +328,8 @@ def init_DDP(robot, config, x0, callbacks=False,
   # Contact or not ?
     # CONTACT6D = False
     # CONTACT3D = False
-    CONTACT   = False
+    CONTACT      = False
+    CONTACT_TYPE = 'None'
     # 6D ?
     if('contactModelFrameName' in config.keys()):
       CONTACT = True
@@ -754,7 +755,9 @@ def init_DDP(robot, config, x0, callbacks=False,
                         crocoddyl.CallbackVerbose()])
   
   # Finish
-    logger.info("OCP is ready : COSTS = "+str(WHICH_COSTS)+', CONTACT = '+str(CONTACT)+' ('+str(CONTACT_TYPE)+').')
+    logger.info("OCP is ready")
+    logger.info("    COSTS   = "+str(WHICH_COSTS))
+    logger.info("    CONTACT = "+str(CONTACT)+" ("+str(CONTACT_TYPE)+").")
     return ddp
 
 

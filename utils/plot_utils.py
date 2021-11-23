@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
 from utils import pin_utils
+import pinocchio as pin
 
 import logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 ### Plot from MPC simulation (LPF)
 
@@ -44,8 +45,8 @@ def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
                                              SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
 
-    if('p' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        figs['p'], axes['p'] = plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+    if('ee' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        figs['ee'], axes['ee'] = plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
@@ -721,9 +722,9 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
             if('w' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('us' in data.keys()):
                     fig_u, ax_u = plot_ddp_control_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-            if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
+            if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('xs' in data.keys()):
-                    fig_p, ax_p = plot_ddp_endeff_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    fig_ee_lin, ax_ee_lin = plot_ddp_endeff_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('fs' in data.keys()):
                     fig_f, ax_f = plot_ddp_force_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
@@ -735,9 +736,9 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
                 if('w' in which_plots or which_plots =='all' or 'all' in which_plots):
                     if('us' in data.keys()):
                         plot_ddp_control_LPF(data, fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-                if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
+                if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
                     if('xs' in data.keys()):
-                        plot_ddp_endeff_LPF(data, fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                        plot_ddp_endeff_LPF(data, fig=fig_ee_lin, ax=ax_ee_lin, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                     if('fs' in data.keys()):
                         plot_ddp_force_LPF(data, fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
@@ -756,10 +757,10 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
         if('us' in data.keys()):
             fig['w'] = fig_u
             ax['w'] = ax_u
-    if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
+    if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
         if('xs' in data.keys()):
-            fig['p'] = fig_p
-            ax['p'] = ax_p
+            fig['ee'] = fig_ee_lin
+            ax['ee'] = ax_ee_lin
     if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
         if('fs' in data.keys()):
             fig['f'] = fig_f
@@ -961,8 +962,8 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
                                              SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                              SHOW=False)
 
-    if('p' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        plots['p'] = plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+    if('ee' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+        plots['ee'] = plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
@@ -1353,7 +1354,7 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
     fig.suptitle('End-effector trajectories', size=18)
     # Save figs
     if(SAVE):
-        figs = {'p': fig}
+        figs = {'ee': fig}
         if(SAVE_DIR is None):
             SAVE_DIR = '/home/skleff/force-feedback/data'
         if(SAVE_NAME is None):
@@ -1954,9 +1955,10 @@ def plot_ddp_results(DDP_DATA, which_plots='all', labels=None, markers=None, col
             if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('us' in data.keys()):
                     fig_u, ax_u = plot_ddp_control(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-            if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
+            if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('xs' in data.keys()):
-                    fig_p, ax_p = plot_ddp_endeff_linear(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    fig_ee_lin, ax_ee_lin = plot_ddp_endeff_linear(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    fig_ee_ang, ax_ee_ang = plot_ddp_endeff_angular(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('fs' in data.keys()):
                     fig_f, ax_f = plot_ddp_force(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
@@ -1968,9 +1970,9 @@ def plot_ddp_results(DDP_DATA, which_plots='all', labels=None, markers=None, col
                 if('u' in which_plots or which_plots =='all' or 'all' in which_plots):
                     if('us' in data.keys()):
                         plot_ddp_control(data, fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-                if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
+                if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
                     if('xs' in data.keys()):
-                        plot_ddp_endeff_linear(data, fig=fig_p, ax=ax_p, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                        plot_ddp_endeff_linear(data, fig=fig_ee_lin, ax=ax_ee_lin, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                     if('fs' in data.keys()):
                         plot_ddp_force(data, fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
@@ -1988,10 +1990,12 @@ def plot_ddp_results(DDP_DATA, which_plots='all', labels=None, markers=None, col
         if('us' in data.keys()):
             fig['u'] = fig_u
             ax['u'] = ax_u
-    if('p' in which_plots or which_plots =='all' or 'all' in which_plots):
+    if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
         if('xs' in data.keys()):
-            fig['p'] = fig_p
-            ax['p'] = ax_p
+            fig['ee_lin'] = fig_ee_lin
+            ax['ee_lin'] = ax_ee_lin
+            fig['ee_ang'] = fig_ee_ang
+            ax['ee_ang'] = ax_ee_ang
     if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
         if('fs' in data.keys()):
             fig['f'] = fig_f
@@ -2132,7 +2136,6 @@ def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, marker=None, color
         plt.show()
     return fig, ax
 
-
 def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
                                                     MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
     '''
@@ -2149,14 +2152,17 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
     v = x[:,nq:nq+nv]
     p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
     v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
-    if('translation' or 'placement' in ddp_data['active_costs']):
+    # Cost ref frame position
+    if('translation' in ddp_data['active_costs'] or 'placement' in ddp_data['active_costs']):
         p_ee_ref = np.array(ddp_data['translation_ref'])
     else:
         p_ee_ref = np.array([p_ee[0,:] for i in range(N+1)])
+    # Cost frame linear velocity
     if('velocity' in ddp_data['active_costs']):
-        v_ee_ref = np.array(ddp_data['velocity_ref'])
+        v_ee_ref = np.array(ddp_data['velocity_ref'])[:,:3] # linear part
     else:
         v_ee_ref = np.array([v_ee[0,:] for i in range(N+1)])
+    # Contact ref position
     if('contact_translation' in ddp_data):
         p_ee_contact = np.array(ddp_data['contact_translation'])
     # Plots
@@ -2230,11 +2236,10 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
     if(MAKE_LEGEND):
         handles, labels = ax[0,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.suptitle('End-effector translation: position and velocity', size=18)
+    fig.suptitle('End-effector frame position and linear velocity', size=18)
     if(SHOW):
         plt.show()
     return fig, ax
-
 
 def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
                                                     MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
@@ -2250,18 +2255,21 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
     x = np.array(ddp_data['xs'])
     q = x[:,:nq]
     v = x[:,nq:nq+nv]
-    R_ee    = pin_utils.get_R_(q, ddp_data['pin_model'], ddp_data['frame_id'])
-    Rdot_ee = pin_utils.get_Rdot_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
-    if('rotation' in ddp_data['active_costs']):
-        R_ee_ref = np.array(ddp_data['rotation_ref'])
+    rpy_ee = pin_utils.get_rpy_(q, ddp_data['pin_model'], ddp_data['frame_id'])
+    w_ee   = pin_utils.get_w_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
+    # Cost ref orientation
+    if('rotation' in ddp_data['active_costs'] or 'placement' in ddp_data['active_costs']):
+        rpy_ee_ref = pin.utils.matrixToRpy(np.array(ddp_data['rotation_ref']))
     else:
-        R_ee_ref = np.array([R_ee[0,:] for i in range(N+1)])
+        rpy_ee_ref = np.array([rpy_ee[0,:] for i in range(N+1)])
+    # Cost ref angular velocity
     if('velocity' in ddp_data['active_costs']):
-        v_ee_ref = np.array(ddp_data['velocity_ref'])
+        w_ee_ref = np.array(ddp_data['velocity_ref'])[:,3:] # angular part
     else:
-        v_ee_ref = np.array([v_ee[0,:] for i in range(N+1)])
-    if('contact_translation' in ddp_data):
-        p_ee_contact = np.array(ddp_data['contact_translation'])
+        w_ee_ref = np.array([w_ee[0,:] for i in range(N+1)])
+    # Contact orientation ref (6D)
+    if('contact_rotation' in ddp_data):
+        rpy_ee_contact = pin.utils.matrixToRpy(np.array(ddp_data['contact_rotation']))
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
@@ -2270,26 +2278,26 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
         label='OCP solution'
     xyz = ['x', 'y', 'z']
     for i in range(3):
-        # Plot EE position in WORLD frame
-        ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        # Plot EE orientation in WORLD frame
+        ax[i,0].plot(tspan, rpy_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
 
-        # Plot EE target frame translation in WORLD frame
-        if('translation' or 'placement' in ddp_data['active_costs']):
+        # Plot EE target frame orientation in WORLD frame
+        if('rotation' or 'placement' in ddp_data['active_costs']):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('reference' in labels):
                 handles.pop(labels.index('reference'))
                 ax[i,0].lines.pop(labels.index('reference'))
                 labels.remove('reference')
-            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
+            ax[i,0].plot(tspan, rpy_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
         
         # Plot CONTACT reference frame translation in WORLD frame
-        if('contact_translation' in ddp_data):
+        if('contact_rotation' in ddp_data):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('contact' in labels):
                 handles.pop(labels.index('contact'))
                 ax[i,0].lines.pop(labels.index('contact'))
                 labels.remove('contact')
-            ax[i,0].plot(tspan, p_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
+            ax[i,0].plot(tspan, rpy_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
 
         # Labels, tick labels, grid
         ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
@@ -2298,7 +2306,7 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
         ax[i,0].grid(True)
 
         # Plot EE 'linear) velocities in WORLD frame
-        ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
+        ax[i,1].plot(tspan, w_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
 
         # Plot EE target frame (linear) velocity in WORLD frame
         if('velocity' in ddp_data['active_costs']):
@@ -2307,7 +2315,7 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
                 handles.pop(labels.index('reference'))
                 ax[i,1].lines.pop(labels.index('reference'))
                 labels.remove('reference')
-            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
+            ax[i,1].plot(tspan, w_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
         
         # Labels, tick labels, grid
         ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
@@ -2324,20 +2332,19 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
     # Set ylim if any
     if(AUTOSCALE):
         TOL = 0.1
-        ax_p_ylim = 1.1*max(np.max(np.abs(p_ee)), TOL)
-        ax_v_ylim = 1.1*max(np.max(np.abs(v_ee)), TOL)
+        ax_p_ylim = 1.1*max(np.max(np.abs(rpy_ee)), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(w_ee)), TOL)
         for i in range(3):
-            ax[i,0].set_ylim(p_ee_ref[0,i]-ax_p_ylim, p_ee_ref[0,i]+ax_p_ylim) 
-            ax[i,1].set_ylim(v_ee_ref[0,i]-ax_v_ylim, v_ee_ref[0,i]+ax_v_ylim)
+            ax[i,0].set_ylim(-ax_p_ylim, +ax_p_ylim) 
+            ax[i,1].set_ylim(-ax_v_ylim, +ax_v_ylim)
 
     if(MAKE_LEGEND):
         handles, labels = ax[0,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.suptitle('End-effector translation: position and velocity', size=18)
+    fig.suptitle('End-effector frame orientation and angular velocity', size=18)
     if(SHOW):
         plt.show()
     return fig, ax
-
 
 def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
                                                 MAKE_LEGEND=False, SHOW=True, AUTOSCALE=False):
@@ -2429,152 +2436,152 @@ def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=N
 
 
 
-# Animate and plot point mass from X,U trajs 
-def animatePointMass(xs, sleep=1):
-    '''
-    Animate the point mass system with state trajectory xs
-    '''
-    # Check which model is used
-    logger.info(len(xs[0]))
-    if(len(xs[0])>2):
-        with_contact = True
-    else:
-        with_contact = False
+# # Animate and plot point mass from X,U trajs 
+# def animatePointMass(xs, sleep=1):
+#     '''
+#     Animate the point mass system with state trajectory xs
+#     '''
+#     # Check which model is used
+#     logger.info(len(xs[0]))
+#     if(len(xs[0])>2):
+#         with_contact = True
+#     else:
+#         with_contact = False
 
-    logger.info("processing the animation ... ")
-    cart_size = 1.
-    fig = plt.figure()
-    ax = plt.axes(xlim=(-7, 7), ylim=(-5, 5))
-    patch = plt.Rectangle((0., 0.), cart_size, cart_size, fc='b')
-    line, = ax.plot([], [], 'k-', lw=2)
-    time_text = ax.text(0.02, 0.95, '', transform=ax.transAxes)
+#     logger.info("processing the animation ... ")
+#     cart_size = 1.
+#     fig = plt.figure()
+#     ax = plt.axes(xlim=(-7, 7), ylim=(-5, 5))
+#     patch = plt.Rectangle((0., 0.), cart_size, cart_size, fc='b')
+#     line, = ax.plot([], [], 'k-', lw=2)
+#     time_text = ax.text(0.02, 0.95, '', transform=ax.transAxes)
 
-    def init():
-        ax.add_patch(patch)
-        line.set_data([], [])
-        time_text.set_text('')
-        return patch, line, time_text
+#     def init():
+#         ax.add_patch(patch)
+#         line.set_data([], [])
+#         time_text.set_text('')
+#         return patch, line, time_text
 
-    def animate(i):
-        px = np.asscalar(xs[i][0])
-        vx = np.asscalar(xs[i][1])
-        patch.set_xy([px - cart_size / 2, 0])
-        time = i * sleep / 1000.
-        time_text.set_text('time = %.1f sec' % time)
-        return patch, line, time_text
+#     def animate(i):
+#         px = np.asscalar(xs[i][0])
+#         vx = np.asscalar(xs[i][1])
+#         patch.set_xy([px - cart_size / 2, 0])
+#         time = i * sleep / 1000.
+#         time_text.set_text('time = %.1f sec' % time)
+#         return patch, line, time_text
 
-    anim = animation.FuncAnimation(fig, animate, init_func=init, frames=len(xs), interval=sleep, blit=True)
-    logger.info("... processing done")
-    plt.grid(True)
-    plt.show()
-    return anim
+#     anim = animation.FuncAnimation(fig, animate, init_func=init, frames=len(xs), interval=sleep, blit=True)
+#     logger.info("... processing done")
+#     plt.grid(True)
+#     plt.show()
+#     return anim
 
-def plotPointMass(xs, us, dt=1e-2, ref=None):
-    '''
-    Plots state-control trajectories  (xs,us) of point mass or point mass in contact
-    '''
-    # Check which model is used
-    if(len(xs[0])>2):
-        with_contact = True
-    else:
-        with_contact = False
-    # Extract trajectories from croco sequences
-    T = len(us)
-    tspan = np.linspace(0,T*dt,T+1)
-        # control traj
-    u = np.zeros(len(us))  # control
-    for i in range(len(us)):
-        u[i] = us[i]
-        # State traj
-    x1 = np.zeros(len(xs)) # position
-    x2 = np.zeros(len(xs)) # velocity
-    for i in range(len(xs)):
-        x1[i] = xs[i][0]
-        x2[i] = xs[i][1]
-        # Add force if using augmented model 
-    if(with_contact):
-        x3 = np.zeros(len(xs)) 
-        for i in range(len(xs)):
-            x3[i] = xs[i][2]
-    # Is there a 'reference' to plot as well?
-    if(ref is not None):
-        with_ref = True
-    else:
-        with_ref = False
-    # Create figs
-    if(with_contact):
-        fig, ax = plt.subplots(4,1)
-    else:
-        fig, ax = plt.subplots(3,1)
-    # Plot position
-    ax[0].plot(tspan, x1, 'b-', linewidth=3, label='p')
-    if(with_ref):
-        ax[0].plot(tspan, [ref[0]]*(T+1), 'k-.', linewidth=2, label='ref')
-    ax[0].set_title('Position p', size=16)
-    ax[0].set(xlabel='time (s)', ylabel='p (m)')
-    ax[0].grid(True)
-    # Plot velocity
-    ax[1].plot(tspan, x2, 'b-', linewidth=3, label='v')
-    if(with_ref):
-        ax[1].plot(tspan, [ref[1]]*(T+1), 'k-.', linewidth=2, label='ref')
-    ax[1].set_title('Velocity v', size=16)
-    ax[1].set(xlabel='time (s)', ylabel='v (m/s)')
-    ax[1].grid(True)
-    # Plot force if necessary 
-    if(with_contact):
-        # Contact
-        ax[2].plot(tspan, x3, 'b-', linewidth=3, label='lambda')
-        if(with_ref):
-            ax[2].plot(tspan, [ref[2]]*(T+1), 'k-.', linewidth=2, label='ref')
-        ax[2].set_title('Contact force lambda', size=16)
-        ax[2].set(xlabel='time (s)', ylabel='lmb (N)')
-        ax[2].grid(True)
-    # Plot control 
-    ax[-1].plot(tspan[:T], u, 'k-', linewidth=3, label='u')
-    ax[-1].set_title('Input force u', size=16)
-    ax[-1].set(xlabel='time (s)', ylabel='u (N)')
-    ax[-1].grid(True)
-    # Legend
-    handles, labels = ax[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.suptitle('Point mass trajectory', size=16)
-    plt.show()
+# def plotPointMass(xs, us, dt=1e-2, ref=None):
+#     '''
+#     Plots state-control trajectories  (xs,us) of point mass or point mass in contact
+#     '''
+#     # Check which model is used
+#     if(len(xs[0])>2):
+#         with_contact = True
+#     else:
+#         with_contact = False
+#     # Extract trajectories from croco sequences
+#     T = len(us)
+#     tspan = np.linspace(0,T*dt,T+1)
+#         # control traj
+#     u = np.zeros(len(us))  # control
+#     for i in range(len(us)):
+#         u[i] = us[i]
+#         # State traj
+#     x1 = np.zeros(len(xs)) # position
+#     x2 = np.zeros(len(xs)) # velocity
+#     for i in range(len(xs)):
+#         x1[i] = xs[i][0]
+#         x2[i] = xs[i][1]
+#         # Add force if using augmented model 
+#     if(with_contact):
+#         x3 = np.zeros(len(xs)) 
+#         for i in range(len(xs)):
+#             x3[i] = xs[i][2]
+#     # Is there a 'reference' to plot as well?
+#     if(ref is not None):
+#         with_ref = True
+#     else:
+#         with_ref = False
+#     # Create figs
+#     if(with_contact):
+#         fig, ax = plt.subplots(4,1)
+#     else:
+#         fig, ax = plt.subplots(3,1)
+#     # Plot position
+#     ax[0].plot(tspan, x1, 'b-', linewidth=3, label='ee')
+#     if(with_ref):
+#         ax[0].plot(tspan, [ref[0]]*(T+1), 'k-.', linewidth=2, label='ref')
+#     ax[0].set_title('Position p', size=16)
+#     ax[0].set(xlabel='time (s)', ylabel='p (m)')
+#     ax[0].grid(True)
+#     # Plot velocity
+#     ax[1].plot(tspan, x2, 'b-', linewidth=3, label='v')
+#     if(with_ref):
+#         ax[1].plot(tspan, [ref[1]]*(T+1), 'k-.', linewidth=2, label='ref')
+#     ax[1].set_title('Velocity v', size=16)
+#     ax[1].set(xlabel='time (s)', ylabel='v (m/s)')
+#     ax[1].grid(True)
+#     # Plot force if necessary 
+#     if(with_contact):
+#         # Contact
+#         ax[2].plot(tspan, x3, 'b-', linewidth=3, label='lambda')
+#         if(with_ref):
+#             ax[2].plot(tspan, [ref[2]]*(T+1), 'k-.', linewidth=2, label='ref')
+#         ax[2].set_title('Contact force lambda', size=16)
+#         ax[2].set(xlabel='time (s)', ylabel='lmb (N)')
+#         ax[2].grid(True)
+#     # Plot control 
+#     ax[-1].plot(tspan[:T], u, 'k-', linewidth=3, label='u')
+#     ax[-1].set_title('Input force u', size=16)
+#     ax[-1].set(xlabel='time (s)', ylabel='u (N)')
+#     ax[-1].grid(True)
+#     # Legend
+#     handles, labels = ax[0].get_legend_handles_labels()
+#     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+#     fig.suptitle('Point mass trajectory', size=16)
+#     plt.show()
 
-# Plots Kalman filtered trajs : measured, estimated, ground truth
-def plotFiltered(Y_mea, X_hat, X_real, dt=1e-2):
-    '''
-    Plot point mass filtering using custom Kalman 
-      Y_mea  : measurements
-      X_hat  : estimates 
-      X_real : ground truth
-    '''
-    # Extract trajectories and reshape
-    T = len(Y_mea)
-    ny = len(Y_mea[0])
-    nx = len(X_real[0])
-    tspan = np.linspace(0, T*dt, T+1)
-    Y_mea = np.array(Y_mea).reshape((T, ny))
-    X_hat = np.array(X_hat).reshape((T+1, nx))
-    X_real = np.array(X_real).reshape((T+1, nx))
-    # Create fig
-    fig, ax = plt.subplots(2,1)
-    # Plot position
-    ax[0].plot(tspan[:T], Y_mea[:,0], 'b-', linewidth=2, alpha=.5, label='Measured')
-    ax[0].plot(tspan, X_hat[:,0], 'r-', linewidth=3, alpha=.8, label='Filtered')
-    ax[0].plot(tspan, X_real[:,0], 'k-.', linewidth=2, label='Ground truth')
-    ax[0].set_title('Position p', size=16)
-    ax[0].set(xlabel='time (s)', ylabel='p (m)')
-    ax[0].grid(True)
-    # Plot velocities
-    ax[1].plot(tspan[:T], Y_mea[:,1], 'b-', linewidth=2, alpha=.5, label='Measured')
-    ax[1].plot(tspan, X_hat[:,1], 'r-', linewidth=3, alpha=.8, label='Filtered')
-    ax[1].plot(tspan, X_real[:,1], 'k-.', linewidth=2, label='Ground truth')
-    ax[1].set_title('Velocities p', size=16)
-    ax[1].set(xlabel='time (s)', ylabel='v (m/s)')
-    ax[1].grid(True)
-    # Legend
-    handles, labels = ax[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', prop={'size': 16})
-    fig.suptitle('Kalman-filtered point mass trajectory', size=16)
-    plt.show()
+# # Plots Kalman filtered trajs : measured, estimated, ground truth
+# def plotFiltered(Y_mea, X_hat, X_real, dt=1e-2):
+#     '''
+#     Plot point mass filtering using custom Kalman 
+#       Y_mea  : measurements
+#       X_hat  : estimates 
+#       X_real : ground truth
+#     '''
+#     # Extract trajectories and reshape
+#     T = len(Y_mea)
+#     ny = len(Y_mea[0])
+#     nx = len(X_real[0])
+#     tspan = np.linspace(0, T*dt, T+1)
+#     Y_mea = np.array(Y_mea).reshape((T, ny))
+#     X_hat = np.array(X_hat).reshape((T+1, nx))
+#     X_real = np.array(X_real).reshape((T+1, nx))
+#     # Create fig
+#     fig, ax = plt.subplots(2,1)
+#     # Plot position
+#     ax[0].plot(tspan[:T], Y_mea[:,0], 'b-', linewidth=2, alpha=.5, label='Measured')
+#     ax[0].plot(tspan, X_hat[:,0], 'r-', linewidth=3, alpha=.8, label='Filtered')
+#     ax[0].plot(tspan, X_real[:,0], 'k-.', linewidth=2, label='Ground truth')
+#     ax[0].set_title('Position p', size=16)
+#     ax[0].set(xlabel='time (s)', ylabel='p (m)')
+#     ax[0].grid(True)
+#     # Plot velocities
+#     ax[1].plot(tspan[:T], Y_mea[:,1], 'b-', linewidth=2, alpha=.5, label='Measured')
+#     ax[1].plot(tspan, X_hat[:,1], 'r-', linewidth=3, alpha=.8, label='Filtered')
+#     ax[1].plot(tspan, X_real[:,1], 'k-.', linewidth=2, label='Ground truth')
+#     ax[1].set_title('Velocities p', size=16)
+#     ax[1].set(xlabel='time (s)', ylabel='v (m/s)')
+#     ax[1].grid(True)
+#     # Legend
+#     handles, labels = ax[0].get_legend_handles_labels()
+#     fig.legend(handles, labels, loc='upper right', prop={'size': 16})
+#     fig.suptitle('Kalman-filtered point mass trajectory', size=16)
+#     plt.show()
 
