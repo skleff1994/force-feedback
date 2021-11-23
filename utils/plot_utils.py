@@ -2269,7 +2269,7 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
         w_ee_ref = np.array([w_ee[0,:] for i in range(N+1)])
     # Contact orientation ref (6D)
     if('contact_rotation' in ddp_data):
-        rpy_ee_contact = pin.utils.matrixToRpy(np.array(ddp_data['contact_rotation']))
+        rpy_ee_contact = np.array([pin.utils.matrixToRpy(R) for R in ddp_data['contact_rotation']])
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):

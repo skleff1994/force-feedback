@@ -580,14 +580,18 @@ def extract_ddp_data(ddp):
     ddp_data['us'] = ddp.us
     # Extract force at EE frame and contact info 
     if(hasattr(ddp.problem.runningModels[0].differential, 'contacts')):
-      # Get ref translation for 3D or 6D contact
-      ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.translation for i in range(ddp.problem.T)]
-      ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.translation)
-      # Get ref rotation for 6D contact
-      contactModel0 = ddp.problem.runningModels[0].differential.contacts.contacts["contact"].contact
+      # Get refs for 6D contact
+      contactModel0 = ddp.problem.runningModels[0].differential.contacts.contacts["contact"].contact.reference
       if(hasattr(contactModel0, 'rotation')):
         ddp_data['contact_rotation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.rotation for i in range(ddp.problem.T)]
         ddp_data['contact_rotation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.rotation)
+        # Get ref translation for 6D contact
+        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.translation for i in range(ddp.problem.T)]
+        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.translation)
+      else:
+        # Get ref translation for 3D 
+        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference for i in range(ddp.problem.T)]
+        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference)
       # Get contact force
       datas = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'] for i in range(ddp.problem.T)]
       # data.f = force exerted at parent joint expressed in WORLD frame (oMi)
