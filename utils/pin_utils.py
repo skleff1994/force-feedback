@@ -13,6 +13,7 @@ logger.setLevel(logging.INFO)
 
 DEFAULT_ARMATURE_KUKA = [.1, .1, .1, .1, .1, .1, .0]
 
+# Get frame position
 def get_p(q, pin_robot, id_endeff):
     '''
     Returns end-effector positions given q trajectory 
@@ -45,6 +46,7 @@ def get_p_(q, model, id_endeff):
     return p
 
 
+# Get frame linear velocity
 def get_v(q, dq, pin_robot, id_endeff):
     '''
     Returns end-effector velocities given q,dq trajectory 
@@ -64,20 +66,27 @@ def get_v_(q, dq, model, id_endeff):
         id_endeff : id of EE frame
     '''
     data = model.createData()
-    if(len(q) != len(v)):
-        logger.error("q and v must have the same size !")
+    if(len(q) != len(dq)):
+        logger.error("q and dq must have the same size !")
     if(type(q)==np.ndarray and len(q.shape)==1):
-        J = pin.computeFrameJacobian(model, data, q, id_endeff)
-        v = J.dot(dq)[:3] 
+        # J = pin.computeFrameJacobian(model, data, q, id_endeff)
+        # v = J.dot(dq)[:3] 
+        pin.forwardKinematics(model, data, q, dq)
+        spatial_vel =  pin.getFrameVelocity(model, data, id_endeff)
+        v = spatial_vel.linear
     else:
         N = np.shape(q)[0]
         v = np.empty((N,3))
         for i in range(N):
-            J = pin.computeFrameJacobian(model, data, q[i,:], id_endeff)
-            v[i,:] = J.dot(dq[i])[:3]  
+            # J = pin.computeFrameJacobian(model, data, q[i,:], id_endeff)
+            # v[i,:] = J.dot(dq[i])[:3] 
+            pin.forwardKinematics(model, data, q[i], dq[i])
+            spatial_vel =  pin.getFrameVelocity(model, data, id_endeff)
+            v[i,:] = spatial_vel.linear    
     return v
 
 
+# Get frame orientation (rotation)
 def get_R(q, pin_robot, id_endeff):
     '''
     Returns end-effector rotation matrices given q trajectory 
@@ -108,7 +117,7 @@ def get_R_(q, model, id_endeff):
     return R
 
 
-
+# Get frame orientation (RPY)
 def get_rpy(q, pin_robot, id_endeff):
     '''
     Returns RPY angles of end-effector frame given q trajectory
@@ -117,7 +126,6 @@ def get_rpy(q, pin_robot, id_endeff):
         id_endeff : id of EE frame
     '''
     return get_rpy_(q, pin_robot.model, id_endeff)
-
 
 def get_rpy_(q, model, id_endeff):
     '''
@@ -137,20 +145,43 @@ def get_rpy_(q, model, id_endeff):
     return rpy
 
 
-def get_Rdot(q, dq, pin_robot, id_endeff):
+# Get frame angular velocity
+def get_w(q, dq, pin_robot, id_endeff):
     '''
-    Returns end-effector velocities given q,dq trajectory 
+    Returns end-effector angular velocity given q,dq trajectory 
         q         : joint positions
         dq        : joint velocities
         pin_robot : pinocchio wrapper
         id_endeff : id of EE frame
     '''
-    return get_R_(q, dq, pin_robot.model, id_endeff)
+    return get_w_(q, dq, pin_robot.model, id_endeff)
+
+def get_w_(q, dq, model, id_endeff):
+    '''
+    Returns end-effector  angular velocity given q,dq trajectory 
+        q         : joint positions
+        dq        : joint velocities
+        pin_robot : pinocchio wrapper
+        id_endeff : id of EE frame
+    '''
+    data = model.createData()
+    if(len(q) != len(dq)):
+        logger.error("q and dq must have the same size !")
+    if(type(q)==np.ndarray and len(q.shape)==1):
+        pin.forwardKinematics(model, data, q, dq)
+        spatial_vel =  pin.getFrameVelocity(model, data, id_endeff)
+        w = spatial_vel.angular
+    else:
+        N = np.shape(q)[0]
+        w = np.empty((N,3))
+        for i in range(N):
+            pin.forwardKinematics(model, data, q[i], dq[i])
+            spatial_vel =  pin.getFrameVelocity(model, data, id_endeff)
+            w[i,:] = spatial_vel.angular    
+    return w
 
 
-
-
-
+# Get frame force
 def get_f_(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
@@ -216,7 +247,6 @@ def get_f_lambda(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, RE
         f[i,:] = data.lambda_c
     return f
 
-
 def get_f_kkt(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
@@ -247,6 +277,7 @@ def get_f_kkt(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0
     return f
 
 
+# Get gravity joint torque
 def get_u_grav(q, model, armature=DEFAULT_ARMATURE_KUKA):
     '''
     Return gravity torque at q
@@ -256,6 +287,7 @@ def get_u_grav(q, model, armature=DEFAULT_ARMATURE_KUKA):
     return pin.computeGeneralizedGravity(model, data, q)
 
 
+# Get joint torques 
 def get_tau(q, v, a, f, model, armature=DEFAULT_ARMATURE_KUKA):
     '''
     Return torque using rnea
@@ -265,6 +297,7 @@ def get_tau(q, v, a, f, model, armature=DEFAULT_ARMATURE_KUKA):
     return pin.rnea(model, data, q, v, a, f)
 
 
+# Get joint torques due to an external wrench 
 def get_external_joint_torques(M_contact, wrench, robot):
     '''
     Computes the joint torques induced by an external contact force
@@ -283,6 +316,8 @@ def get_external_joint_torques(M_contact, wrench, robot):
         f_ext.append(pin.Force(f_JOINT))
     return f_ext
 
+
+# Inverse kinematics
 def IK_position(robot, q, frame_id, p_des, LOGS=False, DISPLAY=False, DT=1e-2, IT_MAX=1000, EPS=1e-6, sleep=0.01):
     '''
     Inverse kinematics: returns q, v to reach desired position p
