@@ -2300,7 +2300,7 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
             ax[i,0].plot(tspan, rpy_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
 
         # Labels, tick labels, grid
-        ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+        ax[i,0].set_ylabel('$RPY^{EE}_%s$ (rad)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
@@ -2318,7 +2318,7 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
             ax[i,1].plot(tspan, w_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
         
         # Labels, tick labels, grid
-        ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
+        ax[i,1].set_ylabel('$W^{EE}_%s$ (rad/s)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)
