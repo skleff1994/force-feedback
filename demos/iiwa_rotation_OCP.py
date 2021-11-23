@@ -56,7 +56,11 @@ logger.info(M_ee.rotation)
 logger.info("LOCAL rpy : ")
 logger.info(pin.utils.matrixToRpy(M_ee.rotation))
 
-rpy0 = pin.utils.matrixToRpy(M_ee.rotation.copy()) # In WORLD
+rpy0_WORLD = pin.utils.matrixToRpy(M_ee.rotation.copy()) # In WORLD
+# Rotation in LOCAL
+R0_LOCAL = np.eye(3)
+# RPY in LOCAL
+rpy0_LOCAL = np.zeros(3)
 
 # # # # # # # # # 
 ### OCP SETUP ###
@@ -69,23 +73,15 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
 # Setup tracking problem with oritantation ref for EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 OMEGA  = config['frameRotationTrajectoryVelocity']
-rpy        = np.zeros((N_h+1, 3))
-rpy0_LOCAL = pin.utils.matrixToRpy(M_ee.rotation.T.copy()) 
+# rpy_ref_WORLD = np.zeros((N_h+1, 3))
+rpy0_LOCAL    = pin.utils.matrixToRpy(M_ee.rotation.T.copy()) 
 for k,m in enumerate(models):
     # Ref
     t = min(k*config['dt'], 2*np.pi/OMEGA)
-    # R_ee_ref = ocp_utils.rotation_matrix_WORLD(t, M_ee.copy(), 
-    #                                            omega=OMEGA)
-    # Rlocal = ocp_utils.rotation_matrix_LOCAL(t, rpy0, omega=OMEGA)
-    # rpy[k,:] = pin.utils.matrixToRpy(Rlocal)
-    # Desired RPY in LOCAL frame
-    rpy = rpy0_LOCAL + np.array([0., 0., 1.])
-    # Desired rotation matrix in LOCAL frame
-    R_ee_ref_LOCAL = pin.utils.rpyToMatrix(rpy)
-    # Desired rotation matrix in WORLD frame
-    R_ee_ref = M_ee.rotation.copy().dot(R_ee_ref_LOCAL)
+    # Desired RPY in WORLD frame
+    R_ee_ref_WORLD = M_ee.rotation.copy().dot(pin.utils.rpyToMatrix(np.array([0., 0., np.sin(OMEGA*t)])))
     # Cost translation
-    m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref
+    m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
 
 # import matplotlib.pyplot as plt
 # for i in range(3):

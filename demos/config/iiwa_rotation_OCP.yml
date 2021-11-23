@@ -27,18 +27,18 @@ ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 10.
-frameTranslationWeightTerminal: 10. 
+frameTranslationWeight: 100.
+frameTranslationWeightTerminal: 100. 
 frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
 
  # 'rotation' : end-effector frame orientation 
 frameRotationWeights:  [1., 1., 1.]
-frameRotationWeight: 1.
-frameRotationWeightTerminal: 1.
+frameRotationWeight: 10.
+frameRotationWeightTerminal: 10.
 frameRotationRef: 'DEFAULT' 
 frameRotationFrameName: 'contact'
-frameRotationTrajectoryVelocity: 2. # in rad/s
+frameRotationTrajectoryVelocity: 1. # in rad/s
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
