@@ -19,6 +19,7 @@ from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
 np.set_printoptions(precision=4, linewidth=180)
 import time
+import pinocchio as pin
 
 import logging
 FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
@@ -50,7 +51,12 @@ robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
 M_ee = robot.data.oMf[id_endeff]
 
+logger.info("LOCAL rotation : ")
+logger.info(M_ee.rotation)
+logger.info("LOCAL rpy : ")
+logger.info(pin.utils.matrixToRpy(M_ee.rotation))
 
+rpy0 = pin.utils.matrixToRpy(M_ee.rotation.copy()) # In WORLD
 
 # # # # # # # # # 
 ### OCP SETUP ###
@@ -63,14 +69,30 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
 # Setup tracking problem with oritantation ref for EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 OMEGA  = config['frameRotationTrajectoryVelocity']
+rpy        = np.zeros((N_h+1, 3))
+rpy0_LOCAL = pin.utils.matrixToRpy(M_ee.rotation.T.copy()) 
 for k,m in enumerate(models):
     # Ref
     t = min(k*config['dt'], 2*np.pi/OMEGA)
-    R_ee_ref = ocp_utils.rotation_matrix_WORLD(t, M_ee.copy(), 
-                                               omega=OMEGA)
+    # R_ee_ref = ocp_utils.rotation_matrix_WORLD(t, M_ee.copy(), 
+    #                                            omega=OMEGA)
+    # Rlocal = ocp_utils.rotation_matrix_LOCAL(t, rpy0, omega=OMEGA)
+    # rpy[k,:] = pin.utils.matrixToRpy(Rlocal)
+    # Desired RPY in LOCAL frame
+    rpy = rpy0_LOCAL + np.array([0., 0., 1.])
+    # Desired rotation matrix in LOCAL frame
+    R_ee_ref_LOCAL = pin.utils.rpyToMatrix(rpy)
+    # Desired rotation matrix in WORLD frame
+    R_ee_ref = M_ee.rotation.copy().dot(R_ee_ref_LOCAL)
     # Cost translation
     m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref
-    
+
+# import matplotlib.pyplot as plt
+# for i in range(3):
+#     plt.plot(np.linspace(0,N_h,N_h+1), rpy[:,i], label=str(i))
+# plt.show()
+# time.sleep(100)
+
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = False
@@ -124,7 +146,7 @@ if(VISUALIZE):
     wrench_coef = 0.02
 
     # Display reference trajectory as red spheres
-    if('translation' or 'placement' in config['WHICH_COSTS']):
+    if('translation' in config['WHICH_COSTS'] or 'placement' in config['WHICH_COSTS'] or 'rotation' in config['WHICH_COSTS']):
 
         # Remove circle ref traj and EE traj if already displayed
         for i in range(N_h):
@@ -158,6 +180,8 @@ if(VISUALIZE):
                     m_ee_ref.translation = models[i].differential.costs.costs['translation'].cost.residual.reference
                 elif('placement' in config['WHICH_COSTS']):
                     m_ee_ref = models[i].differential.costs.costs['placement'].cost.residual.reference.copy()
+                elif('rotation' in config['WHICH_COSTS']):
+                    m_ee_ref.rotation = models[i].differential.costs.costs['rotation'].cost.residual.reference
                 tf_ee_ref = list(pin.SE3ToXYZQUAT(m_ee_ref))
                 viewer.gui.addSphere('world/EE_ref'+str(i), ref_size, ref_color)
                 viewer.gui.applyConfiguration('world/EE_ref'+str(i), tf_ee_ref)
