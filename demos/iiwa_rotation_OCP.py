@@ -51,16 +51,6 @@ robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
 M_ee = robot.data.oMf[id_endeff]
 
-logger.info("LOCAL rotation : ")
-logger.info(M_ee.rotation)
-logger.info("LOCAL rpy : ")
-logger.info(pin.utils.matrixToRpy(M_ee.rotation))
-
-rpy0_WORLD = pin.utils.matrixToRpy(M_ee.rotation.copy()) # In WORLD
-# Rotation in LOCAL
-R0_LOCAL = np.eye(3)
-# RPY in LOCAL
-rpy0_LOCAL = np.zeros(3)
 
 # # # # # # # # # 
 ### OCP SETUP ###
@@ -73,8 +63,6 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
 # Setup tracking problem with oritantation ref for EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 OMEGA  = config['frameRotationTrajectoryVelocity']
-# rpy_ref_WORLD = np.zeros((N_h+1, 3))
-rpy0_LOCAL    = pin.utils.matrixToRpy(M_ee.rotation.T.copy()) 
 for k,m in enumerate(models):
     # Ref
     t = min(k*config['dt'], 2*np.pi/OMEGA)
@@ -82,12 +70,6 @@ for k,m in enumerate(models):
     R_ee_ref_WORLD = M_ee.rotation.copy().dot(pin.utils.rpyToMatrix(np.array([0., 0., np.sin(OMEGA*t)])))
     # Cost translation
     m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
-
-# import matplotlib.pyplot as plt
-# for i in range(3):
-#     plt.plot(np.linspace(0,N_h,N_h+1), rpy[:,i], label=str(i))
-# plt.show()
-# time.sleep(100)
 
 
 # Warm start state = IK of circle trajectory
