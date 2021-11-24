@@ -724,7 +724,8 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
                     fig_u, ax_u = plot_ddp_control_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('xs' in data.keys()):
-                    fig_ee_lin, ax_ee_lin = plot_ddp_endeff_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    fig_ee_lin, ax_ee_lin = plot_ddp_endeff_LPF_linear(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    fig_ee_ang, ax_ee_ang = plot_ddp_endeff_LPF_angular(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('fs' in data.keys()):
                     fig_f, ax_f = plot_ddp_force_LPF(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
@@ -738,7 +739,8 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
                         plot_ddp_control_LPF(data, fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
                     if('xs' in data.keys()):
-                        plot_ddp_endeff_LPF(data, fig=fig_ee_lin, ax=ax_ee_lin, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                        plot_ddp_endeff_LPF_linear(data, fig=fig_ee_lin, ax=ax_ee_lin, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                        plot_ddp_endeff_LPF_angular(data, fig=fig_ee_ang, ax=ax_ee_ang, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                 if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                     if('fs' in data.keys()):
                         plot_ddp_force_LPF(data, fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
@@ -759,8 +761,10 @@ def plot_ddp_results_LPF(DDP_DATA, which_plots='all', labels=None, markers=None,
             ax['w'] = ax_u
     if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
         if('xs' in data.keys()):
-            fig['ee'] = fig_ee_lin
-            ax['ee'] = ax_ee_lin
+            fig['ee_lin'] = fig_ee_lin
+            ax['ee_lin'] = ax_ee_lin
+            fig['ee_ang'] = fig_ee_ang
+            ax['ee_ang'] = ax_ee_ang
     if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
         if('fs' in data.keys()):
             fig['f'] = fig_f
@@ -910,11 +914,17 @@ def plot_ddp_control_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, c
         plt.show()
     return fig, ax
 
-def plot_ddp_endeff_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
+def plot_ddp_endeff_LPF_linear(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
     '''
     Plot ddp results (endeff)
     '''
     return plot_ddp_endeff_linear(ddp_data, fig=fig, ax=ax, label=label, marker=marker, color=color, alpha=alpha, MAKE_LEGEND=MAKE_LEGEND, SHOW=SHOW)
+
+def plot_ddp_endeff_LPF_angular(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
+    '''
+    Plot ddp results (endeff)
+    '''
+    return plot_ddp_endeff_angular(ddp_data, fig=fig, ax=ax, label=label, marker=marker, color=color, alpha=alpha, MAKE_LEGEND=MAKE_LEGEND, SHOW=SHOW)
 
 def plot_ddp_force_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
     '''
@@ -963,7 +973,11 @@ def plot_mpc_results(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
                                              SHOW=False)
 
     if('ee' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        plots['ee'] = plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        plots['ee_lin'] = plot_mpc_endeff_linear(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                            pred_plot_sampling=pred_plot_sampling, 
+                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False, AUTOSCALE=AUTOSCALE)
+        plots['ee_ang'] = plot_mpc_endeff_angular(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
@@ -1237,13 +1251,13 @@ def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False,
     return fig_u
 
 # Plot end-eff data
-def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False, 
+def plot_mpc_endeff_linear(plot_data, PLOT_PREDICTIONS=False, 
                                pred_plot_sampling=100, 
                                SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                                SHOW=True,
                                AUTOSCALE=False):
     '''
-    Plot endeff data
+    Plot endeff data (linear position and velocity)
      Input:
       plot_data                 : plotting data
       PLOT_PREDICTIONS          : True or False
@@ -1255,7 +1269,7 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
       AUTOSCALE                 : rescale y-axis of endeff plot 
                                   based on maximum value taken
     '''
-    logger.info('Plotting end-eff data...')
+    logger.info('Plotting end-eff data (linear)...')
     T_tot = plot_data['T_tot']
     N_simu = plot_data['N_simu']
     N_ctrl = plot_data['N_ctrl']
@@ -1273,16 +1287,16 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
     for i in range(3):
 
         if(PLOT_PREDICTIONS):
-            p_ee_pred_i = plot_data['p_ee_pred'][:, :, i]
-            v_ee_pred_i = plot_data['v_ee_pred'][:, :, i]
+            lin_pos_ee_pred_i = plot_data['lin_pos_ee_pred'][:, :, i]
+            lin_vel_ee_pred_i = plot_data['lin_vel_ee_pred'][:, :, i]
             # For each planning step in the trajectory
             for j in range(0, N_plan, pred_plot_sampling):
                 # Receding horizon = [j,j+N_h]
                 t0_horizon = j*dt_plan
                 tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
                 # Set up lists of (x,y) points for predicted positions
-                points_p = np.array([tspan_x_pred, p_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
-                points_v = np.array([tspan_x_pred, v_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                points_p = np.array([tspan_x_pred, lin_pos_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                points_v = np.array([tspan_x_pred, lin_vel_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
                 # Set up lists of segments
                 segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
                 segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
@@ -1303,28 +1317,28 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
                 # Scatter to highlight points
                 colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
                 my_colors = cm(colors)
-                ax[i,0].scatter(tspan_x_pred, p_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
-                ax[i,1].scatter(tspan_x_pred, v_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+                ax[i,0].scatter(tspan_x_pred, lin_pos_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+                ax[i,1].scatter(tspan_x_pred, lin_vel_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
 
         # EE position
-        ax[i,0].plot(t_span_plan, plot_data['p_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
-        # ax[i,0].plot(t_span_ctrl, plot_data['p_ee_des_CTRL'][:,i]-plot_data['p_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
-        ax[i,0].plot(t_span_simu, plot_data['p_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
-        ax[i,0].plot(t_span_simu, plot_data['p_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax[i,0].plot(t_span_simu, plot_data['p_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
+        ax[i,0].plot(t_span_plan, plot_data['lin_pos_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,0].plot(t_span_ctrl, plot_data['lin_pos_ee_des_CTRL'][:,i]-plot_data['lin_pos_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['lin_pos_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['lin_pos_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,0].plot(t_span_simu, plot_data['lin_pos_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
         # Plot reference
         if('translation' in plot_data['WHICH_COSTS']):
-            ax[i,0].plot(t_span_plan[:-1], plot_data['p_ee_ref'][:,i], 'k-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,0].plot(t_span_plan[:-1], plot_data['lin_pos_ee_ref'][:,i], 'k-.', linewidth=2., label='Reference', alpha=0.5)
         ax[i,0].set_ylabel('$P^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax[i,0].grid(True)
         # EE velocity
-        ax[i,1].plot(t_span_plan, plot_data['v_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
-        # ax[i,1].plot(t_span_ctrl, plot_data['v_ee_des_CTRL'][:,i]-plot_data['v_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
-        ax[i,1].plot(t_span_simu, plot_data['v_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
-        ax[i,1].plot(t_span_simu, plot_data['v_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-        ax[i,1].plot(t_span_simu, plot_data['v_ee_mea_no_noise'][:,i], 'r-', label='Measured', linewidth=2)
+        ax[i,1].plot(t_span_plan, plot_data['lin_vel_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,1].plot(t_span_ctrl, plot_data['lin_vel_ee_des_CTRL'][:,i]-plot_data['lin_vel_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['lin_vel_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['lin_vel_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,1].plot(t_span_simu, plot_data['lin_vel_ee_mea_no_noise'][:,i], 'r-', label='Measured', linewidth=2)
         # Plot reference 
         if('velocity' in plot_data['WHICH_COSTS']):
             ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='Reference', alpha=0.5)
@@ -1342,8 +1356,8 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
     # Set ylim if any
     TOL = 1e-3
     if(AUTOSCALE):
-        ax_p_ylim = 1.1*max(np.max(np.abs(plot_data['p_ee_mea'])), TOL)
-        ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['v_ee_mea'])), TOL)
+        ax_p_ylim = 1.1*max(np.max(np.abs(plot_data['lin_pos_ee_mea'])), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['lin_vel_ee_mea'])), TOL)
         for i in range(3):
             ax[i,0].set_ylim(-ax_p_ylim, ax_p_ylim) 
             ax[i,1].set_ylim(-ax_v_ylim, ax_v_ylim) 
@@ -1352,6 +1366,137 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
     fig.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
     # Titles
     fig.suptitle('End-effector trajectories', size=18)
+    # Save figs
+    if(SAVE):
+        figs = {'ee': fig}
+        if(SAVE_DIR is None):
+            SAVE_DIR = '/home/skleff/force-feedback/data'
+        if(SAVE_NAME is None):
+            SAVE_NAME = 'testfig'
+        for name, fig in figs.items():
+            fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+    
+    if(SHOW):
+        plt.show() 
+    
+    return fig, ax
+
+# Plot end-eff data
+def plot_mpc_endeff_angular(plot_data, PLOT_PREDICTIONS=False, 
+                               pred_plot_sampling=100, 
+                               SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                               SHOW=True,
+                               AUTOSCALE=False):
+    '''
+    Plot endeff data (angular position and velocity)
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+      AUTOSCALE                 : rescale y-axis of endeff plot 
+                                  based on maximum value taken
+    '''
+    logger.info('Plotting end-eff data (angular)...')
+    T_tot = plot_data['T_tot']
+    N_simu = plot_data['N_simu']
+    N_ctrl = plot_data['N_ctrl']
+    N_plan = plot_data['N_plan']
+    dt_plan = plot_data['dt_plan']
+    T_h = plot_data['T_h']
+    N_h = plot_data['N_h']
+    # Create time spans for X and U + Create figs and subplots
+    t_span_simu = np.linspace(0, T_tot, N_simu+1)
+    t_span_ctrl = np.linspace(0, T_tot, N_ctrl+1)
+    t_span_plan = np.linspace(0, T_tot, N_plan+1)
+    fig, ax = plt.subplots(3, 2, figsize=(19.2,10.8), sharex='col') 
+    # Plot endeff
+    xyz = ['x', 'y', 'z']
+    for i in range(3):
+
+        if(PLOT_PREDICTIONS):
+            ang_pos_ee_pred_i = plot_data['ang_pos_ee_pred'][:, :, i]
+            ang_vel_ee_pred_i = plot_data['ang_vel_ee_pred'][:, :, i]
+            # For each planning step in the trajectory
+            for j in range(0, N_plan, pred_plot_sampling):
+                # Receding horizon = [j,j+N_h]
+                t0_horizon = j*dt_plan
+                tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+                # Set up lists of (x,y) points for predicted positions
+                points_p = np.array([tspan_x_pred, ang_pos_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                points_v = np.array([tspan_x_pred, ang_vel_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                # Set up lists of segments
+                segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
+                segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
+                # Make collections segments
+                cm = plt.get_cmap('Greys_r') 
+                lc_p = LineCollection(segs_p, cmap=cm, zorder=-1)
+                lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
+                lc_p.set_array(tspan_x_pred)
+                lc_v.set_array(tspan_x_pred)
+                # Customize
+                lc_p.set_linestyle('-')
+                lc_v.set_linestyle('-')
+                lc_p.set_linewidth(1)
+                lc_v.set_linewidth(1)
+                # Plot collections
+                ax[i,0].add_collection(lc_p)
+                ax[i,1].add_collection(lc_v)
+                # Scatter to highlight points
+                colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+                my_colors = cm(colors)
+                ax[i,0].scatter(tspan_x_pred, ang_pos_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+                ax[i,1].scatter(tspan_x_pred, ang_vel_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+
+        # EE position
+        ax[i,0].plot(t_span_plan, plot_data['ang_pos_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,0].plot(t_span_ctrl, plot_data['ang_pos_ee_des_CTRL'][:,i]-plot_data['ang_pos_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['ang_pos_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,0].plot(t_span_simu, plot_data['ang_pos_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,0].plot(t_span_simu, plot_data['ang_pos_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
+        # Plot reference
+        if('rotation' in plot_data['WHICH_COSTS']):
+            ax[i,0].plot(t_span_plan[:-1], plot_data['ang_pos_ee_ref'][:,i], 'k-.', linewidth=2., label='Reference', alpha=0.5)
+        ax[i,0].set_ylabel('$RPY^{EE}_%s$  (m)'%xyz[i], fontsize=16)
+        ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax[i,0].grid(True)
+        # EE velocity
+        ax[i,1].plot(t_span_plan, plot_data['ang_vel_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.5)
+        # ax[i,1].plot(t_span_ctrl, plot_data['ang_vel_ee_des_CTRL'][:,i]-plot_data['lin_vel_ee_ref'][i], 'g-', label='Predicted (CTRL)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['ang_vel_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Predicted (SIMU)', alpha=0.5)
+        ax[i,1].plot(t_span_simu, plot_data['ang_vel_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
+        ax[i,1].plot(t_span_simu, plot_data['ang_vel_ee_mea_no_noise'][:,i], 'r-', label='Measured', linewidth=2)
+        # Plot reference 
+        if('velocity' in plot_data['WHICH_COSTS']):
+            ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='Reference', alpha=0.5)
+        ax[i,1].set_ylabel('$W^{EE}_%s$  (m)'%xyz[i], fontsize=16)
+        ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax[i,1].grid(True)
+
+
+    # Align
+    fig.align_ylabels(ax[:,0])
+    fig.align_ylabels(ax[:,1])
+    ax[i,0].set_xlabel('t (s)', fontsize=16)
+    ax[i,1].set_xlabel('t (s)', fontsize=16)
+    # Set ylim if any
+    TOL = 1e-3
+    if(AUTOSCALE):
+        ax_p_ylim = 1.1*max(np.max(np.abs(plot_data['ang_pos_ee_mea'])), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(plot_data['ang_vel_ee_mea'])), TOL)
+        for i in range(3):
+            ax[i,0].set_ylim(-ax_p_ylim, ax_p_ylim) 
+            ax[i,1].set_ylim(-ax_v_ylim, ax_v_ylim) 
+
+    handles_p, labels_p = ax[0,0].get_legend_handles_labels()
+    fig.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
+    # Titles
+    fig.suptitle('End-effector frame orientation (RPY) and angular velocity', size=18)
     # Save figs
     if(SAVE):
         figs = {'ee': fig}
@@ -2150,21 +2295,21 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
     x = np.array(ddp_data['xs'])
     q = x[:,:nq]
     v = x[:,nq:nq+nv]
-    p_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
-    v_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
+    lin_pos_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
+    lin_vel_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
     # Cost ref frame position
     if('translation' in ddp_data['active_costs'] or 'placement' in ddp_data['active_costs']):
-        p_ee_ref = np.array(ddp_data['translation_ref'])
+        lin_pos_ee_ref = np.array(ddp_data['translation_ref'])
     else:
-        p_ee_ref = np.array([p_ee[0,:] for i in range(N+1)])
+        lin_pos_ee_ref = np.array([lin_pos_ee[0,:] for i in range(N+1)])
     # Cost frame linear velocity
     if('velocity' in ddp_data['active_costs']):
-        v_ee_ref = np.array(ddp_data['velocity_ref'])[:,:3] # linear part
+        lin_vel_ee_ref = np.array(ddp_data['velocity_ref'])[:,:3] # linear part
     else:
-        v_ee_ref = np.array([v_ee[0,:] for i in range(N+1)])
+        lin_vel_ee_ref = np.array([lin_vel_ee[0,:] for i in range(N+1)])
     # Contact ref position
     if('contact_translation' in ddp_data):
-        p_ee_contact = np.array(ddp_data['contact_translation'])
+        lin_pos_ee_contact = np.array(ddp_data['contact_translation'])
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
     if(ax is None or fig is None):
@@ -2174,8 +2319,7 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
     xyz = ['x', 'y', 'z']
     for i in range(3):
         # Plot EE position in WORLD frame
-        ax[i,0].plot(tspan, p_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
-
+        ax[i,0].plot(tspan, lin_pos_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
         # Plot EE target frame translation in WORLD frame
         if('translation' or 'placement' in ddp_data['active_costs']):
             handles, labels = ax[i,0].get_legend_handles_labels()
@@ -2183,8 +2327,7 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
                 handles.pop(labels.index('reference'))
                 ax[i,0].lines.pop(labels.index('reference'))
                 labels.remove('reference')
-            ax[i,0].plot(tspan, p_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
-        
+            ax[i,0].plot(tspan, lin_pos_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
         # Plot CONTACT reference frame translation in WORLD frame
         if('contact_translation' in ddp_data):
             handles, labels = ax[i,0].get_legend_handles_labels()
@@ -2192,17 +2335,15 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
                 handles.pop(labels.index('contact'))
                 ax[i,0].lines.pop(labels.index('contact'))
                 labels.remove('contact')
-            ax[i,0].plot(tspan, p_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
-
+            ax[i,0].plot(tspan, lin_pos_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
         # Labels, tick labels, grid
         ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
 
-        # Plot EE 'linear) velocities in WORLD frame
-        ax[i,1].plot(tspan, v_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
-
+        # Plot EE (linear) velocities in WORLD frame
+        ax[i,1].plot(tspan, lin_vel_ee[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
         # Plot EE target frame (linear) velocity in WORLD frame
         if('velocity' in ddp_data['active_costs']):
             handles, labels = ax[i,1].get_legend_handles_labels()
@@ -2210,8 +2351,7 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
                 handles.pop(labels.index('reference'))
                 ax[i,1].lines.pop(labels.index('reference'))
                 labels.remove('reference')
-            ax[i,1].plot(tspan, v_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
-        
+            ax[i,1].plot(tspan, lin_vel_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
         # Labels, tick labels, grid
         ax[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -2227,11 +2367,11 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
     # Set ylim if any
     if(AUTOSCALE):
         TOL = 0.1
-        ax_p_ylim = 1.1*max(np.max(np.abs(p_ee)), TOL)
-        ax_v_ylim = 1.1*max(np.max(np.abs(v_ee)), TOL)
+        ax_p_ylim = 1.1*max(np.max(np.abs(lin_pos_ee)), TOL)
+        ax_v_ylim = 1.1*max(np.max(np.abs(lin_vel_ee)), TOL)
         for i in range(3):
-            ax[i,0].set_ylim(p_ee_ref[0,i]-ax_p_ylim, p_ee_ref[0,i]+ax_p_ylim) 
-            ax[i,1].set_ylim(v_ee_ref[0,i]-ax_v_ylim, v_ee_ref[0,i]+ax_v_ylim)
+            ax[i,0].set_ylim(lin_pos_ee_ref[0,i]-ax_p_ylim, lin_pos_ee_ref[0,i]+ax_p_ylim) 
+            ax[i,1].set_ylim(lin_vel_ee_ref[0,i]-ax_v_ylim, lin_vel_ee_ref[0,i]+ax_v_ylim)
 
     if(MAKE_LEGEND):
         handles, labels = ax[0,0].get_legend_handles_labels()

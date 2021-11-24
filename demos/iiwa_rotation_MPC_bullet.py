@@ -164,7 +164,6 @@ for i in range(sim_data['N_simu']):
             R_ee_ref_WORLD = M_ee.rotation.copy().dot(pin.utils.rpyToMatrix(np.array([0., 0., np.sin(OMEGA*t)])))
             # Cost translation
             m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
-    
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]

@@ -67,8 +67,10 @@ def init_sim_data(config, robot, x0):
     # Cost references 
     sim_data['ctrl_ref'] = np.zeros((sim_data['N_plan'], sim_data['nu']))
     sim_data['state_ref'] = np.zeros((sim_data['N_plan'], sim_data['nx']))
-    sim_data['p_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
-    sim_data['v_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
+    sim_data['lin_pos_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
+    sim_data['lin_vel_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
+    sim_data['ang_pos_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
+    sim_data['ang_vel_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
     sim_data['f_ee_ref'] = np.zeros((sim_data['N_plan'], 6))
     # Predictions
     sim_data['X_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['nx'])) # Predicted states  ( ddp.xs : {x* = (q*, v*)} )
@@ -183,12 +185,15 @@ def record_cost_references(ddp, sim_data, nb_plan):
   if('stateReg' in sim_data['WHICH_COSTS']):
     sim_data['state_ref'][nb_plan, :] = m.differential.costs.costs['stateReg'].cost.residual.reference
   if('translation' in sim_data['WHICH_COSTS']):
-    sim_data['p_ee_ref'][nb_plan, :] = m.differential.costs.costs['translation'].cost.residual.reference
+    sim_data['lin_pos_ee_ref'][nb_plan, :] = m.differential.costs.costs['translation'].cost.residual.reference
+  if('rotation' in sim_data['WHICH_COSTS']):
+    sim_data['ang_pos_ee_ref'][nb_plan, :] = pin.utils.matrixToRpy(m.differential.costs.costs['rotation'].cost.residual.reference)
   if('velocity' in sim_data['WHICH_COSTS']):
-    sim_data['v_ee_ref'][nb_plan, :] = m.differential.costs.costs['velocity'].cost.residual.reference.vector[:3]
+    sim_data['lin_vel_ee_ref'][nb_plan, :] = m.differential.costs.costs['velocity'].cost.residual.reference.vector[:3]
+    sim_data['ang_vel_ee_ref'][nb_plan, :] = m.differential.costs.costs['velocity'].cost.residual.reference.vector[3:]
   if('placement' in sim_data['WHICH_COSTS']):
-    sim_data['p_ee_ref'][nb_plan, :] = m.differential.costs.costs['placement'].cost.residual.reference.translation
-
+    sim_data['lin_pos_ee_ref'][nb_plan, :] = m.differential.costs.costs['placement'].cost.residual.reference.translation
+    sim_data['ang_pos_ee_ref'][nb_plan, :] = pin.utils.matrixToRpy(m.differential.costs.costs['placement'].cost.residual.reference.rotation)
 
 
 
@@ -217,8 +222,10 @@ def extract_plot_data_from_sim_data(sim_data):
     # Record cost references
     plot_data['ctrl_ref'] = sim_data['ctrl_ref']
     plot_data['state_ref'] = sim_data['state_ref']
-    plot_data['p_ee_ref'] = sim_data['p_ee_ref']
-    plot_data['v_ee_ref'] = sim_data['v_ee_ref']
+    plot_data['lin_pos_ee_ref'] = sim_data['lin_pos_ee_ref']
+    plot_data['lin_vel_ee_ref'] = sim_data['lin_vel_ee_ref']
+    plot_data['ang_pos_ee_ref'] = sim_data['ang_pos_ee_ref']
+    plot_data['ang_vel_ee_ref'] = sim_data['ang_vel_ee_ref']
     plot_data['f_ee_ref'] = sim_data['f_ee_ref']
     # Control predictions
     plot_data['u_pred'] = sim_data['U_pred']
@@ -244,24 +251,45 @@ def extract_plot_data_from_sim_data(sim_data):
     for i in range(plot_data['N_simu']+1):
       plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'])
     # EE predictions (at PLAN freq)
-    plot_data['p_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
-    plot_data['v_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
+      # Linear position velocity of EE
+    plot_data['lin_pos_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
+    plot_data['lin_vel_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
+      # Angular position velocity of EE
+    plot_data['ang_pos_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3)) 
+    plot_data['ang_vel_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3)) 
     for node_id in range(sim_data['N_h']+1):
-        plot_data['p_ee_pred'][:, node_id, :] = pin_utils.get_p_(plot_data['q_pred'][:, node_id, :], plot_data['pin_model'], sim_data['id_endeff'])
-        plot_data['v_ee_pred'][:, node_id, :] = pin_utils.get_v_(plot_data['q_pred'][:, node_id, :], plot_data['v_pred'][:, node_id, :], plot_data['pin_model'], sim_data['id_endeff'])
+        plot_data['lin_pos_ee_pred'][:, node_id, :] = pin_utils.get_p_(plot_data['q_pred'][:, node_id, :], plot_data['pin_model'], sim_data['id_endeff'])
+        plot_data['lin_vel_ee_pred'][:, node_id, :] = pin_utils.get_v_(plot_data['q_pred'][:, node_id, :], plot_data['v_pred'][:, node_id, :], plot_data['pin_model'], sim_data['id_endeff'])
+        plot_data['ang_pos_ee_pred'][:, node_id, :] = pin_utils.get_rpy_(plot_data['q_pred'][:, node_id, :], plot_data['pin_model'], sim_data['id_endeff'])
+        plot_data['ang_vel_ee_pred'][:, node_id, :] = pin_utils.get_w_(plot_data['q_pred'][:, node_id, :], plot_data['v_pred'][:, node_id, :], plot_data['pin_model'], sim_data['id_endeff'])
     # EE measurements (at SIMU freq)
-    plot_data['p_ee_mea'] = pin_utils.get_p_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_mea'] = pin_utils.get_v_(plot_data['q_mea'], plot_data['v_mea'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['p_ee_mea'] = pin_utils.get_p_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['p_ee_mea_no_noise'] = pin_utils.get_p_(plot_data['q_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_mea_no_noise'] = pin_utils.get_v_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
+      # Linear
+    plot_data['lin_pos_ee_mea'] = pin_utils.get_p_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_vel_ee_mea'] = pin_utils.get_v_(plot_data['q_mea'], plot_data['v_mea'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_pos_ee_mea'] = pin_utils.get_p_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_pos_ee_mea_no_noise'] = pin_utils.get_p_(plot_data['q_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_vel_ee_mea_no_noise'] = pin_utils.get_v_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
+      # Angular
+    plot_data['ang_pos_ee_mea'] = pin_utils.get_rpy_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['ang_vel_ee_mea'] = pin_utils.get_w_(plot_data['q_mea'], plot_data['v_mea'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['ang_pos_ee_mea'] = pin_utils.get_rpy_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['ang_pos_ee_mea_no_noise'] = pin_utils.get_rpy_(plot_data['q_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
+    plot_data['ang_vel_ee_mea_no_noise'] = pin_utils.get_w_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
     # EE des
-    plot_data['p_ee_des_PLAN'] = pin_utils.get_p_(plot_data['q_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_des_PLAN'] = pin_utils.get_v_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['p_ee_des_CTRL'] = pin_utils.get_p_(plot_data['q_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['p_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
+      # Linear
+    plot_data['lin_pos_ee_des_PLAN'] = pin_utils.get_p_(plot_data['q_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_vel_ee_des_PLAN'] = pin_utils.get_v_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_pos_ee_des_CTRL'] = pin_utils.get_p_(plot_data['q_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_vel_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_pos_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_vel_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
+      # Angular
+    plot_data['ang_pos_ee_des_PLAN'] = pin_utils.get_rpy_(plot_data['q_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['ang_vel_ee_des_PLAN'] = pin_utils.get_w_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['ang_pos_ee_des_CTRL'] = pin_utils.get_rpy_(plot_data['q_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['ang_vel_ee_des_CTRL'] = pin_utils.get_w_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['ang_pos_ee_des_SIMU'] = pin_utils.get_rpy_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['ang_vel_ee_des_SIMU'] = pin_utils.get_w_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     # Extract EE force
     plot_data['f_ee_pred'] = sim_data['F_pred']
     plot_data['f_ee_mea'] = sim_data['F_mea_SIMU']
@@ -340,8 +368,8 @@ def init_sim_data_LPF(config, robot, y0):
     # Cost references 
     sim_data['ctrl_ref'] = np.zeros((sim_data['N_plan'], sim_data['nu']))
     sim_data['state_ref'] = np.zeros((sim_data['N_plan'], sim_data['nx']))
-    sim_data['p_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
-    sim_data['v_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
+    sim_data['lin_pos_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
+    sim_data['lin_vel_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
     sim_data['f_ee_ref'] = np.zeros((sim_data['N_plan'], 6))
     # Predictions
     sim_data['Y_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'])) # Predicted states  ( ddp.xs : {y* = (q*, v*, tau*)} )
@@ -426,11 +454,11 @@ def record_cost_references_LPF(ddp, sim_data, nb_plan):
   if('stateReg' in sim_data['WHICH_COSTS']):
     sim_data['state_ref'][nb_plan, :] = m.differential.costs.costs['stateReg'].cost.residual.reference
   if('translation' in sim_data['WHICH_COSTS']):
-    sim_data['p_ee_ref'][nb_plan, :] = m.differential.costs.costs['translation'].cost.residual.reference
+    sim_data['lin_pos_ee_ref'][nb_plan, :] = m.differential.costs.costs['translation'].cost.residual.reference
   if('velocity' in sim_data['WHICH_COSTS']):
-    sim_data['v_ee_ref'][nb_plan, :] = m.differential.costs.costs['velocity'].cost.residual.reference.vector[:3]
+    sim_data['lin_vel_ee_ref'][nb_plan, :] = m.differential.costs.costs['velocity'].cost.residual.reference.vector[:3]
   if('placement' in sim_data['WHICH_COSTS']):
-    sim_data['p_ee_ref'][nb_plan, :] = m.differential.costs.costs['placement'].cost.residual.reference.translation
+    sim_data['lin_pos_ee_ref'][nb_plan, :] = m.differential.costs.costs['placement'].cost.residual.reference.translation
 
 
 # Extract MPC simu-specific plotting data from sim data (LPF)
@@ -457,8 +485,8 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     # Record cost references
     plot_data['ctrl_ref'] = sim_data['ctrl_ref']
     plot_data['state_ref'] = sim_data['state_ref']
-    plot_data['p_ee_ref'] = sim_data['p_ee_ref']
-    plot_data['v_ee_ref'] = sim_data['v_ee_ref']
+    plot_data['lin_pos_ee_ref'] = sim_data['lin_pos_ee_ref']
+    plot_data['lin_vel_ee_ref'] = sim_data['lin_vel_ee_ref']
     plot_data['f_ee_ref'] = sim_data['f_ee_ref']
     # Control predictions
     plot_data['w_pred'] = sim_data['W_pred']
@@ -492,23 +520,23 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     for i in range(plot_data['N_simu']+1):
       plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'])
     # EE predictions (at PLAN freq)
-    plot_data['p_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
-    plot_data['v_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
+    plot_data['lin_pos_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
+    plot_data['lin_vel_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
     for node_id in range(sim_data['N_h']+1):
-        plot_data['p_ee_pred'][:, node_id, :] = pin_utils.get_p_(plot_data['q_pred'][:, node_id, :], plot_data['pin_model'], sim_data['id_endeff'])
-        plot_data['v_ee_pred'][:, node_id, :] = pin_utils.get_v_(plot_data['q_pred'][:, node_id, :], plot_data['v_pred'][:, node_id, :], plot_data['pin_model'], sim_data['id_endeff'])
+        plot_data['lin_pos_ee_pred'][:, node_id, :] = pin_utils.get_p_(plot_data['q_pred'][:, node_id, :], plot_data['pin_model'], sim_data['id_endeff'])
+        plot_data['lin_vel_ee_pred'][:, node_id, :] = pin_utils.get_v_(plot_data['q_pred'][:, node_id, :], plot_data['v_pred'][:, node_id, :], plot_data['pin_model'], sim_data['id_endeff'])
     # EE measurements (at SIMU freq)
-    plot_data['p_ee_mea'] = pin_utils.get_p_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_mea'] = pin_utils.get_v_(plot_data['q_mea'], plot_data['v_mea'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['p_ee_mea_no_noise'] = pin_utils.get_p_(plot_data['q_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_mea_no_noise'] = pin_utils.get_v_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_pos_ee_mea'] = pin_utils.get_p_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_vel_ee_mea'] = pin_utils.get_v_(plot_data['q_mea'], plot_data['v_mea'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_pos_ee_mea_no_noise'] = pin_utils.get_p_(plot_data['q_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_vel_ee_mea_no_noise'] = pin_utils.get_v_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
     # EE des
-    plot_data['p_ee_des_PLAN'] = pin_utils.get_p_(plot_data['q_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_des_PLAN'] = pin_utils.get_v_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['p_ee_des_CTRL'] = pin_utils.get_p_(plot_data['q_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['p_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['v_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_pos_ee_des_PLAN'] = pin_utils.get_p_(plot_data['q_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_vel_ee_des_PLAN'] = pin_utils.get_v_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_pos_ee_des_CTRL'] = pin_utils.get_p_(plot_data['q_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_vel_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_pos_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
+    plot_data['lin_vel_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     # Extract EE force
     plot_data['f_ee_pred'] = sim_data['F_pred']
     plot_data['f_ee_mea'] = sim_data['F_mea_SIMU']
