@@ -344,7 +344,7 @@ def IK_position(robot, q, frame_id, p_des, LOGS=False, DISPLAY=False, DT=1e-2, I
             break    
     return q, vq, errs
 
-def IK_placement(robot, q0, frame_id, oMf_des, DT=1e-2, IT_MAX=1000, EPS=1e-6, DAMP=1e-6):
+def IK_placement(robot, q0, frame_id, oMf_des, LOGS=False, DT=1e-2, IT_MAX=1000, EPS=1e-6, DAMP=1e-6):
     '''
     Inverse kinematics: returns q, v to reach desired placement M 
     '''
@@ -357,21 +357,16 @@ def IK_placement(robot, q0, frame_id, oMf_des, DT=1e-2, IT_MAX=1000, EPS=1e-6, D
     errs = []
     # Loop on an inverse kinematics for 200 iterations.
     for i in range(IT_MAX): 
+        if(i%10 == 0 and LOGS==True):
+            print("Step "+str(i)+"/"+str(IT_MAX))
         pin.framesForwardKinematics(model, data, q)  
         dMi = oMf_des.actInv(oMf)
         err = pin.log(dMi).vector
         errs.append(err)
-        if np.linalg.norm(err) < EPS:
-            success = True
-            break       
-        if i >= IT_MAX:
-            success = False
-            break
+        if(i%10 == 0 and LOGS==True):
+            print(np.linalg.norm(err))
         J = pin.computeFrameJacobian(model, data, q, frame_id)    
         vq = - J.T @ pinv(J.dot(J.T) + DAMP * np.eye(6)) @ err    
         # vq = - J.T.dot(np.linalg.solve(J.dot(J.T) + DAMP * np.eye(6), err))
         q = pin.integrate(model, q, vq * DT)
-        # robot.display(q)                                   
-        time.sleep(0.1)
-        i += 1
     return q, vq, errs

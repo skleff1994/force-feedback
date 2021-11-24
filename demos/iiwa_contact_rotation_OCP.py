@@ -49,7 +49,7 @@ nu = nq
 # Update robot model with initial state
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
-M_ee = robot.data.oMf[id_endeff]
+M_ee = robot.data.oMf[id_endeff].copy()
 
 
 # # # # # # # # # 
@@ -63,20 +63,22 @@ ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
 # Setup tracking problem with oritantation ref for EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
 OMEGA  = config['frameRotationTrajectoryVelocity']
-# for k,m in enumerate(models):
-#     # Ref
-#     t = min(k*config['dt'], 2*np.pi/OMEGA)
-#     # Desired RPY in WORLD frame
-#     R_ee_ref_WORLD = M_ee.rotation.copy().dot(pin.utils.rpyToMatrix(np.array([0., 0., np.sin(OMEGA*t)])))
-#     # Cost translation
-#     m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
-#     # Contact model
-#     m.differential.contacts.contacts["contact"].contact.reference = M_ee.translation.copy() 
+for k,m in enumerate(models):
+    # Ref
+    t = min(k*config['dt'], 2*np.pi/OMEGA)
+    # Desired RPY in WORLD frame
+    rpy_LOCAL = np.array([0., 0., np.sin(OMEGA*t)])
+    # rpy_LOCAL = np.array([0., 0., 1.])
+    R_ee_ref_WORLD = M_ee.rotation.copy().dot(pin.utils.rpyToMatrix(rpy_LOCAL))
+    # Cost rotation EE
+    m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
+    # Contact model
+    m.differential.contacts.contacts["contact"].contact.reference = M_ee.translation.copy()
 
 
 
 # Warm start state = IK of circle trajectory
-WARM_START_IK = False
+WARM_START_IK = True
 if(WARM_START_IK):
     logger.info("Computing warm-start using Inverse Kinematics...")
     xs_init = [] 
@@ -88,7 +90,7 @@ if(WARM_START_IK):
         Mref.translation = M_ee.translation.copy() 
         # Get corresponding forces at each joint
         f_ext = pin_utils.get_external_joint_torques(Mref, config['frameForceRef'], robot)
-        q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=10)
+        q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=10, LOGS=False)
         xs_init.append(np.concatenate([q_ws, v_ws]))
         if(k<N_h):
             us_init.append(pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model))

@@ -307,13 +307,11 @@ def init_DDP(robot, config, x0, callbacks=False,
     actuation = crocoddyl.ActuationModelFull(state)
   
   # Contact or not ?
-    # CONTACT6D = False
-    # CONTACT3D = False
     CONTACT      = False
     CONTACT_TYPE = 'None'
-    # 6D ?
     if('contactModelFrameName' in config.keys()):
       CONTACT = True
+      # 6D or 3D ?
       if('contactModelRotationRef' in config.keys()):
         CONTACT_TYPE = '6D'
       else:
@@ -521,37 +519,37 @@ def init_DDP(robot, config, x0, callbacks=False,
           if(not CONTACT):
             logger.error("Force cost but no contact model is defined ! ")
           # 6D contact case
-          # if(CONTACT_TYPE=='6D'):
-          # Default force reference = zero force
-          if(config['frameForceRef']=='DEFAULT'):
-            frameForceRef = pin.Force( np.zeros(6) )
-          else:
-            frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
-          frameForceWeights = np.asarray(config['frameForceWeights'])
-          frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
-          frameForceCost = crocoddyl.CostModelResidual(state, 
-                                                      crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
-                                                      crocoddyl.ResidualModelContactForce(state, 
-                                                                                          frameForceFrameId, 
-                                                                                          frameForceRef, 
-                                                                                          6, 
-                                                                                          actuation.nu))
-          # # 3D contact case
-          # elif(CONTACT_TYPE=='3D'):
-          #   # Default force reference = zero force
-          #   if(config['frameForceRef']=='DEFAULT'):
-          #     frameForceRef = np.zeros(3)
-          #   else:
-          #     frameForceRef = np.asarray(config['frameForceRef'])[:3]
-          #   frameForceWeights = np.asarray(config['frameForceWeights'])
-          #   frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
-          #   frameForceCost = crocoddyl.CostModelResidual(state, 
-          #                                               crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
-          #                                               crocoddyl.ResidualModelContactForce(state, 
-          #                                                                                   frameForceFrameId, 
-          #                                                                                   frameForceRef, 
-          #                                                                                   3, 
-          #                                                                                   actuation.nu))
+          if(CONTACT_TYPE=='6D'):
+            # Default force reference = zero force
+            if(config['frameForceRef']=='DEFAULT'):
+              frameForceRef = pin.Force( np.zeros(6) )
+            else:
+              frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
+            frameForceWeights = np.asarray(config['frameForceWeights'])
+            frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
+            frameForceCost = crocoddyl.CostModelResidual(state, 
+                                                        crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+                                                        crocoddyl.ResidualModelContactForce(state, 
+                                                                                            frameForceFrameId, 
+                                                                                            frameForceRef, 
+                                                                                            6, 
+                                                                                            actuation.nu))
+          # 3D contact case
+          elif(CONTACT_TYPE=='3D'):
+            # Default force reference = zero force
+            if(config['frameForceRef']=='DEFAULT'):
+              frameForceRef = pin.Force( np.zeros(6) )
+            else:
+              frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
+            frameForceWeights = np.asarray(config['frameForceWeights'])[:3]
+            frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
+            frameForceCost = crocoddyl.CostModelResidual(state, 
+                                                        crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+                                                        crocoddyl.ResidualModelContactForce(state, 
+                                                                                            frameForceFrameId, 
+                                                                                            frameForceRef, 
+                                                                                            3, 
+                                                                                            actuation.nu))
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("force", frameForceCost, config['frameForceWeight'])
         # Friction cone 
