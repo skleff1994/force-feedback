@@ -55,10 +55,11 @@ id_endeff = robot.model.getFrameId('contact')
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
-offset = 0.0335 #0.0335 gold number = 0.03348 (NO IMPACT, NO PENETRATION)
+offset = 0.03348 # #0.0335 gold number = 0.03348 (NO IMPACT, NO PENETRATION)
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 sim_utils.display_contact_surface(contact_placement, with_collision=True)
 
+p0 = ee_frame_placement.translation.copy()
 
 # # # # # # # # # 
 ### OCP SETUP ###
@@ -75,9 +76,9 @@ for k,m in enumerate(models):
     # Desired RPY in WORLD frame
     R_ee_ref_WORLD = ee_frame_placement.rotation.copy().dot(pin.utils.rpyToMatrix(np.array([0., 0., np.sin(OMEGA*t)])))
     # Cost translation
-    m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
-    # # Contact model
-    # m.differential.contacts.contacts["contact"].contact.reference = ee_frame_placement.translation.copy()
+    # m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
+    # Contact model
+    m.differential.contacts.contacts["contact"].contact.reference = p0
 
 
 # Warm start state = IK of circle trajectory
@@ -173,9 +174,32 @@ for i in range(sim_data['N_simu']):
             # Desired RPY in WORLD frame
             R_ee_ref_WORLD = ee_frame_placement.rotation.copy().dot(pin.utils.rpyToMatrix(np.array([0., 0., np.sin(OMEGA*t)])))
             # Cost translation
-            m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
+            # m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
             # # Contact model
-            # m.differential.contacts.contacts["contact"].contact.reference = ee_frame_placement.translation.copy()
+            m.differential.contacts.contacts["contact"].contact.reference = p0
+
+        # # Check force cost activation and acceleration at contact 
+        # d = ddp.problem.runningDatas[0].differential.costs.costs['force']
+        # # print("a_value =\n"+str(d.activation.a_value))
+        # # print("Ar      =\n "+str(d.activation.Ar))
+        # c = ddp.problem.runningDatas[0].differential.multibody.contacts.contacts['contact']
+        # qcurr = sim_data['X_mea_SIMU'][i, :nq]
+        # vcurr = sim_data['X_mea_SIMU'][i, nq:nq+nv]
+        # if(i==0):
+        #     acurr = np.zeros(7)
+        # else:
+        #     vprev = sim_data['X_mea_SIMU'][i-1, nq:nq+nv]
+        #     acurr = 0.5*(vcurr + vprev)
+        # pin.forwardKinematics(robot.model, robot.data, qcurr, vcurr, acurr)
+        # aLOCAL = pin.getFrameAcceleration(robot.model, robot.data, id_endeff, pin.LOCAL)
+        # print("Contact acc residual = "+str(aLOCAL.linear - c.a0))
+        # # Ref contact is OK
+        
+        # print("Contact a0  = "+str(c.a0))
+        # print("Contact reference    = "+str(ddp.problem.runningModels[0].differential.contacts.contacts["contact"].contact.reference))
+        # print("Contact velocity     = \n"+str(c.v.vector))
+        # print("Arr     =\n"+str(d.activation.Arr))
+
 
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]

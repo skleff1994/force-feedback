@@ -476,7 +476,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                           crocoddyl.ResidualModelFrameVelocity(state, 
                                                                                               frameVelocityFrameId, 
                                                                                               frameVelocityRef, 
-                                                                                              pin.WORLD, 
+                                                                                              pin.LOCAL, 
                                                                                               actuation.nu)) 
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
@@ -691,7 +691,7 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                       crocoddyl.ResidualModelFrameVelocity(state, 
                                                                                           frameVelocityFrameId, 
                                                                                           frameVelocityRef, 
-                                                                                          pin.WORLD, 
+                                                                                          pin.LOCAL, 
                                                                                           actuation.nu)) 
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal']*dt)
@@ -995,7 +995,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                           crocoddyl.ResidualModelFrameVelocity(state, 
                                                                                               frameVelocityFrameId, 
                                                                                               frameVelocityRef, 
-                                                                                              pin.WORLD, 
+                                                                                              pin.LOCAL, 
                                                                                               actuation.nu)) 
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
@@ -1175,7 +1175,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                       crocoddyl.ResidualModelFrameVelocity(state, 
                                                                                           frameVelocityFrameId, 
                                                                                           frameVelocityRef, 
-                                                                                          pin.WORLD, 
+                                                                                          pin.LOCAL, 
                                                                                           actuation.nu)) 
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal']*dt)
