@@ -1,12 +1,12 @@
-# MPC parameters for end-effector rotation tracking task
+# MPC parameters for end-effector rotation tracking + normal force task 
 # + PyBullet or Raisim simulation
 
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 250         # Control frequency
-plan_freq: 250         # Planning frequency
-T_tot: 3.                # Simu duration (s)
+plan_freq: 250        # Planning frequency
+T_tot: 1.                # Simu duration (s)
 # Simulation options
 DELAY_SIM: False              # Add delay in reference torques (low-level)
 DELAY_OCP: False              # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -28,21 +28,41 @@ log_rate: 500                 # Display sim status once very 'log_rate' sim cycl
 # General
 dt: 0.01                                             # OCP integration step 
 N_h: 200                                             # Horizon length in nodes
-maxiter: 5                                           # Max number of iterations in DDP
+maxiter: 10                                           # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 
 
+# Contact model 
+#   Default 3D contact model
+#   -> add a 3x3 matrix 'contactModelRotationRef' 
+#      parameter below to make a 6D contact model
+# 6D dontact models 
+contactModelFrameName: 'contact'
+contactModelTranslationRef: 'DEFAULT'
+contactModelGains: [0., 100.]
+
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['rotation', 'velocity', 'translation', 'stateReg', 'ctrlRegGrav']  
+WHICH_COSTS: ['rotation', 'stateReg', 'ctrlRegGrav']  
 
 # Cost function weights and activations
+ # 'force' : end-effector frame force (translation + rotation)
+frameForceWeights:  [0., 0., 1., 0., 0., 0.]
+frameForceWeight: 0.
+frameForceRef: [0., 0., -20, 0., 0., 0.]    
+frameForceFrameName: 'contact'
+
+ # 'friction' : end-effector frame friction cone 
+mu:  0.5
+frictionConeWeight: 1
+frictionConeFrameName: 'contact'
+
  # 'stateReg' : state regularization  
-stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.01
-stateRegWeightTerminal: 1.
+stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
+stateRegWeight: 0.1
+stateRegWeightTerminal: 0.1
 stateRegRef: 'DEFAULT' # TRACKING ?
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
@@ -52,18 +72,18 @@ ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 50.
-frameTranslationWeightTerminal: 50. 
+frameTranslationWeight: .1
+frameTranslationWeightTerminal: .1 
 frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
 
  # 'rotation' : end-effector frame orientation 
 frameRotationWeights:  [1., 1., 1.]
-frameRotationWeight: 1.
-frameRotationWeightTerminal: 1.
+frameRotationWeight: 10.
+frameRotationWeightTerminal: 10.
 frameRotationRef: 'DEFAULT' 
 frameRotationFrameName: 'contact'
-frameRotationTrajectoryVelocity: 2. # in rad/s
+frameRotationTrajectoryVelocity: 3. # in rad/s
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 0., 0. ,0.]
@@ -74,8 +94,8 @@ frameVelocityFrameName: 'contact'
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
-stateLimWeight: 0.
-stateLimWeightTerminal: 0.
+stateLimWeight: 10.
+stateLimWeightTerminal: 10.
 stateLimRef: 'DEFAULT'
 
  # 'ctrlLim' : torque limits

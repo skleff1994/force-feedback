@@ -176,7 +176,7 @@ def record_cost_references(ddp, sim_data, nb_plan):
   m = ddp.problem.runningModels[0]
   # Extract references and record
   if('ctrlReg' in sim_data['WHICH_COSTS']):
-    sim_data['ctrl_ref'][nb_plan, :] = m.differential.costs.costs['stateReg'].cost.residual.reference
+    sim_data['ctrl_ref'][nb_plan, :] = m.differential.costs.costs['ctrlReg'].cost.residual.reference
   if('ctrlRegGrav' in sim_data['WHICH_COSTS']):
     q = sim_data['X_pred'][nb_plan, 0, :sim_data['nq']]
     sim_data['ctrl_ref'][nb_plan, :] = pin_utils.get_u_grav(q, m.differential.pinocchio)

@@ -5,11 +5,12 @@
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
 @date 2020-05-18
-@brief OCP for tracking EE rotation with the KUKA iiwa 
+@brief OCP for EE frame rotation + normal force task with the KUKA iiw
 """
 
 '''
-The robot is tasked with rotation its EE about normal axis
+The robot is tasked with tracking a EE frame rotation trajectory
+while exerting a constant normal force on the contact surface
 Trajectory optimization using Crocoddyl
 The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
@@ -74,7 +75,6 @@ for k,m in enumerate(models):
     m.differential.costs.costs['rotation'].cost.residual.reference = R_ee_ref_WORLD
     # Contact model
     m.differential.contacts.contacts["contact"].contact.reference = M_ee.translation.copy()
-
 
 
 # Warm start state = IK of circle trajectory
