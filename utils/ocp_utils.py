@@ -556,11 +556,16 @@ def init_DDP(robot, config, x0, callbacks=False,
         if('friction' in WHICH_COSTS):
           if(not CONTACT):
             logger.error("Friction cost but no contact model is defined !!! ")
-          cone_rotation = contactModelPlacementRef.rotation
           # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
           mu = config['mu']
           frictionConeFrameId = robot.model.getFrameId(config['frictionConeFrameName'])
-          frictionCone = crocoddyl.FrictionCone(cone_rotation, mu, 4, False) #, 0, 1000)
+          # axis_
+          cone_placement = robot.data.oMf[frictionConeFrameId].copy()
+          # Rotate 180° around x+ to make z become -z
+          normal = cone_placement.rotation.T.dot(np.array([0.,0.,1.]))
+          # cone_rotation = cone_placement.rotation.dot(pin.utils.rpyToMatrix(+np.pi, 0., 0.))
+          # cone_rotation = robot.data.oMf[frictionConeFrameId].rotation.copy() #contactModelPlacementRef.rotation
+          frictionCone = crocoddyl.FrictionCone(normal, mu, 4, False) #, 0, 1000)
           frictionConeCost = crocoddyl.CostModelResidual(state,
                                                         crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
                                                         crocoddyl.ResidualModelContactFrictionCone(state, frictionConeFrameId, frictionCone, actuation.nu))

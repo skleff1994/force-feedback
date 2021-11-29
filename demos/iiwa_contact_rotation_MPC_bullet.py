@@ -57,7 +57,10 @@ contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
 offset = 0.03348 # #0.0335 gold number = 0.03348 (NO IMPACT, NO PENETRATION)
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-sim_utils.display_contact_surface(contact_placement, with_collision=True)
+contactSurfaceId = sim_utils.display_contact_surface(contact_placement, with_collision=True)
+# Check friction (0.5 by default)
+# print(p.getDynamicsInfo(contactSurfaceId, -1))
+# time.sleep(100)
 
 p0 = ee_frame_placement.translation.copy()
 

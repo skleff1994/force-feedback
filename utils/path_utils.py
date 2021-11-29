@@ -12,7 +12,7 @@ def load_yaml_file(yaml_file):
     Load config file (yaml)
     '''
     with open(yaml_file) as f:
-        data = yaml.load(f)
+        data = yaml.load(f, Loader=yaml.FullLoader)
     return data 
 
 # Returns urdf path of a kuka robot 
