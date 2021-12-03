@@ -3,6 +3,7 @@ import numpy as np
 import os
 from utils import pin_utils
 import pinocchio as pin
+import crocoddyl
 
 import logging
 logger = logging.getLogger(__name__)

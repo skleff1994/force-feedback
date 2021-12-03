@@ -307,15 +307,16 @@ def init_DDP(robot, config, x0, callbacks=False,
     actuation = crocoddyl.ActuationModelFull(state)
   
   # Contact or not ?
-    CONTACT      = False
-    CONTACT_TYPE = 'None'
-    if('contactModelFrameName' in config.keys()):
-      CONTACT = True
-      # 6D or 3D ?
-      if('contactModelRotationRef' in config.keys()):
-        CONTACT_TYPE = '6D'
+    CONTACT      = False 
+    CONTACT_TYPE = 'None' 
+    if('CONTACT' in config.keys()):
+      CONTACT = bool(config['CONTACT'])
+    # ERROR if contact = true but no contact model type found in config file
+    if(CONTACT):
+      if('contactModelType' not in config.keys()):
+        logger.error("CONTACT='True' but no contact model found in config file !") 
       else:
-        CONTACT_TYPE = '3D'
+        CONTACT_TYPE = config['contactModelType']
   
   
   # Create IAMs
@@ -324,16 +325,48 @@ def init_DDP(robot, config, x0, callbacks=False,
       # Create DAM (Contact or FreeFwd)
         # Initialize contact model if necessary and create appropriate DAM
         if(CONTACT):
+            # WARNING if no Baumgarte gains found in config file
+            if('contactModelGains' not in config.keys()):
+              logger.warn("CONTACT='True' but no Baumgarte gains found in config file ! Setting gains to 0")
+              config['contactModelGains'] = np.array([0.,0.])
             contactModelGains = np.asarray(config['contactModelGains'])
+            # ERROR if no contact frame id found in config file
+            if('contactModelFrameName' not in config.keys()):
+              logger.error("CONTACT='True' but no contact frame id found in config file !")
             contactModelFrameId = robot.model.getFrameId(config['contactModelFrameName'])
+            # WARNING if no contact frame position found in config file
+            if('contactModelTranslationRef' not in config.keys()):
+              logger.warn("CONTACT='True' but no contact ref. position found in config file ! Setting position to 'DEFAULT'")
+              config['contactModelTranslationRef']='DEFAULT'
             # Default contact reference translation = initial translation
             if(config['contactModelTranslationRef']=='DEFAULT'):
               contactModelTranslationRef = robot.data.oMf[contactModelFrameId].translation.copy()
             else:
               contactModelTranslationRef = config['contactModelTranslationRef']
             
-            # 6D Contact model if rotation is specified in config file
+            # 1D contact model = constraint in (LOCAL) z translation (fixed normal distance)
+            if(CONTACT_TYPE=='1D'):
+              # logger.info("Z_REF contact = ")
+              # print(contactModelTranslationRef[2])
+              frameTranslation = crocoddyl.FrameTranslation(contactModelFrameId, contactModelTranslationRef) 
+              contactModel = crocoddyl.ContactModel1D(state, 
+                                                      # contactModelFrameId, 
+                                                      frameTranslation, 
+                                                      contactModelGains)  
+
+            # 3D contact model = constraint in (LOCAL) x,y,z translations (fixed position)
+            elif(CONTACT_TYPE=='3D'):
+              contactModel = crocoddyl.ContactModel3D(state, 
+                                                      contactModelFrameId, 
+                                                      contactModelTranslationRef, 
+                                                      contactModelGains)  
+
+            # 6D contact model = constraint in (LOCAL) x,y,z translations **and** rotations (fixed placement)
             if(CONTACT_TYPE=='6D'):
+              # WARNING if no rotation is specified
+              if('contactModelRotationRef' not in config.keys()):
+                logger.warn("CONTACT_TYPE='6D' but no contact orientation found in config file ! Setting orientation to 'DEFAULT'")
+                config['contactModelRotationRef'] = 'DEFAULT'
               # Default rotation = initial rotation of EE frame
               if(config['contactModelRotationRef']=='DEFAULT'):
                 contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
@@ -344,12 +377,6 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                       contactModelFrameId, 
                                                       contactModelPlacementRef, 
                                                       contactModelGains) 
-            # Otherwise (default) 3D contact model
-            elif(CONTACT_TYPE=='3D'):
-              contactModel = crocoddyl.ContactModel3D(state, 
-                                                      contactModelFrameId, 
-                                                      contactModelTranslationRef, 
-                                                      contactModelGains)  
 
             # Create DAMContactDyn                    
             dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
@@ -518,7 +545,7 @@ def init_DDP(robot, config, x0, callbacks=False,
         if('force' in WHICH_COSTS):
           if(not CONTACT):
             logger.error("Force cost but no contact model is defined ! ")
-          # 6D contact case
+          # 6D contact case : wrench = linear in (x,y,z) + angular in (Ox,Oy,Oz)
           if(CONTACT_TYPE=='6D'):
             # Default force reference = zero force
             if(config['frameForceRef']=='DEFAULT'):
@@ -534,8 +561,8 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                                                             frameForceRef, 
                                                                                             6, 
                                                                                             actuation.nu))
-          # 3D contact case
-          elif(CONTACT_TYPE=='3D'):
+          # 3D contact case : linear force in (x,y,z) (LOCAL)
+          if(CONTACT_TYPE=='3D'):
             # Default force reference = zero force
             if(config['frameForceRef']=='DEFAULT'):
               frameForceRef = pin.Force( np.zeros(6) )
@@ -549,6 +576,22 @@ def init_DDP(robot, config, x0, callbacks=False,
                                                                                             frameForceFrameId, 
                                                                                             frameForceRef, 
                                                                                             3, 
+                                                                                            actuation.nu))
+          # 1D contact case : linear force along z (LOCAL)
+          if(CONTACT_TYPE=='1D'):
+            # Default force reference = zero force
+            if(config['frameForceRef']=='DEFAULT'):
+              frameForceRef = pin.Force( np.zeros(6) )
+            else:
+              frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
+            frameForceWeights = np.asarray(config['frameForceWeights'])[2:3]
+            frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
+            frameForceCost = crocoddyl.CostModelResidual(state, 
+                                                        crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+                                                        crocoddyl.ResidualModelContactForce(state, 
+                                                                                            frameForceFrameId, 
+                                                                                            frameForceRef, 
+                                                                                            1, 
                                                                                             actuation.nu))
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("force", frameForceCost, config['frameForceWeight'])
@@ -586,34 +629,54 @@ def init_DDP(robot, config, x0, callbacks=False,
   # Terminal DAM (Contact or FreeFwd)
     # If contact, initialize terminal contact model and create terminal DAMContactDyn
     if(CONTACT):
-      # Initialize terminal contact model
+      # WARNING if no Baumgarte gains found in config file
+      if('contactModelGains' not in config.keys()):
+        logger.warn("CONTACT='True' but no Baumgarte gains found in config file ! Setting gains to 0")
+        config['contactModelGains'] = np.array([0.,0.])
       contactModelGains = np.asarray(config['contactModelGains'])
+      # ERROR if no contact frame id found in config file
+      if('contactModelFrameName' not in config.keys()):
+        logger.error("CONTACT='True' but no contact frame id found in config file !")
       contactModelFrameId = robot.model.getFrameId(config['contactModelFrameName'])
+      # WARNING if no contact frame position found in config file
+      if('contactModelTranslationRef' not in config.keys()):
+        logger.warn("CONTACT='True' but no contact ref. position found in config file ! Setting position to 'DEFAULT'")
+        config['contactModelTranslationRef']='DEFAULT'
       # Default contact reference translation = initial translation
       if(config['contactModelTranslationRef']=='DEFAULT'):
         contactModelTranslationRef = robot.data.oMf[contactModelFrameId].translation.copy()
       else:
         contactModelTranslationRef = config['contactModelTranslationRef']
-
-      # Contact model 6D if rotation is specified in config file
+      # 1D contact model = constraint in (LOCAL) z translation (fixed normal distance)
+      if(CONTACT_TYPE=='1D'):
+        frameTranslation = crocoddyl.FrameTranslation(contactModelFrameId, contactModelTranslationRef) 
+        contactModel = crocoddyl.ContactModel1D(state, 
+                                                # contactModelFrameId, 
+                                                frameTranslation, 
+                                                contactModelGains)  
+      # 3D contact model = constraint in (LOCAL) x,y,z translations (fixed position)
+      elif(CONTACT_TYPE=='3D'):
+        contactModel = crocoddyl.ContactModel3D(state, 
+                                                contactModelFrameId, 
+                                                contactModelTranslationRef, 
+                                                contactModelGains)  
+      # 6D contact model = constraint in (LOCAL) x,y,z translations **and** rotations (fixed placement)
       if(CONTACT_TYPE=='6D'):
-        # Default contact reference rotation = initial rotation
+        # WARNING if no rotation is specified
+        if('contactModelRotationRef' not in config.keys()):
+          logger.warn("CONTACT_TYPE='6D' but no contact orientation found in config file ! Setting orientation to 'DEFAULT'")
+          config['contactModelRotationRef'] = 'DEFAULT'
+        # Default rotation = initial rotation of EE frame
         if(config['contactModelRotationRef']=='DEFAULT'):
           contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
         else:
-          contactModelRotationRef = config['contactModelRotationRef']
+          contactModelRotationRef = config['contactModel6DRotationRef']
         contactModelPlacementRef = pin.SE3(contactModelRotationRef, contactModelTranslationRef)
         contactModel = crocoddyl.ContactModel6D(state, 
                                                 contactModelFrameId, 
                                                 contactModelPlacementRef, 
                                                 contactModelGains) 
 
-      # Otherwise (default) 3D contact model
-      elif(CONTACT_TYPE=='3D'):
-        contactModel = crocoddyl.ContactModel3D(state, 
-                                                contactModelFrameId, 
-                                                contactModelTranslationRef, 
-                                                contactModelGains)
       # Create terminal DAMContactDyn
       dam_t = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
                                                                 actuation, 
