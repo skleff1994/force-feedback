@@ -348,10 +348,9 @@ def init_DDP(robot, config, x0, callbacks=False,
             if(CONTACT_TYPE=='1D'):
               # logger.info("Z_REF contact = ")
               # print(contactModelTranslationRef[2])
-              frameTranslation = crocoddyl.FrameTranslation(contactModelFrameId, contactModelTranslationRef) 
               contactModel = crocoddyl.ContactModel1D(state, 
-                                                      # contactModelFrameId, 
-                                                      frameTranslation, 
+                                                      contactModelFrameId, 
+                                                      contactModelTranslationRef[2], 
                                                       contactModelGains)  
 
             # 3D contact model = constraint in (LOCAL) x,y,z translations (fixed position)
@@ -649,10 +648,9 @@ def init_DDP(robot, config, x0, callbacks=False,
         contactModelTranslationRef = config['contactModelTranslationRef']
       # 1D contact model = constraint in (LOCAL) z translation (fixed normal distance)
       if(CONTACT_TYPE=='1D'):
-        frameTranslation = crocoddyl.FrameTranslation(contactModelFrameId, contactModelTranslationRef) 
         contactModel = crocoddyl.ContactModel1D(state, 
-                                                # contactModelFrameId, 
-                                                frameTranslation, 
+                                                contactModelFrameId, 
+                                                contactModelTranslationRef[2], 
                                                 contactModelGains)  
       # 3D contact model = constraint in (LOCAL) x,y,z translations (fixed position)
       elif(CONTACT_TYPE=='3D'):

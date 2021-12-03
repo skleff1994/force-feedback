@@ -57,7 +57,7 @@ M_ct = robot.data.oMf[id_endeff].copy()
 ### OCP SETUP ###
 # # # # # # # # # 
 # Setup Croco OCP and create solver
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
+ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
 # Warmstart and solve
 f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)

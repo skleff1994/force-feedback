@@ -2331,11 +2331,16 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
         # Plot CONTACT reference frame translation in WORLD frame
         if('contact_translation' in ddp_data):
             handles, labels = ax[i,0].get_legend_handles_labels()
-            if('contact' in labels):
-                handles.pop(labels.index('contact'))
-                ax[i,0].lines.pop(labels.index('contact'))
-                labels.remove('contact')
-            ax[i,0].plot(tspan, lin_pos_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
+            if('Baumgarte stab. ref.' in labels):
+                handles.pop(labels.index('Baumgarte stab. ref.'))
+                ax[i,0].lines.pop(labels.index('Baumgarte stab. ref.'))
+                labels.remove('Baumgarte stab. ref.')
+            # Exception for 1D contact: only along z-axis
+            if(ddp_data['CONTACT_TYPE']=='1D'):
+                if(i==2):
+                    ax[i,0].plot(tspan, lin_pos_ee_contact, linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
+            else:
+                ax[i,0].plot(tspan, lin_pos_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
         # Labels, tick labels, grid
         ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -2374,7 +2379,7 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
             ax[i,1].set_ylim(lin_vel_ee_ref[0,i]-ax_v_ylim, lin_vel_ee_ref[0,i]+ax_v_ylim)
 
     if(MAKE_LEGEND):
-        handles, labels = ax[0,0].get_legend_handles_labels()
+        handles, labels = ax[2,0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right', prop={'size': 16})
     fig.suptitle('End-effector frame position and linear velocity', size=18)
     if(SHOW):

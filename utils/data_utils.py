@@ -3,7 +3,6 @@ import numpy as np
 import os
 from utils import pin_utils
 import pinocchio as pin
-import crocoddyl
 
 import logging
 logger = logging.getLogger(__name__)
@@ -607,20 +606,29 @@ def extract_ddp_data(ddp):
     # Solution trajectories
     ddp_data['xs'] = ddp.xs
     ddp_data['us'] = ddp.us
+    ddp_data['CONTACT_TYPE'] = None
     # Extract force at EE frame and contact info 
     if(hasattr(ddp.problem.runningModels[0].differential, 'contacts')):
-      # Get refs for 6D contact
-      contactModel0 = ddp.problem.runningModels[0].differential.contacts.contacts["contact"].contact.reference
-      if(hasattr(contactModel0, 'rotation')):
+      # Get refs for contact model
+      contactModelRef0 = ddp.problem.runningModels[0].differential.contacts.contacts["contact"].contact.reference
+      # Case 6D contact (x,y,z,Ox,Oy,Oz)
+      if(hasattr(contactModelRef0, 'rotation')):
         ddp_data['contact_rotation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.rotation for i in range(ddp.problem.T)]
         ddp_data['contact_rotation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.rotation)
-        # Get ref translation for 6D contact
         ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.translation for i in range(ddp.problem.T)]
         ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.translation)
-      else:
+        ddp_data['CONTACT_TYPE'] = '6D'
+      # Case 3D contact (x,y,z)
+      elif(np.size(contactModelRef0)==3):
         # Get ref translation for 3D 
         ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference for i in range(ddp.problem.T)]
         ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference)
+        ddp_data['CONTACT_TYPE'] = '3D'
+      # Case 1D contact (z)
+      elif(np.size(contactModelRef0)==1):
+        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference for i in range(ddp.problem.T)]
+        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference)
+        ddp_data['CONTACT_TYPE'] = '1D'
       # Get contact force
       datas = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'] for i in range(ddp.problem.T)]
       # data.f = force exerted at parent joint expressed in WORLD frame (oMi)
