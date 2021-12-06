@@ -23,7 +23,8 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
   - Raisim simulator for rigid-body dynamics & RaisimUnityOpenGL GUI visualization
 '''
 
-
+import sys
+sys.path.append('.')
 
 import numpy as np  
 from utils import path_utils, raisim_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils

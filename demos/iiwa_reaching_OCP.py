@@ -14,6 +14,9 @@ Trajectory optimization using Crocoddyl
 The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
 
+import sys
+sys.path.append('.')
+
 import numpy as np  
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig

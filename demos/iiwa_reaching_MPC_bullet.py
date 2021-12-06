@@ -17,6 +17,9 @@ Using PyBullet simulator & GUI for rigid-body dynamics + visualization
 The goal of this script is to simulate closed-loop MPC on a simple reaching task 
 '''
 
+import sys
+sys.path.append('.')
+
 import numpy as np  
 from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils
 import pybullet as p

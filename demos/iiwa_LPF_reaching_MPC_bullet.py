@@ -24,6 +24,8 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 '''
 
 
+import sys
+sys.path.append('.')
 
 
 import numpy as np  

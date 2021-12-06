@@ -19,7 +19,8 @@ The goal of this script is to simulate MPC with state feedback, optionally
 imperfect actuation (bias, noise, delays) at higher frequency
 '''
 
-
+import sys
+sys.path.append('.')
 
 import numpy as np
 import time
