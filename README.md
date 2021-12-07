@@ -15,8 +15,10 @@ You also need either one of these in order to run MPC simulations :
 - [PyBullet](https://pybullet.org/wordpress/)  (only for PyBullet simulations)
 - [bullet_utils](https://github.com/machines-in-motion/bullet_utils) (only for PyBullet simulations)
 
+If you don't have PyYaml and six installed : `pip3 install PyYaml && pip3 install six`
+
 # How to use it
-As of Nov. 2, 2021, all relevant scripts are in `demos` and `utils`
+As of Dec. 2, 2021, all relevant scripts are in `demos` and `utils`
 
 ## Solve OCP + plot results
 For instance, to solve an OCP for a reaching task and plot the results, simply call
