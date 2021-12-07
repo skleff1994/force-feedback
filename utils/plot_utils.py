@@ -2297,18 +2297,18 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
     v = x[:,nq:nq+nv]
     lin_pos_ee = pin_utils.get_p_(q, ddp_data['pin_model'], ddp_data['frame_id'])
     lin_vel_ee = pin_utils.get_v_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
-    # Cost ref frame position
+    # Cost reference frame translation if any, or initial one
     if('translation' in ddp_data['active_costs'] or 'placement' in ddp_data['active_costs']):
         lin_pos_ee_ref = np.array(ddp_data['translation_ref'])
     else:
         lin_pos_ee_ref = np.array([lin_pos_ee[0,:] for i in range(N+1)])
-    # Cost frame linear velocity
+    # Cost reference frame linear velocity if any, or initial one
     if('velocity' in ddp_data['active_costs']):
         lin_vel_ee_ref = np.array(ddp_data['velocity_ref'])[:,:3] # linear part
     else:
         lin_vel_ee_ref = np.array([lin_vel_ee[0,:] for i in range(N+1)])
-    # Contact ref position
-    if('contact_translation' in ddp_data):
+    # Contact reference translation if CONTACT
+    if(ddp_data['CONTACT_TYPE'] is not None):
         lin_pos_ee_contact = np.array(ddp_data['contact_translation'])
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
@@ -2329,13 +2329,13 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
                 labels.remove('reference')
             ax[i,0].plot(tspan, lin_pos_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
         # Plot CONTACT reference frame translation in WORLD frame
-        if('contact_translation' in ddp_data):
+        if(ddp_data['CONTACT_TYPE'] is not None):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('Baumgarte stab. ref.' in labels):
                 handles.pop(labels.index('Baumgarte stab. ref.'))
                 ax[i,0].lines.pop(labels.index('Baumgarte stab. ref.'))
                 labels.remove('Baumgarte stab. ref.')
-            # Exception for 1D contact: only along z-axis
+            # Exception for 1D contact: plot only along z-axis 
             if(ddp_data['CONTACT_TYPE']=='1D'):
                 if(i==2):
                     ax[i,0].plot(tspan, lin_pos_ee_contact, linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
@@ -2402,18 +2402,18 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
     v = x[:,nq:nq+nv]
     rpy_ee = pin_utils.get_rpy_(q, ddp_data['pin_model'], ddp_data['frame_id'])
     w_ee   = pin_utils.get_w_(q, v, ddp_data['pin_model'], ddp_data['frame_id'])
-    # Cost ref orientation
+    # Cost reference frame orientation if any, or initial one
     if('rotation' in ddp_data['active_costs'] or 'placement' in ddp_data['active_costs']):
         rpy_ee_ref = np.array([pin.utils.matrixToRpy(np.array(R)) for R in ddp_data['rotation_ref']])
     else:
         rpy_ee_ref = np.array([rpy_ee[0,:] for i in range(N+1)])
-    # Cost ref angular velocity
+    # Cost reference angular velocity if any, or initial one
     if('velocity' in ddp_data['active_costs']):
         w_ee_ref = np.array(ddp_data['velocity_ref'])[:,3:] # angular part
     else:
         w_ee_ref = np.array([w_ee[0,:] for i in range(N+1)])
-    # Contact orientation ref (6D)
-    if('contact_rotation' in ddp_data):
+    # Contact reference orientation (6D)
+    if(ddp_data['CONTACT_TYPE']=='6D'):
         rpy_ee_contact = np.array([pin.utils.matrixToRpy(R) for R in ddp_data['contact_rotation']])
     # Plots
     tspan = np.linspace(0, N*dt, N+1)
@@ -2436,7 +2436,7 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
             ax[i,0].plot(tspan, rpy_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
         
         # Plot CONTACT reference frame translation in WORLD frame
-        if('contact_rotation' in ddp_data):
+        if(ddp_data['CONTACT_TYPE']=='6D'):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('contact' in labels):
                 handles.pop(labels.index('contact'))

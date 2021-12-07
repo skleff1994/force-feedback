@@ -346,8 +346,6 @@ def init_DDP(robot, config, x0, callbacks=False,
             
             # 1D contact model = constraint in (LOCAL) z translation (fixed normal distance)
             if(CONTACT_TYPE=='1D'):
-              # logger.info("Z_REF contact = ")
-              # print(contactModelTranslationRef[2])
               contactModel = crocoddyl.ContactModel1D(state, 
                                                       contactModelFrameId, 
                                                       contactModelTranslationRef[2], 
