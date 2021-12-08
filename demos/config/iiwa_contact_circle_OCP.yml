@@ -1,4 +1,4 @@
-# OCP LPF parameters for end-effector circle force task
+# OCP parameters for end-effector circle force task 
 
 # General
 dt: 0.01                                             # OCP integration step 
@@ -13,7 +13,7 @@ contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Cro
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
-contactModelGains: [100., 10.]          # Baumgarte stabilization gains 
+contactModelGains: [0., 0.]          # Baumgarte stabilization gains 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
@@ -23,7 +23,7 @@ WHICH_COSTS: ['translation', 'stateReg', 'ctrlRegGrav']
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [0., 0., 1., 0., 0., 0.]
-frameForceWeight: 10
+frameForceWeight: 0.01
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 

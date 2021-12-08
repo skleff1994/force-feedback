@@ -70,7 +70,7 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 PLOT = True
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data(ddp)
-    fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['all'], SHOW=True)
+    fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['ee', 'f'], SHOW=True)
     
 
 VISUALIZE = False
