@@ -675,72 +675,16 @@ def extract_ddp_data(ddp):
     return ddp_data
 
 
-
-
 #### Low Pass Filter OCP
 def extract_ddp_data_LPF(ddp):
     '''
     Record relevant data from ddp solver in order to plot 
     '''
     logger.info("Extracting DDP data (LPF)...")
-    # Store data
-    ddp_data = {}
-    # OCP params
-    ddp_data['T'] = ddp.problem.T
-    ddp_data['dt'] = ddp.problem.runningModels[0].dt
-    ddp_data['nq'] = ddp.problem.runningModels[0].state.nq
-    ddp_data['nv'] = ddp.problem.runningModels[0].state.nv
-    ddp_data['nu'] = ddp.problem.runningModels[0].differential.actuation.nu
-    ddp_data['nx'] = ddp.problem.runningModels[0].state.nx
-    # Pin model
-    ddp_data['pin_model'] = ddp.problem.runningModels[0].differential.pinocchio
-    ddp_data['frame_id'] = ddp_data['pin_model'].getFrameId('contact')
-    # Solution trajectories
-    ddp_data['xs'] = ddp.xs
-    ddp_data['us'] = ddp.us
-    # Extract force at EE frame and contact info 
-    if(hasattr(ddp.problem.runningModels[0].differential, 'contacts')):
-      ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.translation for i in range(ddp.problem.T)]
-      ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.translation)
-      ddp_data['contact_rotation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.rotation for i in range(ddp.problem.T)]
-      ddp_data['contact_rotation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.rotation)
-      datas = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'] for i in range(ddp.problem.T)]
-      # data.f = force exerted at parent joint expressed in WORLD frame (oMi)
-      # express it in LOCAL contact frame using jMf 
-      ee_forces = [data.jMf.actInv(data.f).vector for data in datas] 
-      ddp_data['fs'] = [ee_forces[i] for i in range(ddp.problem.T)]
-    # Extract cost references of active costs 
-    # TODO : active costs may change along horizon : how to deal with that when plotting? 
-    ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
-    if('stateReg' in ddp_data['active_costs']):
-        ddp_data['stateReg_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['stateReg'].cost.residual.reference for i in range(ddp.problem.T)]
-        ddp_data['stateReg_ref'].append(ddp.problem.terminalModel.differential.costs.costs['stateReg'].cost.residual.reference)
+    ddp_data = extract_ddp_data(ddp)
+    # Add terminal regularization references on filtered torques
     if('ctrlReg' in ddp_data['active_costs']):
-        ddp_data['ctrlReg_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].cost.residual.reference for i in range(ddp.problem.T)]
         ddp_data['ctrlReg_ref'].append(ddp.problem.terminalModel.differential.costs.costs['ctrlReg'].cost.residual.reference)
     if('ctrlRegGrav' in ddp_data['active_costs']):
-        ddp_data['ctrlRegGrav_ref'] = [pin_utils.get_u_grav(ddp.xs[i][:ddp_data['nq']], ddp_data['pin_model']) for i in range(ddp.problem.T+1)]
-    if('stateLim' in ddp_data['active_costs']):
-        ddp_data['stateLim_ub'] = [ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.ub for i in range(ddp.problem.T)]
-        ddp_data['stateLim_lb'] = [ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.lb for i in range(ddp.problem.T)]
-        ddp_data['stateLim_ub'].append(ddp.problem.terminalModel.differential.costs.costs['stateLim'].cost.activation.bounds.ub)
-        ddp_data['stateLim_lb'].append(ddp.problem.terminalModel.differential.costs.costs['stateLim'].cost.activation.bounds.lb)
-    if('ctrlLim' in ddp_data['active_costs']):
-        ddp_data['ctrlLim_ub'] = [ddp.problem.runningModels[i].differential.costs.costs['ctrlLim'].cost.activation.bounds.ub for i in range(ddp.problem.T)]
-        ddp_data['ctrlLim_lb'] = [ddp.problem.runningModels[i].differential.costs.costs['ctrlLim'].cost.activation.bounds.lb for i in range(ddp.problem.T)]
-        ddp_data['ctrlLim_ub'].append(ddp.problem.terminalModel.differential.costs.costs['ctrlLim'].cost.activation.bounds.ub)
-        ddp_data['ctrlLim_lb'].append(ddp.problem.terminalModel.differential.costs.costs['ctrlLim'].cost.activation.bounds.lb)
-    if('placement' in ddp_data['active_costs']):
-        ddp_data['translation_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['placement'].cost.residual.reference.translation for i in range(ddp.problem.T)]
-        ddp_data['translation_ref'].append(ddp.problem.terminalModel.differential.costs.costs['placement'].cost.residual.reference.translation)
-    if('translation' in ddp_data['active_costs']):
-        ddp_data['translation_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['translation'].cost.residual.reference for i in range(ddp.problem.T)]
-        ddp_data['translation_ref'].append(ddp.problem.terminalModel.differential.costs.costs['translation'].cost.residual.reference)
-    if('velocity' in ddp_data['active_costs']):
-        ddp_data['velocity_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['velocity'].cost.residual.reference.vector for i in range(ddp.problem.T)]
-        ddp_data['velocity_ref'].append(ddp.problem.terminalModel.differential.costs.costs['velocity'].cost.residual.reference.vector)
-        ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['velocity'].cost.residual.id
-    if('force' in ddp_data['active_costs']): 
-        ddp_data['force_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['force'].cost.residual.reference.vector for i in range(ddp.problem.T)]
-        # ddp_data['force_ref'].append(ddp.problem.terminalModel.differential.costs.costs['force'].cost.residual.reference.vector)
+        ddp_data['ctrlRegGrav_ref'].append(pin_utils.get_u_grav(ddp.xs[-1][:ddp_data['nq']], ddp_data['pin_model']))
     return ddp_data

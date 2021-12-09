@@ -17,7 +17,7 @@ contactModelGains: [0., 100.]            # Baumgarte stabilization gains
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
-#                           'force', 'friction', 'translation', 'velocity', 'placement'
+#                           'force', 'friction', 'translation', 'velocity', 'placement', 'rotation'
 WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg', 'ctrlRegGrav']  
 
 # Cost function weights and activations
