@@ -13,17 +13,17 @@ contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Cro
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
-contactModelGains: [0., 0.]          # Baumgarte stabilization gains 
+contactModelGains: [10., 50.]          # Baumgarte stabilization gains 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['translation', 'stateReg', 'ctrlRegGrav']  
+WHICH_COSTS: ['force', 'translation', 'placement', 'stateReg', 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [0., 0., 1., 0., 0., 0.]
-frameForceWeight: 0.01
+frameForceWeight: 10
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
@@ -34,7 +34,7 @@ frictionConeFrameName: 'contact'
 
  # 'stateReg' : state regularization  
 stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.5
+stateRegWeight: 0.1
 stateRegWeightTerminal: 1.
 stateRegRef: 'DEFAULT' # TRACKING ?
 
@@ -50,7 +50,7 @@ frameTranslationWeightTerminal: 50.
 frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
-frameCircleTrajectoryVelocity: 3. # in rad/s
+frameCircleTrajectoryVelocity: 2. # in rad/s
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
@@ -61,8 +61,8 @@ frameVelocityFrameName: 'contact'
 
  # 'placement' : end-effector frame placement (translation + rotation)
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0.1
-framePlacementWeightTerminal: 0.1
+framePlacementWeight: 0.
+framePlacementWeightTerminal: 100
 framePlacementTranslationRef: 'DEFAULT'
 framePlacementRotationRef: 'DEFAULT'
 framePlacementFrameName: 'contact'

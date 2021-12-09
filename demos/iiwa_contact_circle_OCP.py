@@ -79,7 +79,7 @@ for k,m in enumerate(models):
     m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
     # Contact model 1D update z ref (WORLD frame)
     # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
-
+    # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
@@ -114,7 +114,7 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
 #  Plot
-PLOT = True
+PLOT = False
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data(ddp)
     fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['all'], markers=['.'], SHOW=True)
