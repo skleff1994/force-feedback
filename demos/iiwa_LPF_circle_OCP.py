@@ -68,19 +68,18 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True,
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
-# Create circle trajectory (WORLD frame) and setup tracking problem
-EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=config['dt'], 
-                                                        radius=config['frameCircleTrajectoryRadius'], 
-                                                        omega=config['frameCircleTrajectoryVelocity'])
-# ocp_utils.set_ee_tracking_problem(ddp, EE_ref)
-# Set EE translation cost model references (i.e. setup tracking problem)
+# Setup tracking problem with circle ref EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+RADIUS = config['frameCircleTrajectoryRadius'] 
+OMEGA  = config['frameCircleTrajectoryVelocity']
 for k,m in enumerate(models):
-    if(k<EE_ref.shape[0]):
-        ref = EE_ref[k]
-    else:
-        ref = EE_ref[-1]
-    m.differential.costs.costs['translation'].cost.residual.reference = ref
+    # Ref
+    t = min(k*config['dt'], 2*np.pi/OMEGA)
+    p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
+                                               radius=RADIUS,
+                                               omega=OMEGA)
+    # Cost translation
+    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True

@@ -5,7 +5,7 @@ LPF_TYPE: 1
 f_c: 2                                               # Low-pass filter cut-off frequency
 dt: 0.01                                             # OCP integration step 
 N_h: 400                                             # Horizon length in nodes
-maxiter: 1000                                           # Max number of iterations in DDP
+maxiter: 100                                        # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initial robot joint torque
@@ -13,21 +13,21 @@ tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initi
 
 # Contact model 
 CONTACT: 'True'                         # 'True' or 'False' 
-contactModelType: '6D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
+contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
-contactModelGains: [100., 10.]          # Baumgarte stabilization gains 
+contactModelGains: [0., 100.]            # Baumgarte stabilization gains 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
-#                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['force', 'translation', 'stateReg']
+#                           'force', 'friction', 'translation', 'velocity', 'placement', 'rotation'
+WHICH_COSTS: ['translation', 'rotation', 'stateReg']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeights:  [1., 1., 1., 1., 1., 1.]
-frameForceWeight: 1
+frameForceWeights:  [0., 0., 1., 0., 0., 0.]
+frameForceWeight: 0.001
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
@@ -44,24 +44,24 @@ stateRegRef: 'DEFAULT' # TRACKING ?
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.1
-ctrlRegWeightTerminal: 0.
+ctrlRegWeight: 0.0
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
-
-# 'wReg' : unfiltered torque regularization
-wRegWeight: 0.0005
-
-# 'wLim' : unfiltered torque limit
-wLimWeight: 10.
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 1.
-frameTranslationWeightTerminal: 1.
+frameTranslationWeight: 50.
+frameTranslationWeightTerminal: 50.
 frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
-frameCircleTrajectoryVelocity: 3. # in rad/s
+frameCircleTrajectoryVelocity: 1.5 # in rad/s
+
+ # 'rotation' : end-effector frame orientation
+frameRotationWeights:  [1., 1., 1.]
+frameRotationWeight: 1.
+frameRotationWeightTerminal: 10.
+frameRotationRef: 'DEFAULT'
+frameRotationFrameName: 'contact'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
@@ -69,14 +69,6 @@ frameVelocityWeight: .1
 frameVelocityWeightTerminal: .1
 frameVelocityRef: 'DEFAULT'    
 frameVelocityFrameName: 'contact'
-
- # 'placement' : end-effector frame placement (translation + rotation)
-framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0.1
-framePlacementWeightTerminal: 0.1
-framePlacementTranslationRef: 'DEFAULT'
-framePlacementRotationRef: 'DEFAULT'
-framePlacementFrameName: 'contact'
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
@@ -92,3 +84,10 @@ ctrlLimRef: 'DEFAULT'
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .0]
+
+
+# 'wReg' : unfiltered torque regularization
+wRegWeight: 0.000001
+
+# 'wLim' : unfiltered torque limit
+wLimWeight: 10.

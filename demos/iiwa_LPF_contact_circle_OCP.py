@@ -71,22 +71,21 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True,
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] )
-# Create circle trajectory (WORLD frame)
-EE_ref = ocp_utils.circle_trajectory_WORLD(ee_frame_placement.copy(), dt=config['dt'], 
-                                                        radius=config['frameCircleTrajectoryRadius'], 
-                                                        omega=config['frameCircleTrajectoryVelocity'])
-# Set EE translation cost model references (i.e. setup tracking problem) and contact model references
+# Setup tracking problem with circle ref EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+RADIUS = config['frameCircleTrajectoryRadius'] 
+OMEGA  = config['frameCircleTrajectoryVelocity']
 for k,m in enumerate(models):
-    if(k<EE_ref.shape[0]):
-        p_ee_ref = EE_ref[k]
-    else:
-        p_ee_ref = EE_ref[-1]
+    # Ref
+    t = min(k*config['dt'], 2*np.pi/OMEGA)
+    p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
+                                               radius=RADIUS,
+                                               omega=OMEGA)
     # Cost translation
     m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
-    # Contact model
-    m.differential.contacts.contacts["contact"].contact.reference.translation = p_ee_ref 
-
+    # Contact model 1D update z ref (WORLD frame)
+    # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
+    # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
 
 
 # Warm start state = IK of circle trajectory
@@ -122,7 +121,7 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
 #  Plot
-PLOT = True
+PLOT = False
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
     fig, ax = plot_utils.plot_ddp_results_LPF( ddp_data, which_plots=['all'], markers=['.'], SHOW=True)
@@ -131,7 +130,7 @@ if(PLOT):
 
 
 
-VISUALIZE = False
+VISUALIZE = True
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
