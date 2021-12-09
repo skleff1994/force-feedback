@@ -13,21 +13,21 @@ tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initi
 
 # Contact model 
 CONTACT: 'True'                         # 'True' or 'False' 
-contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
+contactModelType: '6D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
-contactModelGains: [0., 100.]            # Baumgarte stabilization gains 
+contactModelGains: [0., 0.]            # Baumgarte stabilization gains 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement', 'rotation'
-WHICH_COSTS: ['translation', 'rotation', 'stateReg']  
+WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [0., 0., 1., 0., 0., 0.]
-frameForceWeight: 0.001
+frameForceWeight: 1.
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
@@ -49,8 +49,8 @@ ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 50.
-frameTranslationWeightTerminal: 50.
+frameTranslationWeight: 0.
+frameTranslationWeightTerminal: 0.
 frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
@@ -87,7 +87,7 @@ armature: [.1, .1, .1, .1, .1, .1, .0]
 
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.000001
+wRegWeight: 0.00000
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 10.

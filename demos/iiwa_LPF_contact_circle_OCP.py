@@ -89,7 +89,7 @@ for k,m in enumerate(models):
 
 
 # Warm start state = IK of circle trajectory
-WARM_START_IK = True
+WARM_START_IK = False
 if(WARM_START_IK):
     logger.info("Computing warm-start using Inverse Kinematics...")
     xs_init = [] 
