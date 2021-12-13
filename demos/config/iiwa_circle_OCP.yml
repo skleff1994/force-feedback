@@ -13,7 +13,7 @@
 
 # General 
 dt: 0.01                                                             # OCP integration step 
-N_h: 200                                                             # Horizon length in nodes
+N_h: 400                                                             # Horizon length in nodes
 maxiter: 100                                                         # Max number of iterations in DDP
 q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity

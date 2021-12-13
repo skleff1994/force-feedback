@@ -52,8 +52,6 @@ M_ct = robot.data.oMf[id_endeff]
 nq = robot.model.nq; nv = robot.model.nv; nx = nq+nv; nu = nq
 
 
-
-
 # # # # # # # # # 
 ### OCP SETUP ###
 # # # # # # # # # 
@@ -177,7 +175,7 @@ if(VISUALIZE):
         time.sleep(pause)
 
 
-PLOT = True
+PLOT = False
 if(PLOT):
     #  Plot
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
