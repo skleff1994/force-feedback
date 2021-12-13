@@ -84,12 +84,12 @@ for k,m in enumerate(models):
     # Cost translation
     m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
     # Contact model 1D update z ref (WORLD frame)
-    # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
+    m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
     # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
 
 
 # Warm start state = IK of circle trajectory
-WARM_START_IK = False
+WARM_START_IK = True
 if(WARM_START_IK):
     logger.info("Computing warm-start using Inverse Kinematics...")
     xs_init = [] 
@@ -121,7 +121,7 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
 #  Plot
-PLOT = False
+PLOT = True
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
     fig, ax = plot_utils.plot_ddp_results_LPF( ddp_data, which_plots=['all'], markers=['.'], SHOW=True)
@@ -130,7 +130,7 @@ if(PLOT):
 
 
 
-VISUALIZE = True
+VISUALIZE = False
 pause = 0.01 # in s
 if(VISUALIZE):
     import time

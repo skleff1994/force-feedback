@@ -78,8 +78,7 @@ for k,m in enumerate(models):
     # Cost translation
     m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
     # Contact model 1D update z ref (WORLD frame)
-    # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
-    # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
+    m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
@@ -124,7 +123,7 @@ if(PLOT):
 
 
 VISUALIZE = True
-pause = 0.01 # in s
+pause = 0.02 # in s
 if(VISUALIZE):
     import time
     import pinocchio as pin

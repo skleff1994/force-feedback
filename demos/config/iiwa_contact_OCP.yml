@@ -1,16 +1,27 @@
 # OCP LPF parameters for end-effector reaching task
 
-# General
-dt: 0.01                                             # OCP integration step 
-N_h: 200                                             # Horizon length in nodes
-maxiter: 100                                         # Max number of iterations in DDP
-q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
-dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
+# # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
+#   R =
+#    -0.918754     0.389418    0.0651533
+#     0.388443     0.921061   -0.0275464
+#   -0.0707372 -2.41653e-08    -0.997495
+#   p = 0.3   0 0.7
+# # Starting config for IK (to avoid self-collision solution)
+# q_init =  [-0.2263,  0.    , -0.174 , -1.6865,  0.0358,  1.5   , -0.3946]
+# # Solution of IK_placement(q_init, M)
+# q0 = [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]
 
+
+# General
+dt: 0.01                                                             # OCP integration step 
+N_h: 200                                                             # Horizon length in nodes
+maxiter: 100                                                         # Max number of iterations in DDP
+q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
+dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 
 # Contact model 
 CONTACT: 'True'                         # 'True' or 'False' 
-contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
+contactModelType: '6D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
@@ -19,11 +30,11 @@ contactModelGains: [0., 0.]             # Baumgarte stabilization gains
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['force', 'translation', 'velocity', 'stateReg', 'ctrlRegGrav']  
+WHICH_COSTS: ['force', 'stateReg', 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeights:  [1., 1., 1., 1., 1., 1.]
+frameForceWeights:  [0., 0., 1., 0., 0., 0.]
 frameForceWeight: 10.
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
@@ -35,7 +46,7 @@ frictionConeFrameName: 'contact'
 
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.5
+stateRegWeight: 0.05
 stateRegWeightTerminal: 1
 stateRegRef: 'DEFAULT'
 
@@ -45,26 +56,27 @@ ctrlRegWeight: 0.01
 ctrlRegRef: 'DEFAULT' # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
-frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 1.
-frameTranslationWeightTerminal: .1 
+frameTranslationWeights:  [1., 1., 0.]
+frameTranslationWeight: 100
+frameTranslationWeightTerminal: 100
 frameTranslationRef: 'DEFAULT' # 'CIRCLE' ?
 frameTranslationFrameName: 'contact'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: .1
-frameVelocityWeightTerminal: .1
+frameVelocityWeight: 10
+frameVelocityWeightTerminal: 10
 frameVelocityRef: 'DEFAULT'    
 frameVelocityFrameName: 'contact'
 
- # 'placement' : end-effector frame placement (translation + rotation)
-framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0.1
-framePlacementWeightTerminal: 0.1
-framePlacementTranslationRef: 'DEFAULT'
-framePlacementRotationRef: 'DEFAULT'
-framePlacementFrameName: 'contact'
+
+ # 'rotation' : end-effector frame orientation
+frameRotationWeights:  [1., 1., 1.]
+frameRotationWeight: 10.
+frameRotationWeightTerminal: 10.
+frameRotationRef: 'DEFAULT'
+frameRotationFrameName: 'contact'
+
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
