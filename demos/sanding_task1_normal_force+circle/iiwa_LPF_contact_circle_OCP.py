@@ -306,17 +306,3 @@ if(VISUALIZE):
 
         time.sleep(pause)
 
-
-
-# # Check forces
-# import pinocchio as pin
-# q = np.array(ddp.xs)[:,:nq]
-# v = np.array(ddp.xs)[:,nq:] 
-# u = np.array(ddp.us)
-# f = pin_utils.get_f_(q, v, u, robot.model, id_endeff, REG=0.)
-# import matplotlib.pyplot as plt
-# for i in range(3):
-#     ax['f'][i,0].plot(np.linspace(0,N_h*dt, N_h), f[:,i], '-.', label="(JMiJ')+")
-#     ax['f'][i,1].plot(np.linspace(0,N_h*dt, N_h), f[:,3+i], '-.', label="(JMiJ')+")
-# plt.legend()
-# plt.show()

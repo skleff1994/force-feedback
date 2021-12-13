@@ -70,7 +70,7 @@ def get_contact_joint_torques(pybullet_simulator, id_endeff):
     return joint_torques
 
 
-def display_ball(p_des, RADIUS=1., COLOR=[1.,1.,1.,1.]):
+def display_ball(p_des, RADIUS=.1, COLOR=[1.,1.,1.,1.]):
     '''
     Create a sphere visual object in PyBullet
     '''

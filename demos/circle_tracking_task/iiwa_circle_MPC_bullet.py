@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_reaching_MPC_bullet.py
+@file iiwa_cirlce_MPC_bullet.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
@@ -9,12 +9,12 @@
 """
 
 '''
-The robot is tasked with reaching a static EE target 
+The robot is tasked with tracking a circle EE trajectory
 Trajectory optimization using Crocoddyl in closed-loop MPC 
 (feedback from state x=(q,v), control u = tau 
 Using PyBullet simulator & GUI for rigid-body dynamics + visualization
 
-The goal of this script is to simulate closed-loop MPC on a simple reaching task 
+The goal of this script is to simulate closed-loop MPC
 '''
 
 import sys
@@ -27,7 +27,6 @@ import time
 np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
-
 import logging
 FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
 FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
@@ -36,12 +35,11 @@ logging.basicConfig(format=FORMAT_SHORT)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
 # # # # # # # # # # # # # # # # # # #
 ### LOAD ROBOT MODEL and SIMU ENV ### 
 # # # # # # # # # # # # # # # # # # # 
 # Read config file
-config_name = 'iiwa_reaching_MPC'
+config_name = 'iiwa_circle_MPC'
 config      = path_utils.load_config_file(config_name)
 # Create a Pybullet simulation environment + set simu freq
 dt_simu = 1./float(config['simu_freq'])  
@@ -53,19 +51,49 @@ env, pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
 robot = pybullet_simulator.pin_robot
 # Get dimensions 
 nq, nv = robot.model.nq, robot.model.nv; nu = nq
-
+id_endeff = robot.model.getFrameId('contact')
+M_ee = robot.data.oMf[id_endeff].copy()
 
 
 # # # # # # # # # 
 ### OCP SETUP ###
 # # # # # # # # # 
+# Init shooting problem and solver
 ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
+# Setup tracking problem with circle ref EE trajectory
+models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+RADIUS = config['frameCircleTrajectoryRadius'] 
+OMEGA  = config['frameCircleTrajectoryVelocity']
+for k,m in enumerate(models):
+    # Ref
+    t = min(k*config['dt'], 2*np.pi/OMEGA)
+    p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
+                                               radius=RADIUS,
+                                               omega=OMEGA)
+    # Cost translation
+    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
 
-# Warm start and solve
-ug  = pin_utils.get_u_grav(q0, robot.model)
-xs_init = [x0 for i in range(config['N_h']+1)]
-us_init = [ug for i in range(config['N_h'])]
+
+# Warm start state = IK of circle trajectory
+WARM_START_IK = True
+if(WARM_START_IK):
+    logger.info("Computing warm-start using Inverse Kinematics...")
+    xs_init = [] 
+    us_init = []
+    q_ws = q0
+    for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
+        ref = m.differential.costs.costs['translation'].cost.residual.reference
+        q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
+        xs_init.append(np.concatenate([q_ws, v_ws]))
+    us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(config['N_h'])]
+# Classical warm start using initial config
+else:
+    ug  = pin_utils.get_u_grav(q0, robot.model)
+    xs_init = [x0 for i in range(config['N_h']+1)]
+    us_init = [ug for i in range(config['N_h'])]
+
+# solve
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 # Plot initial solution
@@ -89,10 +117,16 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS       = ['x','u', 'p']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
-dt_ocp            = config['dt']                            # OCP sampling rate 
-dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
-OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
+WHICH_PLOTS        = ['all']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+dt_ocp             = config['dt']                            # OCP sampling rate 
+dt_mpc             = float(1./sim_data['plan_freq'])         # planning rate
+OCP_TO_PLAN_RATIO  = dt_mpc / dt_ocp                         # ratio
+PLAN_TO_SIMU_RATIO = dt_simu / dt_mpc                        # Must be an integer !!!!
+OCP_TO_SIMU_RATIO  = dt_simu / dt_ocp                        # Must be an integer !!!!
+if(1./PLAN_TO_SIMU_RATIO%1 != 0):
+  logger.warning("SIMU->MPC ratio not an integer ! (1./PLAN_TO_SIMU_RATIO = "+str(1./PLAN_TO_SIMU_RATIO)+")")
+if(1./OCP_TO_SIMU_RATIO%1 != 0):
+  logger.warning("SIMU->OCP ratio not an integer ! (1./OCP_TO_SIMU_RATIO  = "+str(1./OCP_TO_SIMU_RATIO)+")")
 
 # Additional simulation blocks 
 communication = mpc_utils.CommunicationModel(config)
@@ -101,9 +135,15 @@ sensing       = mpc_utils.SensorModel(config)
 
 
 
-# # # # # # # # # # # #
-### SIMULATION LOOP ###
-# # # # # # # # # # # #
+# Display target circle
+nb_points = 20 
+for i in range(nb_points):
+  t = (i/nb_points)*2*np.pi/OMEGA
+  # if(i%20==0):
+  pos = ocp_utils.circle_point_WORLD(t, M_ee, radius=RADIUS, omega=OMEGA)
+  sim_utils.display_target(pos, SCALING=0.2)
+
+
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -115,7 +155,18 @@ for i in range(sim_data['N_simu']):
 
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
-        # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
+        # Current simulation time
+        t_simu = i*dt_simu 
+        # Setup tracking problem with circle ref EE trajectory
+        models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+        for k,m in enumerate(models):
+            # Ref
+            t = min(t_simu + k*dt_ocp, 2*np.pi/OMEGA)
+            p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
+                                                       radius=RADIUS,
+                                                       omega=OMEGA)
+            # Cost translation
+            m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -123,12 +174,12 @@ for i in range(sim_data['N_simu']):
         us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-        sim_data['X_pred'][nb_plan, :, :] = np.array(ddp.xs)
-        sim_data['U_pred'][nb_plan, :, :] = np.array(ddp.us)
+        sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
+        sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
         # Extract relevant predictions for interpolations
-        x_curr = sim_data['X_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
-        x_pred = sim_data['X_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
-        u_curr = sim_data['U_pred'][nb_plan, 0, :]    # u0* = optimal control   
+        x_curr = sim_data['state_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
+        x_pred = sim_data['state_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
+        u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # u0* = optimal control   
         # Record cost references
         data_utils.record_cost_references(ddp, sim_data, nb_plan)
         # Record solver data (optional)
@@ -138,22 +189,20 @@ for i in range(sim_data['N_simu']):
         x_pred, u_curr = communication.step(x_pred, u_curr)
         # Select reference control and state for the current PLAN cycle
         x_ref_PLAN  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-        u_ref_PLAN  = u_curr #u_pred_prev + OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev)
+        u_ref_PLAN  = u_curr 
         if(nb_plan==0):
           sim_data['X_des_PLAN'][nb_plan, :] = x_curr  
         sim_data['U_des_PLAN'][nb_plan, :]   = u_ref_PLAN   
         sim_data['X_des_PLAN'][nb_plan+1, :] = x_ref_PLAN    
-
         # Increment planning counter
         nb_plan += 1
 
+
   # If we are in a control cycle select reference torque to send to the actuator (motor driver input frequency)
     if(i%int(freq_SIMU/freq_CTRL) == 0):        
-        # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
         # Select reference control and state for the current CTRL cycle
-        COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)# x_curr + COEF * OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-        u_ref_CTRL = u_curr #u_pred_prev + OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev) #u_pred_prev + COEF * OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev)
+        x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
+        u_ref_CTRL = u_curr 
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['X_des_CTRL'][nb_ctrl, :] = x_curr  
@@ -162,10 +211,9 @@ for i in range(sim_data['N_simu']):
         # Increment control counter
         nb_ctrl += 1
         
-  # Simulate actuation/sensing and step simulator (physics simulation frequency)
 
+  # Simulate actuation/sensing and step simulator (physics simulation frequency)
     # Select reference control and state for the current SIMU cycle
-    COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
     x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
     u_ref_SIMU  = u_curr 
     # First prediction = measurement = initialization of MPC
@@ -174,7 +222,7 @@ for i in range(sim_data['N_simu']):
     sim_data['U_des_SIMU'][i, :]   = u_ref_SIMU  
     sim_data['X_des_SIMU'][i+1, :] = x_ref_SIMU 
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
-    tau_mea_SIMU = actuation.step(i, u_ref_SIMU, sim_data['U_des_SIMU']) 
+    tau_mea_SIMU = actuation.step(i, u_ref_SIMU, sim_data['U_des_SIMU'])   
     #  Send output of actuation torque to the RBD simulator 
     pybullet_simulator.send_joint_command(tau_mea_SIMU)
     p.stepSimulation()
@@ -187,12 +235,6 @@ for i in range(sim_data['N_simu']):
     sim_data['X_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU
     # Sensor model (optional noise + filtering)
     sim_data['X_mea_SIMU'][i+1, :] = sensing.step(i, x_mea_SIMU, sim_data['X_mea_SIMU'])
-
-print('--------------------------------')
-print('Simulation exited successfully !')
-print('--------------------------------')
-
-
 
 
 # # # # # # # # # # #

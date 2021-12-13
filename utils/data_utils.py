@@ -73,24 +73,24 @@ def init_sim_data(config, robot, x0):
     sim_data['ang_vel_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
     sim_data['f_ee_ref'] = np.zeros((sim_data['N_plan'], 6))
     # Predictions
-    sim_data['X_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['nx'])) # Predicted states  ( ddp.xs : {x* = (q*, v*)} )
-    sim_data['U_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {u*} )
-    sim_data['F_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], 6))                # Predicted EE contact forces
-    sim_data['X_des_PLAN'] = np.zeros((sim_data['N_plan']+1, sim_data['nx']))            # Predicted states at planner frequency  ( x* interpolated at PLAN freq )
-    sim_data['U_des_PLAN'] = np.zeros((sim_data['N_plan'], sim_data['nu']))              # Predicted torques at planner frequency ( u* interpolated at PLAN freq )
-    sim_data['F_des_PLAN'] = np.zeros((sim_data['N_plan'], 6))                           # Predicted EE contact forces planner frequency  
-    sim_data['X_des_CTRL'] = np.zeros((sim_data['N_ctrl']+1, sim_data['nx']))            # Reference state at motor drivers freq ( x* interpolated at CTRL freq )
-    sim_data['U_des_CTRL'] = np.zeros((sim_data['N_ctrl'], sim_data['nu']))              # Reference input at motor drivers freq ( u* interpolated at CTRL freq )
-    sim_data['F_des_CTRL'] = np.zeros((sim_data['N_ctrl'], 6))                           # Reference EE contact force at motor drivers freq
-    sim_data['X_des_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['nx']))            # Reference state at actuation freq ( x* interpolated at SIMU freq )
-    sim_data['U_des_SIMU'] = np.zeros((sim_data['N_simu'], sim_data['nu']))              # Reference input at actuation freq ( u* interpolated at SIMU freq )
-    sim_data['F_des_SIMU'] = np.zeros((sim_data['N_simu'], 6))                           # Reference EE contact force at actuation freq
+    sim_data['state_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['nx'])) # Predicted states  ( ddp.xs : {x* = (q*, v*)} )
+    sim_data['ctrl_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {u*} )
+    sim_data['force_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], 6))                # Predicted EE contact forces
+    sim_data['state_des_PLAN'] = np.zeros((sim_data['N_plan']+1, sim_data['nx']))            # Predicted states at planner frequency  ( x* interpolated at PLAN freq )
+    sim_data['ctrl_des_PLAN'] = np.zeros((sim_data['N_plan'], sim_data['nu']))              # Predicted torques at planner frequency ( u* interpolated at PLAN freq )
+    sim_data['force_des_PLAN'] = np.zeros((sim_data['N_plan'], 6))                           # Predicted EE contact forces planner frequency  
+    sim_data['state_des_CTRL'] = np.zeros((sim_data['N_ctrl']+1, sim_data['nx']))            # Reference state at motor drivers freq ( x* interpolated at CTRL freq )
+    sim_data['ctrl_des_CTRL'] = np.zeros((sim_data['N_ctrl'], sim_data['nu']))              # Reference input at motor drivers freq ( u* interpolated at CTRL freq )
+    sim_data['force_des_CTRL'] = np.zeros((sim_data['N_ctrl'], 6))                           # Reference EE contact force at motor drivers freq
+    sim_data['state_des_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['nx']))            # Reference state at actuation freq ( x* interpolated at SIMU freq )
+    sim_data['ctrl_des_SIMU'] = np.zeros((sim_data['N_simu'], sim_data['nu']))              # Reference input at actuation freq ( u* interpolated at SIMU freq )
+    sim_data['force_des_SIMU'] = np.zeros((sim_data['N_simu'], 6))                           # Reference EE contact force at actuation freq
     # Measurements
-    sim_data['X_mea_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['nx']))            # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq )
-    sim_data['X_mea_no_noise_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['nx']))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq ) without noise
-    sim_data['F_mea_SIMU'] = np.zeros((sim_data['N_simu'], 6)) 
-    sim_data['X_mea_SIMU'][0, :] = x0
-    sim_data['X_mea_no_noise_SIMU'][0, :] = x0
+    sim_data['state_mea_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['nx']))            # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq )
+    sim_data['state_mea_no_noise_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['nx']))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq ) without noise
+    sim_data['force_mea_SIMU'] = np.zeros((sim_data['N_simu'], 6)) 
+    sim_data['state_mea_SIMU'][0, :] = x0
+    sim_data['state_mea_no_noise_SIMU'][0, :] = x0
     # Scaling of desired torque
     alpha = np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(sim_data['nq'],))
     beta = np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(sim_data['nq'],))
@@ -178,7 +178,7 @@ def record_cost_references(ddp, sim_data, nb_plan):
   if('ctrlReg' in sim_data['WHICH_COSTS']):
     sim_data['ctrl_ref'][nb_plan, :] = m.differential.costs.costs['ctrlReg'].cost.residual.reference
   if('ctrlRegGrav' in sim_data['WHICH_COSTS']):
-    q = sim_data['X_pred'][nb_plan, 0, :sim_data['nq']]
+    q = sim_data['state_pred'][nb_plan, 0, :sim_data['nq']]
     sim_data['ctrl_ref'][nb_plan, :] = pin_utils.get_u_grav(q, m.differential.pinocchio)
   if('force' in sim_data['WHICH_COSTS']):
     sim_data['f_ee_ref'][nb_plan, :] = m.differential.costs.costs['force'].cost.residual.reference.vector
@@ -228,24 +228,24 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['ang_vel_ee_ref'] = sim_data['ang_vel_ee_ref']
     plot_data['f_ee_ref'] = sim_data['f_ee_ref']
     # Control predictions
-    plot_data['u_pred'] = sim_data['U_pred']
-    plot_data['u_des_PLAN'] = sim_data['U_des_PLAN']
-    plot_data['u_des_CTRL'] = sim_data['U_des_CTRL']
-    plot_data['u_des_SIMU'] = sim_data['U_des_SIMU']
+    plot_data['u_pred'] = sim_data['ctrl_pred']
+    plot_data['u_des_PLAN'] = sim_data['ctrl_des_PLAN']
+    plot_data['u_des_CTRL'] = sim_data['ctrl_des_CTRL']
+    plot_data['u_des_SIMU'] = sim_data['ctrl_des_SIMU']
     # State predictions (at PLAN freq)
-    plot_data['q_pred'] = sim_data['X_pred'][:,:,:nq]
-    plot_data['v_pred'] = sim_data['X_pred'][:,:,nq:nq+nv]
-    plot_data['q_des_PLAN'] = sim_data['X_des_PLAN'][:,:nq]
-    plot_data['v_des_PLAN'] = sim_data['X_des_PLAN'][:,nq:nq+nv] 
-    plot_data['q_des_CTRL'] = sim_data['X_des_CTRL'][:,:nq] 
-    plot_data['v_des_CTRL'] = sim_data['X_des_CTRL'][:,nq:nq+nv]
-    plot_data['q_des_SIMU'] = sim_data['X_des_SIMU'][:,:nq]
-    plot_data['v_des_SIMU'] = sim_data['X_des_SIMU'][:,nq:nq+nv]
+    plot_data['q_pred'] = sim_data['state_pred'][:,:,:nq]
+    plot_data['v_pred'] = sim_data['state_pred'][:,:,nq:nq+nv]
+    plot_data['q_des_PLAN'] = sim_data['state_des_PLAN'][:,:nq]
+    plot_data['v_des_PLAN'] = sim_data['state_des_PLAN'][:,nq:nq+nv] 
+    plot_data['q_des_CTRL'] = sim_data['state_des_CTRL'][:,:nq] 
+    plot_data['v_des_CTRL'] = sim_data['state_des_CTRL'][:,nq:nq+nv]
+    plot_data['q_des_SIMU'] = sim_data['state_des_SIMU'][:,:nq]
+    plot_data['v_des_SIMU'] = sim_data['state_des_SIMU'][:,nq:nq+nv]
     # State measurements (at SIMU freq)
-    plot_data['q_mea'] = sim_data['X_mea_SIMU'][:,:nq]
-    plot_data['v_mea'] = sim_data['X_mea_SIMU'][:,nq:nq+nv]
-    plot_data['q_mea_no_noise'] = sim_data['X_mea_no_noise_SIMU'][:,:nq]
-    plot_data['v_mea_no_noise'] = sim_data['X_mea_no_noise_SIMU'][:,nq:nq+nv]
+    plot_data['q_mea'] = sim_data['state_mea_SIMU'][:,:nq]
+    plot_data['v_mea'] = sim_data['state_mea_SIMU'][:,nq:nq+nv]
+    plot_data['q_mea_no_noise'] = sim_data['state_mea_no_noise_SIMU'][:,:nq]
+    plot_data['v_mea_no_noise'] = sim_data['state_mea_no_noise_SIMU'][:,nq:nq+nv]
     # Extract gravity torques
     plot_data['grav'] = np.zeros((sim_data['N_simu']+1, plot_data['nq']))
     for i in range(plot_data['N_simu']+1):
@@ -291,11 +291,11 @@ def extract_plot_data_from_sim_data(sim_data):
     plot_data['ang_pos_ee_des_SIMU'] = pin_utils.get_rpy_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['ang_vel_ee_des_SIMU'] = pin_utils.get_w_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     # Extract EE force
-    plot_data['f_ee_pred'] = sim_data['F_pred']
-    plot_data['f_ee_mea'] = sim_data['F_mea_SIMU']
-    plot_data['f_ee_des_PLAN'] = sim_data['F_des_PLAN']
-    plot_data['f_ee_des_CTRL'] = sim_data['F_des_CTRL']
-    plot_data['f_ee_des_SIMU'] = sim_data['F_des_SIMU']
+    plot_data['f_ee_pred'] = sim_data['force_pred']
+    plot_data['f_ee_mea'] = sim_data['force_mea_SIMU']
+    plot_data['f_ee_des_PLAN'] = sim_data['force_des_PLAN']
+    plot_data['f_ee_des_CTRL'] = sim_data['force_des_CTRL']
+    plot_data['f_ee_des_SIMU'] = sim_data['force_des_SIMU']
 
     # Solver data (optional)
     if(sim_data['RECORD_SOLVER_DATA']):
@@ -370,39 +370,28 @@ def init_sim_data_LPF(config, robot, y0):
     sim_data['state_ref'] = np.zeros((sim_data['N_plan'], sim_data['nx']))
     sim_data['lin_pos_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
     sim_data['lin_vel_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
+    sim_data['ang_pos_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
+    sim_data['ang_vel_ee_ref'] = np.zeros((sim_data['N_plan'], 3))
     sim_data['f_ee_ref'] = np.zeros((sim_data['N_plan'], 6))
     # Predictions
-    sim_data['Y_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'])) # Predicted states  ( ddp.xs : {y* = (q*, v*, tau*)} )
-    sim_data['W_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {w*} )
-    sim_data['F_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], 6))                # Predicted EE contact forces
-    sim_data['Y_des_PLAN'] = np.zeros((sim_data['N_plan']+1, sim_data['ny']))            # Predicted states at planner frequency  ( y* interpolated at PLAN freq )
-    sim_data['W_des_PLAN'] = np.zeros((sim_data['N_plan'], sim_data['nu']))              # Predicted torques at planner frequency ( w* interpolated at PLAN freq )
-    sim_data['F_des_PLAN'] = np.zeros((sim_data['N_plan'], 6))                           # Predicted EE contact forces planner frequency  
-    sim_data['Y_des_CTRL'] = np.zeros((sim_data['N_ctrl']+1, sim_data['ny']))            # Reference state at motor drivers freq ( y* interpolated at CTRL freq )
-    sim_data['W_des_CTRL'] = np.zeros((sim_data['N_ctrl'], sim_data['nu']))              # Reference input at motor drivers freq ( w* interpolated at CTRL freq )
-    sim_data['F_des_CTRL'] = np.zeros((sim_data['N_ctrl'], 6))                           # Reference EE contact force at motor drivers freq
-    sim_data['Y_des_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))            # Reference state at actuation freq ( y* interpolated at SIMU freq )
-    sim_data['W_des_SIMU'] = np.zeros((sim_data['N_simu'], sim_data['nu']))              # Reference input at actuation freq ( w* interpolated at SIMU freq )
-    sim_data['F_des_SIMU'] = np.zeros((sim_data['N_simu'], 6))                           # Reference EE contact force at actuation freq
+    sim_data['state_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, sim_data['ny'])) # Predicted states  ( ddp.xs : {y* = (q*, v*, tau*)} )
+    sim_data['ctrl_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], sim_data['nu']))   # Predicted torques ( ddp.us : {w*} )
+    sim_data['force_pred'] = np.zeros((sim_data['N_plan'], config['N_h'], 6))                # Predicted EE contact forces
+    sim_data['state_des_PLAN'] = np.zeros((sim_data['N_plan']+1, sim_data['ny']))            # Predicted states at planner frequency  ( y* interpolated at PLAN freq )
+    sim_data['ctrl_des_PLAN'] = np.zeros((sim_data['N_plan'], sim_data['nu']))              # Predicted torques at planner frequency ( w* interpolated at PLAN freq )
+    sim_data['force_des_PLAN'] = np.zeros((sim_data['N_plan'], 6))                           # Predicted EE contact forces planner frequency  
+    sim_data['state_des_CTRL'] = np.zeros((sim_data['N_ctrl']+1, sim_data['ny']))            # Reference state at motor drivers freq ( y* interpolated at CTRL freq )
+    sim_data['ctrl_des_CTRL'] = np.zeros((sim_data['N_ctrl'], sim_data['nu']))              # Reference input at motor drivers freq ( w* interpolated at CTRL freq )
+    sim_data['force_des_CTRL'] = np.zeros((sim_data['N_ctrl'], 6))                           # Reference EE contact force at motor drivers freq
+    sim_data['state_des_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))            # Reference state at actuation freq ( y* interpolated at SIMU freq )
+    sim_data['ctrl_des_SIMU'] = np.zeros((sim_data['N_simu'], sim_data['nu']))              # Reference input at actuation freq ( w* interpolated at SIMU freq )
+    sim_data['force_des_SIMU'] = np.zeros((sim_data['N_simu'], 6))                           # Reference EE contact force at actuation freq
     # Measurements
-    sim_data['Y_mea_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))            # Measured states ( y^mea = (q, v, tau) from actuator & PyB at SIMU freq )
-    sim_data['Y_mea_no_noise_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))   # Measured states ( y^mea = (q, v, tau) from actuator & PyB at SIMU freq ) without noise
-    sim_data['F_mea_SIMU'] = np.zeros((sim_data['N_simu'], 6)) 
-    sim_data['Y_mea_SIMU'][0, :] = y0
-    sim_data['Y_mea_no_noise_SIMU'][0, :] = y0
-    # # Derivatives  
-    # sim_data['dY_pred_CTRL'] = np.zeros((sim_data['N_ctrl'], sim_data['ny']))          # Estimated (FD) derivative of ref. state at CTRL frequency
-    # sim_data['dY_pred_SIMU'] = np.zeros((sim_data['N_simu'], sim_data['ny']))          # Estimated (FD) derivative of ref. state at SIMU frequency
-    # sim_data['dY_mea_SIMU'] = np.zeros((sim_data['N_simu'], sim_data['ny']))           # Estimated (FD) derivative of mea. state at SIMU frequency
-    # Initialize measured state 
-    # sim_data['Y_pred_PLAN'][0, :] = y0
-    # sim_data['Y_pred_CTRL'][0, :] = y0
-    # sim_data['Y_pred_SIMU'][0, :] = y0
-    # sim_data['Tau_des'][0, :] = y0[-sim_data['nu']:]
-    # sim_data['dY_pred_CTRL'][0,:] = np.zeros(sim_data['ny'])
-    # sim_data['dY_pred_SIMU'][0,:] = np.zeros(sim_data['ny'])
-    # sim_data['dY_mea_SIMU'][0,:] = np.zeros(sim_data['ny'])
-    # Low-level simulation parameters (actuation model)
+    sim_data['state_mea_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))            # Measured states ( y^mea = (q, v, tau) from actuator & PyB at SIMU freq )
+    sim_data['state_mea_no_noise_SIMU'] = np.zeros((sim_data['N_simu']+1, sim_data['ny']))   # Measured states ( y^mea = (q, v, tau) from actuator & PyB at SIMU freq ) without noise
+    sim_data['force_mea_SIMU'] = np.zeros((sim_data['N_simu'], 6)) 
+    sim_data['state_mea_SIMU'][0, :] = y0
+    sim_data['state_mea_no_noise_SIMU'][0, :] = y0
     # Scaling of desired torque
     alpha = np.random.uniform(low=config['alpha_min'], high=config['alpha_max'], size=(sim_data['nq'],))
     beta = np.random.uniform(low=config['beta_min'], high=config['beta_max'], size=(sim_data['nq'],))
@@ -441,24 +430,43 @@ def record_cost_references_LPF(ddp, sim_data, nb_plan):
   Extract and record cost references of DAM into sim_data at i^th simulation step
   for the whole horizon (all nodes) 
   '''
-  # Get nodes
-  m = ddp.problem.runningModels[0]
-  # Extract references and record
-  if('ctrlReg' in sim_data['WHICH_COSTS']):
-    sim_data['ctrl_ref'][nb_plan, :] = m.differential.costs.costs['stateReg'].cost.residual.reference
-  if('ctrlRegGrav' in sim_data['WHICH_COSTS']):
-    q = sim_data['Y_pred'][nb_plan, 0, :sim_data['nq']]
-    sim_data['ctrl_ref'][nb_plan, :] = pin_utils.get_u_grav(q, m.differential.pinocchio)
-  if('force' in sim_data['WHICH_COSTS']):
-    sim_data['f_ee_ref'][nb_plan, :] = m.differential.costs.costs['force'].cost.residual.reference.vector
-  if('stateReg' in sim_data['WHICH_COSTS']):
-    sim_data['state_ref'][nb_plan, :] = m.differential.costs.costs['stateReg'].cost.residual.reference
-  if('translation' in sim_data['WHICH_COSTS']):
-    sim_data['lin_pos_ee_ref'][nb_plan, :] = m.differential.costs.costs['translation'].cost.residual.reference
-  if('velocity' in sim_data['WHICH_COSTS']):
-    sim_data['lin_vel_ee_ref'][nb_plan, :] = m.differential.costs.costs['velocity'].cost.residual.reference.vector[:3]
-  if('placement' in sim_data['WHICH_COSTS']):
-    sim_data['lin_pos_ee_ref'][nb_plan, :] = m.differential.costs.costs['placement'].cost.residual.reference.translation
+  record_cost_references(ddp, sim_data, nb_plan)
+
+
+# # Extract MPC simu-specific plotting data from sim data (LPF)
+# def extract_plot_data_from_sim_data_LPF(sim_data):
+#     '''
+#     Extract plot data from simu data (for torque feedback MPC based on LPF)
+#     '''
+#     # Extract like regular OCP
+#     logger.info('Extracting plot data from MPC simulation data (LPF)...')
+#     plot_data = extract_plot_data_from_sim_data(sim_data)
+#     nu = plot_data['nu'] ; ny = plot_data['ny']
+#     # OVerwrite control with unfitlered torques (control)
+#     plot_data['w_pred'] = sim_data['ctrl_pred']
+#     plot_data['w_des_PLAN'] = sim_data['ctrl_des_PLAN']
+#     plot_data['w_des_CTRL'] = sim_data['ctrl_des_CTRL']
+#     plot_data['w_des_SIMU'] = sim_data['ctrl_des_SIMU']
+#     # Add filtered torques (state)
+#     plot_data['tau_pred'] = sim_data['state_pred'][:,:,-nu:]
+#     plot_data['tau_des_PLAN'] = sim_data['state_des_PLAN'][:,-nu:]
+#     plot_data['tau_des_CTRL'] = sim_data['state_des_CTRL'][:,-nu:]
+#     plot_data['tau_des_SIMU'] = sim_data['state_des_SIMU'][:,-nu:] 
+#     plot_data['tau_mea'] = sim_data['state_mea_SIMU'][:,-nu:]
+#     plot_data['tau_mea_no_noise'] = sim_data['state_mea_no_noise_SIMU'][:,-nu:]
+#     # Solver data (change size o)
+#     if(sim_data['RECORD_SOLVER_DATA']):
+#       # Get diagonal and eigenvals of Vxx + record in sim data
+#       plot_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, ny))
+#       plot_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, ny))
+#       for i in range(sim_data['N_plan']):
+#         for j in range(sim_data['N_h']+1):
+#           plot_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
+#           plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
+#     return plot_data
+
+
+
 
 
 # Extract MPC simu-specific plotting data from sim data (LPF)
@@ -487,34 +495,36 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     plot_data['state_ref'] = sim_data['state_ref']
     plot_data['lin_pos_ee_ref'] = sim_data['lin_pos_ee_ref']
     plot_data['lin_vel_ee_ref'] = sim_data['lin_vel_ee_ref']
+    plot_data['ang_pos_ee_ref'] = sim_data['ang_pos_ee_ref']
+    plot_data['ang_vel_ee_ref'] = sim_data['ang_vel_ee_ref']
     plot_data['f_ee_ref'] = sim_data['f_ee_ref']
     # Control predictions
-    plot_data['w_pred'] = sim_data['W_pred']
+    plot_data['w_pred'] = sim_data['ctrl_pred']
       # Extract 1st prediction
-    plot_data['w_des_PLAN'] = sim_data['W_des_PLAN']
-    plot_data['w_des_CTRL'] = sim_data['W_des_CTRL']
-    plot_data['w_des_SIMU'] = sim_data['W_des_SIMU']
+    plot_data['w_des_PLAN'] = sim_data['ctrl_des_PLAN']
+    plot_data['w_des_CTRL'] = sim_data['ctrl_des_CTRL']
+    plot_data['w_des_SIMU'] = sim_data['ctrl_des_SIMU']
     # State predictions (at PLAN freq)
-    plot_data['q_pred'] = sim_data['Y_pred'][:,:,:nq]
-    plot_data['v_pred'] = sim_data['Y_pred'][:,:,nq:nq+nv]
-    plot_data['tau_pred'] = sim_data['Y_pred'][:,:,-nu:]
+    plot_data['q_pred'] = sim_data['state_pred'][:,:,:nq]
+    plot_data['v_pred'] = sim_data['state_pred'][:,:,nq:nq+nv]
+    plot_data['tau_pred'] = sim_data['state_pred'][:,:,-nu:]
       # Extract 1st prediction + shift 1 planning cycle
-    plot_data['q_des_PLAN'] = sim_data['Y_des_PLAN'][:,:nq] 
-    plot_data['v_des_PLAN'] = sim_data['Y_des_PLAN'][:,nq:nq+nv] 
-    plot_data['tau_des_PLAN'] = sim_data['Y_des_PLAN'][:,-nu:]
-    plot_data['q_des_CTRL'] = sim_data['Y_des_CTRL'][:,:nq] 
-    plot_data['v_des_CTRL'] = sim_data['Y_des_CTRL'][:,nq:nq+nv] 
-    plot_data['tau_des_CTRL'] = sim_data['Y_des_CTRL'][:,-nu:]
-    plot_data['q_des_SIMU'] = sim_data['Y_des_SIMU'][:,:nq] 
-    plot_data['v_des_SIMU'] = sim_data['Y_des_SIMU'][:,nq:nq+nv]
-    plot_data['tau_des_SIMU'] = sim_data['Y_des_SIMU'][:,-nu:] 
+    plot_data['q_des_PLAN'] = sim_data['state_des_PLAN'][:,:nq] 
+    plot_data['v_des_PLAN'] = sim_data['state_des_PLAN'][:,nq:nq+nv] 
+    plot_data['tau_des_PLAN'] = sim_data['state_des_PLAN'][:,-nu:]
+    plot_data['q_des_CTRL'] = sim_data['state_des_CTRL'][:,:nq] 
+    plot_data['v_des_CTRL'] = sim_data['state_des_CTRL'][:,nq:nq+nv] 
+    plot_data['tau_des_CTRL'] = sim_data['state_des_CTRL'][:,-nu:]
+    plot_data['q_des_SIMU'] = sim_data['state_des_SIMU'][:,:nq] 
+    plot_data['v_des_SIMU'] = sim_data['state_des_SIMU'][:,nq:nq+nv]
+    plot_data['tau_des_SIMU'] = sim_data['state_des_SIMU'][:,-nu:] 
     # State measurements (at SIMU freq)
-    plot_data['q_mea'] = sim_data['Y_mea_SIMU'][:,:nq]
-    plot_data['v_mea'] = sim_data['Y_mea_SIMU'][:,nq:nq+nv]
-    plot_data['tau_mea'] = sim_data['Y_mea_SIMU'][:,-nu:]
-    plot_data['q_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,:nq]
-    plot_data['v_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,nq:nq+nv]
-    plot_data['tau_mea_no_noise'] = sim_data['Y_mea_no_noise_SIMU'][:,-nu:]
+    plot_data['q_mea'] = sim_data['state_mea_SIMU'][:,:nq]
+    plot_data['v_mea'] = sim_data['state_mea_SIMU'][:,nq:nq+nv]
+    plot_data['tau_mea'] = sim_data['state_mea_SIMU'][:,-nu:]
+    plot_data['q_mea_no_noise'] = sim_data['state_mea_no_noise_SIMU'][:,:nq]
+    plot_data['v_mea_no_noise'] = sim_data['state_mea_no_noise_SIMU'][:,nq:nq+nv]
+    plot_data['tau_mea_no_noise'] = sim_data['state_mea_no_noise_SIMU'][:,-nu:]
     # Extract gravity torques
     plot_data['grav'] = np.zeros((sim_data['N_simu']+1, plot_data['nq']))
     for i in range(plot_data['N_simu']+1):
@@ -538,11 +548,11 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     plot_data['lin_pos_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['lin_vel_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], sim_data['pin_model'], sim_data['id_endeff'])
     # Extract EE force
-    plot_data['f_ee_pred'] = sim_data['F_pred']
-    plot_data['f_ee_mea'] = sim_data['F_mea_SIMU']
-    plot_data['f_ee_des_PLAN'] = sim_data['F_des_PLAN']
-    plot_data['f_ee_des_CTRL'] = sim_data['F_des_CTRL']
-    plot_data['f_ee_des_SIMU'] = sim_data['F_des_SIMU']
+    plot_data['f_ee_pred'] = sim_data['force_pred']
+    plot_data['f_ee_mea'] = sim_data['force_mea_SIMU']
+    plot_data['f_ee_des_PLAN'] = sim_data['force_des_PLAN']
+    plot_data['f_ee_des_CTRL'] = sim_data['force_des_CTRL']
+    plot_data['f_ee_des_SIMU'] = sim_data['force_des_SIMU']
     plot_data['f_ee_ref'] = sim_data['f_ee_ref']
     
     # Solver data (optional)

@@ -1,7 +1,6 @@
 # MPC parameters for end-effector reaching task
 # + PyBullet or Raisim simulation
 
-
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 500        # Control frequency
@@ -24,13 +23,24 @@ log_rate: 500                   # Display sim status once very 'log_rate' sim cy
 
 
 
+# # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
+#   R =
+#    -0.918754     0.389418    0.0651533
+#     0.388443     0.921061   -0.0275464
+#   -0.0707372 -2.41653e-08    -0.997495
+#   p = 0.3   0 0.7
+# # Starting config for IK (to avoid self-collision solution)
+# q_init =  [-0.2263,  0.    , -0.174 , -1.6865,  0.0358,  1.5   , -0.3946]
+# # Solution of IK_placement(q_init, M)
+# q0 = [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]
+
 
 # General
-dt: 0.02                                             # OCP integration step 
-N_h: 50                                             # Horizon length in nodes
-maxiter: 5                                        # Max number of iterations in DDP
-q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
-dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
+dt: 0.02                                                             # OCP integration step 
+N_h: 50                                                              # Horizon length in nodes
+maxiter: 5                                                           # Max number of iterations in DDP
+q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
+dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 
 
 # Contact model 

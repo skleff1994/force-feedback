@@ -210,13 +210,13 @@ for i in range(sim_data['N_simu']):
         us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-        sim_data['Y_pred'][nb_plan, :, :] = np.array(ddp.xs)
-        sim_data['W_pred'][nb_plan, :, :] = np.array(ddp.us)
+        sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
+        sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
         # Extract relevant predictions for interpolations
-        y_curr = sim_data['Y_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
-        y_pred = sim_data['Y_pred'][nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
-        w_curr = sim_data['W_pred'][nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
-        # w_pred = sim_data['W_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
+        y_curr = sim_data['state_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
+        y_pred = sim_data['state_pred'][nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
+        w_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
+        # w_pred = sim_data['ctrl_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
         # Record cost references
         data_utils.record_cost_references_LPF(ddp, sim_data, nb_plan)
         # Record solver data (optional)

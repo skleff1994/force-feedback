@@ -46,7 +46,11 @@ def plot_mpc_results_LPF(plot_data, which_plots=None, PLOT_PREDICTIONS=False,
                                              SHOW=False)
 
     if('ee' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-        figs['ee'], axes['ee'] = plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+        figs['ee_lin'], axes['ee_lin'] = plot_mpc_endeff_linear_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                            pred_plot_sampling=pred_plot_sampling, 
+                                            SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                            SHOW=False, AUTOSCALE=AUTOSCALE)
+        figs['ee_ang'], axes['ee_ang'] = plot_mpc_endeff_angular_LPF(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False, AUTOSCALE=AUTOSCALE)
@@ -358,14 +362,14 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
 
     return fig, ax
 
-# Plot end-eff data
-def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False, 
+# Plot end-eff data (linear)
+def plot_mpc_endeff_linear_LPF(plot_data, PLOT_PREDICTIONS=False, 
                                    pred_plot_sampling=100, 
                                    SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                                    SHOW=True,
                                    AUTOSCALE=False):
     '''
-    Plot endeff data
+    Plot endeff data (linear)
      Input:
       plot_data                 : plotting data
       PLOT_PREDICTIONS          : True or False
@@ -377,7 +381,31 @@ def plot_mpc_endeff_LPF(plot_data, PLOT_PREDICTIONS=False,
       AUTOSCALE                 : rescale y-axis of endeff plot 
                                   based on maximum value taken
     '''
-    return plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+    return plot_mpc_endeff_linear(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+                                      pred_plot_sampling=pred_plot_sampling, 
+                                      SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                      SHOW=SHOW, AUTOSCALE=AUTOSCALE)
+
+# Plot end-eff data (angular)
+def plot_mpc_endeff_angular_LPF(plot_data, PLOT_PREDICTIONS=False, 
+                                   pred_plot_sampling=100, 
+                                   SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                                   SHOW=True,
+                                   AUTOSCALE=False):
+    '''
+    Plot endeff data (angular)
+     Input:
+      plot_data                 : plotting data
+      PLOT_PREDICTIONS          : True or False
+      pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                  to avoid huge amount of plotted data 
+                                  ("1" = plot all)
+      SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+      SHOW                      : show plots
+      AUTOSCALE                 : rescale y-axis of endeff plot 
+                                  based on maximum value taken
+    '''
+    return plot_mpc_endeff_angular(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                       pred_plot_sampling=pred_plot_sampling, 
                                       SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                       SHOW=SHOW, AUTOSCALE=AUTOSCALE)
