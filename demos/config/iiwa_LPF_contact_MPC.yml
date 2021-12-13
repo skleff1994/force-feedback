@@ -36,11 +36,20 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint veloc
 tau0: [0., -2.3274, 0., 0.012262, 0., -0.010595, 0.] # Initial robot joint torque
 
 
-# 6D dontact models 
+# # 6D dontact models 
+# contactModelFrameName: 'contact'
+# contactModelTranslationRef: 'DEFAULT'
+# contactModelRotationRef: 'DEFAULT'
+# contactModelGains: [0., 10.]
+
+
+# Contact model 
+CONTACT: 'True'                         # 'True' or 'False' 
+contactModelType: '6D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
 contactModelFrameName: 'contact'
-contactModelTranslationRef: 'DEFAULT'
-contactModelRotationRef: 'DEFAULT'
-contactModelGains: [0., 10.]
+contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
+contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
+contactModelGains: [10., 50.]             # Baumgarte stabilization gains 
 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)

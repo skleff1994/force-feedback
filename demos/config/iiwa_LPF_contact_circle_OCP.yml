@@ -13,7 +13,7 @@ tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initi
 
 # Contact model 
 CONTACT: 'True'                         # 'True' or 'False' 
-contactModelType: '6D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
+contactModelType: '3D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)

@@ -58,7 +58,7 @@ M_ct = robot.data.oMf[id_endeff].copy()
 ### OCP SETUP ###
 # # # # # # # # # 
 # Setup Croco OCP and create solver
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
+ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
 # Warmstart and solve
 f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
@@ -67,13 +67,13 @@ xs_init = [x0 for i in range(config['N_h']+1)]
 us_init = [u0 for i in range(config['N_h'])]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 #  Plot
-PLOT = True
+PLOT = False
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data(ddp)
     fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['all'], SHOW=True)
     
 
-VISUALIZE = False
+VISUALIZE = True
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
@@ -96,7 +96,7 @@ if(VISUALIZE):
         gui.addLandmark('world/contact_point', .3)
         gui.applyConfiguration('world/contact_point', tf_contact)
         # Display contact force
-        f_des_LOCAL = np.asarray(config['f_des'])
+        f_des_LOCAL = np.asarray(config['frameForceRef'])
         M_contact_aligned = M_contact.copy()
             # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
             # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
@@ -140,8 +140,8 @@ if(VISUALIZE):
         # robot.viewer.gui.setVisibility(lineGroup, "ALWAYS_ON_TOP")
 
     viewer.gui.refresh()
-    log_rate = int(N_h/10)
-    f = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(N_h)]
+    log_rate = int(config['N_h']/10)
+    f = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])]
     logger.info("Visualizing...")
 
     # Clean arrows if any
@@ -151,7 +151,7 @@ if(VISUALIZE):
         gui.addArrow('world/force', .02, arrow_length, [.0, 0., 0.5, 0.3])
 
     time.sleep(1.)
-    for i in range(N_h):
+    for i in range(config['N_h']):
         # Iter log
         robot.display(ddp.xs[i][:nq])
 

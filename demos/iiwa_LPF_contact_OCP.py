@@ -75,7 +75,7 @@ xs_init = [y0 for i in range(N_h+1)]
 us_init = [u0 for i in range(N_h)]
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
-VISUALIZE = False
+VISUALIZE = True
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
@@ -98,39 +98,81 @@ if(VISUALIZE):
         gui.addLandmark('world/contact_point', .3)
         gui.applyConfiguration('world/contact_point', tf_contact)
         # Display contact force
-        f_des_LOCAL = np.asarray(config['f_des'])
+        f_des_LOCAL = np.asarray(config['frameForceRef'])
         M_contact_aligned = M_contact.copy()
+            # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
+            # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
         M_contact_aligned.rotation = M_contact_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))#.dot(M_contact_aligned.rotation) 
         tf_contact_aligned = list(pin.SE3ToXYZQUAT(M_contact_aligned))
         arrow_length = 0.02*np.linalg.norm(f_des_LOCAL)
+        logger.info(arrow_length)
         if(gui.nodeExists('world/ref_wrench')):
             gui.deleteNode('world/ref_wrench', True)
         gui.addArrow('world/ref_wrench', .01, arrow_length, [.5, 0., 0., 1.])
         gui.applyConfiguration('world/ref_wrench', tf_contact_aligned )
         # tf = viewer.gui.getNodeGlobalTransform('world/pinocchio/visuals/contact_0')
     # viewer.gui.addFloor('world/floor')
+    
+    # Display friction cones if any
+    if('friction' in config['WHICH_COSTS']):
+        mu = config['mu']
+        frictionConeColor = [1., 1., 0., 0.3]
+        m_generatrices = np.matrix(np.empty([3, 4]))
+        m_generatrices[:, 0] = np.matrix([mu, mu, 1.]).T
+        m_generatrices[:, 0] = m_generatrices[:, 0] / np.linalg.norm(m_generatrices[:, 0])
+        m_generatrices[:, 1] = m_generatrices[:, 0]
+        m_generatrices[0, 1] *= -1.
+        m_generatrices[:, 2] = m_generatrices[:, 0]
+        m_generatrices[:2, 2] *= -1.
+        m_generatrices[:, 3] = m_generatrices[:, 0]
+        m_generatrices[1, 3] *= -1.
+        generatrices = m_generatrices
+
+        v = [[0., 0., 0.]]
+        for k in range(m_generatrices.shape[1]):
+            v.append(m_generatrices[:3, k].T.tolist()[0])
+        v.append(m_generatrices[:3, 0].T.tolist()[0])
+        result = robot.viewer.gui.addCurve('world/cone', v, frictionConeColor)
+        robot.viewer.gui.setCurveMode('world/cone', 'TRIANGLE_FAN')
+        for k in range(m_generatrices.shape[1]):
+            l = robot.viewer.gui.addLine('world/cone_ray/' + str(k), [0., 0., 0.],
+                                                m_generatrices[:3, k].T.tolist()[0], frictionConeColor)
+        robot.viewer.gui.setScale('world/cone', [.5, .5, .5])
+        robot.viewer.gui.setVisibility('world/cone', "ALWAYS_ON_TOP")
+        # robot.viewer.gui.setVisibility(lineGroup, "ALWAYS_ON_TOP")
+
     viewer.gui.refresh()
-    log_rate = int(N_h/10)
-    f = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(N_h)]
-    print("Visualizing...")
+    log_rate = int(config['N_h']/10)
+    f = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])]
+    logger.info("Visualizing...")
 
     # Clean arrows if any
     if(gui.nodeExists('world/force')):
         gui.deleteNode('world/force', True)
-    gui.addArrow('world/force', .02, arrow_length, [.0, 0., 0.5, 0.3])
+    if('force' in config['WHICH_COSTS']):
+        gui.addArrow('world/force', .02, arrow_length, [.0, 0., 0.5, 0.3])
 
     time.sleep(1.)
-    for i in range(N_h):
+    for i in range(config['N_h']):
         # Iter log
         robot.display(ddp.xs[i][:nq])
-        # Display force
-        gui.resizeArrow('world/force', 0.02, 0.02*np.linalg.norm(f[i]))
-        gui.applyConfiguration('world/force', tf_contact_aligned )
-        viewer.gui.refresh()
-        if(i%log_rate==0):
-            print("Display config n°"+str(i))
-        time.sleep(pause)
 
+        # Display force
+        if('force' in config['WHICH_COSTS']):
+            gui.resizeArrow('world/force', 0.02, 0.02*np.linalg.norm(f[i]))
+            gui.applyConfiguration('world/force', tf_contact_aligned )
+        
+        # Display the friction cones
+        if('friction' in config['WHICH_COSTS']):
+            position = M_contact
+            position.rotation = M_contact.rotation
+            robot.viewer.gui.applyConfiguration('world/cone', list(np.array(pin.SE3ToXYZQUAT(position)).squeeze()))
+            robot.viewer.gui.setVisibility('world/cone', "ON")
+
+        viewer.gui.refresh()
+        # if(i%log_rate==0):
+        logger.info("Display config n°"+str(i))
+        time.sleep(pause)
 PLOT = True
 if(PLOT):
     #  Plot
