@@ -265,7 +265,9 @@ def circle_point_LOCAL(t, radius=1., omega=1.):
      _      : point (x,y,z) in LOCAL frame (np.array)
   '''
   # LOCAL coordinates 
-  return np.array([radius*(1-np.cos(-omega*t)), radius*np.sin(-omega*t), 0.])
+  # point_LOCAL = np.array([radius*(1-np.cos(-omega*t)), radius*np.sin(-omega*t), 0.]) # (x,y)_L plane, centered in (0,-R)
+  point_LOCAL = np.array([-radius*np.sin(omega*t), radius*(1-np.cos(omega*t)), 0.])  # (x,y)_L plane, centered in (0,+R)
+  return point_LOCAL
 
 
 def circle_point_WORLD(t, M_ct, radius=1., omega=1.):
@@ -1350,7 +1352,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                             crocoddyl.ResidualModelState(state, stateLimRef, actuation.nu))
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal']*dt)
-    # Control limits penalization
+    #  Terminal control limits penalization
     if('ctrlLim' in WHICH_COSTS):
       # Default reference = zero torque
       if(config['ctrlLimRef']=='DEFAULT'):

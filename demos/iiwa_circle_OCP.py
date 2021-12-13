@@ -106,7 +106,7 @@ if(PLOT):
     fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
 
 
-VISUALIZE = False
+VISUALIZE = True
 pause = 0.02 # in s
 if(VISUALIZE):
     import time

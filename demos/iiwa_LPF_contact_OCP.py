@@ -52,6 +52,8 @@ M_ct = robot.data.oMf[id_endeff]
 nq = robot.model.nq; nv = robot.model.nv; nx = nq+nv; nu = nq
 
 
+
+
 # # # # # # # # # 
 ### OCP SETUP ###
 # # # # # # # # # 
@@ -173,6 +175,8 @@ if(VISUALIZE):
         # if(i%log_rate==0):
         logger.info("Display config n°"+str(i))
         time.sleep(pause)
+
+
 PLOT = True
 if(PLOT):
     #  Plot

@@ -66,6 +66,7 @@ stateLimRef: 'DEFAULT'
 ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
 ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlLimWeight: 0.
+ctrlLimWeightTerminal: 0.
 ctrlLimRef: 'DEFAULT'
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .0]
