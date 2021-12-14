@@ -139,9 +139,9 @@ def get_rpy_(q, model, id_endeff):
         N = np.shape(q)[0]
         rpy = np.empty((N,3))
         for i in range(N):
-            rpy[i,:] = pin.utils.matrixToRpy(R[i])
+            rpy[i,:] = pin.rpy.matrixToRpy(R[i])%(2*np.pi)
     else:
-        rpy = pin.utils.matrixToRpy(R)
+        rpy = pin.rpy.matrixToRpy(R)%(2*np.pi)
     return rpy
 
 

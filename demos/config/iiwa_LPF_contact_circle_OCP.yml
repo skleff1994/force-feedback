@@ -29,12 +29,12 @@ contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Cro
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
-contactModelGains: [1., 10.]            # Baumgarte stabilization gains 
+contactModelGains: [0., 50.]            # Baumgarte stabilization gains 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement', 'rotation'
-WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg']  
+WHICH_COSTS: [ 'force', 'translation', 'rotation', 'velocity', 'stateReg', 'ctrlRegGrav', 'stateLim']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
@@ -49,44 +49,54 @@ mu:  0.5
 frictionConeWeight: 1
 frictionConeFrameName: 'contact'
 
+# Cost function weights and activations
  # 'stateReg' : state regularization  
-stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.01
-stateRegWeightTerminal: 1.
+stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1 ,0.1, 1., 1., 1., 1., 1., 1., 1.]
+stateRegWeight: 0.1
+stateRegWeightTerminal: 10
 stateRegRef: 'DEFAULT' # TRACKING ?
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.0
+ctrlRegWeight: 0.001
+ctrlRegWeightTerminal: 1
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
+# 'wReg' : unfiltered torque regularization
+wRegWeight: 0.0001
+
+# 'wLim' : unfiltered torque limit
+wLimWeight: 10.
+
  # 'translation' : end-effector frame translation 
-frameTranslationWeights:  [1., 1., 0.]
-frameTranslationWeight: 20
-frameTranslationWeightTerminal: 20.
+frameTranslationWeights:  [1., 1., 1.]
+frameTranslationWeight: 100.
+frameTranslationWeightTerminal: 100.
 frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
 frameCircleTrajectoryVelocity: 1.5 # in rad/s
 
- # 'rotation' : end-effector frame orientation
-frameRotationWeights:  [1., 1., 1.]
-frameRotationWeight: 1.
-frameRotationWeightTerminal: 1.
-frameRotationRef: 'DEFAULT'
-frameRotationFrameName: 'contact'
-
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: .1
-frameVelocityWeightTerminal: .1
+frameVelocityWeight: 0.
+frameVelocityWeightTerminal: 100
 frameVelocityRef: 'DEFAULT'    
 frameVelocityFrameName: 'contact'
 
+
+ # 'rotation' : end-effector frame orientation
+frameRotationWeights:  [1., 1., 1.]
+frameRotationWeight: 10.
+frameRotationWeightTerminal: 10.
+frameRotationRef: 'DEFAULT'
+frameRotationFrameName: 'contact'
+
+
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
-stateLimWeight: 0.
-stateLimWeightTerminal: 0.
+stateLimWeight: 100.
+stateLimWeightTerminal: 100.
 stateLimRef: 'DEFAULT'
 
  # 'ctrlLim' : torque limits
@@ -97,10 +107,3 @@ ctrlLimRef: 'DEFAULT'
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .0]
-
-
-# 'wReg' : unfiltered torque regularization
-wRegWeight: 0.0001
-
-# 'wLim' : unfiltered torque limit
-wLimWeight: 10.

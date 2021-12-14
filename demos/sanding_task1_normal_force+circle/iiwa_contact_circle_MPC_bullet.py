@@ -92,8 +92,11 @@ if(WARM_START_IK):
     us_init = []
     q_ws = q0
     for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
-        ref = m.differential.costs.costs['translation'].cost.residual.reference
-        q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
+        # Get ref placement
+        p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
+        Mref = ee_frame_placement.copy()
+        Mref.translation = p_ee_ref
+        q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
         xs_init.append(np.concatenate([q_ws, v_ws]))
     us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(config['N_h'])]
 # Classical warm start using initial config

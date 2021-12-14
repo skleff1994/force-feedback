@@ -95,7 +95,7 @@ if(WARM_START_IK):
         # Get corresponding forces at each joint
         f_ext = pin_utils.get_external_joint_torques(Mref, config['frameForceRef'], robot)
         # Get joint state from IK
-        q_ws, v_ws, _ = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)
+        q_ws, v_ws, _ = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
         xs_init.append(np.concatenate([q_ws, v_ws]))
         if(k<N_h):
             us_init.append(pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model))
