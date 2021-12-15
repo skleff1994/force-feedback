@@ -269,6 +269,24 @@ def circle_point_LOCAL(t, radius=1., omega=1.):
   point_LOCAL = np.array([-radius*np.sin(omega*t), radius*(1-np.cos(omega*t)), 0.])  # (x,y)_L plane, centered in (0,+R)
   return point_LOCAL
 
+def circle_point_LOCAL(t, radius=1., omega=1.):
+  '''
+  Returns the LOCAL frame coordinates (x,y,z) of the point reached at time t
+  on a circular trajectory with given radius and angular velocity 
+  The circle belongs to the LOCAL (x,y)-plane of the initial frame of interest
+  starting from the top (+pi/2) and rotating clockwise
+   INPUT
+     t      : time (s)
+     radius : radius of the circle trajectory
+     omega  : angular velocity of the frame along the circle trajectory
+   OUTPUT
+     _      : point (x,y,z) in LOCAL frame (np.array)
+  '''
+  # LOCAL coordinates 
+  # point_LOCAL = np.array([radius*(1-np.cos(-omega*t)), radius*np.sin(-omega*t), 0.]) # (x,y)_L plane, centered in (0,-R)
+  point_LOCAL = np.array([-radius*np.sin(omega*t), radius*(1-np.cos(omega*t)), 0.])  # (x,y)_L plane, centered in (0,+R)
+  return point_LOCAL
+  
 
 def circle_point_WORLD(t, M_ct, radius=1., omega=1.):
   '''

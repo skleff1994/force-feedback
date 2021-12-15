@@ -59,7 +59,7 @@ robot = pybullet_simulator.pin_robot
 # Get dimensions 
 id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
-M_ee = robot.data.oMf[id_endeff]
+M_ee = robot.data.oMf[id_endeff].copy()
 
 
 
@@ -77,19 +77,19 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False,
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
-# Create circle trajectory (WORLD frame) and setup tracking problem
-EE_ref = ocp_utils.circle_trajectory_WORLD(M_ee.copy(), dt=config['dt'], 
-                                                        radius=config['frameCircleTrajectoryRadius'], 
-                                                        omega=config['frameCircleTrajectoryVelocity'])
-# ocp_utils.set_ee_tracking_problem(ddp, EE_ref)
-# Set EE translation cost model references (i.e. setup tracking problem)
+# Setup tracking problem with circle ref EE trajectory
 models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+RADIUS = config['frameCircleTrajectoryRadius'] 
+OMEGA  = config['frameCircleTrajectoryVelocity']
 for k,m in enumerate(models):
-    if(k<EE_ref.shape[0]):
-        ref = EE_ref[k]
-    else:
-        ref = EE_ref[-1]
-    m.differential.costs.costs['translation'].cost.residual.reference = ref
+    # Ref
+    t = min(k*config['dt'], 2*np.pi/OMEGA)
+    p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee.copy(), 
+                                               radius=RADIUS,
+                                               omega=OMEGA)
+    # Cost translation
+    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
+
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
@@ -99,8 +99,11 @@ if(WARM_START_IK):
     us_init = []
     q_ws = q0
     for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
+        # Get ref placement
         p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
-        q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)
+        Mref = M_ee.copy()
+        Mref.translation = p_ee_ref        
+        q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
         tau_ws = pin_utils.get_u_grav(q_ws, robot.model)
         xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
         if(k<N_h):
@@ -149,10 +152,17 @@ communication = mpc_utils.CommunicationModel(config)
 actuation     = mpc_utils.ActuationModel(config)
 sensing       = mpc_utils.SensorModel(config, ntau=nu)
 
-# Display target circle
-for i in range(EE_ref.shape[0]):
-  if(i%20==0):
-    sim_utils.display_target(EE_ref[i], SCALING=0.2)
+
+# Display target circle  trajectory (reference)
+nb_points = 20 
+for i in range(nb_points):
+  t = (i/nb_points)*2*np.pi/OMEGA
+  # if(i%20==0):
+  pos = ocp_utils.circle_point_WORLD(t, M_ee.copy(), radius=RADIUS, omega=OMEGA)
+  sim_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
+
+draw_rate = 200
+
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -168,21 +178,25 @@ for i in range(sim_data['N_simu']):
 
   # If the current simulation cycle matches an OCP node, update tracking problem
     if(i%int(1./OCP_TO_SIMU_RATIO)==0):
-        # Shift all cost references forward accros OCP nodes except and duplicate last one
+        # Current simulation time
+        t_simu = i*dt_simu 
+        # Setup tracking problem with circle ref EE trajectory
         models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
         for k,m in enumerate(models):
-          shift = int(i*OCP_TO_SIMU_RATIO)
-          if(k+shift < EE_ref.shape[0]):
-            m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[k+shift]
-          else:
-            m.differential.costs.costs['translation'].cost.residual.reference = EE_ref[-1]
+            # Ref
+            t = min(t_simu + k*dt_ocp, 2*np.pi/OMEGA)
+            p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee.copy(), 
+                                                       radius=RADIUS,
+                                                       omega=OMEGA)
+            # Cost translation
+            m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref.copy()
 
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):       
         # Reset x0 to measured state + warm-start solution
-        ddp.problem.x0 = sim_data['Y_mea_SIMU'][i, :]
+        ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-        xs_init[0] = sim_data['Y_mea_SIMU'][i, :]
+        xs_init[0] = sim_data['state_mea_SIMU'][i, :]
         us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
@@ -204,9 +218,9 @@ for i in range(sim_data['N_simu']):
         y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
         w_ref_PLAN  = w_curr
         if(nb_plan==0):
-          sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
-        sim_data['W_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
-        sim_data['Y_des_PLAN'][nb_plan+1, :] = y_ref_PLAN    
+          sim_data['state_des_PLAN'][nb_plan, :] = y_curr  
+        sim_data['ctrl_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
+        sim_data['state_des_PLAN'][nb_plan+1, :] = y_ref_PLAN    
 
         # Increment planning counter
         nb_plan += 1
@@ -220,9 +234,9 @@ for i in range(sim_data['N_simu']):
         w_ref_CTRL = w_curr 
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
-          sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
-        sim_data['W_des_CTRL'][nb_ctrl, :]   = w_ref_CTRL  
-        sim_data['Y_des_CTRL'][nb_ctrl+1, :] = y_ref_CTRL   
+          sim_data['state_des_CTRL'][nb_ctrl, :] = y_curr  
+        sim_data['ctrl_des_CTRL'][nb_ctrl, :]   = w_ref_CTRL  
+        sim_data['state_des_CTRL'][nb_ctrl+1, :] = y_ref_CTRL   
         # Increment control counter
         nb_ctrl += 1
         
@@ -235,14 +249,14 @@ for i in range(sim_data['N_simu']):
 
     # First prediction = measurement = initialization of MPC
     if(i==0):
-      sim_data['Y_des_SIMU'][i, :] = y_curr  
-    sim_data['W_des_SIMU'][i, :]   = w_ref_SIMU  
-    sim_data['Y_des_SIMU'][i+1, :] = y_ref_SIMU 
+      sim_data['state_des_SIMU'][i, :] = y_curr  
+    sim_data['ctrl_des_SIMU'][i, :]   = w_ref_SIMU  
+    sim_data['state_des_SIMU'][i+1, :] = y_ref_SIMU 
 
     # Torque applied by motor on actuator : interpolate current torque and predicted torque 
     tau_ref_SIMU =  y_ref_SIMU[-nu:] 
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
-    tau_mea_SIMU = actuation.step(i, tau_ref_SIMU, sim_data['Y_mea_SIMU'][:,-nu:])   
+    tau_mea_SIMU = actuation.step(i, tau_ref_SIMU, sim_data['state_mea_SIMU'][:,-nu:])   
     # Send output of actuation torque to the RBD simulator 
     pybullet_simulator.send_joint_command(tau_mea_SIMU)
     env.step()
@@ -252,9 +266,9 @@ for i in range(sim_data['N_simu']):
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Record data (unnoised)
     y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
-    sim_data['Y_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
+    sim_data['state_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
     # Sensor model (optional noise + filtering)
-    sim_data['Y_mea_SIMU'][i+1, :] = sensing.step(i, y_mea_SIMU, sim_data['Y_mea_SIMU'])
+    sim_data['state_mea_SIMU'][i+1, :] = sensing.step(i, y_mea_SIMU, sim_data['state_mea_SIMU'])
 
 
 

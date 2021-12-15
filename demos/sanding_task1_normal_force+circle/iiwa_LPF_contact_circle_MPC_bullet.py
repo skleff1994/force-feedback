@@ -59,12 +59,13 @@ robot = pybullet_simulator.pin_robot
 # Get dimensions 
 id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
+# Placement of EE frame (center of tennis ball)
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
-M_ct = robot.data.oMf[id_endeff].copy()
-offset = 0.0335 #48 #0.0335
+# Placement of contact point in simulation (tennis ball center + radius)
+offset = 0.034 #48 #0.0335
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-sim_utils.display_contact_surface(contact_placement, with_collision=True)
+sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
 
 
 
@@ -75,7 +76,7 @@ sim_utils.display_contact_surface(contact_placement, with_collision=True)
 N_h = config['N_h']
 dt = config['dt']
 # Setup Croco OCP and create solver
-f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
+f_ext = pin_utils.get_external_joint_torques(ee_frame_placement.copy(), config['frameForceRef'], robot)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 y0 = np.concatenate([x0, u0])
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
@@ -90,14 +91,13 @@ OMEGA  = config['frameCircleTrajectoryVelocity']
 for k,m in enumerate(models):
     # Ref
     t = min(k*config['dt'], 2*np.pi/OMEGA)
-    p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
+    p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement.copy(), 
                                                radius=RADIUS,
                                                omega=OMEGA)
     # Cost translation
     m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
     # Contact model 1D update z ref (WORLD frame)
     m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
-    # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
 
 # Warm start state = IK of circle trajectory
 WARM_START_IK = True
@@ -112,9 +112,9 @@ if(WARM_START_IK):
         Mref = ee_frame_placement.copy()
         Mref.translation = p_ee_ref
         # Get corresponding forces at each joint
-        f_ext = pin_utils.get_external_joint_torques(Mref, config['frameForceRef'], robot)
+        f_ext = pin_utils.get_external_joint_torques(Mref.copy(), config['frameForceRef'], robot)
         # Get joint state from IK
-        q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
+        q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref.copy(), DT=1e-2, IT_MAX=100)
         tau_ws = pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model)
         xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
         if(k<N_h):
@@ -217,11 +217,13 @@ for i in range(sim_data['N_simu']):
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
         sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
         sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
+        sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
         # Extract relevant predictions for interpolations
         y_curr = sim_data['state_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
         y_pred = sim_data['state_pred'][nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
         w_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
-        # w_pred = sim_data['ctrl_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
+        f_curr = sim_data['force_pred'][nb_plan, 0, :]
+        f_pred = sim_data['force_pred'][nb_plan, 1, :]
         # Record cost references
         data_utils.record_cost_references_LPF(ddp, sim_data, nb_plan)
         # Record solver data (optional)
@@ -232,10 +234,13 @@ for i in range(sim_data['N_simu']):
         # Select reference control and state for the current PLAN cycle
         y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
         w_ref_PLAN  = w_curr
+        f_ref_PLAN  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         if(nb_plan==0):
           sim_data['state_des_PLAN'][nb_plan, :] = y_curr  
         sim_data['ctrl_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
         sim_data['state_des_PLAN'][nb_plan+1, :] = y_ref_PLAN    
+        sim_data['state_des_PLAN'][nb_plan+1, :] = y_ref_PLAN    
+        sim_data['force_des_PLAN'][nb_plan, :] = f_ref_PLAN    
 
         # Increment planning counter
         nb_plan += 1
@@ -247,26 +252,29 @@ for i in range(sim_data['N_simu']):
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
         y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
         w_ref_CTRL = w_curr 
+        f_ref_CTRL = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['state_des_CTRL'][nb_ctrl, :] = y_curr  
         sim_data['ctrl_des_CTRL'][nb_ctrl, :]   = w_ref_CTRL  
-        sim_data['state_des_CTRL'][nb_ctrl+1, :] = y_ref_CTRL   
+        sim_data['state_des_CTRL'][nb_ctrl+1, :] = y_ref_CTRL  
+        sim_data['force_des_CTRL'][nb_ctrl, :] = f_ref_CTRL  
         # Increment control counter
         nb_ctrl += 1
         
   # Simulate actuation/sensing and step simulator (physics simulation frequency)
 
     # Select reference control and state for the current SIMU cycle
-    COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
     y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
     w_ref_SIMU  = w_curr 
-
+    f_ref_SIMU  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
+    
     # First prediction = measurement = initialization of MPC
     if(i==0):
       sim_data['state_des_SIMU'][i, :] = y_curr  
     sim_data['ctrl_des_SIMU'][i, :]   = w_ref_SIMU  
     sim_data['state_des_SIMU'][i+1, :] = y_ref_SIMU 
+    sim_data['force_des_SIMU'][i, :] = f_ref_SIMU 
 
     # Torque applied by motor on actuator : interpolate current torque and predicted torque 
     tau_ref_SIMU =  y_ref_SIMU[-nu:] 
@@ -282,6 +290,13 @@ for i in range(sim_data['N_simu']):
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
     if(i%100==0): 
       logger.info("force mea = "+str(f_mea_SIMU))
+    # # Estimate measured torques from measured contact force in PyBullet
+    # f_ext = pin_utils.get_external_joint_torques(robot.data.oMf[id_endeff].copy(), f_mea_SIMU, robot)
+    # if(i==0):
+    #   a_mea_SIMU = np.zeros(nv)
+    # else:
+    #   a_mea_SIMU = (sim_data['state_mea_SIMU'][i, nq:nq+nv] - v_mea_SIMU)/dt_simu
+    # tau_mea_SIMU = pin_utils.get_tau(q_mea_SIMU, v_mea_SIMU, a_mea_SIMU, f_ext, robot.model)
     # Record data (unnoised)
     y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
     sim_data['state_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU

@@ -53,7 +53,6 @@ nu = nq
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
-M_ct = robot.data.oMf[id_endeff]
 
 
 
@@ -63,7 +62,7 @@ M_ct = robot.data.oMf[id_endeff]
 N_h = config['N_h']
 dt = config['dt']
 # Setup Croco OCP and create solver
-f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
+f_ext = pin_utils.get_external_joint_torques(ee_frame_placement, config['frameForceRef'], robot)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 y0 = np.concatenate([x0, u0])
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
@@ -85,7 +84,6 @@ for k,m in enumerate(models):
     m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
     # Contact model 1D update z ref (WORLD frame)
     m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
-    # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
 
 
 # Warm start state = IK of circle trajectory

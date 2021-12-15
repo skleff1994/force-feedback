@@ -14,7 +14,7 @@
 
 # General 
 LPF_TYPE: 1
-f_c: 2                                                               # Low-pass filter cut-off frequency
+f_c: 5                                                               # Low-pass filter cut-off frequency
 dt: 0.01                                                             # OCP integration step 
 N_h: 400                                                             # Horizon length in nodes
 maxiter: 100                                                         # Max number of iterations in DDP
@@ -59,7 +59,7 @@ stateRegRef: 'DEFAULT' # TRACKING ?
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.001
-ctrlRegWeightTerminal: 1
+ctrlRegWeightTerminal: 0
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
 # 'wReg' : unfiltered torque regularization
@@ -102,7 +102,8 @@ stateLimRef: 'DEFAULT'
  # 'ctrlLim' : torque limits
 ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
 ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlLimWeight: 0.
+ctrlLimWeight: 100.
+ctrlLimWeightTerminal: 100.
 ctrlLimRef: 'DEFAULT'
 
 # armature
