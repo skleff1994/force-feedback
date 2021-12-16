@@ -1317,7 +1317,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
   # Create terminal IAM from terminal DAM
     terminalModel = crocoddyl.IntegratedActionModelLPF( dam_t, 
                                                         stepTime=0., 
-                                                        withCostResidual=True, 
+                                                        withCostResidual=False, 
                                                         fc=f_c, 
                                                         cost_weight_w_reg=config['wRegWeight'], 
                                                         cost_ref_w_reg=w_reg_ref,
@@ -1459,7 +1459,60 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                                               frameRotationRef, 
                                                                                               actuation.nu)) 
       terminalModel.differential.costs.addCost("rotation", frameRotationCost, config['frameRotationWeightTerminal']*dt)
-
+    # # Frame force cost
+    # if('force' in WHICH_COSTS):
+    #   if(not CONTACT):
+    #     logger.error("Force cost but no contact model is defined ! ")
+    #   # 6D contact case : wrench = linear in (x,y,z) + angular in (Ox,Oy,Oz)
+    #   if(CONTACT_TYPE=='6D'):
+    #     # Default force reference = zero force
+    #     if(config['frameForceRef']=='DEFAULT'):
+    #       frameForceRef = pin.Force( np.zeros(6) )
+    #     else:
+    #       frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
+    #     frameForceWeights = np.asarray(config['frameForceWeights'])
+    #     frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
+    #     frameForceCost = crocoddyl.CostModelResidual(state, 
+    #                                                 crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+    #                                                 crocoddyl.ResidualModelContactForce(state, 
+    #                                                                                     frameForceFrameId, 
+    #                                                                                     frameForceRef, 
+    #                                                                                     6, 
+    #                                                                                     actuation.nu))
+    #   # 3D contact case : linear force in (x,y,z) (LOCAL)
+    #   if(CONTACT_TYPE=='3D'):
+    #     # Default force reference = zero force
+    #     if(config['frameForceRef']=='DEFAULT'):
+    #       frameForceRef = pin.Force( np.zeros(6) )
+    #     else:
+    #       frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
+    #     frameForceWeights = np.asarray(config['frameForceWeights'])[:3]
+    #     frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
+    #     frameForceCost = crocoddyl.CostModelResidual(state, 
+    #                                                 crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+    #                                                 crocoddyl.ResidualModelContactForce(state, 
+    #                                                                                     frameForceFrameId, 
+    #                                                                                     frameForceRef, 
+    #                                                                                     3, 
+    #                                                                                     actuation.nu))
+    #   # 1D contact case : linear force along z (LOCAL)
+    #   if(CONTACT_TYPE=='1D'):
+    #     # Default force reference = zero force
+    #     if(config['frameForceRef']=='DEFAULT'):
+    #       frameForceRef = pin.Force( np.zeros(6) )
+    #     else:
+    #       frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
+    #     frameForceWeights = np.asarray(config['frameForceWeights'])[2:3]
+    #     frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
+    #     frameForceCost = crocoddyl.CostModelResidual(state, 
+    #                                                 crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+    #                                                 crocoddyl.ResidualModelContactForce(state, 
+    #                                                                                     frameForceFrameId, 
+    #                                                                                     frameForceRef, 
+    #                                                                                     1, 
+    #                                                                                     actuation.nu))
+    #   # Add cost term to IAM
+    #   terminalModel.differential.costs.addCost("force", frameForceCost, config['frameForceWeightTerminal']*dt)
 
   # Add armature
     terminalModel.differential.armature = np.asarray(config['armature'])   

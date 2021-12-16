@@ -63,12 +63,14 @@ nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
 # Placement of contact point in simulation (tennis ball center + radius)
-offset = 0.03348 #48 #0.0335
+offset = 0.0336 #48 #0.03348
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
+id = sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
 
 
-
+import pybullet as p
+p.changeDynamics(id, -1, lateralFriction=0.) # contactStiffness=1, contactDamping=50)
+print(p.getDynamicsInfo(id, -1))
 
 # # # # # # # # # 
 ### OCP SETUP ###
@@ -79,7 +81,7 @@ dt = config['dt']
 f_ext = pin_utils.get_external_joint_torques(ee_frame_placement.copy(), config['frameForceRef'], robot)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 y0 = np.concatenate([x0, u0])
-ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
                                                 w_reg_ref='gravity',
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
@@ -290,13 +292,13 @@ for i in range(sim_data['N_simu']):
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
     if(i%100==0): 
       logger.info("force mea = "+str(f_mea_SIMU))
-    # # Estimate measured torques from measured contact force in PyBullet
+    # Estimate measured torques from measured contact force in PyBullet
     # f_ext = pin_utils.get_external_joint_torques(robot.data.oMf[id_endeff].copy(), f_mea_SIMU, robot)
     # if(i==0):
     #   a_mea_SIMU = np.zeros(nv)
     # else:
     #   a_mea_SIMU = (sim_data['state_mea_SIMU'][i, nq:nq+nv] - v_mea_SIMU)/dt_simu
-    # tau_mea_SIMU = pin_utils.get_tau(q_mea_SIMU, v_mea_SIMU, a_mea_SIMU, f_ext, robot.model)
+    # tau_mea_SIMU = pin_utils.get_tau(q_mea_SIMU, v_mea_SIMU, np.zeros(nq), f_ext, robot.model)
     # Record data (unnoised)
     y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
     sim_data['state_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU

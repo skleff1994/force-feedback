@@ -63,7 +63,7 @@ id = sim_utils.display_contact_surface(contact_placement, with_collision=True)
 
 
 import pybullet as p
-p.changeDynamics(id, -1, lateralFriction=0.0) # contactStiffness=1, contactDamping=50)
+p.changeDynamics(id, -1, lateralFriction=0.3) # contactStiffness=1, contactDamping=50)
 print(p.getDynamicsInfo(id, -1))
 
 
