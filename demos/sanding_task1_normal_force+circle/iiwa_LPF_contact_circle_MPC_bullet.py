@@ -63,7 +63,7 @@ nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
 # Placement of contact point in simulation (tennis ball center + radius)
-offset = 0.034 #48 #0.0335
+offset = 0.03348 #48 #0.0335
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
 

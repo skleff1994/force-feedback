@@ -66,7 +66,7 @@ u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 y0 = np.concatenate([x0, u0])
 # Setup Croco OCP and create solver
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                w_reg_ref= 'gravity', 
+                                                w_reg_ref=np.zeros(nq), # 'gravity', 
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=LPF_TYPE,
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
@@ -77,7 +77,7 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
 
-VISUALIZE = True
+VISUALIZE = False
 pause = 0.01 # in s
 if(VISUALIZE):
     import time
@@ -263,7 +263,7 @@ if(VISUALIZE):
 
 
 
-PLOT = False
+PLOT = True
 if(PLOT):
     #  Plot
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)

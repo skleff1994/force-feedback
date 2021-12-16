@@ -56,11 +56,10 @@ N_h = config['N_h']
 dt = config['dt']
 ug = pin_utils.get_u_grav(q0, robot.model) 
 y0 = np.concatenate([x0, ug])
-LPF_TYPE = 1
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                w_reg_ref='gravity',
+                                                w_reg_ref='gravity', #np.zeros(nq),#
                                                 TAU_PLUS=False, 
-                                                LPF_TYPE=LPF_TYPE,
+                                                LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 # Solve and extract solution trajectories
 xs_init = [y0 for i in range(N_h+1)]

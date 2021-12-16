@@ -63,7 +63,7 @@ id_endeff = robot.model.getFrameId(config['contactModelFrameName'])
 contact_frame_placement = robot.data.oMf[id_endeff].copy()
 # Display contact surface at contact frame + some offset along z-axis in LOCAL frame 
 contact_surface_placement = contact_frame_placement.copy()
-offset = 0.036
+offset = 0.03348
 contact_surface_placement.translation = contact_surface_placement.act(np.array([0., 0., offset])) 
 sim_utils.display_contact_surface(contact_surface_placement, with_collision=True)
 
@@ -72,11 +72,11 @@ sim_utils.display_contact_surface(contact_surface_placement, with_collision=True
 ### OCP SETUP ###
 # # # # # # # # # 
 # Create DDP solver + compute warm start torque
-f_ext = pin_utils.get_external_joint_torques(contact_frame_placement, config['frameForceRef'], robot)
+f_ext = pin_utils.get_external_joint_torques(contact_frame_placement.copy(), config['frameForceRef'], robot)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 y0 = np.concatenate([x0, u0])
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                w_reg_ref='gravity',
+                                                w_reg_ref=np.zeros(nq), #'gravity',
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
@@ -117,34 +117,6 @@ sensing       = mpc_utils.SensorModel(config, ntau=nu)
 ### SIMULATION LOOP ###
 # # # # # # # # # # # #
 
-# Interpolation  
-
- # ^ := MPC computations
- # | := current MPC computation
-
- # MPC ITER #1
-  #      y_0         y_1         y_2 ...                    --> pred(MPC=O) size N_h
-  # OCP : O           O           O                           ref_O = y_1
-  # MPC : M     M     M     M     M                           ref_M = y_0 + Interp_[O->M] (y_1 - y_0)
-  # CTR : C  C  C  C  C  C  C  C  C                           ref_C = y_0 + Interp_[O->C] (y_1 - y_0)
-  # SIM : SSSSSSSSSSSSSSSSSSSSSSSSS                           ref_S = y_0 + Interp_[O->S] (y_1 - y_0)
-  #       |     ^     ^     ^     ^  ...
- # MPC ITER #2
-  #            y_0         y_1         y_2 ...              --> pred(MPC=1) size N_h
-  #             O           O           O                     ...
-  #             M     M     M     M     M
-  #             C  C  C  C  C  C  C  C  C
-  #             SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #             |     ^     ^     ^     ^  ...
- # MPC ITER #3
-  #                        y_0         y_1         y_2 ...  --> pred(MPC=2) size N_h
-  #                         O           O           O         ...
-  #                         M     M     M     M     M
-  #                         C  C  C  C  C  C  C  C  C
-  #                         SSSSSSSSSSSSSSSSSSSSSSSSS  
-  #                         |     ^     ^     ^     ^  ...
- # ...
-
 # SIMULATE
 for i in range(sim_data['N_simu']): 
 
@@ -156,21 +128,21 @@ for i in range(sim_data['N_simu']):
   # Solve OCP if we are in a planning cycle (MPC/planning frequency)
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # Reset x0 to measured state + warm-start solution
-        ddp.problem.x0 = sim_data['Y_mea_SIMU'][i, :]
+        ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-        xs_init[0] = sim_data['Y_mea_SIMU'][i, :]
+        xs_init[0] = sim_data['state_mea_SIMU'][i, :]
         us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
         sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
         sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
-        sim_data ['F_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
+        sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
         # Extract relevant predictions for interpolations
         y_curr = sim_data['state_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
         y_pred = sim_data['state_pred'][nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
         w_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
-        f_curr = sim_data['F_pred'][nb_plan, 0, :]
-        f_pred = sim_data['F_pred'][nb_plan, 1, :]
+        f_curr = sim_data['force_pred'][nb_plan, 0, :]
+        f_pred = sim_data['force_pred'][nb_plan, 1, :]
         # Record cost references
         data_utils.record_cost_references_LPF(ddp, sim_data, nb_plan)
         # Record solver data (optional)
@@ -183,10 +155,10 @@ for i in range(sim_data['N_simu']):
         w_ref_PLAN  = w_curr 
         f_ref_PLAN  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         if(nb_plan==0):
-          sim_data['Y_des_PLAN'][nb_plan, :] = y_curr  
-        sim_data['W_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
-        sim_data['Y_des_PLAN'][nb_plan+1, :] = y_ref_PLAN    
-        sim_data['F_des_PLAN'][nb_plan, :] = f_ref_PLAN    
+          sim_data['state_des_PLAN'][nb_plan, :] = y_curr  
+        sim_data['ctrl_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
+        sim_data['state_des_PLAN'][nb_plan+1, :] = y_ref_PLAN    
+        sim_data['force_des_PLAN'][nb_plan, :] = f_ref_PLAN    
         
         # Increment planning counter
         nb_plan += 1
@@ -199,10 +171,10 @@ for i in range(sim_data['N_simu']):
         f_ref_CTRL = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
-          sim_data['Y_des_CTRL'][nb_ctrl, :] = y_curr  
-        sim_data['W_des_CTRL'][nb_ctrl, :]   = w_ref_CTRL  
-        sim_data['Y_des_CTRL'][nb_ctrl+1, :] = y_ref_CTRL   
-        sim_data['F_des_CTRL'][nb_ctrl, :] = f_ref_CTRL 
+          sim_data['state_des_CTRL'][nb_ctrl, :] = y_curr  
+        sim_data['ctrl_des_CTRL'][nb_ctrl, :]   = w_ref_CTRL  
+        sim_data['state_des_CTRL'][nb_ctrl+1, :] = y_ref_CTRL   
+        sim_data['force_des_CTRL'][nb_ctrl, :] = f_ref_CTRL 
         # Increment control counter
         nb_ctrl += 1
         
@@ -216,15 +188,15 @@ for i in range(sim_data['N_simu']):
 
     # First prediction = measurement = initialization of MPC
     if(i==0):
-      sim_data['Y_des_SIMU'][i, :] = y_curr  
-    sim_data['W_des_SIMU'][i, :]   = w_ref_SIMU  
-    sim_data['Y_des_SIMU'][i+1, :] = y_ref_SIMU 
-    sim_data['F_des_SIMU'][i, :] = f_ref_SIMU 
+      sim_data['state_des_SIMU'][i, :] = y_curr  
+    sim_data['ctrl_des_SIMU'][i, :]   = w_ref_SIMU  
+    sim_data['state_des_SIMU'][i+1, :] = y_ref_SIMU 
+    sim_data['force_des_SIMU'][i, :] = f_ref_SIMU 
 
     # Torque applied by motor on actuator : interpolate current torque and predicted torque 
     tau_ref_SIMU =  y_ref_SIMU[-nu:] 
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
-    tau_mea_SIMU = actuation.step(i, tau_ref_SIMU, sim_data['Y_mea_SIMU'][:,-nu:])   
+    tau_mea_SIMU = actuation.step(i, tau_ref_SIMU, sim_data['state_mea_SIMU'][:,-nu:])   
     #  Send output of actuation torque to the RBD simulator 
     pybullet_simulator.send_joint_command(tau_mea_SIMU)
     env.step()
@@ -232,14 +204,16 @@ for i in range(sim_data['N_simu']):
     q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
     # Measure force from simulation
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
+    if(i%100==0): 
+      logger.info("force mea = "+str(f_mea_SIMU))
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Record data (unnoised)
     y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
-    sim_data['Y_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
+    sim_data['state_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
     # Sensor model (optional noise + filtering)
-    sim_data['Y_mea_SIMU'][i+1, :] = sensing.step(i, y_mea_SIMU, sim_data['Y_mea_SIMU'])
-    sim_data['F_mea_SIMU'][i, :] = f_mea_SIMU
+    sim_data['state_mea_SIMU'][i+1, :] = sensing.step(i, y_mea_SIMU, sim_data['state_mea_SIMU'])
+    sim_data['force_mea_SIMU'][i, :] = f_mea_SIMU
 
 
 # # # # # # # # # # #

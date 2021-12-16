@@ -51,7 +51,7 @@ nu = nq
 # Update robot model with initial state
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
-M_ee = robot.data.oMf[id_endeff]
+M_ee = robot.data.oMf[id_endeff].copy()
 
 
 
@@ -75,7 +75,7 @@ OMEGA  = config['frameCircleTrajectoryVelocity']
 for k,m in enumerate(models):
     # Ref
     t = min(k*config['dt'], 2*np.pi/OMEGA)
-    p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
+    p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee.copy(), 
                                                radius=RADIUS,
                                                omega=OMEGA)
     # Cost translation
@@ -89,9 +89,10 @@ if(WARM_START_IK):
     us_init = []
     q_ws = q0
     for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
-        if('translation' in m.differential.costs.costs.todict().keys()):
-            p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
-            q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, p_ee_ref, DT=1e-2, IT_MAX=100)
+        p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
+        Mref = M_ee.copy()
+        Mref.translation = p_ee_ref
+        q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
         tau_ws = pin_utils.get_u_grav(q_ws, robot.model)
         xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
         if(k<N_h):
@@ -106,7 +107,7 @@ else:
 ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 #  Plot
-PLOT = True
+PLOT = False
 if(PLOT):
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
     fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)

@@ -4,8 +4,8 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 1000        # Control frequency
-plan_freq: 1000        # Planning frequency
+ctrl_freq: 250        # Control frequency
+plan_freq: 250        # Planning frequency
 T_tot: 3.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: True                # Add delay in reference torques (low-level)
@@ -24,66 +24,54 @@ log_rate: 500                  # Display sim status once very 'log_rate' sim cyc
 
 
 
-# OCP general parameters
-LPF_TYPE: 0                                          # \in {0,1,2} : which formula to use for LPF cutoff freq   
-f_c: 2.                                              # Low-pass filter cut-off frequency
+# General 
+LPF_TYPE: 1
+f_c: 2                                               # Low-pass filter cut-off frequency
 dt: 0.02                                             # OCP integration step 
-N_h: 50                                              # Horizon length in nodes
+N_h: 50                                             # Horizon length in nodes
 maxiter: 5                                           # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
-tau0: [0., -2.3274, 0., 0.012262, 0., -0.010595, 0.] # Initial robot joint torque
+tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initial robot joint torque
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['translation', 'velocity', 'ctrlRegGrav', 'stateReg', 'stateLim'] 
+# WHICH_COSTS: ['translation', 'velocity', 'ctrlRegGrav', 'stateReg'] #, 'stateLim'] 
+WHICH_COSTS: ['translation', 'velocity', 'ctrlRegGrav', 'stateReg']
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
-stateRegWeights: [0., 0., 0., 0., 0., 0., 0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.1
-stateRegWeightTerminal: 0.1
+stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 2., 2., 2., 2., 2., 2., 2.]
+stateRegWeight: .1
+stateRegWeightTerminal: 10.
 stateRegRef: 'DEFAULT'
 
- # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
+ # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.00
-ctrlRegWeightTerminal: 0.003
-ctrlRegRef: 'DEFAULT' # reference not used for 'ctrlRegGrav'
+ctrlRegWeightTerminal: 10
+ctrlRegRef: 'DEFAULT'  # default 0 if None
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.000001
+wRegWeight: 0.00001
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 10.
 
- # 'stateLim' : state limits
-stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
-stateLimWeight: 10.
-stateLimWeightTerminal: 10.
-stateLimRef: 'DEFAULT'
-
- # 'ctrlLim' : torque limits
-ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
-ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlLimWeight: 10.
-ctrlLimRef: 'DEFAULT'
-
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 100.
-frameTranslationWeightTerminal: 100. 
+frameTranslationWeight: 2.
+frameTranslationWeightTerminal: 2. 
 frameTranslationRef: [-0.5, -0.5, 0.7]
 frameTranslationFrameName: 'contact'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
-frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
+frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
 frameVelocityWeight: 0.
 frameVelocityWeightTerminal: 1.
 frameVelocityRef: [0., 0., 0., 0., 0., 0.]    
 frameVelocityFrameName: 'contact'
-
 
  # 'placement' : end-effector frame placement (translation + rotation)
 framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
@@ -93,9 +81,20 @@ framePlacementTranslationRef: [-0.5, -0.5, 0.7]
 framePlacementRotationRef: 'DEFAULT'
 framePlacementFrameName: 'contact'
 
+ # 'stateLim' : state limits
+stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
+stateLimWeight: 0.
+stateLimWeightTerminal: 0.
+stateLimRef: 'DEFAULT'
 
+ # 'ctrlLim' : torque limits
+ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
+ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
+ctrlLimWeight: 0.
+ctrlLimWeightTerminal: 0.
+ctrlLimRef: 'DEFAULT'
 # armature
-armature: [.1, .1, .1, .1, .1, .1, .01]
+armature: [.1, .1, .1, .1, .1, .1, .0]
 
 
 

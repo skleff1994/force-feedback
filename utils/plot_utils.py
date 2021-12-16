@@ -188,7 +188,7 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,0].plot(t_span_simu, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,0].plot(t_span_simu, plot_data['q_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         if('stateReg' in plot_data['WHICH_COSTS']):
-            ax[i,0].plot(t_span_plan[:-1], plot_data['state_ref'][:,i], color='k', linestyle='-.', marker=None, label='Reference', alpha=0.5)
+            ax[i,0].plot(t_span_plan[:-1], plot_data['state_ref'][:,i], color='m', linestyle='-.', marker=None, label='Reference', alpha=0.5)
         ax[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -201,7 +201,7 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,1].plot(t_span_simu, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,1].plot(t_span_simu, plot_data['v_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         if('stateReg' in plot_data['WHICH_COSTS']):
-            ax[i,1].plot(t_span_plan[:-1], plot_data['state_ref'][:,i+nq], color='k', linestyle='-.', marker=None, label='Reference', alpha=0.5)
+            ax[i,1].plot(t_span_plan[:-1], plot_data['state_ref'][:,i+nq], color='m', linestyle='-.', marker=None, label='Reference', alpha=0.5)
         ax[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -214,7 +214,7 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
         ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         if('ctrlReg' or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
-            ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color='k', linestyle='-.', marker=None, label='Reference', alpha=0.5)
+            ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color='m', linestyle='-.', marker=None, label='Reference', alpha=0.5)
         # ax[i,2].plot(t_span_simu, plot_data['grav'][:,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
         ax[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
         ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -1356,7 +1356,7 @@ def plot_mpc_endeff_linear(plot_data, PLOT_PREDICTIONS=False,
         ax[i,0].plot(t_span_simu, plot_data['lin_pos_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
         # Plot reference
         if('translation' in plot_data['WHICH_COSTS']):
-            ax[i,0].plot(t_span_plan[:-1], plot_data['lin_pos_ee_ref'][:,i], 'k-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,0].plot(t_span_plan[:-1], plot_data['lin_pos_ee_ref'][:,i], 'm-.', linewidth=2., label='Reference', alpha=0.5)
         ax[i,0].set_ylabel('$P^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -1370,7 +1370,7 @@ def plot_mpc_endeff_linear(plot_data, PLOT_PREDICTIONS=False,
         ax[i,1].plot(t_span_simu, plot_data['lin_vel_ee_mea_no_noise'][:,i], 'r-', label='Measured', linewidth=2)
         # Plot reference 
         if('velocity' in plot_data['WHICH_COSTS']):
-            ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'm-.', linewidth=2., label='Reference', alpha=0.5)
         ax[i,1].set_ylabel('$V^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -1488,7 +1488,7 @@ def plot_mpc_endeff_angular(plot_data, PLOT_PREDICTIONS=False,
         ax[i,0].plot(t_span_simu, plot_data['ang_pos_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
         # Plot reference
         if('rotation' in plot_data['WHICH_COSTS']):
-            ax[i,0].plot(t_span_plan[:-1], plot_data['ang_pos_ee_ref'][:,i], 'k-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,0].plot(t_span_plan[:-1], plot_data['ang_pos_ee_ref'][:,i], 'm-.', linewidth=2., label='Reference', alpha=0.5)
         ax[i,0].set_ylabel('$RPY^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -1502,7 +1502,7 @@ def plot_mpc_endeff_angular(plot_data, PLOT_PREDICTIONS=False,
         ax[i,1].plot(t_span_simu, plot_data['ang_vel_ee_mea_no_noise'][:,i], 'r-', label='Measured', linewidth=2)
         # Plot reference 
         if('velocity' in plot_data['WHICH_COSTS']):
-            ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'k-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'm-.', linewidth=2., label='Reference', alpha=0.5)
         ax[i,1].set_ylabel('$W^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -1613,7 +1613,7 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
         # ax[i,0].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
         # Plot reference
         if('force' in plot_data['WHICH_COSTS']):
-            ax[i,0].plot(t_span_plan, plot_data['f_ee_ref'][:,i], 'k-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,0].plot(t_span_plan, plot_data['f_ee_ref'][:,i], 'm-.', linewidth=2., label='Reference', alpha=0.5)
         ax[i,0].set_ylabel('$\\lambda^{EE}_%s$  (N)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -1627,7 +1627,7 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
         # ax[i,1].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,3+i]-[plot_data['f_ee_ref'][3+i]]*(N_simu+1), 'r-', label='Measured', linewidth=2)
         # Plot reference
         if('force' in plot_data['WHICH_COSTS']):
-            ax[i,1].plot(t_span_plan, plot_data['f_ee_ref'][:,3+i], 'k-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,1].plot(t_span_plan, plot_data['f_ee_ref'][:,3+i], 'm-.', linewidth=2., label='Reference', alpha=0.5)
         ax[i,1].set_ylabel('$\\tau^{EE}_%s$  (Nm)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))

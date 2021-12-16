@@ -71,7 +71,7 @@ ug = pin_utils.get_u_grav(q0, robot.model)
 y0 = np.concatenate([x0, ug])
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
                                                 w_reg_ref='gravity',
-                                                TAU_PLUS=True, 
+                                                TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
 # Warm start and solve 

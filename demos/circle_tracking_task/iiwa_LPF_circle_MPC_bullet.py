@@ -138,7 +138,7 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS = ['y','w', 'p']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS = ['all']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
 dt_ocp = config['dt']                                         # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
@@ -270,7 +270,10 @@ for i in range(sim_data['N_simu']):
     # Sensor model (optional noise + filtering)
     sim_data['state_mea_SIMU'][i+1, :] = sensing.step(i, y_mea_SIMU, sim_data['state_mea_SIMU'])
 
-
+    # Display real 
+    if(i%draw_rate==0):
+      pos = pybullet_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
+      sim_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
 
 
 # # # # # # # # # # #

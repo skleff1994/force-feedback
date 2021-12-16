@@ -1,6 +1,7 @@
 # OCP parameters for static end-effector pose reaching task (LPF)
 
 # General 
+LPF_TYPE: 1
 f_c: 2                                               # Low-pass filter cut-off frequency
 dt: 0.01                                             # OCP integration step 
 N_h: 200                                             # Horizon length in nodes
@@ -29,7 +30,7 @@ ctrlRegWeightTerminal: 10
 ctrlRegRef: 'DEFAULT'  # default 0 if None
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.0001
+wRegWeight: 0.00001
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 10.
