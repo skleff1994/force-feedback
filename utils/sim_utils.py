@@ -98,7 +98,7 @@ def display_ball(p_des, RADIUS=.1, COLOR=[1.,1.,1.,1.]):
 
 
 # Load contact surface in PyBullet for contact experiments
-def display_contact_surface(M, robotId=1, radius=.3, length=0.0, with_collision=False, TILT=[0., 0., 0.]):
+def display_contact_surface(M, robotId=1, radius=.25, length=0.0, with_collision=False, TILT=[0., 0., 0.]):
     '''
     Create contact surface object in pybullet and display it
       M       : contact placement

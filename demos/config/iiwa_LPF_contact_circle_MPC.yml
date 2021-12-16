@@ -22,6 +22,7 @@ init_log_display_time: 1       # How long (s) to display the initial logs ?
 LOG: True                      # Logs during simulation
 log_rate: 500                  # Display sim status once very 'log_rate' sim cycles
 
+TILT_SRUFACE: False
 
 # # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
 #   R =
@@ -85,7 +86,7 @@ ctrlRegWeightTerminal: 0.0001
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.000000
+wRegWeight: 0.0001
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 100

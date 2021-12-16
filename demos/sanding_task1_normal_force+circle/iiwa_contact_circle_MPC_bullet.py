@@ -59,7 +59,10 @@ contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
 offset = 0.03348 #0.0335 gold number = 0.03348 (NO IMPACT, NO PENETRATION)
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-id = sim_utils.display_contact_surface(contact_placement, with_collision=True)
+if(config['TILT_SRUFACE']):
+  import pinocchio as pin
+  contact_placement.rotation = contact_placement.rotation.dot(pin.rpy.rpyToMatrix(0., 5*np.pi/180, 0.))
+id = sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
 
 
 import pybullet as p

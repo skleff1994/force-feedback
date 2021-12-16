@@ -63,14 +63,18 @@ nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
 # Placement of contact point in simulation (tennis ball center + radius)
-offset = 0.0336 #48 #0.03348
+offset = 0.03348 #0.03348
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
+if(config['TILT_SRUFACE']):
+  import pinocchio as pin
+  contact_placement.rotation = contact_placement.rotation.dot(pin.rpy.rpyToMatrix(0., 5*np.pi/180, 0.))
 id = sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
 
 
 import pybullet as p
-p.changeDynamics(id, -1, lateralFriction=0.) # contactStiffness=1, contactDamping=50)
+p.changeDynamics(id, -1, lateralFriction=0.5) 
 print(p.getDynamicsInfo(id, -1))
+
 
 # # # # # # # # # 
 ### OCP SETUP ###
@@ -81,8 +85,8 @@ dt = config['dt']
 f_ext = pin_utils.get_external_joint_torques(ee_frame_placement.copy(), config['frameForceRef'], robot)
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 y0 = np.concatenate([x0, u0])
-ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                w_reg_ref='gravity',
+ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
+                                                w_reg_ref=np.zeros(nq),  #'gravity',
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
