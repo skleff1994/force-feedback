@@ -271,7 +271,7 @@ for i in range(sim_data['N_simu']):
   # Simulate actuation/sensing and step simulator (physics simulation frequency)
 
     # Select reference control and state for the current SIMU cycle
-    y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
+    y_ref_SIMU  = y_curr + OCP_TO_SIMU_RATIO * (y_pred - y_curr)
     w_ref_SIMU  = w_curr 
     f_ref_SIMU  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
     
@@ -296,14 +296,14 @@ for i in range(sim_data['N_simu']):
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
     if(i%100==0): 
       logger.info("force mea = "+str(f_mea_SIMU))
-    # Estimate measured torques from measured contact force in PyBullet
+    # # Estimate measured torques from measured contact force in PyBullet
     # f_ext = pin_utils.get_external_joint_torques(robot.data.oMf[id_endeff].copy(), f_mea_SIMU, robot)
     # if(i==0):
     #   a_mea_SIMU = np.zeros(nv)
     # else:
     #   a_mea_SIMU = (sim_data['state_mea_SIMU'][i, nq:nq+nv] - v_mea_SIMU)/dt_simu
-    # tau_mea_SIMU = pin_utils.get_tau(q_mea_SIMU, v_mea_SIMU, np.zeros(nq), f_ext, robot.model)
-    # Record data (unnoised)
+    # tau_mea_SIMU = pin_utils.get_tau(q_mea_SIMU, v_mea_SIMU, a_mea_SIMU, f_ext, robot.model)
+    #  Record data (unnoised)
     y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
     sim_data['state_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
     # Sensor model (optional noise + filtering)
