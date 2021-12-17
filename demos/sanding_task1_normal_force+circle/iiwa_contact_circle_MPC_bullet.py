@@ -140,7 +140,7 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS       = ['all']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS       = config['WHICH_PLOTS']                   # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 dt_ocp            = config['dt']                            # OCP sampling rate 
 dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
 OCP_TO_PLAN_RATIO  = dt_mpc / dt_ocp                         # ratio
@@ -298,7 +298,7 @@ plot_data = data_utils.extract_plot_data_from_sim_data(sim_data)
 # Plot results
 plot_utils.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
                                 PLOT_PREDICTIONS=True, 
-                                pred_plot_sampling=int(freq_PLAN/10),
+                                pred_plot_sampling=10,#int(freq_PLAN/10),
                                 SAVE=True,
                                 SAVE_DIR=save_dir,
                                 SAVE_NAME=save_name,

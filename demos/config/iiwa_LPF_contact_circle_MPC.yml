@@ -4,9 +4,9 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 250       # Control frequency
-plan_freq: 250          # Planning frequency
-T_tot: 5.              # Simu duration (s)
+ctrl_freq: 1000       # Control frequency
+plan_freq: 1000          # Planning frequency
+T_tot: .2              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -21,7 +21,7 @@ INIT_LOG: True                 # Initial logs summarizing parameters
 init_log_display_time: 1       # How long (s) to display the initial logs ?
 LOG: True                      # Logs during simulation
 log_rate: 500                  # Display sim status once very 'log_rate' sim cycles
-
+WHICH_PLOTS: ['w','y']
 TILT_SRUFACE: False
 
 # # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
@@ -39,7 +39,7 @@ TILT_SRUFACE: False
 # General 
 LPF_TYPE: 1
 f_c: 5                                                               # Low-pass filter cut-off frequency
-dt: 0.02                                                             # OCP integration step 
+dt: 0.01                                                             # OCP integration step 
 N_h: 50                                                             # Horizon length in nodes
 maxiter: 5                                                        # Max number of iterations in DDP
 q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration

@@ -11,6 +11,11 @@ class ActuationModel:
     def __init__(self, config, nu=7):
         '''
         Actuation model with parameters defined in config YAML file
+        Simulates (optionally) 
+         - affine bias on torques a*tau_ref(i) + b
+         - moving avg filter on tau_ref(i)
+         - delay tau_ref(i) = tau_ref(i-delay)
+         - torque PI control (tau_mea, tau_ref)
         '''
         self.config = config
         self.nu = nu
@@ -36,6 +41,11 @@ class ActuationModel:
     def step(self, i, reference_torque, memory):
         '''
         Transforms reference torque into measured torque
+        Simulates (optionally) 
+         - affine bias on torques a*tau_ref(i) + b
+         - moving avg filter on tau_ref(i)
+         - delay tau_ref(i) = tau_ref(i-delay)
+         - torque PI control (tau_mea, tau_ref)
         '''
         measured_torque = reference_torque
         # Affine scaling
@@ -68,6 +78,8 @@ class CommunicationModel:
     def __init__(self, config):
         '''
         Communication model with parameters defined in config YAML file
+        Simulates (optionally)
+         - delay in OCP solution (x*,u*)
         '''
         self.config = config
         # Delay OCP computation
@@ -81,6 +93,8 @@ class CommunicationModel:
         '''
         Delays input predicted state and current control by 
         using a buffer. Returns the delayed input variables
+        Simulates (optionally)
+         - delay in OCP solution (x*,u*)
         '''
         # Delay OCP solution due to computation time
         if(self.DELAY_OCP):
@@ -104,6 +118,9 @@ class SensorModel:
     def __init__(self, config, nq=7, nv=7, ntau=0):
         '''
         Sensing model with parameters defined in config YAML file
+        Simulates (optionally)
+         - gaussian noise on measured state
+         - moving avg filtering on measured state
         '''
         self.config = config
         self.nq = nq
@@ -121,6 +138,9 @@ class SensorModel:
     def step(self, i, measured_state, memory):
         '''
         Transforms simulator state into a measured state
+        Simulates (optionally)
+         - gaussian noise on measured state
+         - moving avg filtering on measured state
         '''
         # Optional Gaussian noise on measured state 
         if(self.NOISE_STATE):

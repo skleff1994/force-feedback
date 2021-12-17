@@ -154,13 +154,17 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS = ['all']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS = config['WHICH_PLOTS']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 FILTER_STATE = config['FILTER_STATE']                  # Moving average smoothing of reference torques
 dt_ocp = config['dt']                                  # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])               # planning rate
 OCP_TO_PLAN_RATIO  = dt_mpc / dt_ocp                   # ratio
 PLAN_TO_SIMU_RATIO = dt_simu / dt_mpc                  # Must be an integer !!!!
 OCP_TO_SIMU_RATIO  = dt_simu / dt_ocp                  # Must be an integer !!!!
+logger.info("OCP  --> PLAN ratio = "+str(OCP_TO_PLAN_RATIO))
+logger.info("OCP  --> SIMU ratio = "+str(OCP_TO_SIMU_RATIO))
+logger.info("PLAN --> SIMU ratio = "+str(PLAN_TO_SIMU_RATIO))
+time.sleep(2)
 if(1./PLAN_TO_SIMU_RATIO%1 != 0):
   logger.warning("SIMU->MPC ratio not an integer ! (1./PLAN_TO_SIMU_RATIO = "+str(1./PLAN_TO_SIMU_RATIO)+")")
 if(1./OCP_TO_SIMU_RATIO%1 != 0):
@@ -193,9 +197,8 @@ for i in range(sim_data['N_simu']):
       logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
       print('')
 
-
-  # If the current simulation cycle matches an OCP node, update tracking problem
-    if(i%int(1./OCP_TO_SIMU_RATIO)==0):
+  # Solve OCP if we are in a planning cycle (MPC/planning frequency)
+    if(i%int(freq_SIMU/freq_PLAN) == 0):       
         # Current simulation time
         t_simu = i*dt_simu 
         # Setup tracking problem with circle ref EE trajectory
@@ -204,30 +207,26 @@ for i in range(sim_data['N_simu']):
             # Ref
             t = min(t_simu + k*dt_ocp, 2*np.pi/OMEGA)
             p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement.copy(), 
-                                                       radius=RADIUS,
-                                                       omega=OMEGA)
+                                                        radius=RADIUS,
+                                                        omega=OMEGA)
             # Cost translation
             m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
             # Contact model
             m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2] 
-
-
-  # Solve OCP if we are in a planning cycle (MPC/planning frequency)
-    if(i%int(freq_SIMU/freq_PLAN) == 0):       
         # Reset x0 to measured state + warm-start solution
         ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
-        xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-        xs_init[0] = sim_data['state_mea_SIMU'][i, :]
-        us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
+        xs_init        = list(ddp.xs[1:]) + [ddp.xs[-1]]
+        xs_init[0]     = sim_data['state_mea_SIMU'][i, :]
+        us_init        = list(ddp.us[1:]) + [ddp.us[-1]] 
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-        sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
-        sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
-        sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
+        sim_data['state_pred'][nb_plan, :, :]  = np.array(ddp.xs)
+        sim_data['ctrl_pred'][nb_plan, :, :]   = np.array(ddp.us)
+        sim_data['force_pred'][nb_plan, :, :]  = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
         # Extract relevant predictions for interpolations
         y_curr = sim_data['state_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
         y_pred = sim_data['state_pred'][nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
-        w_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
+        w_curr = sim_data['ctrl_pred'][nb_plan, 0, :]     # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
         f_curr = sim_data['force_pred'][nb_plan, 0, :]
         f_pred = sim_data['force_pred'][nb_plan, 1, :]
         # Record cost references
@@ -235,7 +234,7 @@ for i in range(sim_data['N_simu']):
         # Record solver data (optional)
         if(config['RECORD_SOLVER_DATA']):
           data_utils.record_solver_data(ddp, sim_data, nb_plan) 
-        # Model communication between computer --> robot
+        # Model OCP solving time & communication between computer --> robot
         y_pred, w_curr = communication.step(y_pred, w_curr)
         # Select reference control and state for the current PLAN cycle
         y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
@@ -243,10 +242,9 @@ for i in range(sim_data['N_simu']):
         f_ref_PLAN  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         if(nb_plan==0):
           sim_data['state_des_PLAN'][nb_plan, :] = y_curr  
-        sim_data['ctrl_des_PLAN'][nb_plan, :]   = w_ref_PLAN   
+        sim_data['ctrl_des_PLAN'][nb_plan, :]    = w_ref_PLAN   
         sim_data['state_des_PLAN'][nb_plan+1, :] = y_ref_PLAN    
-        sim_data['state_des_PLAN'][nb_plan+1, :] = y_ref_PLAN    
-        sim_data['force_des_PLAN'][nb_plan, :] = f_ref_PLAN    
+        sim_data['force_des_PLAN'][nb_plan, :]   = f_ref_PLAN    
 
         # Increment planning counter
         nb_plan += 1
@@ -255,32 +253,31 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_CTRL) == 0):        
         # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
         # Select reference control and state for the current CTRL cycle
-        COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
         y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
         w_ref_CTRL = w_curr 
         f_ref_CTRL = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['state_des_CTRL'][nb_ctrl, :] = y_curr  
-        sim_data['ctrl_des_CTRL'][nb_ctrl, :]   = w_ref_CTRL  
+        sim_data['ctrl_des_CTRL'][nb_ctrl, :]    = w_ref_CTRL  
         sim_data['state_des_CTRL'][nb_ctrl+1, :] = y_ref_CTRL  
-        sim_data['force_des_CTRL'][nb_ctrl, :] = f_ref_CTRL  
+        sim_data['force_des_CTRL'][nb_ctrl, :]   = f_ref_CTRL  
         # Increment control counter
         nb_ctrl += 1
         
   # Simulate actuation/sensing and step simulator (physics simulation frequency)
 
     # Select reference control and state for the current SIMU cycle
-    y_ref_SIMU  = y_curr + OCP_TO_SIMU_RATIO * (y_pred - y_curr)
+    y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
     w_ref_SIMU  = w_curr 
     f_ref_SIMU  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
     
     # First prediction = measurement = initialization of MPC
     if(i==0):
       sim_data['state_des_SIMU'][i, :] = y_curr  
-    sim_data['ctrl_des_SIMU'][i, :]   = w_ref_SIMU  
+    sim_data['ctrl_des_SIMU'][i, :]    = w_ref_SIMU  
     sim_data['state_des_SIMU'][i+1, :] = y_ref_SIMU 
-    sim_data['force_des_SIMU'][i, :] = f_ref_SIMU 
+    sim_data['force_des_SIMU'][i, :]   = f_ref_SIMU 
 
     # Torque applied by motor on actuator : interpolate current torque and predicted torque 
     tau_ref_SIMU =  y_ref_SIMU[-nu:] 
@@ -308,7 +305,7 @@ for i in range(sim_data['N_simu']):
     sim_data['state_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
     # Sensor model (optional noise + filtering)
     sim_data['state_mea_SIMU'][i+1, :] = sensing.step(i, y_mea_SIMU, sim_data['state_mea_SIMU'])
-    sim_data['force_mea_SIMU'][i, :] = f_mea_SIMU
+    sim_data['force_mea_SIMU'][i, :]   = f_mea_SIMU
 
     # Display real 
     if(i%draw_rate==0):
@@ -331,7 +328,7 @@ plot_data = data_utils.extract_plot_data_from_sim_data_LPF(sim_data)
 # Plot results
 plot_utils.plot_mpc_results_LPF(plot_data, which_plots=WHICH_PLOTS,
                                 PLOT_PREDICTIONS=True, 
-                                pred_plot_sampling=int(freq_PLAN/10),
+                                pred_plot_sampling=10, #int(freq_PLAN/10),
                                 SAVE=True,
                                 SAVE_DIR=save_dir,
                                 SAVE_NAME=save_name,
