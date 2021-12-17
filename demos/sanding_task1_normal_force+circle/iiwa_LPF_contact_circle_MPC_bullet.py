@@ -63,11 +63,11 @@ nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
 # Placement of contact point in simulation (tennis ball center + radius)
-offset = 0.03348 #0.03348
+offset = 0.03349 #0.03348
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-if(config['TILT_SRUFACE']):
-  import pinocchio as pin
-  contact_placement.rotation = contact_placement.rotation.dot(pin.rpy.rpyToMatrix(0., 5*np.pi/180, 0.))
+# if(config['TILT_SRUFACE']):
+#   import pinocchio as pin
+#   contact_placement.rotation = contact_placement.rotation.dot(pin.rpy.rpyToMatrix(0., 5*np.pi/180, 0.))
 id = sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
 
 
@@ -86,7 +86,7 @@ f_ext = pin_utils.get_external_joint_torques(ee_frame_placement.copy(), config['
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 y0 = np.concatenate([x0, u0])
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                w_reg_ref=np.zeros(nq),  #'gravity',
+                                                w_reg_ref='gravity', #np.zeros(nq),  #
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
@@ -328,7 +328,7 @@ plot_data = data_utils.extract_plot_data_from_sim_data_LPF(sim_data)
 # Plot results
 plot_utils.plot_mpc_results_LPF(plot_data, which_plots=WHICH_PLOTS,
                                 PLOT_PREDICTIONS=True, 
-                                pred_plot_sampling=10, #int(freq_PLAN/10),
+                                pred_plot_sampling=int(freq_PLAN/10),
                                 SAVE=True,
                                 SAVE_DIR=save_dir,
                                 SAVE_NAME=save_name,
