@@ -37,6 +37,8 @@ class ActuationModel:
         logger.info("Created ActuationModel(DELAY_SIM="+str(self.DELAY_SIM)+
                     ", SCALE_TORQUES="+str(self.SCALE_TORQUES)+
                     ", FILTER_TORQUES="+str(self.FILTER_TORQUES)+").")
+        if(self.SCALE_TORQUES):
+          logger.info("Torques scaling : alpha = "+str(self.alpha)+" | beta = "+str(self.beta))
 
     def step(self, i, reference_torque, memory):
         '''
@@ -47,7 +49,7 @@ class ActuationModel:
          - delay tau_ref(i) = tau_ref(i-delay)
          - torque PI control (tau_mea, tau_ref)
         '''
-        measured_torque = reference_torque
+        measured_torque = reference_torque.copy()
         # Affine scaling
         if(self.SCALE_TORQUES):
           measured_torque = self.alpha * measured_torque + self.beta

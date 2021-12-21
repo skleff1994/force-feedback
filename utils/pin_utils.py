@@ -7,12 +7,26 @@ import time
 
 import logging
 
-from pinocchio.deprecated import se3ToXYZQUAT
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 DEFAULT_ARMATURE_KUKA = [.1, .1, .1, .1, .1, .1, .0]
 
+# Rotate placement
+def rotate(se3_placement, rpy=[0., 0., 0.]):
+    '''
+    Rotates se3_placement.rotation by rpy (LOCAL)
+     input : 
+        se3_placement : pin.SE3
+        rpy           : RPY orientation in LOCAL frame
+                        RPY       
+    '''
+    se3_placement_rotated = se3_placement.copy()
+    R = pin.rpy.rpyToMatrix(rpy[0], rpy[1], rpy[2])
+    se3_placement_rotated.rotation = se3_placement_rotated.rotation.copy().dot(R)
+    return se3_placement_rotated
+
+    
 # Get frame position
 def get_p(q, pin_robot, id_endeff):
     '''
@@ -300,7 +314,7 @@ def get_tau(q, v, a, f, model, armature=DEFAULT_ARMATURE_KUKA):
 # Get joint torques due to an external wrench 
 def get_external_joint_torques(M_contact, wrench, robot):
     '''
-    Computes the joint torques induced by an external contact force
+    Computes the torques induced at each joint by an external contact wrench
     '''
     f_ext = []
     if(type(wrench)=='list'):

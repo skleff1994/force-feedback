@@ -52,22 +52,23 @@ env, pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
 robot = pybullet_simulator.pin_robot
 # Get dimensions 
 nq, nv = robot.model.nq, robot.model.nv; nu = nq
-# Display contact surface
+# Get EE frame id and placement
 id_endeff = robot.model.getFrameId('contact')
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
+# Compute contact frame placement 
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
 offset = 0.03348 #0.0335 gold number = 0.03348 (NO IMPACT, NO PENETRATION)
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-if(config['TILT_SRUFACE']):
-  import pinocchio as pin
-  contact_placement.rotation = contact_placement.rotation.dot(pin.rpy.rpyToMatrix(0., 5*np.pi/180, 0.))
-id = sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
+# Optionally tilt the contact surface
+if(config['TILT_SURFACE']):
+  TILT_RPY = [0., config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0.]
+  contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
+# Create the contact surface in PyBullet simulator 
+contact_surface_bulletId = sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
+# Set lateral friction coefficient of the contact surface
+sim_utils.set_friction_coef(contact_surface_bulletId, 0.5)
 
-
-import pybullet as p
-p.changeDynamics(id, -1, lateralFriction=0.0) # contactStiffness=1, contactDamping=50)
-print(p.getDynamicsInfo(id, -1))
 
 
 # # # # # # # # # 
@@ -151,6 +152,7 @@ if(1./PLAN_TO_SIMU_RATIO%1 != 0):
 if(1./OCP_TO_SIMU_RATIO%1 != 0):
   logger.warning("SIMU->OCP ratio not an integer ! (1./OCP_TO_SIMU_RATIO  = "+str(1./OCP_TO_SIMU_RATIO)+")")
 
+
 # Additional simulation blocks 
 communication = mpc_utils.CommunicationModel(config)
 actuation     = mpc_utils.ActuationModel(config)
@@ -161,11 +163,14 @@ sensing       = mpc_utils.SensorModel(config)
 nb_points = 20 
 for i in range(nb_points):
   t = (i/nb_points)*2*np.pi/OMEGA
-  # if(i%20==0):
-  pos = ocp_utils.circle_point_WORLD(t, ee_frame_placement, radius=RADIUS, omega=OMEGA)
+  pl = pin_utils.rotate(ee_frame_placement, rpy=TILT_RPY)
+  pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA)
   sim_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
 
 draw_rate = 200
+
+
+
 
 # SIMULATE
 for i in range(sim_data['N_simu']): 
@@ -268,7 +273,7 @@ for i in range(sim_data['N_simu']):
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
-    if(i%100==0): 
+    if(i%500==0): 
       print(f_mea_SIMU)
     # Record data (unnoised)
     x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
@@ -298,7 +303,7 @@ plot_data = data_utils.extract_plot_data_from_sim_data(sim_data)
 # Plot results
 plot_utils.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
                                 PLOT_PREDICTIONS=True, 
-                                pred_plot_sampling=10,#int(freq_PLAN/10),
+                                pred_plot_sampling=int(freq_PLAN/10),
                                 SAVE=True,
                                 SAVE_DIR=save_dir,
                                 SAVE_NAME=save_name,

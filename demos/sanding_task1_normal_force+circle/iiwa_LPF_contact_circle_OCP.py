@@ -5,7 +5,7 @@
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
 @date 2020-05-18
-@brief OCP for static EE pose task with the KUKA iiwa 
+@brief OCP for sanding task with the KUKA iiwa 
 """
 
 '''

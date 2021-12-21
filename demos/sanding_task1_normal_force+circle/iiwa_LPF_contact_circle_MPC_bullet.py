@@ -5,11 +5,12 @@
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
 @date 2020-05-18
-@brief Closed-loop 'LPF torque feedback' MPC for tracking EE circle with the KUKA iiwa
+@brief Closed-loop 'LPF torque feedback' MPC for sanding task with the KUKA iiwa
 """
 
 '''
-The robot is tasked with tracking a circle EE trajectory
+The robot is tasked with exerting a constant normal force at its EE
+while drawing a circle on the contact surface
 Trajectory optimization using Crocoddyl in closed-loop MPC 
 (feedback from stateLPF y=(q,v,tau), control w = unfiltered torque)
 Using PyBullet simulator & GUI for rigid-body dynamics + visualization
@@ -65,15 +66,14 @@ contact_placement = robot.data.oMf[id_endeff].copy()
 # Placement of contact point in simulation (tennis ball center + radius)
 offset = 0.03349 #0.03348
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-# if(config['TILT_SRUFACE']):
-#   import pinocchio as pin
-#   contact_placement.rotation = contact_placement.rotation.dot(pin.rpy.rpyToMatrix(0., 5*np.pi/180, 0.))
-id = sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
-
-
-import pybullet as p
-p.changeDynamics(id, -1, lateralFriction=0.5) 
-print(p.getDynamicsInfo(id, -1))
+# Optionally tilt the contact surface
+if(config['TILT_SURFACE']):
+  TILT_RPY = [0., config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0.]
+  contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
+# Create the contact surface in PyBullet simulator 
+contact_surface_bulletId = sim_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
+# Set lateral friction coefficient of the contact surface
+sim_utils.set_friction_coef(contact_surface_bulletId, 0.5)
 
 
 # # # # # # # # # 
@@ -86,7 +86,7 @@ f_ext = pin_utils.get_external_joint_torques(ee_frame_placement.copy(), config['
 u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
 y0 = np.concatenate([x0, u0])
 ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                w_reg_ref='gravity', #np.zeros(nq),  #
+                                                w_reg_ref=np.zeros(nq), #'gravity', #,  #
                                                 TAU_PLUS=False, 
                                                 LPF_TYPE=config['LPF_TYPE'],
                                                 WHICH_COSTS=config['WHICH_COSTS'] ) 
@@ -170,20 +170,27 @@ if(1./PLAN_TO_SIMU_RATIO%1 != 0):
 if(1./OCP_TO_SIMU_RATIO%1 != 0):
   logger.warning("SIMU->OCP ratio not an integer ! (1./OCP_TO_SIMU_RATIO  = "+str(1./OCP_TO_SIMU_RATIO)+")")
 
+
+
 # Additional simulation blocks 
 communication = mpc_utils.CommunicationModel(config)
 actuation     = mpc_utils.ActuationModel(config)
 sensing       = mpc_utils.SensorModel(config, ntau=nu)
 
+
+
 # Display target circle  trajectory (reference)
 nb_points = 20 
 for i in range(nb_points):
   t = (i/nb_points)*2*np.pi/OMEGA
-  # if(i%20==0):
-  pos = ocp_utils.circle_point_WORLD(t, ee_frame_placement, radius=RADIUS, omega=OMEGA)
+  pl = pin_utils.rotate(ee_frame_placement, rpy=TILT_RPY)
+  pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA)
   sim_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
 
 draw_rate = 200
+
+
+
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -290,16 +297,19 @@ for i in range(sim_data['N_simu']):
     q_mea_SIMU, v_mea_SIMU = pybullet_simulator.get_state()
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
+    # Measure contact wrench from bullet simulator
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
-    if(i%100==0): 
-      logger.info("force mea = "+str(f_mea_SIMU))
-    # # Estimate measured torques from measured contact force in PyBullet
+    # # Estimate measured torques from measured contact wrench
     # f_ext = pin_utils.get_external_joint_torques(robot.data.oMf[id_endeff].copy(), f_mea_SIMU, robot)
     # if(i==0):
     #   a_mea_SIMU = np.zeros(nv)
     # else:
-    #   a_mea_SIMU = (sim_data['state_mea_SIMU'][i, nq:nq+nv] - v_mea_SIMU)/dt_simu
+    #   a_mea_SIMU = (v_mea_SIMU - sim_data['state_mea_SIMU'][i, nq:nq+nv])/dt_simu
     # tau_mea_SIMU = pin_utils.get_tau(q_mea_SIMU, v_mea_SIMU, a_mea_SIMU, f_ext, robot.model)
+    # if(i%10==0): 
+    #   # logger.info("force MEA = "+str(f_mea_SIMU))
+    #   logger.info("tau   REF = "+str(tau_ref_SIMU))
+    #   logger.info("tau   MEA = "+str(tau_mea_SIMU))
     #  Record data (unnoised)
     y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
     sim_data['state_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU

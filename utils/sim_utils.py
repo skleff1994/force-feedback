@@ -146,6 +146,20 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, with_collision
                         useMaximalCoordinates=True)
       return contactId
 
+# Set lateral friction coefficient to PyBullet body
+def set_friction_coef(bodyId, coef):
+  '''
+  Set lateral friction coefficient to PyBullet body
+  Input :
+    bodyId : PyBullet body unique id
+    coef   : friction coefficient in (0,1)
+  '''
+  p.changeDynamics(bodyId, -1, lateralFriction=0.5) 
+  logger.info("Set friction of body n°"+str(bodyId)+" to "+str(coef)) 
+  # print(p.getDynamicsInfo(id, -1))
+
+
+
 
 # def rotationMatrixFromTwoVectors(a, b):
 #     a_copy = a / np.linalg.norm(a)

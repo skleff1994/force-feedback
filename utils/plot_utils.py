@@ -1397,7 +1397,7 @@ def plot_mpc_endeff_linear(plot_data, PLOT_PREDICTIONS=False,
     fig.suptitle('End-effector trajectories', size=18)
     # Save figs
     if(SAVE):
-        figs = {'ee': fig}
+        figs = {'ee_lin': fig}
         if(SAVE_DIR is None):
             SAVE_DIR = '/home/skleff/force-feedback/data'
         if(SAVE_NAME is None):
@@ -1529,7 +1529,7 @@ def plot_mpc_endeff_angular(plot_data, PLOT_PREDICTIONS=False,
     fig.suptitle('End-effector frame orientation (RPY) and angular velocity', size=18)
     # Save figs
     if(SAVE):
-        figs = {'ee': fig}
+        figs = {'ee_ang': fig}
         if(SAVE_DIR is None):
             SAVE_DIR = '/home/skleff/force-feedback/data'
         if(SAVE_NAME is None):
