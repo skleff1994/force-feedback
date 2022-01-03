@@ -17,52 +17,6 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-# Interpolator
-def linear_interpolation(data, N):
-    '''
-    linear interpolation of trajectory with N interpolation knots
-     INPUT: 
-       data   : input trajectory of type np.array((N_samples, sample_dim))
-       N      : number of sub-intervals bewteen 2 consecutive samples
-                ( N = 1 ==> no interpolation )
-     OUTPUT:
-       interp : interpolated trajectory of size N_samples
-    '''
-    n = data.shape[0] # Number of input samples 
-    d = data.shape[1] # Dimension of each input sample
-    m = N*(n-1)+1     # Number of output samples (interpolated)
-    interp = np.zeros((m, d))
-    sample = 0        # Index of input sample 
-    for i in range(m):
-      coef = float(i % N) / N
-      if(i > 0 and coef==0):
-        sample+=1
-      interp[i] = data[sample]*(1-coef) + data[min(sample+1, n-1)]*coef
-    return interp 
-
-def linear_interpolation_demo():
-    '''
-     Demo of linear interpolation of order N on example data
-    '''
-    # Generate data if None provided
-    data = np.ones((10,2))
-    for i in range(data.shape[0]):
-        data[i] = i**2
-    N = 5
-    logger.info("Input data = \n")
-    logger.info(data)
-    # Interpolate
-    logger.info("Interpolate with "+str(N)+" intermediate knots")
-    interp = linear_interpolation(data, N)
-    # Plot
-    import matplotlib.pyplot as plt
-    input, = plt.plot(np.linspace(0, 1, data.shape[0]), data[:,1], 'ro', label='input data')
-    output, = plt.plot(np.linspace(0, 1, interp.shape[0]), interp[:,1], 'g*', label='interpolated')
-    plt.legend(handles=[input, output])
-    plt.grid()
-    plt.show()
-
-
 
 # Cost weights profiles, useful for reaching tasks/cost design
 def cost_weight_tanh(i, N, max_weight=1., alpha=1., alpha_cut=0.25):

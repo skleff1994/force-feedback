@@ -13,7 +13,7 @@ DELAY_OCP: True              # Add delay in OCP solution (i.e. ~1ms resolution 
 SCALE_TORQUES: True          # Affine scaling of reference torque
 NOISE_TORQUES: False          # Add Gaussian noise on reference torques
 FILTER_TORQUES: False         # Moving average smoothing of reference torques
-NOISE_STATE: False            # Add Gaussian noise on the measured state 
+NOISE_STATE: True            # Add Gaussian noise on the measured state 
 FILTER_STATE: False           # Moving average smoothing of reference torques
 SAVE_DATA: True               # Save plot_data to npz
 RECORD_SOLVER_DATA: False     # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
@@ -22,7 +22,7 @@ init_log_display_time: 1      # How long (s) to display the initial logs ?
 LOG: True                     # Logs during simulation
 log_rate: 500                 # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['all']
-TILT_SURFACE: True           # Tilt contact surface 
+TILT_SURFACE: False           # Tilt contact surface 
 TILT_PITCH_LOCAL_DEG: -10.
 
 # # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
@@ -63,7 +63,7 @@ WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg', 'stateLim']
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [0., 0., 1., 0., 0., 0.]
-frameForceWeight: 10.
+frameForceWeight: 1.
 # frameForceWeightTerminal: 0.
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'

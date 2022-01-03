@@ -67,6 +67,7 @@ contact_placement = robot.data.oMf[id_endeff].copy()
 offset = 0.03349 #0.03348
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 # Optionally tilt the contact surface
+TILT_RPY = np.zeros(3)
 if(config['TILT_SURFACE']):
   TILT_RPY = [0., config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0.]
   contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
