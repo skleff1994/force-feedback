@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_contact_cirlce_MPC_bullet.py
+@file iiwa_contact_circle_MPC_bullet.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
@@ -273,7 +273,7 @@ for i in range(sim_data['N_simu']):
     # Update pinocchio model
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
-    if(i%500==0): 
+    if(i%100==0): 
       print(f_mea_SIMU)
     # Record data (unnoised)
     x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
@@ -297,7 +297,8 @@ save_name = config_name+'_bullet_'+\
                         '_BIAS='+str(config['SCALE_TORQUES'])+\
                         '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
                         '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
-                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
+                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)+\
+                        '_'+str(time.time())
 # Extract plot data from sim data
 plot_data = data_utils.extract_plot_data_from_sim_data(sim_data)
 # Plot results

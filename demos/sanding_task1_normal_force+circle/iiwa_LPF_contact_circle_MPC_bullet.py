@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_LPF_circle_MPC_bullet.py
+@file iiwa_LPF_contact_circle_MPC_bullet.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
@@ -299,6 +299,8 @@ for i in range(sim_data['N_simu']):
     pybullet_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
     # Measure contact wrench from bullet simulator
     f_mea_SIMU = sim_utils.get_contact_wrench(pybullet_simulator, id_endeff)
+    if(i%100==0): 
+      print(f_mea_SIMU)
     # # Estimate measured torques from measured contact wrench
     # f_ext = pin_utils.get_external_joint_torques(robot.data.oMf[id_endeff].copy(), f_mea_SIMU, robot)
     # if(i==0):
@@ -332,7 +334,8 @@ save_name = config_name+'_bullet_'+\
                         '_BIAS='+str(config['SCALE_TORQUES'])+\
                         '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
                         '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
-                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
+                        '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)+\
+                        '_'+str(time.time())
 # Extract plot data from sim data
 plot_data = data_utils.extract_plot_data_from_sim_data_LPF(sim_data)
 # Plot results

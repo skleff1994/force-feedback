@@ -182,39 +182,39 @@ def plot_mpc_state_LPF(plot_data, PLOT_PREDICTIONS=False,
                 ax[i,2].scatter(tspan_x_pred, tau_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
 
         # Joint position
-        ax[i,0].plot(t_span_plan, plot_data['q_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.5)
+        ax[i,0].plot(t_span_plan, plot_data['q_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
         # ax[i,0].plot(t_span_ctrl, plot_data['q_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Desired (CTRL rate)', alpha=0.3)
         # ax[i,0].plot(t_span_simu, plot_data['q_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
         ax[i,0].plot(t_span_simu, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,0].plot(t_span_simu, plot_data['q_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         if('stateReg' in plot_data['WHICH_COSTS']):
-            ax[i,0].plot(t_span_plan[:-1], plot_data['state_ref'][:,i], color='m', linestyle='-.', marker=None, label='Reference', alpha=0.5)
+            ax[i,0].plot(t_span_plan[:-1], plot_data['state_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='Reference', alpha=0.9)
         ax[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,0].grid(True)
         
         # Joint velocity 
-        ax[i,1].plot(t_span_plan, plot_data['v_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN)', alpha=0.5)
+        ax[i,1].plot(t_span_plan, plot_data['v_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
         # ax[i,1].plot(t_span_ctrl, plot_data['v_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Desired (CTRL)', alpha=0.3)
         # ax[i,1].plot(t_span_simu, plot_data['v_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU)', alpha=0.5)
         ax[i,1].plot(t_span_simu, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,1].plot(t_span_simu, plot_data['v_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         if('stateReg' in plot_data['WHICH_COSTS']):
-            ax[i,1].plot(t_span_plan[:-1], plot_data['state_ref'][:,i+nq], color='m', linestyle='-.', marker=None, label='Reference', alpha=0.5)
+            ax[i,1].plot(t_span_plan[:-1], plot_data['state_ref'][:,i+nq], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='Reference', alpha=0.9)
         ax[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax[i,1].grid(True)
 
         # Joint torques
-        ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.5)
+        ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
         # ax[i,2].plot(t_span_ctrl, plot_data['tau_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Desired (CTRL rate)', alpha=0.3)
         # ax[i,2].plot(t_span_simu, plot_data['tau_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
         ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
         if('ctrlReg' or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
-            ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color='m', linestyle='-.', marker=None, label='Reference', alpha=0.5)
+            ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='Reference', alpha=0.9)
         # ax[i,2].plot(t_span_simu, plot_data['grav'][:,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
         ax[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
         ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -325,10 +325,10 @@ def plot_mpc_control_LPF(plot_data, PLOT_PREDICTIONS=False,
 
         # Joint torques
         ax[i].plot(t_span_plan, plot_data['w_pred'][:,0,i], color='r', marker=None, linestyle='-', label='Optimal control w0*', alpha=0.6)
-        ax[i].plot(t_span_plan, plot_data['w_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Prediction (PLAN)', alpha=0.6)
+        ax[i].plot(t_span_plan, plot_data['w_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.1)
         # ax[i].plot(t_span_ctrl, plot_data['w_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Prediction (CTRL)', alpha=0.6)
         # ax[i].plot(t_span_simu, plot_data['w_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Prediction (SIMU)', alpha=0.6)
-        ax[i].plot(t_span_simu, plot_data['grav'][:-1,i], color='k', marker=None, linestyle='-.', label='Reg reference (grav)', alpha=0.6)
+        ax[i].plot(t_span_simu, plot_data['grav'][:-1,i], color=[0.,1.,0.,0.], marker=None, linestyle='-.', label='Reg reference (grav)', alpha=0.9)
         ax[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
         ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -872,7 +872,7 @@ def plot_ddp_state_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, col
                 handles.pop(labels.index('u_grav(q)'))
                 ax[i,2].lines.pop(labels.index('u_grav(q)'))
                 labels.remove('u_grav(q)')
-            ax[i,2].plot(tspan, ureg_grav[:,i], linestyle='-.', color='m', marker=None, label='u_grav(q)', alpha=0.5)
+            ax[i,2].plot(tspan, ureg_grav[:,i], linestyle='-.', color=[0.,1.,0.,0.], marker=None, label='u_grav(q)', alpha=0.5)
         ax[i,2].set_ylabel('$\\tau_{}$'.format(i), fontsize=16)
         ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -1125,7 +1125,7 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
                 ax_x[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
 
         # Joint position
-        ax_x[i,0].plot(t_span_plan, plot_data['q_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.5)
+        ax_x[i,0].plot(t_span_plan, plot_data['q_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
         # ax[i,0].plot(t_span_ctrl, plot_data['q_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Desired (CTRL rate)', alpha=0.3)
         # ax_x[i,0].plot(t_span_simu, plot_data['q_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
         ax_x[i,0].plot(t_span_simu, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
@@ -1242,10 +1242,10 @@ def plot_mpc_control(plot_data, PLOT_PREDICTIONS=False,
 
         # Joint torques
         ax_u[i].plot(t_span_plan, plot_data['u_pred'][:,0,i], color='r', marker=None, linestyle='-', label='Optimal control u0*', alpha=0.6)
-        ax_u[i].plot(t_span_plan, plot_data['u_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Prediction (PLAN)', alpha=0.6)
+        ax_u[i].plot(t_span_plan, plot_data['u_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.1)
         # ax[i].plot(t_span_ctrl, plot_data['w_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Prediction (CTRL)', alpha=0.6)
         # ax_u[i].plot(t_span_simu, plot_data['u_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Prediction (SIMU)', alpha=0.6)
-        ax_u[i].plot(t_span_simu, plot_data['grav'][:-1,i], color='k', marker=None, linestyle='-.', label='Reg', alpha=0.6)
+        ax_u[i].plot(t_span_simu, plot_data['grav'][:-1,i], color=[0.,1.,0.,0.], marker=None, linestyle='-.', label='Reg', alpha=0.9)
         # Plot reference
         if('ctrlReg' or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
             ax_u[i].plot(t_span_plan, plot_data['ctrl_ref'][:, i], linestyle='-.', color='k', marker=None, label='uReg_ref', alpha=0.5)
@@ -1349,28 +1349,28 @@ def plot_mpc_endeff_linear(plot_data, PLOT_PREDICTIONS=False,
                 ax[i,1].scatter(tspan_x_pred, lin_vel_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
 
         # EE position
-        ax[i,0].plot(t_span_plan, plot_data['lin_pos_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.5)
-        # ax[i,0].plot(t_span_ctrl, plot_data['lin_pos_ee_des_CTRL'][:,i]-plot_data['lin_pos_ee_ref'][i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
+        ax[i,0].plot(t_span_plan, plot_data['lin_pos_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
+        # ax[i,0].plot(t_span_ctrl, plot_data['lin_pos_ee_des_CTRL'][:,i] , 'g-', label='Desired (CTRL rate)', alpha=0.5)
         # ax[i,0].plot(t_span_simu, plot_data['lin_pos_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
         ax[i,0].plot(t_span_simu, plot_data['lin_pos_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,0].plot(t_span_simu, plot_data['lin_pos_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
         # Plot reference
         if('translation' in plot_data['WHICH_COSTS']):
-            ax[i,0].plot(t_span_plan[:-1], plot_data['lin_pos_ee_ref'][:,i], 'm-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,0].plot(t_span_plan[:-1], plot_data['lin_pos_ee_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', linewidth=2., label='Reference', alpha=0.9)
         ax[i,0].set_ylabel('$P^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax[i,0].grid(True)
         
         # EE velocity
-        ax[i,1].plot(t_span_plan, plot_data['lin_vel_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.5)
+        ax[i,1].plot(t_span_plan, plot_data['lin_vel_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
         # ax[i,1].plot(t_span_ctrl, plot_data['lin_vel_ee_des_CTRL'][:,i]-plot_data['lin_vel_ee_ref'][i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
         # ax[i,1].plot(t_span_simu, plot_data['lin_vel_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
         ax[i,1].plot(t_span_simu, plot_data['lin_vel_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,1].plot(t_span_simu, plot_data['lin_vel_ee_mea_no_noise'][:,i], 'r-', label='Measured', linewidth=2)
         # Plot reference 
         if('velocity' in plot_data['WHICH_COSTS']):
-            ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'm-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), color=[0.,1.,0.,0.], linestyle='-.', linewidth=2., label='Reference', alpha=0.9)
         ax[i,1].set_ylabel('$V^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -1481,28 +1481,28 @@ def plot_mpc_endeff_angular(plot_data, PLOT_PREDICTIONS=False,
                 ax[i,1].scatter(tspan_x_pred, ang_vel_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
 
         # EE position
-        ax[i,0].plot(t_span_plan, plot_data['ang_pos_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.5)
+        ax[i,0].plot(t_span_plan, plot_data['ang_pos_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
         # ax[i,0].plot(t_span_ctrl, plot_data['ang_pos_ee_des_CTRL'][:,i]-plot_data['ang_pos_ee_ref'][i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
         # ax[i,0].plot(t_span_simu, plot_data['ang_pos_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
         ax[i,0].plot(t_span_simu, plot_data['ang_pos_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,0].plot(t_span_simu, plot_data['ang_pos_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
         # Plot reference
         if('rotation' in plot_data['WHICH_COSTS']):
-            ax[i,0].plot(t_span_plan[:-1], plot_data['ang_pos_ee_ref'][:,i], 'm-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,0].plot(t_span_plan[:-1], plot_data['ang_pos_ee_ref'][:,i], 'm-.', linewidth=2., label='Reference', alpha=0.9)
         ax[i,0].set_ylabel('$RPY^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax[i,0].grid(True)
         
         # EE velocity
-        ax[i,1].plot(t_span_plan, plot_data['ang_vel_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.5)
+        ax[i,1].plot(t_span_plan, plot_data['ang_vel_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
         # ax[i,1].plot(t_span_ctrl, plot_data['ang_vel_ee_des_CTRL'][:,i]-plot_data['lin_vel_ee_ref'][i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
         # ax[i,1].plot(t_span_simu, plot_data['ang_vel_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
         ax[i,1].plot(t_span_simu, plot_data['ang_vel_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
         ax[i,1].plot(t_span_simu, plot_data['ang_vel_ee_mea_no_noise'][:,i], 'r-', label='Measured', linewidth=2)
         # Plot reference 
         if('velocity' in plot_data['WHICH_COSTS']):
-            ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'm-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,1].plot(t_span_plan, [0.]*(N_plan+1), 'm-.', linewidth=2., label='Reference', alpha=0.9)
         ax[i,1].set_ylabel('$W^{EE}_%s$  (m)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
@@ -1606,28 +1606,28 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
                 ax[i,0].scatter(tspan_x_pred, f_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
        
         # EE linear force
-        ax[i,0].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.5)
+        ax[i,0].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
         # ax[i,0].plot(t_span_ctrl, plot_data['f_ee_des_CTRL'][:,i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
         # ax[i,0].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
         ax[i,0].plot(t_span_simu, plot_data['f_ee_mea'][:,i], 'r-', label='Measured', linewidth=2, alpha=0.6)
         # ax[i,0].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
         # Plot reference
         if('force' in plot_data['WHICH_COSTS']):
-            ax[i,0].plot(t_span_plan, plot_data['f_ee_ref'][:,i], 'm-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,0].plot(t_span_plan, plot_data['f_ee_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', linewidth=2., label='Reference', alpha=0.9)
         ax[i,0].set_ylabel('$\\lambda^{EE}_%s$  (N)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
         ax[i,0].grid(True)
 
         # EE angular force 
-        ax[i,1].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,3+i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.5)
+        ax[i,1].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,3+i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
         # ax[i,1].plot(t_span_ctrl, plot_data['f_ee_des_CTRL'][:,i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
         # ax[i,1].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,3+i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
         ax[i,1].plot(t_span_simu, plot_data['f_ee_mea'][:,3+i], 'r-', label='Measured', linewidth=2, alpha=0.6)
         # ax[i,1].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,3+i]-[plot_data['f_ee_ref'][3+i]]*(N_simu+1), 'r-', label='Measured', linewidth=2)
         # Plot reference
         if('force' in plot_data['WHICH_COSTS']):
-            ax[i,1].plot(t_span_plan, plot_data['f_ee_ref'][:,3+i], 'm-.', linewidth=2., label='Reference', alpha=0.5)
+            ax[i,1].plot(t_span_plan, plot_data['f_ee_ref'][:,3+i], color=[0.,1.,0.,0.], linestyle='-.', linewidth=2., label='Reference', alpha=0.9)
         ax[i,1].set_ylabel('$\\tau^{EE}_%s$  (Nm)'%xyz[i], fontsize=16)
         ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))

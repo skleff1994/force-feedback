@@ -35,6 +35,11 @@ def load_data(npz_file):
 
 
 
+
+
+
+
+
 #### Classical MPC
 # Initialize simulation data for MPC simulation
 def init_sim_data(config, robot, x0):
@@ -266,13 +271,11 @@ def extract_plot_data_from_sim_data(sim_data):
       # Linear
     plot_data['lin_pos_ee_mea'] = pin_utils.get_p_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['lin_vel_ee_mea'] = pin_utils.get_v_(plot_data['q_mea'], plot_data['v_mea'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['lin_pos_ee_mea'] = pin_utils.get_p_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['lin_pos_ee_mea_no_noise'] = pin_utils.get_p_(plot_data['q_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
     plot_data['lin_vel_ee_mea_no_noise'] = pin_utils.get_v_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
       # Angular
     plot_data['ang_pos_ee_mea'] = pin_utils.get_rpy_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['ang_vel_ee_mea'] = pin_utils.get_w_(plot_data['q_mea'], plot_data['v_mea'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['ang_pos_ee_mea'] = pin_utils.get_rpy_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['ang_pos_ee_mea_no_noise'] = pin_utils.get_rpy_(plot_data['q_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
     plot_data['ang_vel_ee_mea_no_noise'] = pin_utils.get_w_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
     # EE des
@@ -331,6 +334,8 @@ def extract_plot_data_from_sim_data(sim_data):
       plot_data['xreg'] = sim_data['xreg']
       plot_data['ureg'] = sim_data['ureg']
     return plot_data
+
+
 
 
 
@@ -422,7 +427,6 @@ def init_sim_data_LPF(config, robot, y0):
 
 
 
-
 # Record cost references
 def record_cost_references_LPF(ddp, sim_data, nb_plan):
   '''
@@ -431,41 +435,6 @@ def record_cost_references_LPF(ddp, sim_data, nb_plan):
   for the whole horizon (all nodes) 
   '''
   record_cost_references(ddp, sim_data, nb_plan)
-
-
-# # Extract MPC simu-specific plotting data from sim data (LPF)
-# def extract_plot_data_from_sim_data_LPF(sim_data):
-#     '''
-#     Extract plot data from simu data (for torque feedback MPC based on LPF)
-#     '''
-#     # Extract like regular OCP
-#     logger.info('Extracting plot data from MPC simulation data (LPF)...')
-#     plot_data = extract_plot_data_from_sim_data(sim_data)
-#     nu = plot_data['nu'] ; ny = plot_data['ny']
-#     # OVerwrite control with unfitlered torques (control)
-#     plot_data['w_pred'] = sim_data['ctrl_pred']
-#     plot_data['w_des_PLAN'] = sim_data['ctrl_des_PLAN']
-#     plot_data['w_des_CTRL'] = sim_data['ctrl_des_CTRL']
-#     plot_data['w_des_SIMU'] = sim_data['ctrl_des_SIMU']
-#     # Add filtered torques (state)
-#     plot_data['tau_pred'] = sim_data['state_pred'][:,:,-nu:]
-#     plot_data['tau_des_PLAN'] = sim_data['state_des_PLAN'][:,-nu:]
-#     plot_data['tau_des_CTRL'] = sim_data['state_des_CTRL'][:,-nu:]
-#     plot_data['tau_des_SIMU'] = sim_data['state_des_SIMU'][:,-nu:] 
-#     plot_data['tau_mea'] = sim_data['state_mea_SIMU'][:,-nu:]
-#     plot_data['tau_mea_no_noise'] = sim_data['state_mea_no_noise_SIMU'][:,-nu:]
-#     # Solver data (change size o)
-#     if(sim_data['RECORD_SOLVER_DATA']):
-#       # Get diagonal and eigenvals of Vxx + record in sim data
-#       plot_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, ny))
-#       plot_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, ny))
-#       for i in range(sim_data['N_plan']):
-#         for j in range(sim_data['N_h']+1):
-#           plot_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
-#           plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
-#     return plot_data
-
-
 
 
 
@@ -545,13 +514,11 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
       # Linear
     plot_data['lin_pos_ee_mea'] = pin_utils.get_p_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['lin_vel_ee_mea'] = pin_utils.get_v_(plot_data['q_mea'], plot_data['v_mea'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['lin_pos_ee_mea'] = pin_utils.get_p_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['lin_pos_ee_mea_no_noise'] = pin_utils.get_p_(plot_data['q_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
     plot_data['lin_vel_ee_mea_no_noise'] = pin_utils.get_v_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
       # Angular
     plot_data['ang_pos_ee_mea'] = pin_utils.get_rpy_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['ang_vel_ee_mea'] = pin_utils.get_w_(plot_data['q_mea'], plot_data['v_mea'], sim_data['pin_model'], sim_data['id_endeff'])
-    plot_data['ang_pos_ee_mea'] = pin_utils.get_rpy_(plot_data['q_mea'], sim_data['pin_model'], sim_data['id_endeff'])
     plot_data['ang_pos_ee_mea_no_noise'] = pin_utils.get_rpy_(plot_data['q_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
     plot_data['ang_vel_ee_mea_no_noise'] = pin_utils.get_w_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], sim_data['id_endeff'])
     # EE des
@@ -610,6 +577,7 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
       plot_data['ureg'] = sim_data['ureg']
 
     return plot_data
+
 
 
 
@@ -718,3 +686,62 @@ def extract_ddp_data_LPF(ddp):
     if('ctrlRegGrav' in ddp_data['active_costs']):
         ddp_data['ctrlRegGrav_ref'].append(pin_utils.get_u_grav(ddp.xs[-1][:ddp_data['nq']], ddp_data['pin_model']))
     return ddp_data
+
+
+
+
+
+
+
+
+# Extract directly plot data 
+def extract_plot_data_from_npz(file, LPF=False):
+  sim_data = load_data(file)
+  if(not LPF):
+    plot_data = extract_plot_data_from_sim_data(sim_data)
+  else:
+    plot_data = extract_plot_data_from_sim_data_LPF(sim_data)
+  return plot_data
+
+
+
+
+
+
+
+
+
+
+
+
+# # Extract MPC simu-specific plotting data from sim data (LPF)
+# def extract_plot_data_from_sim_data_LPF(sim_data):
+#     '''
+#     Extract plot data from simu data (for torque feedback MPC based on LPF)
+#     '''
+#     # Extract like regular OCP
+#     logger.info('Extracting plot data from MPC simulation data (LPF)...')
+#     plot_data = extract_plot_data_from_sim_data(sim_data)
+#     nu = plot_data['nu'] ; ny = plot_data['ny']
+#     # OVerwrite control with unfitlered torques (control)
+#     plot_data['w_pred'] = sim_data['ctrl_pred']
+#     plot_data['w_des_PLAN'] = sim_data['ctrl_des_PLAN']
+#     plot_data['w_des_CTRL'] = sim_data['ctrl_des_CTRL']
+#     plot_data['w_des_SIMU'] = sim_data['ctrl_des_SIMU']
+#     # Add filtered torques (state)
+#     plot_data['tau_pred'] = sim_data['state_pred'][:,:,-nu:]
+#     plot_data['tau_des_PLAN'] = sim_data['state_des_PLAN'][:,-nu:]
+#     plot_data['tau_des_CTRL'] = sim_data['state_des_CTRL'][:,-nu:]
+#     plot_data['tau_des_SIMU'] = sim_data['state_des_SIMU'][:,-nu:] 
+#     plot_data['tau_mea'] = sim_data['state_mea_SIMU'][:,-nu:]
+#     plot_data['tau_mea_no_noise'] = sim_data['state_mea_no_noise_SIMU'][:,-nu:]
+#     # Solver data (change size o)
+#     if(sim_data['RECORD_SOLVER_DATA']):
+#       # Get diagonal and eigenvals of Vxx + record in sim data
+#       plot_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, ny))
+#       plot_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, ny))
+#       for i in range(sim_data['N_plan']):
+#         for j in range(sim_data['N_h']+1):
+#           plot_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
+#           plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
+#     return plot_data

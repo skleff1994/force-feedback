@@ -13,7 +13,7 @@ DELAY_OCP: True              # Add delay in OCP solution (i.e. ~1ms resolution 
 SCALE_TORQUES: True          # Affine scaling of reference torque
 NOISE_TORQUES: False          # Add Gaussian noise on reference torques
 FILTER_TORQUES: False         # Moving average smoothing of reference torques
-NOISE_STATE: True            # Add Gaussian noise on the measured state 
+NOISE_STATE: False            # Add Gaussian noise on the measured state 
 FILTER_STATE: False           # Moving average smoothing of reference torques
 SAVE_DATA: True               # Save plot_data to npz
 RECORD_SOLVER_DATA: False     # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
@@ -23,7 +23,7 @@ LOG: True                     # Logs during simulation
 log_rate: 500                 # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['all']
 TILT_SURFACE: True           # Tilt contact surface 
-TILT_PITCH_LOCAL_DEG: 10.
+TILT_PITCH_LOCAL_DEG: -10.
 
 # # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
 #   R =
@@ -53,7 +53,7 @@ contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Cro
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
-contactModelGains: [10., 50.]             # Baumgarte stabilization gains 
+contactModelGains: [0., 0.]             # Baumgarte stabilization gains 
 # 1. 10
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
@@ -94,8 +94,8 @@ wLimWeight: 100
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 100.
-frameTranslationWeightTerminal: 100.
+frameTranslationWeight: 20.
+frameTranslationWeightTerminal: 20.
 frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m

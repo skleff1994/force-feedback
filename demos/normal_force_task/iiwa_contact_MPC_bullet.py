@@ -58,7 +58,7 @@ nq, nv = robot.model.nq, robot.model.nv; nu = nq
 id_endeff = robot.model.getFrameId('contact')
 contact_placement = robot.data.oMf[id_endeff].copy()
 M_ct = robot.data.oMf[id_endeff].copy()
-offset = 0.036 #0.0335
+offset = 0.03348 #0.036 #0.0335
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 sim_utils.display_contact_surface(contact_placement, with_collision=True)
 
@@ -125,21 +125,21 @@ for i in range(sim_data['N_simu']):
     if(i%int(freq_SIMU/freq_PLAN) == 0):
         # print("PLAN ("+str(nb_plan)+"/"+str(sim_data['N_plan'])+")")
         # Reset x0 to measured state + warm-start solution
-        ddp.problem.x0 = sim_data['X_mea_SIMU'][i, :]
+        ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
         xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-        xs_init[0] = sim_data['X_mea_SIMU'][i, :]
+        xs_init[0] = sim_data['state_mea_SIMU'][i, :]
         us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
         # Solve OCP & record MPC predictions
         ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
         sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
         sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
-        sim_data ['F_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
+        sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
         # Extract relevant predictions for interpolations
         x_curr = sim_data['state_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
         x_pred = sim_data['state_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
         u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # u0* = optimal control   
-        f_curr = sim_data['F_pred'][nb_plan, 0, :]
-        f_pred = sim_data['F_pred'][nb_plan, 1, :]
+        f_curr = sim_data['force_pred'][nb_plan, 0, :]
+        f_pred = sim_data['force_pred'][nb_plan, 1, :]
         # Record cost references
         data_utils.record_cost_references(ddp, sim_data, nb_plan)
         # Record solver data (optional)
@@ -152,10 +152,10 @@ for i in range(sim_data['N_simu']):
         u_ref_PLAN  = u_curr #u_pred_prev + OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev)
         f_ref_PLAN  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         if(nb_plan==0):
-          sim_data['X_des_PLAN'][nb_plan, :] = x_curr  
-        sim_data['U_des_PLAN'][nb_plan, :]   = u_ref_PLAN   
-        sim_data['X_des_PLAN'][nb_plan+1, :] = x_ref_PLAN    
-        sim_data['F_des_PLAN'][nb_plan, :] = f_ref_PLAN    
+          sim_data['state_des_PLAN'][nb_plan, :] = x_curr  
+        sim_data['ctrl_des_PLAN'][nb_plan, :]   = u_ref_PLAN   
+        sim_data['state_des_PLAN'][nb_plan+1, :] = x_ref_PLAN    
+        sim_data['force_des_PLAN'][nb_plan, :] = f_ref_PLAN    
         
         # Increment planning counter
         nb_plan += 1
@@ -168,10 +168,10 @@ for i in range(sim_data['N_simu']):
         f_ref_CTRL = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
-          sim_data['X_des_CTRL'][nb_ctrl, :] = x_curr  
-        sim_data['U_des_CTRL'][nb_ctrl, :]   = u_ref_CTRL  
-        sim_data['X_des_CTRL'][nb_ctrl+1, :] = x_ref_CTRL   
-        sim_data['F_des_CTRL'][nb_ctrl, :] = f_ref_CTRL   
+          sim_data['state_des_CTRL'][nb_ctrl, :] = x_curr  
+        sim_data['ctrl_des_CTRL'][nb_ctrl, :]   = u_ref_CTRL  
+        sim_data['state_des_CTRL'][nb_ctrl+1, :] = x_ref_CTRL   
+        sim_data['force_des_CTRL'][nb_ctrl, :] = f_ref_CTRL   
         # Increment control counter
         nb_ctrl += 1
         
@@ -184,13 +184,13 @@ for i in range(sim_data['N_simu']):
 
     # First prediction = measurement = initialization of MPC
     if(i==0):
-      sim_data['X_des_SIMU'][i, :] = x_curr  
-    sim_data['U_des_SIMU'][i, :]   = u_ref_SIMU  
-    sim_data['X_des_SIMU'][i+1, :] = x_ref_SIMU 
-    sim_data['F_des_SIMU'][i, :] = f_ref_SIMU 
+      sim_data['state_des_SIMU'][i, :] = x_curr  
+    sim_data['ctrl_des_SIMU'][i, :]   = u_ref_SIMU  
+    sim_data['state_des_SIMU'][i+1, :] = x_ref_SIMU 
+    sim_data['force_des_SIMU'][i, :] = f_ref_SIMU 
 
     # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
-    tau_mea_SIMU = actuation.step(i, u_ref_SIMU, sim_data['U_des_SIMU'])  
+    tau_mea_SIMU = actuation.step(i, u_ref_SIMU, sim_data['ctrl_des_SIMU'])  
     #  Send output of actuation torque to the RBD simulator 
     pybullet_simulator.send_joint_command(tau_mea_SIMU)
     env.step()
@@ -203,10 +203,10 @@ for i in range(sim_data['N_simu']):
       print(f_mea_SIMU)
     # Record data (unnoised)
     x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
-    sim_data['X_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU
+    sim_data['state_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU
     # Sensor model (optional noise + filtering)
-    sim_data['X_mea_SIMU'][i+1, :] = sensing.step(i, x_mea_SIMU, sim_data['X_mea_SIMU'])
-    sim_data['F_mea_SIMU'][i, :] = f_mea_SIMU
+    sim_data['state_mea_SIMU'][i+1, :] = sensing.step(i, x_mea_SIMU, sim_data['state_mea_SIMU'])
+    sim_data['force_mea_SIMU'][i, :] = f_mea_SIMU
 
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
