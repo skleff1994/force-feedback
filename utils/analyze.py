@@ -1,76 +1,40 @@
-import time
-import numpy as np
 import sys
-from os import listdir
-from os.path import isdir, join
-from utils import data_utils, plot_utils
+from utils import data_utils, plot_utils, analysis_utils
 
 import logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
-def main(npz_path=None, filter=1):
+def main(npz_path=None, FILTER=1):
   
   # load plot data
   if npz_path is None:
     logger.error("Please specify a DATASET to analyze !")
   else:
-    LPF = '_LPF_' in npz_path
-    logger.info(" LPF = "+str(LPF))
+    # Extract data
+    LPF = 'LPF' in npz_path
+    logger.info(" Extracting data (LPF = "+str(LPF)+")")
     data = data_utils.extract_plot_data_from_npz(npz_path, LPF=LPF)    
-
-    # # plot_utils.plot_mpc_endeff_linear(data)
-    # # Filter out noise 
-    # q_mea   = data['q_mea'].copy() 
-    # v_mea   = data['v_mea'].copy() 
-    # if(LPF):
-    #     tau_mea = data['tau_mea'].copy() 
-    # lin_pos = data['lin_pos_ee_mea'].copy() 
-    # ang_pos = data['ang_pos_ee_mea'].copy() 
-    # lin_vel = data['lin_vel_ee_mea'].copy() 
-    # ang_vel = data['ang_vel_ee_mea'].copy() 
-    # f_mea   = data['f_ee_mea'].copy() 
-    # # Filter them with moving average
-    # for i in range( lin_pos.shape[0] ):
-    #     n_sum = min(i, filter)
-    #     # Sum up over window
-    #     for k in range(n_sum):
-    #         q_mea[i,:] += data['q_mea'][i-k-1, :]
-    #         v_mea[i,:] += data['v_mea'][i-k-1, :]
-    #         if(i == data['N_simu']):
-    #             break
-    #         if(LPF):
-    #             tau_mea[i,:] += data['tau_mea'][i-k-1, :]
-    #         lin_pos[i,:] += data['lin_pos_ee_mea'][i-k-1, :]
-    #         ang_pos[i,:] += data['ang_pos_ee_mea'][i-k-1, :]
-    #         lin_vel[i,:] += data['lin_vel_ee_mea'][i-k-1, :]
-    #         ang_vel[i,:] += data['ang_vel_ee_mea'][i-k-1, :]
-    #         f_mea[i,:]   += data['f_ee_mea'][i-k-1, :]
-
-    #     #  Divide by number of samples
-    #     q_mea[i,:] = q_mea[i,:] / (n_sum + 1)
-    #     v_mea[i,:] = v_mea[i,:] / (n_sum + 1)
-    #     if(LPF):
-    #         tau_mea[i,:] = tau_mea[i,:] / (n_sum + 1)
-    #     lin_pos[i,:] = lin_pos[i,:] / (n_sum + 1)
-    #     ang_pos[i,:] = ang_pos[i,:] / (n_sum + 1)
-    #     lin_vel[i,:] = lin_vel[i,:] / (n_sum + 1)
-    #     ang_vel[i,:] = ang_vel[i,:] / (n_sum + 1)
-    # # Overwrite noised with smoothed
-    # data['q_mea']          = q_mea  
-    # data['v_mea']          = v_mea  
-    # if(LPF):
-    #     data['tau_mea']    = tau_mea
-    # data['lin_pos_ee_mea']      = lin_pos
-    # data['ang_pos_ee_mea'] = ang_pos
-    # data['lin_vel_ee_mea'] = lin_vel
-    # data['ang_vel_ee_mea'] = ang_vel
-    # data['f_ee_mea']       = f_mea   
+    
+    # Smooth if necessary
+    if(FILTER > 0):
+        data['q_mea'] = analysis_utils.moving_average_filter(data['q_mea'], FILTER)
+        data['v_mea'] = analysis_utils.moving_average_filter(data['v_mea'], FILTER)
+        if(LPF):
+            tau_mea = analysis_utils.moving_average_filter(data['tau_mea'], FILTER)
+        data['tau_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'], FILTER)
+        data['ang_pos_ee_mea'] = analysis_utils.moving_average_filter(data['ang_pos_ee_mea'], FILTER)
+        data['lin_vel_ee_mea'] = analysis_utils.moving_average_filter(data['lin_vel_ee_mea'], FILTER)
+        data['ang_vel_ee_mea'] = analysis_utils.moving_average_filter(data['ang_vel_ee_mea'], FILTER)
+        data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'], FILTER) 
+    
+    # Plot
+    WHICH_PLOTS = ['f', 'ee_lin']
     if(LPF):
-        plot_utils.plot_mpc_results_LPF(data, which_plots='all', PLOT_PREDICTIONS=False)
+        plot_utils.plot_mpc_results_LPF(data, which_plots=WHICH_PLOTS, PLOT_PREDICTIONS=False)
     else:
-        plot_utils.plot_mpc_results(data, which_plots='all', PLOT_PREDICTIONS=False)
+        plot_utils.plot_mpc_results(data, which_plots=WHICH_PLOTS, PLOT_PREDICTIONS=False)
 
 
 
