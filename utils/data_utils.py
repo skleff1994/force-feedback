@@ -676,12 +676,12 @@ def extract_ddp_data(ddp, frame_of_interest='contact'):
 
 
 #### Low Pass Filter OCP
-def extract_ddp_data_LPF(ddp):
+def extract_ddp_data_LPF(ddp, frame_of_interest='contact'):
     '''
     Record relevant data from ddp solver in order to plot 
     '''
     logger.info("Extracting DDP data (LPF)...")
-    ddp_data = extract_ddp_data(ddp)
+    ddp_data = extract_ddp_data(ddp, frame_of_interest=frame_of_interest)
     # Add terminal regularization references on filtered torques
     if('ctrlReg' in ddp_data['active_costs']):
         ddp_data['ctrlReg_ref'].append(ddp.problem.terminalModel.differential.costs.costs['ctrlReg'].cost.residual.reference)
