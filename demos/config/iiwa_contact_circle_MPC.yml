@@ -11,9 +11,9 @@ T_tot: 5.             # Simu duration (s)
 DELAY_SIM: True              # Add delay in reference torques (low-level)
 DELAY_OCP: True              # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES: True          # Affine scaling of reference torque
-NOISE_TORQUES: False          # Add Gaussian noise on reference torques
+NOISE_TORQUES: True          # Add Gaussian noise on reference torques
 FILTER_TORQUES: False         # Moving average smoothing of reference torques
-NOISE_STATE: False            # Add Gaussian noise on the measured state 
+NOISE_STATE: True            # Add Gaussian noise on the measured state 
 FILTER_STATE: False           # Moving average smoothing of reference torques
 SAVE_DATA: True               # Save plot_data to npz
 RECORD_SOLVER_DATA: False     # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)

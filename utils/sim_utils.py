@@ -3,7 +3,6 @@ from robot_properties_kuka.iiwaWrapper import IiwaRobot
 import pybullet as p
 import numpy as np
 import pinocchio as pin
-import pybullet_data
 
 import logging
 logger = logging.getLogger(__name__)
@@ -74,7 +73,7 @@ def display_ball(p_des, RADIUS=.1, COLOR=[1.,1.,1.,1.]):
     '''
     Create a sphere visual object in PyBullet
     '''
-    logger.info("Creating PyBullet target ball...")
+    logger.debug("Creating PyBullet target ball...")
     # p.setAdditionalSearchPath(pybullet_data.getDataPath())
     # target =  p.loadURDF("sphere_small.urdf", basePosition=list(p_des), globalScaling=SCALING, useFixedBase=True)
     # # Disable collisons

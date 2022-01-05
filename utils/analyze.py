@@ -1,5 +1,5 @@
 import sys
-from utils import data_utils, analysis_utils
+from utils import data_utils, analysis_utils, plot_utils
 import numpy as np
 
 import logging
@@ -76,12 +76,12 @@ def main(npz_path=None, FILTER=1, PLOT=False):
         data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
 
 
-    # # Plot
-    # WHICH_PLOTS = ['f', 'ee']
-    # if(LPF):
-    #     plot_utils.plot_mpc_results_LPF(data, which_plots=WHICH_PLOTS, PLOT_PREDICTIONS=False)
-    # else:
-    #     plot_utils.plot_mpc_results(data, which_plots=WHICH_PLOTS, PLOT_PREDICTIONS=False)
+    # Plot
+    WHICH_PLOTS = ['f', 'ee']
+    if(LPF):
+        plot_utils.plot_mpc_results_LPF(data, which_plots=WHICH_PLOTS, PLOT_PREDICTIONS=False)
+    else:
+        plot_utils.plot_mpc_results(data, which_plots=WHICH_PLOTS, PLOT_PREDICTIONS=False)
 
 
 

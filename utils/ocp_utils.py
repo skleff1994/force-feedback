@@ -893,7 +893,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       # Otherwise, take the user-provided constant torque reference for w_reg
       w_gravity_reg = False
       log_msg_w_reg = 'constant reference'
-    logger.info("Unfiltered torque regularization w.r.t. "+str(log_msg_w_reg)+".")
+    logger.info("Unfiltered torque regularization w.r.t. "+log_msg_w_reg+".")
 
 
   # Create IAMs

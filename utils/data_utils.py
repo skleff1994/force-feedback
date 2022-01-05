@@ -584,9 +584,11 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
 
 
 #### Classical OCP
-def extract_ddp_data(ddp):
+def extract_ddp_data(ddp, frame_of_interest='contact'): 
     '''
     Record relevant data from ddp solver in order to plot 
+    frame_of_interest = name of frame for which ee plots will be generated
+                        by default 'contact' as in KUKA urdf model (Tennis ball)
     '''
     logger.info("Extracting DDP data...")
     # Store data
@@ -600,7 +602,7 @@ def extract_ddp_data(ddp):
     ddp_data['nx'] = ddp.problem.runningModels[0].state.nx
     # Pin model
     ddp_data['pin_model'] = ddp.problem.runningModels[0].differential.pinocchio
-    ddp_data['frame_id'] = ddp_data['pin_model'].getFrameId('contact')
+    ddp_data['frame_id'] = ddp_data['pin_model'].getFrameId(frame_of_interest)
     # Solution trajectories
     ddp_data['xs'] = ddp.xs
     ddp_data['us'] = ddp.us

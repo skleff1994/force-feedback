@@ -23,10 +23,9 @@ sys.path.append('.')
 
 import numpy as np  
 from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils
-import pybullet as p
 import time 
-np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
+np.random.seed(2)
 
 import logging
 FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'

@@ -32,7 +32,7 @@ import numpy as np
 from utils import path_utils, sim_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils
 import time 
 np.set_printoptions(precision=4, linewidth=180)
-np.random.seed(1)
+np.random.seed(2)
 
 
 import logging
@@ -64,7 +64,7 @@ nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
 ee_frame_placement = robot.data.oMf[id_endeff].copy()
 contact_placement = robot.data.oMf[id_endeff].copy()
 # Placement of contact point in simulation (tennis ball center + radius)
-offset = 0.03349 #0.03348
+offset = 0.03348    #0.03348
 contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
 # Optionally tilt the contact surface
 TILT_RPY = np.zeros(3)
