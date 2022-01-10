@@ -36,9 +36,11 @@ def load_config_file(config_name):
     '''
     Loads YAML config file in demos/config as a dict
     '''
-    logger.info("Loading config file '"+str(config_name)+"'...")
     config_path = os.path.abspath(os.path.join(os.path.dirname(__file__),'../demos', 'config/'))
     config_file = config_path+"/"+config_name+".yml"
+    print("")
+    logger.info("Loading config file '"+str(config_file)+"'...")
+    print("")
     config = load_yaml_file(config_file)
     return config
 

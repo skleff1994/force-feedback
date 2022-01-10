@@ -21,7 +21,7 @@ INIT_LOG: True                # Initial logs summarizing parameters
 init_log_display_time: 1      # How long (s) to display the initial logs ?
 LOG: True                     # Logs during simulation
 log_rate: 500                 # Display sim status once very 'log_rate' sim cycles
-
+WHICH_PLOTS: ['x', 'u', 'ee']   # Which plots to generate
 
 
 # General

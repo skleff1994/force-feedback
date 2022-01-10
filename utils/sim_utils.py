@@ -1,39 +1,38 @@
-from bullet_utils.env import BulletEnvWithGround
-import example_robot_data
-from py_pinocchio_bullet.wrapper import PinBulletWrapper
-from robot_properties_kuka.iiwaWrapper import IiwaRobot
-import pybullet as p
 import numpy as np
 import pinocchio as pin
 
 import logging
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# Check installed pkg
+import importlib
+FOUND_PYBULLET_PKG            = importlib.util.find_spec("pybullet")              is not None
+FOUND_ROB_PROP_KUKA_PKG       = importlib.util.find_spec("robot_properties_kuka") is not None
+FOUND_BULLET_UTILS_PKG        = importlib.util.find_spec("bullet_utils")          is not None
+FOUND_EXAMPLE_ROBOT_DATA_PKG  = importlib.util.find_spec("example_robot_data")    is not None
+if(FOUND_PYBULLET_PKG):
+    import pybullet as p
+else:
+    logger.error('You need to install PyBullet !')
+if(FOUND_ROB_PROP_KUKA_PKG):
+    from robot_properties_kuka.iiwaWrapper import IiwaRobot
+else:
+    logger.error('You need to install robot_properties_kuka !')
+if(FOUND_BULLET_UTILS_PKG):
+    from bullet_utils.env import BulletEnvWithGround
+    from bullet_utils.wrapper import PinBulletWrapper
+else:
+    logger.error('You need to install bullet_utils !')
+if(FOUND_EXAMPLE_ROBOT_DATA_PKG):
+    import example_robot_data
+else:
+    logger.error('You need to install example_robot_data !')
 
-# Load KUKA arm in PyBullet environment
-def init_kuka_simulator(dt=1e3, x0=None):
-    '''
-    Loads KUKA LBR iiwa model in PyBullet using the 
-    Pinocchio-PyBullet wrapper to simplify interactions
-    '''
-    # Info log
-    logger.info("Initializing simulator...")
-    # Create PyBullet sim environment + initialize sumulator
-    env = BulletEnvWithGround(p.GUI, dt=dt)
-    pybullet_simulator = env.add_robot(IiwaRobot())
-    # Initialize
-    if(x0 is None):
-        q0 = pybullet_simulator.pin_robot.model.referenceConfigurations["half_sitting"]
-        dq0 = np.zeros(pybullet_simulator.pin_robot.model.nv)
-    else:
-        q0 = x0[:pybullet_simulator.pin_robot.model.nq]
-        dq0 = x0[pybullet_simulator.pin_robot.model.nv:]
-    pybullet_simulator.reset_state(q0, dq0)
-    pybullet_simulator.forward_robot(q0, dq0)
-    return env, pybullet_simulator
+SUPPORTED_ROBOTS = ['iiwa', 'talos']
 
-
+# Pinocchio-bullet wrapper for TALOS arm
 class TalosArmRobot(PinBulletWrapper):
     '''
     Pinocchio-PyBullet wrapper class for the KUKA LWR iiwa 
@@ -87,6 +86,7 @@ class TalosArmRobot(PinBulletWrapper):
         #     p.enableJointForceTorqueSensor(self.robotId,i,True)
         print("joint names = ")
         print(self.joint_names)
+    
     def forward_robot(self, q=None, dq=None):
         if q is None:
             q, dq = self.get_state()
@@ -98,30 +98,77 @@ class TalosArmRobot(PinBulletWrapper):
         self.pin_robot.centroidalMomentum(q, dq)
 
 
-
-# Load TALOS arm in PyBullet environment
-def init_talos_simulator(dt=1e3, x0=None):
+# Load robot in PyBullet environment 
+def init_bullet_simulation(robot_name, dt=1e3, x0=None):
     '''
-    Loads TALOS arm model in PyBullet using the 
-    Pinocchio-PyBullet wrapper to simplify interactions
+    Initialize a PyBullet simulation environment with robot SUPPORTED_ROBOTS
+    '''
+    if(robot_name not in SUPPORTED_ROBOTS):
+        logger.error("Specified robot not supported ! Select a robot in "+str(SUPPORTED_ROBOTS))
+    else:
+        if(robot_name == 'iiwa'):
+            return init_iiwa_bullet(dt=dt, x0=x0)
+        elif(robot_name == 'talos'):
+            return init_talos_bullet(dt=dt, x0=x0)
+
+
+# Load KUKA arm in PyBullet environment
+def init_iiwa_bullet(dt=1e3, x0=None):
+    '''
+    Loads KUKA LBR iiwa model in PyBullet simulator
+    using the PinBullet wrapper to simplify interactions
+      INPUT:
+        dt        : simulator time step
+        x0        : initial robot state (pos and vel)
     '''
     # Info log
-    logger.info("Initializing simulator...")
+    print("")
+    logger.info("Initializing KUKA iiwa in PyBullet simulator...")
+    print("")
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.GUI, dt=dt)
-    pybullet_simulator = env.add_robot(TalosArmRobot())
+    robot_simulator = env.add_robot(IiwaRobot())
+    # Initialize
+    if(x0 is None):
+        q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]) 
+        dq0 = np.zeros(robot_simulator.pin_robot.model.nv)
+    else:
+        q0 = x0[:robot_simulator.pin_robot.model.nq]
+        dq0 = x0[robot_simulator.pin_robot.model.nv:]
+    robot_simulator.reset_state(q0, dq0)
+    robot_simulator.forward_robot(q0, dq0)
+    return env, robot_simulator
+
+
+# Load TALOS arm in PyBullet environment
+def init_talos_bullet(dt=1e3, x0=None):
+    '''
+    Loads TALOS left arm model in PyBullet simulator
+    using the PinBullet wrapper to simplify interactions
+      INPUT:
+        dt        : simulator time step
+        x0        : initial robot state (pos and vel)
+    '''
+    # Info log
+    print("")
+    logger.info("Initializing TALOS left arm in PyBulletsimulator...")
+    print("")
+    # Create PyBullet sim environment + initialize sumulator
+    env = BulletEnvWithGround(p.GUI, dt=dt)
+    robot_simulator = env.add_robot(TalosArmRobot())
     # Initialize
     if(x0 is None):
         q0 = np.array([2., 0., 0., 0., 0., 0., 0.])
-        dq0 = np.zeros(pybullet_simulator.pin_robot.model.nv)
+        dq0 = np.zeros(robot_simulator.pin_robot.model.nv)
     else:
-        q0 = x0[:pybullet_simulator.pin_robot.model.nq]
-        dq0 = x0[pybullet_simulator.pin_robot.model.nv:]
-    pybullet_simulator.reset_state(q0, dq0)
-    pybullet_simulator.forward_robot(q0, dq0)
-    return env, pybullet_simulator
+        q0 = x0[:robot_simulator.pin_robot.model.nq]
+        dq0 = x0[robot_simulator.pin_robot.model.nv:]
+    robot_simulator.reset_state(q0, dq0)
+    robot_simulator.forward_robot(q0, dq0)
+    return env, robot_simulator
 
 
+# Get contact wrench from robot simulator
 def get_contact_wrench(pybullet_simulator, id_endeff):
     '''
     Get contact wrench in LOCAL contact frame
@@ -150,6 +197,7 @@ def get_contact_wrench(pybullet_simulator, id_endeff):
         return force
 
 
+# Get joint torques from robot simulator
 def get_contact_joint_torques(pybullet_simulator, id_endeff):
     '''
     Get contact wrench in LOCAL contact frame
@@ -160,6 +208,7 @@ def get_contact_joint_torques(pybullet_simulator, id_endeff):
     return joint_torques
 
 
+# Display ball in simulation environment
 def display_ball(p_des, RADIUS=.1, COLOR=[1.,1.,1.,1.]):
     '''
     Create a sphere visual object in PyBullet
@@ -235,6 +284,7 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, with_collision
                         basePosition=[0.,0.,0.],
                         useMaximalCoordinates=True)
       return contactId
+
 
 # Set lateral friction coefficient to PyBullet body
 def set_friction_coef(bodyId, coef):

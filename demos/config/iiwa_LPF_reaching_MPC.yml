@@ -1,6 +1,7 @@
-# MPC parameters for EE reaching task LPF
-# + PyBullet or Raisim simulation
+# ROBOT : 'iiwa' 
+# TASK  : 3D position target reaching
 
+# with Low-Pass-Filter (LPF) in dynamics
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
@@ -34,6 +35,14 @@ q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint confi
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initial robot joint torque
 
+
+# Pin model frame name of the end-effector 
+#   - Used for frame-related costs and plots generation
+#   - Overrides the frame name 'DEFAULT' values below
+frame_of_interest: 'contact'
+
+
+
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
@@ -45,13 +54,13 @@ WHICH_COSTS: ['translation', 'velocity', 'ctrlRegGrav', 'stateReg']
 stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 2., 2., 2., 2., 2., 2., 2.]
 stateRegWeight: .1
 stateRegWeightTerminal: 10.
-stateRegRef: 'DEFAULT'
+stateRegRef: 'DEFAULT' # 'DEFAULT' = [q0, v0]
 
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.00
 ctrlRegWeightTerminal: 10
-ctrlRegRef: 'DEFAULT'  # default 0 if None
+ctrlRegRef: 'DEFAULT'  # DEFAULT = g(q) | NOT used for 'ctrlRegGrav' cost
 
 # 'wReg' : unfiltered torque regularization
 wRegWeight: 0.00001
@@ -64,35 +73,27 @@ frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 2.
 frameTranslationWeightTerminal: 2. 
 frameTranslationRef: [-0.5, -0.5, 0.7]
-frameTranslationFrameName: 'contact'
+frameTranslationFrameName: 'DEFAULT' # 'DEFAULT' = $(frame_of_interest)
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
 frameVelocityWeight: 0.
 frameVelocityWeightTerminal: 1.
 frameVelocityRef: [0., 0., 0., 0., 0., 0.]    
-frameVelocityFrameName: 'contact'
-
- # 'placement' : end-effector frame placement (translation + rotation)
-framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0.1
-framePlacementWeightTerminal: 0.1
-framePlacementTranslationRef: [-0.5, -0.5, 0.7]
-framePlacementRotationRef: 'DEFAULT'
-framePlacementFrameName: 'contact'
+frameVelocityFrameName: 'DEFAULT'   # 'DEFAULT' = $(frame_of_interest)
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
 stateLimWeight: 0.
 stateLimWeightTerminal: 0.
-stateLimRef: 'DEFAULT'
+stateLimRef: 'DEFAULT'  # 'DEFAULT' = [0., 0., 0., 0., 0., 0. ,0.]
 
  # 'ctrlLim' : torque limits
 ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
 ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlLimWeight: 0.
 ctrlLimWeightTerminal: 0.
-ctrlLimRef: 'DEFAULT'
+ctrlLimRef: 'DEFAULT'   # 'DEFAULT' = [0., 0., 0., 0., 0., 0. ,0.]
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .0]
 

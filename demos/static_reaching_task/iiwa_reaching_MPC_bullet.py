@@ -89,7 +89,7 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS       = ['x','u', 'p']                          # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS       = config['WHICH_PLOTS']                   # Which plots to generate ? ('x':state, 'u':control, 'ee':end-eff, etc.)
 dt_ocp            = config['dt']                            # OCP sampling rate 
 dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
 OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
@@ -149,11 +149,10 @@ for i in range(sim_data['N_simu']):
 
   # If we are in a control cycle select reference torque to send to the actuator (motor driver input frequency)
     if(i%int(freq_SIMU/freq_CTRL) == 0):        
-        # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data['N_ctrl'])+")")
         # Select reference control and state for the current CTRL cycle
         COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-        x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)# x_curr + COEF * OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-        u_ref_CTRL = u_curr #u_pred_prev + OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev) #u_pred_prev + COEF * OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev)
+        x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
+        u_ref_CTRL = u_curr 
         # First prediction = measurement = initialization of MPC
         if(nb_ctrl==0):
           sim_data['state_des_CTRL'][nb_ctrl, :] = x_curr  

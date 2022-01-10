@@ -4,7 +4,6 @@
 
 import time
 import numpy as np
-import raisimpy as raisim
 from scipy.spatial.transform import Rotation
 from numpy.linalg import norm
 import pinocchio as pin
@@ -13,35 +12,21 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+import importlib
+FOUND_RAISIMPY_PKG = importlib.util.find_spec("raisimpy") is not None
+if(FOUND_RAISIMPY_PKG):
+    import raisimpy as raisim
+else:
+    logger.error('You need to install RaiSim : https://raisim.com/')
+
 DEFAULT_URDF_PATH = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"
 DEFAULT_MESH_PATH = "/home/skleff/robot_properties_kuka_RAISIM"
 LICENSE_PATH = '/home/skleff/.raisim/activation.raisim'
 
-# Load KUKA arm in Raisim environment
-def init_kuka_RAISIM(dt=1e3, x0=None):
-    '''
-    Loads KUKA LBR iiwa model in Raisim using the 
-    Pinocchio-Raisim wrapper to simplify interactions
-    '''
-    logger.info("Initializing simulator...")
-    # Create Raisim sim environment + initialize sumulator
-    iiwa_config = IiwaMinimalConfig(DEFAULT_URDF_PATH, DEFAULT_MESH_PATH)
-    # Load Raisim environment
-    env = RaiEnv(LICENSE_PATH, dt=dt)
-    robot = env.add_robot(iiwa_config, init_config=None)
-    env.launch_server()
-    # Initialize
-    if(x0 is None):
-        q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
-        dq0 = np.zeros(robot.model.nv)
-    else:
-        q0 = x0[:robot.model.nq]
-        dq0 = x0[robot.model.nv:]
-    robot.reset_state(q0, dq0)
-    robot.forward_robot(q0, dq0)
-    return env, robot
+#TODO : generate Raisim-compatible urdf and meshes for TALOS arm
+SUPPORTED_ROBOTS = ['iiwa'] #, 'talos']
 
-
+# RaiSim compatible minimal config for iiwa robot
 class IiwaMinimalConfig:
     def __init__(self, urdf_path, mesh_path):
         self.end_effector_names = ["contact"]
@@ -57,6 +42,28 @@ class IiwaMinimalConfig:
         self.tennis_ball_radius = 0.0320 # Value found empirically to be already in contact
 
 
+# RaiSim compatible minimal config for talos arm robot
+class TalosMinimalConfig:
+    def __init__(self, urdf_path, mesh_path):
+        self.end_effector_names = ["gripper_left_joint"]
+        self.motor_inertia = 0.0000045
+        self.motor_gear_ratio = 100.0
+        self.robot_name = "talos"
+        self.urdf_path = urdf_path
+        self.mesh_path = mesh_path
+        self.model = pin.buildModelFromUrdf(self.urdf_path)
+        self.initial_configuration = [0.]*self.model.nq
+        self.initial_velocity = [0.]*self.model.nv
+        self.link_names =  ['arm_left_1_link', 
+                            'arm_left_2_link', 
+                            'arm_left_3_link',
+                            'arm_left_4_link',
+                            'arm_left_5_link',
+                            'arm_left_6_link',
+                            'arm_left_7_link']
+
+
+# Pinocchio-Raisim wrapper to simplify interactions between Pinocchio and Raisim
 class PinRaiRobotWrapper:
 
     def __init__(self, world, robot_config, init_config = None):
@@ -207,6 +214,7 @@ class PinRaiRobotWrapper:
         return ee_positions
 
 
+# Raisim simulation environment
 class RaiEnv:
 
     def __init__(self, LICENSE_PATH=None, dt=None):
@@ -408,6 +416,80 @@ class RaiEnv:
         wall.setOrientation(quat[6], quat[3], quat[4], quat[5])
         wall.setPosition(p)
         return wall
+
+
+# Load robot in RaiSim environment 
+def init_raisim_simulation(robot_name, dt=1e3, x0=None):
+    '''
+    Initialize a RaiSim simulation environment with robot in SUPPORTED_ROBOTS
+    '''
+    if(robot_name not in SUPPORTED_ROBOTS):
+        logger.error("Specified robot not supported ! Select a robot in "+str(SUPPORTED_ROBOTS))
+    else:
+        if(robot_name == 'iiwa'):
+            return init_iiwa_raisim(dt=dt, x0=x0)
+        elif(robot_name == 'talos'):
+            return init_talos_raisim(dt=dt, x0=x0)
+
+
+# Load KUKA iiwa arm in Raisim environment
+def init_iiwa_raisim(dt=1e3, x0=None):
+    '''
+    Loads KUKA LBR iiwa model in Raisim simulator
+    using the PinRaiSim wrapper to simplify interactions
+      INPUT:
+        dt        : simulator time step
+        x0        : initial robot state (pos and vel)
+    '''
+    print("")
+    logger.info("Initializing KUKA iiwa in RaiSim simulator...")
+    print("")
+    # Create Raisim sim environment + initialize sumulator
+    iiwa_config = IiwaMinimalConfig(DEFAULT_URDF_PATH, DEFAULT_MESH_PATH)
+    # Load Raisim environment
+    env = RaiEnv(LICENSE_PATH, dt=dt)
+    robot_simulator = env.add_robot(iiwa_config, init_config=None)
+    env.launch_server()
+    # Initialize
+    if(x0 is None):
+        q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
+        dq0 = np.zeros(robot_simulator.model.nv)
+    else:
+        q0 = x0[:robot_simulator.model.nq]
+        dq0 = x0[robot_simulator.model.nv:]
+    robot_simulator.reset_state(q0, dq0)
+    robot_simulator.forward_robot(q0, dq0)
+    return env, robot_simulator
+
+
+# Load talos left arm in Raisim environment
+def init_talos_raisim(dt=1e3, x0=None):
+    '''
+    Loads TALOS left arm model in Raisim simulator
+    using the PinRaiSim wrapper to simplify interactions
+      INPUT:
+        dt        : simulator time step
+        x0        : initial robot state (pos and vel)
+    '''
+    print("")
+    logger.info("Initializing TALOS left arm in RaiSim simulator...")
+    print("")
+    # Create Raisim sim environment + initialize sumulator
+    iiwa_config = IiwaMinimalConfig(DEFAULT_URDF_PATH, DEFAULT_MESH_PATH)
+    # Load Raisim environment
+    env = RaiEnv(LICENSE_PATH, dt=dt)
+    robot_simulator = env.add_robot(iiwa_config, init_config=None)
+    env.launch_server()
+    # Initialize
+    if(x0 is None):
+        q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
+        dq0 = np.zeros(robot_simulator.model.nv)
+    else:
+        q0 = x0[:robot_simulator.model.nq]
+        dq0 = x0[robot_simulator.model.nv:]
+    robot_simulator.reset_state(q0, dq0)
+    robot_simulator.forward_robot(q0, dq0)
+    return env, robot_simulator
 
 
 
