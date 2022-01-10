@@ -43,7 +43,8 @@ x0 = np.concatenate([q0, v0])
 # Get pin wrapper
 robot = example_robot_data.load('talos_arm')
 # Get initial frame placement + dimensions of joint space
-id_endeff = robot.model.getFrameId('gripper_left_joint')
+frame_name = config['frame_of_interest']
+id_endeff = robot.model.getFrameId(frame_name)
 nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv
 nu = nq
@@ -72,27 +73,87 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 #  Plot
 PLOT = True
 if(PLOT):
-    ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest='gripper_left_joint')
+    ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest=frame_name)
     fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
 
 VISUALIZE = True
-pause = 0.01 # in s
 if(VISUALIZE):
+
     import time
+    import pinocchio as pin
+
     robot.initDisplay(loadModel=True)
     robot.display(q0)
     viewer = robot.viz.viewer
-    # viewer.gui.addFloor('world/floor')
-    # viewer.gui.refresh()
-    log_rate = int(N_h/10)
+
+    N_h = config['N_h']
+    models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+    # Init viewer
+    robot.initViewer(loadModel=True)
+    robot.display(q0)
+    viewer = robot.viz.viewer; gui = viewer.gui
+
+    draw_rate = int(N_h/50)
+    log_rate  = int(N_h/10)
+    
+    ref_color  = [1., 0., 0., 1.]
+    real_color = [0., 0., 1., 0.3]
+    ct_color   = [0., 1., 0., 1.]
+    
+    ref_size    = 0.03
+    real_size   = 0.02
+    ct_size     = 0.02
+    wrench_coef = 0.02
+
+    pause = 0.05
+
+    # cleanup
+        # clean ref
+    if(gui.nodeExists('world/EE_ref')):
+        gui.deleteNode('world/EE_ref', True)
+    for i in range(N_h):
+        # clean DDP sol
+        if(gui.nodeExists('world/EE_sol_'+str(i))):
+            gui.deleteNode('world/EE_sol_'+str(i), True)
+            gui.deleteLandmark('world/EE_sol_'+str(i))
+    # Get initial EE placement + tf
+    ee_frame_placement = M_ee.copy()
+    tf_ee = list(pin.SE3ToXYZQUAT(ee_frame_placement))
+    # Get ref EE placement + tf
+    m_ee_ref = ee_frame_placement.copy()
+    m_ee_ref.translation = np.asarray(config['frameTranslationRef'])
+    tf_ee_ref = list(pin.SE3ToXYZQUAT(m_ee_ref))
+    # Display ref
+    gui.addSphere('world/EE_ref', ref_size, ref_color)
+    gui.applyConfiguration('world/EE_ref', tf_ee_ref)
+    # Display sol init + landmark
+    gui.addSphere('world/EE_sol_', real_size, real_color)
+    gui.addLandmark('world/EE_sol_', 0.25)
+    gui.applyConfiguration('world/EE_sol_', tf_ee)
+    
+    viewer.gui.refresh()
     logger.info("Visualizing...")
     time.sleep(1.)
+
     for i in range(N_h):
-        # Iter log
+        # Display robot in config q
+        q = ddp.xs[i][:nq]
+        robot.display(q)
+
+        # Display EE traj and ref circle traj
+        if(i%draw_rate==0):
+            # EE trajectory
+            robot.framesForwardKinematics(q)
+            m_ee = robot.data.oMf[id_endeff].copy()
+            tf_ee = list(pin.SE3ToXYZQUAT(m_ee))
+            viewer.gui.addSphere('world/EE_sol_'+str(i), real_size, real_color)
+            viewer.gui.applyConfiguration('world/EE_sol_'+str(i), tf_ee)
+            viewer.gui.applyConfiguration('world/EE_sol_', tf_ee)
+
         viewer.gui.refresh()
-        robot.display(ddp.xs[i][:nq])
+
         if(i%log_rate==0):
             logger.info("Display config n°"+str(i))
-        time.sleep(pause)
 
+        time.sleep(pause)
 

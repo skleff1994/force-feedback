@@ -45,7 +45,7 @@ robot = example_robot_data.load('talos_arm')
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
 # Get initial frame placement + dimensions of joint space
-frame_name = 'wrist_left_ft_link'
+frame_name = config['frame_of_interest']
 id_endeff = robot.model.getFrameId(frame_name)
 M_ee = robot.data.oMf[id_endeff]
 nq = robot.model.nq; nv = robot.model.nv; nx = nq+nv; nu = nq

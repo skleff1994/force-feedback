@@ -7,6 +7,9 @@ maxiter: 100                                         # Max number of iterations 
 q0: [2., 0., 0., 0., 0., 0., 0.]    # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 
+
+frame_of_interest: 'gripper_left_joint'
+
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
@@ -29,14 +32,14 @@ frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 2.
 frameTranslationWeightTerminal: 2. 
 frameTranslationRef: [0.3, -0.2, 0.5]
-frameTranslationFrameName: 'gripper_left_joint'
+frameTranslationFrameName: 'DEFAULT'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
 frameVelocityWeight: 0.1
 frameVelocityWeightTerminal: 1
 frameVelocityRef: [0., 0., 0., 0., 0., 0.]    
-frameVelocityFrameName: 'gripper_left_joint'
+frameVelocityFrameName: 'DEFAULT'
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]

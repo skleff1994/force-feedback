@@ -42,7 +42,7 @@ def load_data(npz_file):
 
 #### Classical MPC
 # Initialize simulation data for MPC simulation
-def init_sim_data(config, robot, x0):
+def init_sim_data(config, robot, x0, frame_of_interest='contact'):
     '''
     Initialize simulation data from config file
     '''
@@ -68,7 +68,7 @@ def init_sim_data(config, robot, x0):
     sim_data['nv'] = sim_data['pin_model'].nv
     sim_data['nu'] = sim_data['pin_model'].nq
     sim_data['nx'] = sim_data['nq'] + sim_data['nv']
-    sim_data['id_endeff'] = sim_data['pin_model'].getFrameId('contact') # hard-coded contact frame here !!!
+    sim_data['id_endeff'] = sim_data['pin_model'].getFrameId(frame_of_interest) # hard-coded contact frame here !!!
     # Cost references 
     sim_data['ctrl_ref'] = np.zeros((sim_data['N_plan'], sim_data['nu']))
     sim_data['state_ref'] = np.zeros((sim_data['N_plan'], sim_data['nx']))
@@ -342,7 +342,7 @@ def extract_plot_data_from_sim_data(sim_data):
 
 #### Low Pass Filter MPC
 # Initialize MPC simulation with torque feedback based on Low-Pass-Filter (LPF) Actuation Model
-def init_sim_data_LPF(config, robot, y0):
+def init_sim_data_LPF(config, robot, y0, frame_of_interest='contact'):
     '''
     Initialize simulation data from config file (for torque feedback MPC based on LPF)
     '''
@@ -369,7 +369,7 @@ def init_sim_data_LPF(config, robot, y0):
     sim_data['nu'] = sim_data['pin_model'].nq
     sim_data['nx'] = sim_data['nq'] + sim_data['nv']
     sim_data['ny'] = sim_data['nx'] + sim_data['nu']
-    sim_data['id_endeff'] = sim_data['pin_model'].getFrameId('contact')
+    sim_data['id_endeff'] = sim_data['pin_model'].getFrameId(frame_of_interest)
     # Cost references 
     sim_data['ctrl_ref'] = np.zeros((sim_data['N_plan'], sim_data['nu']))
     sim_data['state_ref'] = np.zeros((sim_data['N_plan'], sim_data['nx']))

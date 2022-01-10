@@ -9,6 +9,9 @@ maxiter: 1000                                           # Max number of iteratio
 q0: [2., 0., 0., 0., 0., 0., 0.]    # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 
+
+frame_of_interest: 'gripper_left_joint'
+
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'

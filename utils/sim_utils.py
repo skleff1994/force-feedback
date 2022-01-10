@@ -1,4 +1,6 @@
 from bullet_utils.env import BulletEnvWithGround
+import example_robot_data
+from py_pinocchio_bullet.wrapper import PinBulletWrapper
 from robot_properties_kuka.iiwaWrapper import IiwaRobot
 import pybullet as p
 import numpy as np
@@ -7,6 +9,7 @@ import pinocchio as pin
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
 
 # Load KUKA arm in PyBullet environment
 def init_kuka_simulator(dt=1e3, x0=None):
@@ -21,7 +24,93 @@ def init_kuka_simulator(dt=1e3, x0=None):
     pybullet_simulator = env.add_robot(IiwaRobot())
     # Initialize
     if(x0 is None):
-        q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
+        q0 = pybullet_simulator.pin_robot.model.referenceConfigurations["half_sitting"]
+        dq0 = np.zeros(pybullet_simulator.pin_robot.model.nv)
+    else:
+        q0 = x0[:pybullet_simulator.pin_robot.model.nq]
+        dq0 = x0[pybullet_simulator.pin_robot.model.nv:]
+    pybullet_simulator.reset_state(q0, dq0)
+    pybullet_simulator.forward_robot(q0, dq0)
+    return env, pybullet_simulator
+
+
+class TalosArmRobot(PinBulletWrapper):
+    '''
+    Pinocchio-PyBullet wrapper class for the KUKA LWR iiwa 
+    '''
+    def __init__(self, pos=None, orn=None): 
+
+        # Load the robot
+        if pos is None:
+            pos = [0.0, 0, 0.0]
+        if orn is None:
+            orn = p.getQuaternionFromEuler([0, 0, 0])
+        # Create the robot wrapper in pinocchio.
+        robot_loader = example_robot_data.robots_loader.TalosArmLoader()
+        self.pin_robot = robot_loader.robot
+        p.setAdditionalSearchPath(robot_loader.model_path)
+        self.urdf_path = robot_loader.df_path
+        self.robotId = p.loadURDF(self.urdf_path,
+                                  pos, 
+                                  orn,
+                                  flags=p.URDF_USE_INERTIA_FROM_FILE,
+                                  useFixedBase=True)
+        p.getBasePositionAndOrientation(self.robotId)
+        # Query all the joints.
+        num_joints = p.getNumJoints(self.robotId)
+        for ji in range(num_joints):
+            p.changeDynamics(self.robotId, 
+                             ji, 
+                             linearDamping=.04,
+                             angularDamping=0.04, 
+                             restitution=0.0, 
+                             lateralFriction=0.5)
+        self.base_link_name = "arm_left_1_link"
+        self.end_eff_ids = []
+        controlled_joints = ['arm_left_2_joint',
+                             'arm_left_3_joint',
+                             'arm_left_4_joint',
+                             'arm_left_5_joint',
+                             'arm_left_6_joint',
+                             'arm_left_7_joint',
+                             'gripper_left_joint']
+        self.joint_names = controlled_joints
+        # Creates the wrapper by calling the super.__init__.
+        super(TalosArmRobot, self).__init__(self.robotId, 
+                                        self.pin_robot,
+                                        controlled_joints,
+                                        ['gripper_left_joint'],
+                                        useFixedBase=True)
+        self.nb_dof = self.nv
+        # for i in range(len(self.joint_names)):
+        #     p.enableJointForceTorqueSensor(self.robotId,i,True)
+
+    def forward_robot(self, q=None, dq=None):
+        if q is None:
+            q, dq = self.get_state()
+        elif dq is None:
+            raise ValueError("Need to provide q and dq or non of them.")
+        self.pin_robot.forwardKinematics(q, dq)
+        self.pin_robot.computeJointJacobians(q)
+        self.pin_robot.framesForwardKinematics(q)
+        self.pin_robot.centroidalMomentum(q, dq)
+
+
+
+# Load TALOS arm in PyBullet environment
+def init_talos_simulator(dt=1e3, x0=None):
+    '''
+    Loads TALOS arm model in PyBullet using the 
+    Pinocchio-PyBullet wrapper to simplify interactions
+    '''
+    # Info log
+    logger.info("Initializing simulator...")
+    # Create PyBullet sim environment + initialize sumulator
+    env = BulletEnvWithGround(p.GUI, dt=dt)
+    pybullet_simulator = env.add_robot(TalosArmRobot())
+    # Initialize
+    if(x0 is None):
+        q0 = np.array([2., 0., 0., 0., 0., 0., 0.])
         dq0 = np.zeros(pybullet_simulator.pin_robot.model.nv)
     else:
         q0 = x0[:pybullet_simulator.pin_robot.model.nq]
