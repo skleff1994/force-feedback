@@ -20,7 +20,7 @@ def save_data(sim_data, save_name=None, save_dir=None):
     if(save_dir is None):
         save_dir = os.path.abspath(os.path.join(os.path.dirname(__file__),'../data'))
     save_path = save_dir+'/'+save_name+'.npz'
-    np.savez_compressed(save_path, data=sim_data)
+    np.savez_compressed(save_path, data=sim_data, allow_pickle=True)
     logger.info("Saved data to "+str(save_path)+" !")
 
 

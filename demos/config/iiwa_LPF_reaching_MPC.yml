@@ -7,7 +7,7 @@
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 250        # Control frequency
 plan_freq: 250        # Planning frequency
-T_tot: 3.              # Simu duration (s)
+T_tot: .5              # Simu duration (s)
 # Simulation options
 DELAY_SIM: True                # Add delay in reference torques (low-level)
 DELAY_OCP: True                # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -22,7 +22,7 @@ INIT_LOG: True                 # Initial logs summarizing parameters
 init_log_display_time: 1       # How long (s) to display the initial logs ?
 LOG: True                      # Logs during simulation
 log_rate: 500                  # Display sim status once very 'log_rate' sim cycles
-
+WHICH_PLOTS: ['x','u', 'ee']   # Which plots to generate ? ('x':state, 'u':control, 'ee':end-eff, etc.)
 
 
 # General 
