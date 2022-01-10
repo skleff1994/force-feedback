@@ -57,7 +57,7 @@ nq, nv = robot.model.nq, robot.model.nv; nu = nq
 # # # # # # # # # 
 ### OCP SETUP ###
 # # # # # # # # # 
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
+ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
                                             WHICH_COSTS=config['WHICH_COSTS']) 
 
 # Warm start and solve
@@ -65,6 +65,9 @@ ug  = pin_utils.get_u_grav(q0, robot.model)
 xs_init = [x0 for i in range(config['N_h']+1)]
 us_init = [ug for i in range(config['N_h'])]
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+
+xs_init_0 = xs_init.copy()
+us_init_0 = us_init.copy()
 
 # Plot initial solution
 PLOT_INIT = False
@@ -98,6 +101,7 @@ actuation     = mpc_utils.ActuationModel(config)
 sensing       = mpc_utils.SensorModel(config)
 
 
+sim_utils.display_ball(np.asarray(config['frameTranslationRef']), RADIUS=.1, COLOR=[1.,0.,0.,1.])
 
 # # # # # # # # # # # #
 ### SIMULATION LOOP ###
@@ -125,7 +129,7 @@ for i in range(sim_data['N_simu']):
         # Extract relevant predictions for interpolations
         x_curr = sim_data['state_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
         x_pred = sim_data['state_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
-        u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # u0* = optimal control   
+        u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]     # u0* = optimal control   
         # Record cost references
         data_utils.record_cost_references(ddp, sim_data, nb_plan)
         # Record solver data (optional)

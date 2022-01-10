@@ -74,6 +74,7 @@ class TalosArmRobot(PinBulletWrapper):
                              'arm_left_6_joint',
                              'arm_left_7_joint',
                              'gripper_left_joint']
+        self.end_eff_ids.append(self.pin_robot.model.getFrameId('gripper_left_motor_single_link'))
         self.joint_names = controlled_joints
         # Creates the wrapper by calling the super.__init__.
         super(TalosArmRobot, self).__init__(self.robotId, 
@@ -84,7 +85,8 @@ class TalosArmRobot(PinBulletWrapper):
         self.nb_dof = self.nv
         # for i in range(len(self.joint_names)):
         #     p.enableJointForceTorqueSensor(self.robotId,i,True)
-
+        print("joint names = ")
+        print(self.joint_names)
     def forward_robot(self, q=None, dq=None):
         if q is None:
             q, dq = self.get_state()

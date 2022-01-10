@@ -4,9 +4,9 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 500        # Control frequency
-plan_freq: 500        # Planning frequency
-T_tot: 1.              # Simu duration (s)
+ctrl_freq: 1000        # Control frequency
+plan_freq: 1000        # Planning frequency
+T_tot: 5.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False              # Add delay in reference torques (low-level)
 DELAY_OCP: False              # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -26,8 +26,8 @@ log_rate: 500                 # Display sim status once very 'log_rate' sim cycl
 
 # General
 dt: 0.01                                             # OCP integration step 
-N_h: 100                                             # Horizon length in nodes
-maxiter: 100                                         # Max number of iterations in DDP
+N_h: 50                                             # Horizon length in nodes
+maxiter: 5                                         # Max number of iterations in DDP
 q0: [2., 0., 0., 0., 0., 0., 0.]    # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
 
@@ -37,13 +37,13 @@ frame_of_interest: 'gripper_left_joint'
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['stateReg',  'translation', 'ctrlRegGrav'] 
+WHICH_COSTS: ['stateReg', 'translation', 'ctrlRegGrav'] 
 
 # Cost terms weights, activations and references
  # 'stateReg' : state regularization  
-stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: .1
-stateRegWeightTerminal: 2.
+stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
+stateRegWeight: 0.01
+stateRegWeightTerminal: 0.01
 stateRegRef: 'DEFAULT'
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
@@ -53,8 +53,8 @@ ctrlRegRef: 'DEFAULT' # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 0.
-frameTranslationWeightTerminal: 0. 
+frameTranslationWeight: 5
+frameTranslationWeightTerminal: 5
 frameTranslationRef: [0.3, -0.2, 0.5]
 frameTranslationFrameName: 'DEFAULT'
 
