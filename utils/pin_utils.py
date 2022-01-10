@@ -5,12 +5,38 @@ import eigenpy
 from numpy.linalg import pinv
 import time
 
+import importlib
+found_robot_properties_kuka_pkg = importlib.util.find_spec("robot_properties_kuka") is not None
+found_example_robot_data_pkg = importlib.util.find_spec("example_robot_data") is not None
+
 import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-DEFAULT_ARMATURE_KUKA = [.1, .1, .1, .1, .1, .1, .0]
+
+SUPPORTED_ROBOTS = ['iiwa', 'talos']
+
+DEFAULT_ARMATURE = [.1, .1, .1, .1, .1, .1, .0] 
+
+# Returns pinocchio robot wrapper
+def load_robot_wrapper(robot_name):
+    logger.info('Loading robot wrapper : "'+str(robot_name)+'"...')
+    if(robot_name == 'iiwa'):
+        if(found_robot_properties_kuka_pkg):
+            from robot_properties_kuka.config import IiwaConfig
+            robot = IiwaConfig.buildRobotWrapper()
+        else:
+            logger.error("Either install robot_properties_kuka, or directly build the pinocchio robot wrapper from URDF file.")
+    elif(robot_name == 'talos'):
+        if(found_example_robot_data_pkg):
+            import example_robot_data
+            robot = example_robot_data.load('talos_arm') 
+        else:
+            logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
+    else:
+        logger.error('Unknown robot name ! Choose a robot in supported robots '+str(SUPPORTED_ROBOTS))
+    return robot
 
 # Rotate placement
 def rotate(se3_placement, rpy=[0., 0., 0.]):
@@ -196,7 +222,7 @@ def get_w_(q, dq, model, id_endeff):
 
 
 # Get frame force
-def get_f_(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0.):
+def get_f_(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -230,7 +256,7 @@ def get_f_(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0.):
         # f[i,:] = np.linalg.solve( J @ Minv @ J.T + REGMAT,  J @ Minv @ (h - tau[i,:]) + gamma.vector )
     return f
 
-def get_f_lambda(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0.):
+def get_f_lambda(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -261,7 +287,7 @@ def get_f_lambda(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, RE
         f[i,:] = data.lambda_c
     return f
 
-def get_f_kkt(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0.):
+def get_f_kkt(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -292,7 +318,7 @@ def get_f_kkt(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE_KUKA, REG=0
 
 
 # Get gravity joint torque
-def get_u_grav(q, model, armature=DEFAULT_ARMATURE_KUKA):
+def get_u_grav(q, model, armature=DEFAULT_ARMATURE):
     '''
     Return gravity torque at q
     '''
@@ -302,7 +328,7 @@ def get_u_grav(q, model, armature=DEFAULT_ARMATURE_KUKA):
 
 
 # Get joint torques 
-def get_tau(q, v, a, f, model, armature=DEFAULT_ARMATURE_KUKA):
+def get_tau(q, v, a, f, model, armature=DEFAULT_ARMATURE):
     '''
     Return torque using rnea
     '''
