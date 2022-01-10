@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_LPF_reaching_MPC_bullet.py
+@file LPF_reaching_MPC.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
@@ -110,10 +110,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   nb_plan = 0
   nb_ctrl = 0
     # Sim options
-  WHICH_PLOTS = ['y','w', 'p']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
-  dt_ocp = config['dt']                                         # OCP sampling rate 
-  dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
-  OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                           # ratio
+  WHICH_PLOTS       = config['WHICH_PLOTS']             # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+  dt_ocp            = config['dt']                      # OCP sampling rate 
+  dt_mpc            = float(1./sim_data['plan_freq'])   # planning rate
+  OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                   # ratio
 
   # Additional simulation blocks 
   communication = mpc_utils.CommunicationModel(config)
@@ -239,6 +239,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Save optionally
   if(config['SAVE_DATA']):
     data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)
+
+
+
 
 
 if __name__=='__main__':

@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file reaching_MPC_bullet.py
+@file reaching_MPC.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and LAAS-CNRS
