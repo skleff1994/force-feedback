@@ -49,14 +49,6 @@ frameVelocityWeightTerminal: 1.
 frameVelocityRef: [0., 0., 0., 0., 0., 0.]    
 frameVelocityFrameName: 'contact'
 
- # 'placement' : end-effector frame placement (translation + rotation)
-framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0.1
-framePlacementWeightTerminal: 0.1
-framePlacementTranslationRef: [-0.5, -0.5, 0.7]
-framePlacementRotationRef: 'DEFAULT'
-framePlacementFrameName: 'contact'
-
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
 stateLimWeight: 0.

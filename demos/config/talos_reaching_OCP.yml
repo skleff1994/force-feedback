@@ -28,7 +28,7 @@ ctrlRegRef: 'DEFAULT' # reference not used for 'ctrlRegGrav'
 frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 2.
 frameTranslationWeightTerminal: 2. 
-frameTranslationRef: [-0.5, -0.5, 0.7]
+frameTranslationRef: [0.3, -0.2, 0.5]
 frameTranslationFrameName: 'gripper_left_joint'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
