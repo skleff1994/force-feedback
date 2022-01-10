@@ -31,13 +31,15 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
+TASK = 'reaching'
+
 def main(robot_name='iiwa', PLOT=True, VISUALIZE=True):
 
     # # # # # # # # # # # #
     ### LOAD ROBOT MODEL ## 
     # # # # # # # # # # # # 
     # Read config file
-    config = path_utils.load_config_file(robot_name+'_reaching_OCP')
+    config = path_utils.load_config_file(robot_name+'_'+TASK+'_OCP')
     q0 = np.asarray(config['q0'])
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])   
