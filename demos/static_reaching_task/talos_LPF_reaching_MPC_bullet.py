@@ -57,7 +57,7 @@ dt_simu = 1./float(config['simu_freq'])
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
-env, pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
+env, pybullet_simulator = sim_utils.init_talos_bullet(dt=dt_simu, x0=x0)
 # Get pin wrapper
 robot = pybullet_simulator.pin_robot
 # Get dimensions 
@@ -86,7 +86,7 @@ ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 # Plot initial solution
 PLOT_INIT = False
 if(PLOT_INIT):
-  ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+  ddp_data = data_utils.extract_ddp_data_LPF(ddp, frame_of_interest='gripper_left_joint')
   fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
 
@@ -97,7 +97,7 @@ if(PLOT_INIT):
 # # # # # # # # # # #
 ### INIT MPC SIMU ###
 # # # # # # # # # # #
-sim_data = data_utils.init_sim_data_LPF(config, robot, y0)
+sim_data = data_utils.init_sim_data_LPF(config, robot, y0, frame_of_interest='gripper_left_joint')
   # Get frequencies
 freq_PLAN = sim_data['plan_freq']
 freq_CTRL = sim_data['ctrl_freq']
@@ -106,7 +106,7 @@ freq_SIMU = sim_data['simu_freq']
 nb_plan = 0
 nb_ctrl = 0
   # Sim options
-WHICH_PLOTS = ['y','w', 'p']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+WHICH_PLOTS = ['ee']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
 FILTER_STATE = config['FILTER_STATE']                         # Moving average smoothing of reference torques
 dt_ocp = config['dt']                                         # OCP sampling rate 
 dt_mpc = float(1./sim_data['plan_freq'])                      # planning rate
@@ -235,6 +235,7 @@ plot_utils.plot_mpc_results_LPF(plot_data, which_plots=WHICH_PLOTS,
                                 SAVE_DIR=save_dir,
                                 SAVE_NAME=save_name,
                                 AUTOSCALE=True)
+print(sim_data)
 # Save optionally
 if(config['SAVE_DATA']):
   data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)

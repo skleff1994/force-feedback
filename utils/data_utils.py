@@ -20,7 +20,7 @@ def save_data(sim_data, save_name=None, save_dir=None):
     if(save_dir is None):
         save_dir = os.path.abspath(os.path.join(os.path.dirname(__file__),'../data'))
     save_path = save_dir+'/'+save_name+'.npz'
-    np.savez_compressed(save_path, data=sim_data, allow_pickle=True)
+    np.savez_compressed(save_path, data=sim_data)
     logger.info("Saved data to "+str(save_path)+" !")
 
 
@@ -362,7 +362,8 @@ def init_sim_data_LPF(config, robot, y0, frame_of_interest='contact'):
     sim_data['dt_ctrl'] = float(1./sim_data['ctrl_freq'])             # Duration of 1 control cycle (s)
     sim_data['dt_plan'] = float(1./sim_data['plan_freq'])             # Duration of 1 planning cycle (s)
     sim_data['dt_simu'] = float(1./sim_data['simu_freq'])             # Duration of 1 simulation cycle (s)
-    # Misc params
+    # # Misc params
+    print(robot)
     sim_data['pin_model'] = robot.model
     sim_data['nq'] = sim_data['pin_model'].nq
     sim_data['nv'] = sim_data['pin_model'].nv

@@ -92,7 +92,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Plot initial solution
   PLOT_INIT = False
   if(PLOT_INIT):
-    ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+    ddp_data = data_utils.extract_ddp_data_LPF(ddp, frame_of_interest=config['frame_of_interest'])
     fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
 
@@ -221,14 +221,15 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # PLOT SIM RESULTS  #
   # # # # # # # # # # #
   save_dir = '/home/skleff/force-feedback/data'
+  save_name = 'test'
   save_name = config_name+'_'+simulator+'_'+\
                           '_BIAS='+str(config['SCALE_TORQUES'])+\
                           '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
                           '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
                           '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
-  # Extract plot data from sim data
+  #  Extract plot data from sim data
   plot_data = data_utils.extract_plot_data_from_sim_data_LPF(sim_data)
-  # Plot results
+  #  Plot results
   plot_utils.plot_mpc_results_LPF(plot_data, which_plots=WHICH_PLOTS,
                                   PLOT_PREDICTIONS=True, 
                                   pred_plot_sampling=int(freq_PLAN/10),
