@@ -363,7 +363,6 @@ def init_sim_data_LPF(config, robot, y0, frame_of_interest='contact'):
     sim_data['dt_plan'] = float(1./sim_data['plan_freq'])             # Duration of 1 planning cycle (s)
     sim_data['dt_simu'] = float(1./sim_data['simu_freq'])             # Duration of 1 simulation cycle (s)
     # # Misc params
-    print(robot)
     sim_data['pin_model'] = robot.model
     sim_data['nq'] = sim_data['pin_model'].nq
     sim_data['nv'] = sim_data['pin_model'].nv

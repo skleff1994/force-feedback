@@ -17,7 +17,7 @@ if(FOUND_PYBULLET_PKG):
 else:
     logger.error('You need to install PyBullet !')
 if(FOUND_ROB_PROP_KUKA_PKG):
-    from robot_properties_kuka.iiwaWrapper import IiwaRobot as IiwaRobotPkg
+    from robot_properties_kuka.iiwaWrapper import IiwaRobot as IiwaRobot
 else:
     logger.error('You need to install robot_properties_kuka !')
 if(FOUND_BULLET_UTILS_PKG):
@@ -90,72 +90,6 @@ class TalosArmRobot(PinBulletWrapper):
             q, dq = self.get_state()
         elif dq is None:
             raise ValueError("Need to provide q and dq or non of them.")
-        self.pin_robot.forwardKinematics(q, dq)
-        self.pin_robot.computeJointJacobians(q)
-        self.pin_robot.framesForwardKinematics(q)
-        self.pin_robot.centroidalMomentum(q, dq)
-
-
-
-class IiwaRobot(PinBulletWrapper):
-    '''
-    Pinocchio-PyBullet wrapper class for the KUKA LWR iiwa 
-    '''
-    def __init__(self, pos=None, orn=None): 
-
-        # Load the robot
-        if pos is None:
-            pos = [0.0, 0, 0.0]
-        if orn is None:
-            orn = p.getQuaternionFromEuler([0, 0, 0])
-
-        p.setAdditionalSearchPath('/home/skleff/robot_properties_kuka')
-        self.urdf_path = '/home/skleff/robot_properties_kuka/urdf/iiwa.urdf'
-        self.mesh_path = '/home/skleff/robot_properties_kuka/'
-
-        self.robotId = p.loadURDF(
-            self.urdf_path,
-            pos, orn,
-            flags=p.URDF_USE_INERTIA_FROM_FILE,
-            useFixedBase=True)
-        p.getBasePositionAndOrientation(self.robotId)
-        
-        # Create the robot wrapper in pinocchio.
-        from pinocchio.robot_wrapper import RobotWrapper
-        self.pin_robot= RobotWrapper.BuildFromURDF(self.urdf_path, self.mesh_path)
-
-        # Query all the joints.
-        num_joints = p.getNumJoints(self.robotId)
-
-        for ji in range(num_joints):
-            p.changeDynamics(self.robotId, 
-                                    ji, 
-                                    linearDamping=.04,
-                                    angularDamping=0.04, 
-                                    restitution=0.0, 
-                                    lateralFriction=0.5)
-
-        self.base_link_name = "iiwa_base"
-        self.end_eff_ids = []
-        controlled_joints = ["A1", "A2", "A3", "A4", "A5", "A6", "A7"]
-        self.end_eff_ids.append(self.pin_robot.model.getFrameId('contact'))
-        self.joint_names = controlled_joints
-        
-        # Creates the wrapper by calling the super.__init__.
-        super(IiwaRobot, self).__init__(
-            self.robotId, 
-            self.pin_robot,
-            controlled_joints,
-            ['EE'],
-            useFixedBase=True)
-        self.nb_dof = self.nv
-        
-    def forward_robot(self, q=None, dq=None):
-        if q is None:
-            q, dq = self.get_state()
-        elif dq is None:
-            raise ValueError("Need to provide q and dq or non of them.")
-
         self.pin_robot.forwardKinematics(q, dq)
         self.pin_robot.computeJointJacobians(q)
         self.pin_robot.framesForwardKinematics(q)

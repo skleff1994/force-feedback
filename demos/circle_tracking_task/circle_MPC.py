@@ -153,7 +153,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   for i in range(nb_points):
     t = (i/nb_points)*2*np.pi/OMEGA
     # if(i%20==0):
-    pos = ocp_utils.circle_point_WORLD(t, M_ee, radius=RADIUS, omega=OMEGA)
+    pos = ocp_utils.circle_point_WORLD(t, M_ee, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.02)
 
 
