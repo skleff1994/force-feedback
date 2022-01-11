@@ -1,17 +1,17 @@
 """
 @package force_feedback
-@file circle_OCP.py
+@file LPF_circle_OCP.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
 @date 2020-05-18
-@brief OCP for circle trajectory tracking task
+@brief OCP for circle trajectory tracking task (with Low-Pass-Filter)
 """
 
 '''
 The robot is tasked with tracking a circle trajectory 
-Trajectory optimization using Crocoddyl (state x=(q,v))
-The goal of this script is to setup the OCP (a.k.a. play with weights)
+Trajectory optimization using Crocoddyl (stateLPF x=(q,v,tau))
+The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
 
 import sys
@@ -31,40 +31,44 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-TASK = 'circle'
+TASK          = 'circle'
+WARM_START_IK = True
 
+def main(robot_name='iiwa', PLOT=True, VISUALIZE=True):
 
-def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
 
     # # # # # # # # # # # #
     ### LOAD ROBOT MODEL ## 
     # # # # # # # # # # # # 
     # Read config file
-    config = path_utils.load_config_file(robot_name+'_'+TASK+'_OCP')
+    config = path_utils.load_config_file(robot_name+'_LPF_'+TASK+'_OCP')
     q0 = np.asarray(config['q0'])
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])   
-    # Get pin wrapper
+    # Get pin wrapper + set model to init state
     robot = pin_utils.load_robot_wrapper(robot_name)
+    robot.framesForwardKinematics(q0)
+    robot.computeJointJacobians(q0)
     # Get initial frame placement + dimensions of joint space
     frame_name = config['frame_of_interest']
     id_endeff = robot.model.getFrameId(frame_name)
-    nq, nv = robot.model.nq, robot.model.nv
-    nx = nq+nv; nu = nq
-    # Update robot model with initial state
-    robot.framesForwardKinematics(q0)
-    robot.computeJointJacobians(q0)
     M_ee = robot.data.oMf[id_endeff]
+    nq = robot.model.nq; nv = robot.model.nv; nx = nq+nv; nu = nq
 
 
-    # # # # # # # # # 
+    #################
     ### OCP SETUP ###
-    # # # # # # # # # 
+    #################
     N_h = config['N_h']
     dt = config['dt']
     # Setup Croco OCP and create solver
-    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                                WHICH_COSTS=config['WHICH_COSTS']) 
+    ug = pin_utils.get_u_grav(q0, robot.model) 
+    y0 = np.concatenate([x0, ug])
+    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
+                                                    w_reg_ref='gravity',
+                                                    TAU_PLUS=False, 
+                                                    LPF_TYPE=config['LPF_TYPE'],
+                                                    WHICH_COSTS=config['WHICH_COSTS'] ) 
     # Setup tracking problem with circle ref EE trajectory
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -72,41 +76,36 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
     for k,m in enumerate(models):
         # Ref
         t = min(k*config['dt'], 2*np.pi/OMEGA)
-        p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
-                                                radius=RADIUS,
-                                                omega=OMEGA,
-                                                LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
+        p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee.copy(), 
+                                                   radius=RADIUS,
+                                                   omega=OMEGA,
+                                                   LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
         # Cost translation
         m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
-        
 
     # Warm start state = IK of circle trajectory
-    WARM_START_IK = True
     if(WARM_START_IK):
         logger.info("Computing warm-start using Inverse Kinematics...")
         xs_init = [] 
         us_init = []
         q_ws = q0
-        for k,m in enumerate(models):
-            ref = m.differential.costs.costs['translation'].cost.residual.reference
-            q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
-            xs_init.append(np.concatenate([q_ws, v_ws]))
-        us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(N_h)]
+        for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
+            p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
+            Mref = M_ee.copy()
+            Mref.translation = p_ee_ref
+            q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
+            tau_ws = pin_utils.get_u_grav(q_ws, robot.model)
+            xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
+            if(k<N_h):
+                us_init.append(tau_ws)
 
     # Classical warm start using initial config
     else:
-        ug  = pin_utils.get_u_grav(q0, robot.model)
-        xs_init = [x0 for i in range(config['N_h']+1)]
+        xs_init = [y0 for i in range(config['N_h']+1)]
         us_init = [ug for i in range(config['N_h'])]
 
     # Solve 
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-
-    #  Plot
-    if(PLOT):
-        ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest=config['frame_of_interest'])
-        fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
-
 
     pause = 0.02 # in s
     if(VISUALIZE):
@@ -181,10 +180,20 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
             time.sleep(pause)
 
 
+    if(PLOT):
+        #  Plot
+        ddp_data = data_utils.extract_ddp_data_LPF(ddp, frame_of_interest=frame_name)
+        fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], 
+                                                            colors=['r'], 
+                                                            markers=['.'], 
+                                                            SHOW=True)
+
+
+
 
 if __name__=='__main__':
     if(len(sys.argv) < 2 or len(sys.argv) > 4):
-        print("Usage: python circle_OCP.py [arg1: robot_name (str)] [arg2: PLOT (bool)] [arg3: VISUALIZE (bool)]")
+        print("Usage: python LPF_circle_OCP.py [arg1: robot_name (str)] [arg2: PLOT (bool)] [arg3: VISUALIZE (bool)]")
         sys.exit(0)
     elif(len(sys.argv)==2):
         sys.exit(main(str(sys.argv[1])))

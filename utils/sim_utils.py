@@ -41,7 +41,7 @@ class TalosArmRobot(PinBulletWrapper):
 
         # Load the robot
         if pos is None:
-            pos = [0.0, 0, 0.0]
+            pos = [0.0, 0, 0.]
         if orn is None:
             orn = p.getQuaternionFromEuler([0, 0, 0])
         # Create the robot wrapper in pinocchio.

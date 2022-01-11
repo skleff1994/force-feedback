@@ -246,7 +246,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
 if __name__=='__main__':
     if(len(sys.argv) < 2 or len(sys.argv) > 3):
-        print("Usage: python reaching_MPC_bullet.py [arg1: robot_name (str)] [arg2: simulator (str)] [arg3: PLOT_INIT (bool)]")
+        print("Usage: python LPF_reaching_MPC.py [arg1: robot_name (str)] [arg2: simulator (str)] [arg3: PLOT_INIT (bool)]")
         sys.exit(0)
     elif(len(sys.argv)==2):
         sys.exit(main(str(sys.argv[1])))
