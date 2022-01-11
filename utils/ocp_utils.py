@@ -647,6 +647,11 @@ def init_DDP(robot, config, x0, callbacks=False,
         if('force' in WHICH_COSTS):
           if(not CONTACT):
             logger.error("Force cost but no contact model is defined ! ")
+          if(config['frameForceFrameName']=='DEFAULT'):
+            frameForceFrameName = config['frame_of_interest']
+          else:
+            frameForceFrameName = config['frameForceFrameName']
+            frameForceFrameId = robot.model.getFrameId(frameForceFrameName) 
           # 6D contact case : wrench = linear in (x,y,z) + angular in (Ox,Oy,Oz)
           if(CONTACT_TYPE=='6D'):
             # Default force reference = zero force
@@ -654,12 +659,7 @@ def init_DDP(robot, config, x0, callbacks=False,
               frameForceRef = pin.Force( np.zeros(6) )
             else:
               frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
-            frameForceWeights = np.asarray(config['frameForceWeights'])
-            if(config['frameForceFrameName']=='DEFAULT'):
-              frameForceFrameName = config['frame_of_interest']
-            else:
-              frameForceFrameName = config['frameForceFrameName']
-            frameForceFrameId = robot.model.getFrameId(frameForceFrameName)  
+            frameForceWeights = np.asarray(config['frameForceWeights']) 
             frameForceCost = crocoddyl.CostModelResidual(state, 
                                                         crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                         crocoddyl.ResidualModelContactForce(state, 
@@ -675,7 +675,6 @@ def init_DDP(robot, config, x0, callbacks=False,
             else:
               frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
             frameForceWeights = np.asarray(config['frameForceWeights'])[:3]
-            frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
             frameForceCost = crocoddyl.CostModelResidual(state, 
                                                         crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                         crocoddyl.ResidualModelContactForce(state, 
@@ -691,7 +690,6 @@ def init_DDP(robot, config, x0, callbacks=False,
             else:
               frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
             frameForceWeights = np.asarray(config['frameForceWeights'])[2:3]
-            frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
             frameForceCost = crocoddyl.CostModelResidual(state, 
                                                         crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                         crocoddyl.ResidualModelContactForce(state, 
@@ -1298,6 +1296,11 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           if(not CONTACT):
             logger.error("Force cost but no contact model is defined ! ")
           # 6D contact case : wrench = linear in (x,y,z) + angular in (Ox,Oy,Oz)
+          if(config['frameForceFrameName']=='DEFAULT'):
+            frameForceFrameName = config['frame_of_interest']
+          else:
+            frameForceFrameName = config['frameForceFrameName']
+          frameForceFrameId = robot.model.getFrameId(frameForceFrameName)  
           if(CONTACT_TYPE=='6D'):
             # Default force reference = zero force
             if(config['frameForceRef']=='DEFAULT'):
@@ -1305,11 +1308,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
             else:
               frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
             frameForceWeights = np.asarray(config['frameForceWeights'])
-            if(config['frameForceFrameName']=='DEFAULT'):
-              frameForceFrameName = config['frame_of_interest']
-            else:
-              frameForceFrameName = config['frameForceFrameName']
-            frameForceFrameId = robot.model.getFrameId(frameForceFrameName)  
             frameForceCost = crocoddyl.CostModelResidual(state, 
                                                         crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                         crocoddyl.ResidualModelContactForce(state, 
@@ -1325,7 +1323,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
             else:
               frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
             frameForceWeights = np.asarray(config['frameForceWeights'])[:3]
-            frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
             frameForceCost = crocoddyl.CostModelResidual(state, 
                                                         crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                         crocoddyl.ResidualModelContactForce(state, 
@@ -1341,7 +1338,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
             else:
               frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
             frameForceWeights = np.asarray(config['frameForceWeights'])[2:3]
-            frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
             frameForceCost = crocoddyl.CostModelResidual(state, 
                                                         crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                         crocoddyl.ResidualModelContactForce(state, 
