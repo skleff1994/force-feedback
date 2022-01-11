@@ -40,7 +40,7 @@ WHICH_PLOTS: ['all']
 dt: 0.02                                                             # OCP integration step 
 N_h: 50                                                              # Horizon length in nodes
 maxiter: 5                                                           # Max number of iterations in DDP
-q0: [ 1.7305e-01, -2.0000e-04, -5.2537e-01,  0.0000e+00,  0.0000e+00,  1.0000e-01,  0.0000e+00]
+q0: [ 1.7305e-01, -2.0000e-04, -5.2537e-01,  0.0000e+00,  0.0000e+00,  1.0000e-01,  -0.9]
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 
 

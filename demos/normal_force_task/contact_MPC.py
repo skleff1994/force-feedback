@@ -59,6 +59,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   if(simulator == 'bullet'):
     from utils import sim_utils as simulator_utils
     env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
+    print(base_placement)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
     from utils import raisim_utils as simulator_utils
@@ -73,9 +74,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   contact_placement = robot.data.oMf[id_endeff].copy()
   M_ct = robot.data.oMf[id_endeff].copy()
   offset = 0.03348 #0.036 #0.0335
-  contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-  contact_placement.rotation = base_placement.rotation.T.dot(contact_placement.rotation)
-  contact_placement.translation += base_placement.translation 
+  contact_placement.translation = base_placement.act(contact_placement.act(np.array([0., 0., offset])))
+  contact_placement.rotation    = base_placement.rotation @ contact_placement.rotation
   simulator_utils.display_contact_surface(contact_placement, with_collision=False)
 
   import time
