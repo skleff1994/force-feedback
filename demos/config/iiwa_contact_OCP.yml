@@ -19,10 +19,18 @@ maxiter: 100                                                         # Max numbe
 q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 
+
+# Pin model frame name of the end-effector 
+#   - Used for frame-related costs and plots generation
+#   - Overrides the frame name 'DEFAULT' values below
+frame_of_interest: 'contact'
+
+
+
 # Contact model 
 CONTACT: 'True'                         # 'True' or 'False' 
 contactModelType: '6D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
-contactModelFrameName: 'contact'
+contactModelFrameName: 'DEFAULT'        # 'DEFAULT' = $(frame_of_interest)
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
 contactModelGains: [0., 0.]             # Baumgarte stabilization gains 
@@ -37,12 +45,12 @@ WHICH_COSTS: ['force', 'stateReg', 'ctrlRegGrav']
 frameForceWeights:  [0., 0., 1., 0., 0., 0.]
 frameForceWeight: 10.
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
-frameForceFrameName: 'contact'
+frameForceFrameName: 'DEFAULT'
 
  # 'friction' : end-effector frame friction cone 
 mu:  0.5
 frictionConeWeight: 1
-frictionConeFrameName: 'contact'
+frictionConeFrameName: 'DEFAULT'
 
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
@@ -60,14 +68,14 @@ frameTranslationWeights:  [1., 1., 0.]
 frameTranslationWeight: 100
 frameTranslationWeightTerminal: 100
 frameTranslationRef: 'DEFAULT' # 'CIRCLE' ?
-frameTranslationFrameName: 'contact'
+frameTranslationFrameName: 'DEFAULT'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
 frameVelocityWeight: 10
 frameVelocityWeightTerminal: 10
 frameVelocityRef: 'DEFAULT'    
-frameVelocityFrameName: 'contact'
+frameVelocityFrameName: 'DEFAULT'
 
 
  # 'rotation' : end-effector frame orientation
@@ -75,7 +83,7 @@ frameRotationWeights:  [1., 1., 1.]
 frameRotationWeight: 10.
 frameRotationWeightTerminal: 10.
 frameRotationRef: 'DEFAULT'
-frameRotationFrameName: 'contact'
+frameRotationFrameName: 'DEFAULT'
 
 
  # 'stateLim' : state limits

@@ -417,7 +417,12 @@ def init_DDP(robot, config, x0, callbacks=False,
             # ERROR if no contact frame id found in config file
             if('contactModelFrameName' not in config.keys()):
               logger.error("CONTACT='True' but no contact frame id found in config file !")
-            contactModelFrameId = robot.model.getFrameId(config['contactModelFrameName'])
+            else:
+              if(config['contactModelFrameName']=='DEFAULT'):
+                contactModelFrameName = config['frame_of_interest']
+              else:
+                contactModelFrameName = config['contactModelFrameName']
+              contactModelFrameId = robot.model.getFrameId(contactModelFrameName)
             # WARNING if no contact frame position found in config file
             if('contactModelTranslationRef' not in config.keys()):
               logger.warn("CONTACT='True' but no contact ref. position found in config file ! Setting position to 'DEFAULT'")
@@ -650,7 +655,11 @@ def init_DDP(robot, config, x0, callbacks=False,
             else:
               frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
             frameForceWeights = np.asarray(config['frameForceWeights'])
-            frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
+            if(config['frameForceFrameName']=='DEFAULT'):
+              frameForceFrameName = config['frame_of_interest']
+            else:
+              frameForceFrameName = config['frameForceFrameName']
+            frameForceFrameId = robot.model.getFrameId(frameForceFrameName)  
             frameForceCost = crocoddyl.CostModelResidual(state, 
                                                         crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                         crocoddyl.ResidualModelContactForce(state, 
@@ -698,7 +707,11 @@ def init_DDP(robot, config, x0, callbacks=False,
             logger.error("Friction cost but no contact model is defined !!! ")
           # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
           mu = config['mu']
-          frictionConeFrameId = robot.model.getFrameId(config['frictionConeFrameName'])
+          if(config['frictionConeFrameName']=='DEFAULT'):
+            frictionConeFrameName = config['frame_of_interest']
+          else:
+            frictionConeFrameName = config['frictionConeFrameName']
+          frictionConeFrameId = robot.model.getFrameId(frictionConeFrameName)  
           # axis_
           cone_placement = robot.data.oMf[frictionConeFrameId].copy()
           # Rotate 180° around x+ to make z become -z
@@ -734,7 +747,12 @@ def init_DDP(robot, config, x0, callbacks=False,
       # ERROR if no contact frame id found in config file
       if('contactModelFrameName' not in config.keys()):
         logger.error("CONTACT='True' but no contact frame id found in config file !")
-      contactModelFrameId = robot.model.getFrameId(config['contactModelFrameName'])
+      else:
+        if(config['contactModelFrameName']=='DEFAULT'):
+          contactModelFrameName = config['frame_of_interest']
+        else:
+          contactModelFrameName = config['contactModelFrameName']
+        contactModelFrameId = robot.model.getFrameId(contactModelFrameName)
       # WARNING if no contact frame position found in config file
       if('contactModelTranslationRef' not in config.keys()):
         logger.warn("CONTACT='True' but no contact ref. position found in config file ! Setting position to 'DEFAULT'")
@@ -1039,7 +1057,12 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
             # ERROR if no contact frame id found in config file
             if('contactModelFrameName' not in config.keys()):
               logger.error("CONTACT='True' but no contact frame id found in config file !")
-            contactModelFrameId = robot.model.getFrameId(config['contactModelFrameName'])
+            else:
+              if(config['contactModelFrameName']=='DEFAULT'):
+                contactModelFrameName = config['frame_of_interest']
+              else:
+                contactModelFrameName = config['contactModelFrameName']
+              contactModelFrameId = robot.model.getFrameId(contactModelFrameName)
             # WARNING if no contact frame position found in config file
             if('contactModelTranslationRef' not in config.keys()):
               logger.warn("CONTACT='True' but no contact ref. position found in config file ! Setting position to 'DEFAULT'")
@@ -1282,7 +1305,11 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
             else:
               frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
             frameForceWeights = np.asarray(config['frameForceWeights'])
-            frameForceFrameId = robot.model.getFrameId(config['frameForceFrameName'])
+            if(config['frameForceFrameName']=='DEFAULT'):
+              frameForceFrameName = config['frame_of_interest']
+            else:
+              frameForceFrameName = config['frameForceFrameName']
+            frameForceFrameId = robot.model.getFrameId(frameForceFrameName)  
             frameForceCost = crocoddyl.CostModelResidual(state, 
                                                         crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                         crocoddyl.ResidualModelContactForce(state, 
@@ -1331,7 +1358,11 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           cone_rotation = contactModelPlacementRef.rotation
           # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
           mu = config['mu']
-          frictionConeFrameId = robot.model.getFrameId(config['frictionConeFrameName'])
+          if(config['frictionConeFrameName']=='DEFAULT'):
+            frictionConeFrameName = config['frame_of_interest']
+          else:
+            frictionConeFrameName = config['frictionConeFrameName']
+          frictionConeFrameId = robot.model.getFrameId(frictionConeFrameName)  
           frictionCone = crocoddyl.FrictionCone(cone_rotation, mu, 4, False) #, 0, 1000)
           frictionConeCost = crocoddyl.CostModelResidual(state,
                                                         crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
@@ -1361,7 +1392,12 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       # ERROR if no contact frame id found in config file
       if('contactModelFrameName' not in config.keys()):
         logger.error("CONTACT='True' but no contact frame id found in config file !")
-      contactModelFrameId = robot.model.getFrameId(config['contactModelFrameName'])
+      else:
+        if(config['contactModelFrameName']=='DEFAULT'):
+          contactModelFrameName = config['frame_of_interest']
+        else:
+          contactModelFrameName = config['contactModelFrameName']
+        contactModelFrameId = robot.model.getFrameId(contactModelFrameName)
       # WARNING if no contact frame position found in config file
       if('contactModelTranslationRef' not in config.keys()):
         logger.warn("CONTACT='True' but no contact ref. position found in config file ! Setting position to 'DEFAULT'")
