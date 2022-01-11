@@ -260,13 +260,13 @@ def circle_point_LOCAL_YZ(t, radius=1., omega=1.):
   return point_LOCAL
 
 
-def circle_point_WORLD(t, M_ct, radius=1., omega=1., LOCAL_PLANE='XY'):
+def circle_point_WORLD(t, M, radius=1., omega=1., LOCAL_PLANE='XY'):
   '''
   Returns the WORLD frame coordinates (x,y,z) of the point reached at time t
   on a circular trajectory with given radius and angular velocity 
    INPUT
      t           : time (s)
-     M_ct        : initial placement of the frame of interest (pinocchio.SE3)   
+     M           : initial placement of the frame of interest (pinocchio.SE3)   
      radius      : radius of the circle trajectory
      omega       : angular velocity of the frame along the circle trajectory
      LOCAL_PLANE : in which plane of the LOCAL frame lies the circle {'XY', 'XZ', 'YZ'}
@@ -275,16 +275,86 @@ def circle_point_WORLD(t, M_ct, radius=1., omega=1., LOCAL_PLANE='XY'):
   '''
   # WORLD coordinates 
   if(LOCAL_PLANE=='XY'):
-    point_WORLD = M_ct.act(circle_point_LOCAL_XY(t, radius=radius, omega=omega))
+    point_WORLD = M.act(circle_point_LOCAL_XY(t, radius=radius, omega=omega))
   elif(LOCAL_PLANE=='XZ'):
-    point_WORLD = M_ct.act(circle_point_LOCAL_XZ(t, radius=radius, omega=omega))
+    point_WORLD = M.act(circle_point_LOCAL_XZ(t, radius=radius, omega=omega))
   elif(LOCAL_PLANE=='YZ'):
-    point_WORLD = M_ct.act(circle_point_LOCAL_YZ(t, radius=radius, omega=omega))
+    point_WORLD = M.act(circle_point_LOCAL_YZ(t, radius=radius, omega=omega))
   else:
     logger.error("Unknown LOCAL_PLANE for circle trajectory. Choose LOCAL_PLANE in {'XY', 'XZ', 'YZ'}")
   return point_WORLD
 
 
+# Utils for rotation trajectory tracking (orientation of EE frame) task
+
+def rotation_orientation_LOCAL_X(t, omega=1.):
+  '''
+  Returns the orientation matrix w.r.t. LOCAL frame reached at time t
+  when rotating about the LOCAL x-axis at constant angular velocity
+   INPUT
+     t      : time (s)
+     omega  : angular velocity of the frame rotating about x-LOCAL (w.r.t. LOCAL)
+   OUTPUT
+     _      : orientation 3x3 matrix in LOCAL frame (np.array)
+  '''
+  # LOCAL coordinates 
+  rotation_LOCAL = pin.utils.rpyToMatrix(np.array([np.sin(omega*t), 0., 0.]))
+  return rotation_LOCAL
+
+
+def rotation_orientation_LOCAL_Y(t, omega=1.):
+  '''
+  Returns the orientation matrix w.r.t. LOCAL frame reached at time t
+  when rotating about the LOCAL y-axis at constant angular velocity
+   INPUT
+     t      : time (s)
+     omega  : angular velocity of the frame rotating about y-LOCAL (w.r.t. LOCAL)
+   OUTPUT
+     _      : orientation 3x3 matrix in LOCAL frame (np.array)
+  '''
+  # LOCAL coordinates 
+  rotation_LOCAL = pin.utils.rpyToMatrix(np.array([0., np.sin(omega*t), 0.]))
+  return rotation_LOCAL
+
+
+def rotation_orientation_LOCAL_Z(t, omega=1.):
+  '''
+  Returns the orientation matrix w.r.t. LOCAL frame reached at time t
+  when rotating about the LOCAL z-axis at constant angular velocity
+   INPUT
+     t      : time (s)
+     omega  : angular velocity of the frame rotating about z-LOCAL (w.r.t. LOCAL)
+   OUTPUT
+     _      : orientation 3x3 matrix in LOCAL frame (np.array)
+  '''
+  # LOCAL coordinates 
+  rotation_LOCAL = pin.utils.rpyToMatrix(np.array([0., 0., np.sin(omega*t)]))
+  return rotation_LOCAL
+
+
+def rotation_orientation_WORLD(t, M, omega=1., LOCAL_AXIS='Z'):
+  '''
+  Returns the WORLD frame coordinates (x,y,z) of the point reached at time t
+  on a circular trajectory with given radius and angular velocity 
+   INPUT
+     t           : time (s)
+     M           : initial placement of the frame of interest (pinocchio.SE3)   
+     radius      : radius of the circle trajectory
+     omega       : angular velocity of the frame along the circle trajectory
+     LOCAL_AXIS  : LOCAL axis about which the LOCAL frame rotates {'X', 'Y', 'Z'}
+   OUTPUT
+     _      : orientation 3x3 matrix in WORLD frame (np.array)
+  '''
+  # WORLD coordinates 
+  if(LOCAL_AXIS=='X'):
+    orientation_WORLD = M.rotation.copy().dot(rotation_orientation_LOCAL_X(t, omega=omega))
+  elif(LOCAL_AXIS=='Y'):
+    orientation_WORLD = M.rotation.copy().dot(rotation_orientation_LOCAL_Y(t, omega=omega))
+  elif(LOCAL_AXIS=='Z'):
+    orientation_WORLD = M.rotation.copy().dot(rotation_orientation_LOCAL_Z(t, omega=omega))
+  else:
+    logger.error("Unknown LOCAL_AXIS for circle trajectory. Choose LOCAL_AXIS in {'X', 'Y', 'Z'}")
+  return orientation_WORLD
 
 
 
