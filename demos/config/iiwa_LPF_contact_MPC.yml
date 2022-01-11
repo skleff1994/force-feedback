@@ -1,5 +1,7 @@
-# MPC LPF parameters for static end-effector contact task
-# + PyBullet or Raisim simulation
+# ROBOT : 'iiwa' 
+# TASK  : normal force task
+
+# with Low-Pass-Filter (LPF) in dynamics
 
 
 # MPC & sim parameters
@@ -21,7 +23,7 @@ INIT_LOG: True                 # Initial logs summarizing parameters
 init_log_display_time: 1       # How long (s) to display the initial logs ?
 LOG: True                      # Logs during simulation
 log_rate: 500                  # Display sim status once very 'log_rate' sim cycles
-
+WHICH_PLOTS: ['w']
 
 # # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
 #   R =
@@ -34,7 +36,6 @@ log_rate: 500                  # Display sim status once very 'log_rate' sim cyc
 # # Solution of IK_placement(q_init, M)
 # q0 = [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]
 
-
 # General 
 LPF_TYPE: 1
 f_c: 5                                                               # Low-pass filter cut-off frequency
@@ -45,10 +46,19 @@ q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial r
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 tau0: [  0., -16.4279,  -0.,  14.4554, -0.6963, 0.027, 0.]           # Initial robot joint torque
 
+
+
+# Pin model frame name of the end-effector 
+#   - Used for frame-related costs and plots generation
+#   - Overrides the frame name 'DEFAULT' values below
+frame_of_interest: 'contact'
+
+
+
 # Contact model 
 CONTACT: 'True'                         # 'True' or 'False' 
 contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
-contactModelFrameName: 'contact'
+contactModelFrameName: 'DEFAULT'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
 contactModelGains: [0., 50.]             # Baumgarte stabilization gains 
@@ -64,12 +74,12 @@ frameForceWeights:  [0., 0., 1., 0., 0., 0.]
 frameForceWeight: 10.
 frameForceWeightTerminal: 10.
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
-frameForceFrameName: 'contact'
+frameForceFrameName: 'DEFAULT'
 
  # 'friction' : end-effector frame friction cone 
 mu:  0.7
 frictionConeWeight: 1
-frictionConeFrameName: 'contact'
+frictionConeFrameName: 'DEFAULT'
 
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
@@ -94,14 +104,14 @@ frameTranslationWeights:  [1., 1., 0.]
 frameTranslationWeight: 20.
 frameTranslationWeightTerminal: 20. 
 frameTranslationRef: 'DEFAULT'
-frameTranslationFrameName: 'contact'
+frameTranslationFrameName: 'DEFAULT'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
 frameVelocityWeight: .01
 frameVelocityWeightTerminal: .01
 frameVelocityRef: 'DEFAULT'    
-frameVelocityFrameName: 'contact'
+frameVelocityFrameName: 'DEFAULT'
 
 
  # 'rotation' : end-effector frame orientation
@@ -109,16 +119,8 @@ frameRotationWeights:  [1., 1., 1.]
 frameRotationWeight: 10.
 frameRotationWeightTerminal: 10.
 frameRotationRef: 'DEFAULT'
-frameRotationFrameName: 'contact'
+frameRotationFrameName: 'DEFAULT'
 
-
- # 'placement' : end-effector frame placement (translation + rotation)
-framePlacementWeights:  [1., 1., 1., 1., 1., 1.]
-framePlacementWeight: 0.1
-framePlacementWeightTerminal: 0.1
-framePlacementTranslationRef: 'DEFAULT'
-framePlacementRotationRef: 'DEFAULT'
-framePlacementFrameName: 'contact'
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]

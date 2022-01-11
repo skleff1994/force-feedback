@@ -25,11 +25,11 @@ WHICH_PLOTS: ['x', 'u', 'ee'] # Which plots to generate
 
 
 # General
-dt: 0.01                                             # OCP integration step 
-N_h: 50                                             # Horizon length in nodes
-maxiter: 5                                         # Max number of iterations in DDP
+dt: 0.01                            # OCP integration step 
+N_h: 50                             # Horizon length in nodes
+maxiter: 5                          # Max number of iterations in DDP
 q0: [2., 0., 0., 0., 0., 0., 0.]    # Initial robot joint configuration
-dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
+dq0: [0.,0.,0.,0.,0.,0.,0.]         # Initial robot joint velocity
 
 
 
@@ -61,7 +61,7 @@ ctrlRegRef: 'DEFAULT' # DEFAULT = g(q) | NOT used for 'ctrlRegGrav' cost
 frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 5
 frameTranslationWeightTerminal: 5
-frameTranslationRef: [0.3, -0.2, 0.5]
+frameTranslationRef: [0.3, 0.4, 0.5]
 frameTranslationFrameName: 'DEFAULT' # 'DEFAULT' = $(frame_of_interest)
 
  # 'velocity' : end-effector frame velocity (translation + rotation)

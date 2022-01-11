@@ -20,7 +20,6 @@ sys.path.append('.')
 
 import numpy as np  
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
-from robot_properties_kuka.config import IiwaConfig
 np.set_printoptions(precision=4, linewidth=180)
 
 import logging

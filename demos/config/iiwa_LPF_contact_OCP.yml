@@ -1,4 +1,8 @@
-# OCP LPF parameters for end-effector contact force task
+# ROBOT : 'iiwa' 
+# TASK  : normal force task
+
+# with Low-Pass-Filter (LPF) in dynamics
+
 
 # # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
 #   R =
@@ -42,7 +46,7 @@ contactModelGains: [0., 50.]            # Baumgarte stabilization gains
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['force', 'rotation', 'stateReg', 'stateLim',  'ctrlRegGrav']  
+WHICH_COSTS: ['force', 'rotation', 'translation', 'stateReg', 'stateLim',  'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)

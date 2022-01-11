@@ -1,31 +1,21 @@
-# ROBOT : 'iiwa' 
+# ROBOT : 'talos' 
 # TASK  : normal force task
 
 
-# # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
-#   R =
-#    -0.918754     0.389418    0.0651533
-#     0.388443     0.921061   -0.0275464
-#   -0.0707372 -2.41653e-08    -0.997495
-#   p = 0.3   0 0.7
-# # Starting config for IK (to avoid self-collision solution)
-# q_init =  [-0.2263,  0.    , -0.174 , -1.6865,  0.0358,  1.5   , -0.3946]
-# # Solution of IK_placement(q_init, M)
-# q0 = [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]
+# General 
+dt: 0.01                                                      # OCP integration step 
+N_h: 400                                                      # Horizon length in nodes
+maxiter: 100                                                  # Max number of iterations in DDP
+# q0: [ 1.7305e-01, -2.0000e-04, -5.2537e-01,  0., 0., 0.1, 0.] # Initial robot joint configuration
+q0: [ 1.4399,  0.    , -1.1781,  0.    ,  0.    ,  0.    , -0.5236]
+dq0: [0.,0.,0.,0.,0.,0.,0.]                                   # Initial robot joint velocity
 
-
-# General
-dt: 0.01                                                             # OCP integration step 
-N_h: 200                                                             # Horizon length in nodes
-maxiter: 100                                                         # Max number of iterations in DDP
-q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
-dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 
 
 # Pin model frame name of the end-effector 
 #   - Used for frame-related costs and plots generation
 #   - Overrides the frame name 'DEFAULT' values below
-frame_of_interest: 'contact'
+frame_of_interest: 'gripper_left_joint'
 
 
 

@@ -38,6 +38,7 @@ logger.setLevel(logging.INFO)
 
 TASK = 'reaching'
 
+
 def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
 
@@ -107,7 +108,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   sensing       = mpc_utils.SensorModel(config)
   # Display target
   if(hasattr(simulator_utils, 'display_ball')):
-    simulator_utils.display_ball(np.asarray(config['frameTranslationRef']), RADIUS=.1, COLOR=[1.,0.,0.,1.])
+    # Correct with fixed based position in bullet
+    if(hasattr(robot_simulator, 'base_pos')):
+      p_ball = np.asarray(config['frameTranslationRef']) + np.asarray(robot_simulator.base_pos)
+    else:
+      p_ball = np.asarray(config['frameTranslationRef'])
+    simulator_utils.display_ball(p_ball, RADIUS=.05, COLOR=[1.,0.,0.,.6])
 
 
 

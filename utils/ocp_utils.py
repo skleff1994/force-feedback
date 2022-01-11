@@ -651,7 +651,7 @@ def init_DDP(robot, config, x0, callbacks=False,
             frameForceFrameName = config['frame_of_interest']
           else:
             frameForceFrameName = config['frameForceFrameName']
-            frameForceFrameId = robot.model.getFrameId(frameForceFrameName) 
+          frameForceFrameId = robot.model.getFrameId(frameForceFrameName) 
           # 6D contact case : wrench = linear in (x,y,z) + angular in (Ox,Oy,Oz)
           if(CONTACT_TYPE=='6D'):
             # Default force reference = zero force
