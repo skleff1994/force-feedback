@@ -60,7 +60,7 @@ contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD fra
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
 contactModelGains: [0., 10.]             # Baumgarte stabilization gains 
 
-# Cost function composition (a.k.a which terms will be actually used in the OCP)
+# Cost function composition (i.e. which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
 WHICH_COSTS: ['force', 'velocity', 'stateReg', 'ctrlReg', 'stateLim'] 

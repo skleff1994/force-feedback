@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-SUPPORTED_ROBOTS = ['iiwa', 'talos']
+SUPPORTED_ROBOTS = ['iiwa', 'talos', 'talos_full']
 
 DEFAULT_ARMATURE = [.1, .1, .1, .1, .1, .1, .0] 
 
@@ -32,6 +32,12 @@ def load_robot_wrapper(robot_name):
         if(found_example_robot_data_pkg):
             import example_robot_data
             robot = example_robot_data.load('talos_arm') 
+        else:
+            logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
+    elif(robot_name == 'talos_full'):
+        if(found_example_robot_data_pkg):
+            import example_robot_data
+            robot = example_robot_data.load('talos') 
         else:
             logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
     else:

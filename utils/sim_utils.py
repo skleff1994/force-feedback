@@ -30,7 +30,7 @@ if(FOUND_EXAMPLE_ROBOT_DATA_PKG):
 else:
     logger.error('You need to install example_robot_data !')
 
-
+# Global & default settings
 SUPPORTED_ROBOTS         = ['iiwa', 'talos']
 
 TALOS_DEFAULT_MESH_PATH  = '/opt/openrobots/share'
@@ -39,6 +39,7 @@ TALOS_DEFAULT_BASE_RPY   = [0, -np.pi/2, 0]
 
 IIWA_DEFAULT_BASE_POS   = [0, 0, 0]
 IIWA_DEFAULT_BASE_RPY   = [0, 0, 0]
+
 
 # Pinocchio-bullet wrapper for TALOS arm
 class TalosArmRobot(PinBulletWrapper):
@@ -99,6 +100,7 @@ class TalosArmRobot(PinBulletWrapper):
         self.pin_robot.computeJointJacobians(q)
         self.pin_robot.framesForwardKinematics(q)
         self.pin_robot.centroidalMomentum(q, dq)
+
 
 
 # Load robot in PyBullet environment 
@@ -177,6 +179,7 @@ def init_talos_bullet(dt=1e3, x0=None, pos=TALOS_DEFAULT_BASE_POS, orn=TALOS_DEF
     return env, robot_simulator, base_placement
 
 
+
 # Get contact wrench from robot simulator
 def get_contact_wrench(pybullet_simulator, id_endeff):
     '''
@@ -206,6 +209,7 @@ def get_contact_wrench(pybullet_simulator, id_endeff):
         return force
 
 
+
 # Get joint torques from robot simulator
 def get_contact_joint_torques(pybullet_simulator, id_endeff):
     '''
@@ -217,7 +221,8 @@ def get_contact_joint_torques(pybullet_simulator, id_endeff):
     return joint_torques
 
 
-# Display ball in simulation environment
+
+# Display
 def display_ball(p_des, RADIUS=.05, COLOR=[1.,1.,1.,1.]):
     '''
     Create a sphere visual object in PyBullet
@@ -245,11 +250,12 @@ def display_ball(p_des, RADIUS=.05, COLOR=[1.,1.,1.,1.]):
     return ballId
 
 
+
 # Load contact surface in PyBullet for contact experiments
 def display_contact_surface(M, robotId=1, radius=.25, length=0.0, with_collision=False, TILT=[0., 0., 0.]):
     '''
-    Create contact surface object in p and display it
-      M       : contact placement
+    Creates contact surface object in PyBullet as a flat cylinder 
+      M       : contact placement (with z_LOCAL coinciding with cylinder axis)
       robotId : id of the robot 
     '''
     logger.info("Creating PyBullet contact surface...")
@@ -293,6 +299,7 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, with_collision
                         basePosition=[0.,0.,0.],
                         useMaximalCoordinates=True)
       return contactId
+
 
 
 # Set lateral friction coefficient to PyBullet body
