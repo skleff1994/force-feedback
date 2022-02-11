@@ -56,7 +56,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   x0 = np.concatenate([q0, v0])   
   if(simulator == 'bullet'):
     from utils import sim_utils as simulator_utils
-    env, robot_simulator = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
+    env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
     from utils import raisim_utils as simulator_utils

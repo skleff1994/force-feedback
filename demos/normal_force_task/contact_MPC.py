@@ -71,7 +71,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   nq, nv = robot.model.nq, robot.model.nv; nu = nq
   # Placement of LOCAL end-effector frame w.r.t. WORLD frame
   id_endeff = robot.model.getFrameId(config['frame_of_interest'])
-  ee_frame_placement = robot.model.getFrameId(config['frame_of_interest'])
+  ee_frame_placement = robot.data.oMf[robot.model.getFrameId(config['frame_of_interest'])]
   # Placement of contact frame w.r.t. LOCAL frame
   contact_placement = ee_frame_placement.copy()
   # contact_placement.rotation =
@@ -80,11 +80,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   
   contact_placement.translation = base_placement.act(contact_placement.act(np.array([0., 0., offset])))
   contact_placement.rotation    = base_placement.rotation @ contact_placement.rotation
-  simulator_utils.display_contact_surface(contact_placement, with_collision=False)
-  simulator_utils.display_table(contact_placement, with_collision=False)
+  simulator_utils.display_contact_surface(contact_placement, with_collision=True)
+  # simulator_utils.display_table(contact_placement, with_collision=False)
 
   import time
-  time.sleep(100)
+  time.sleep(1)
 
   # # # # # # # # # 
   ### OCP SETUP ###

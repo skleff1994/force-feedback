@@ -715,7 +715,6 @@ def extract_plot_data_from_npz(file, LPF=False):
 
 
 
-
 # # Extract MPC simu-specific plotting data from sim data (LPF)
 # def extract_plot_data_from_sim_data_LPF(sim_data):
 #     '''

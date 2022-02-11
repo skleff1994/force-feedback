@@ -46,7 +46,7 @@ dt_simu = 1./float(config['simu_freq'])
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
-env, pybullet_simulator = sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
+env, pybullet_simulator, _ = sim_utils.init_bullet_simulation('iiwa', dt=dt_simu, x0=x0) #sim_utils.init_kuka_simulator(dt=dt_simu, x0=x0)
 # Get pin wrapper
 robot = pybullet_simulator.pin_robot
 # Get dimensions 
