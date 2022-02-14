@@ -48,10 +48,10 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial r
 tau0: [  0., -16.4279,  -0.,  14.4554, -0.6963, 0.027, 0.]           # Initial robot joint torque
 
 # Contact model 
-frame_of_interest: 'contact'
+frame_of_interest: 'arm_right_7_link'
 CONTACT: 'True'                         # 'True' or 'False' 
 contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
-contactModelFrameName: 'contact'
+contactModelFrameName: 'arm_right_7_link'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
 contactModelGains: [0., 0.]             # Baumgarte stabilization gains 
@@ -67,12 +67,12 @@ frameForceWeights:  [0., 0., 1., 0., 0., 0.]
 frameForceWeight: 10.
 # frameForceWeightTerminal: 0.
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
-frameForceFrameName: 'contact'
+frameForceFrameName: 'arm_right_7_link'
 
  # 'friction' : end-effector frame friction cone 
 mu:  0.5
 frictionConeWeight: 1
-frictionConeFrameName: 'contact'
+frictionConeFrameName: 'arm_right_7_link'
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
@@ -98,7 +98,7 @@ frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 30.
 frameTranslationWeightTerminal: 30.
 frameTranslationRef: 'DEFAULT' 
-frameTranslationFrameName: 'contact'
+frameTranslationFrameName: 'arm_right_7_link'
 frameCircleTrajectoryRadius: 0.1  # in m
 frameCircleTrajectoryVelocity: 1.5 # in rad/s
 
@@ -107,7 +107,7 @@ frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
 frameVelocityWeight: 0.
 frameVelocityWeightTerminal: 100
 frameVelocityRef: 'DEFAULT'    
-frameVelocityFrameName: 'contact'
+frameVelocityFrameName: 'arm_right_7_link'
 
 
  # 'rotation' : end-effector frame orientation
@@ -115,7 +115,7 @@ frameRotationWeights:  [1., 1., 1.]
 frameRotationWeight: 1.
 frameRotationWeightTerminal: 1.
 frameRotationRef: 'DEFAULT'
-frameRotationFrameName: 'contact'
+frameRotationFrameName: 'arm_right_7_link'
 
 
  # 'stateLim' : state limits

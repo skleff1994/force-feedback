@@ -1,3 +1,4 @@
+from ntpath import join
 import numpy as np
 import pinocchio as pin
 from pinocchio.robot_wrapper import RobotWrapper
@@ -31,11 +32,12 @@ else:
     logger.error('You need to install example_robot_data !')
 
 # Global & default settings
-SUPPORTED_ROBOTS         = ['iiwa', 'talos']
+SUPPORTED_ROBOTS         = ['iiwa', 'talos', 'talos_reduced']
 
 TALOS_DEFAULT_MESH_PATH  = '/opt/openrobots/share'
 TALOS_DEFAULT_BASE_POS   = [0, 0, 0.5]
 TALOS_DEFAULT_BASE_RPY   = [0, -np.pi/2, 0]
+TALOS_REDUCED_DEFAULT_BASE_RPY   = [0, 0, 0]
 
 IIWA_DEFAULT_BASE_POS   = [0, 0, 0]
 IIWA_DEFAULT_BASE_RPY   = [0, 0, 0]
@@ -44,7 +46,7 @@ IIWA_DEFAULT_BASE_RPY   = [0, 0, 0]
 # Pinocchio-bullet wrapper for TALOS arm
 class TalosArmRobot(PinBulletWrapper):
     '''
-    Pinocchio-PyBullet wrapper class for the KUKA LWR iiwa 
+    Pinocchio-PyBullet wrapper class for reduced TALOS model
     '''
     def __init__(self, pos, orn): 
 
@@ -102,6 +104,86 @@ class TalosArmRobot(PinBulletWrapper):
         self.pin_robot.centroidalMomentum(q, dq)
 
 
+# Pinocchio-bullet wrapper for TALOS reduced model torso + arm right
+class TalosReducedRobot(PinBulletWrapper):
+    '''
+    Pinocchio-PyBullet wrapper class for reduced TALOS model
+    '''
+    def __init__(self, pos, orn): 
+
+        # Load the robot
+        self.base_pos = pos
+        self.base_orn = orn
+
+        robot_loader = example_robot_data.robots_loader.TalosLoader()
+        p.setAdditionalSearchPath(robot_loader.model_path)
+        self.urdf_path = robot_loader.df_path
+        self.meshes_path = TALOS_DEFAULT_MESH_PATH
+        self.robotId = p.loadURDF(self.urdf_path,
+                                  self.base_pos, 
+                                  self.base_orn,
+                                  flags=p.URDF_USE_INERTIA_FROM_FILE,
+                                  useFixedBase=True)
+        p.getBasePositionAndOrientation(self.robotId)
+        self.pin_robot  = RobotWrapper.BuildFromURDF(self.urdf_path, self.meshes_path)
+        # self.pin_robot = example_robot_data.load('talos')
+        controlled_joints = ['torso_1_joint',   
+                             'torso_2_joint', 
+                             'arm_right_1_joint', 
+                             'arm_right_2_joint', 
+                             'arm_right_3_joint', 
+                             'arm_right_4_joint']
+        uncontrolled_joints = []
+        for joint_name in controlled_joints:
+            if(joint_name not in self.pin_robot.model.names):
+                uncontrolled_joints.append(joint_name)
+        p.setJointMotorControlArray(self.robotId, 
+                                    jointIndices= JointIndices, 
+                                    controlMode= p.POSITION_CONTROL,
+                                        forces = [0.0 for m in JointIndices]) 
+        # controlled_joints_ids = []
+        # for joint_name in controlled_joints:
+        #     controlled_joints_ids.append(robot_full.model.getJointId(joint_name))
+        # locked_joints_ids = []
+        # for joint_name in robot_full.model.names:
+        #     if(joint_name not in controlled_joints):
+        #         locked_joints_ids.append(robot_full.model.getJointId(joint_name))
+        # locked_joints_ids.pop(0) # excl. root joint
+        # qref = robot_full.model.referenceConfigurations['half_sitting']
+        # reduced_model = pin.buildReducedModel(robot_full.model, locked_joints_ids, qref)      
+        # self.pin_robot = pin.robot_wrapper.RobotWrapper(reduced_model)  
+        
+        # Query all the joints.
+        num_joints = p.getNumJoints(self.robotId)
+        for ji in range(num_joints):
+            p.changeDynamics(self.robotId, 
+                             ji, 
+                             linearDamping=.04,
+                             angularDamping=0.04, 
+                             restitution=0.0, 
+                             lateralFriction=0.5)
+        self.base_link_name = "arm_left_1_link"
+        self.end_eff_ids = []
+        self.end_eff_ids.append(self.pin_robot.model.getFrameId('arm_right_7_link'))
+        self.joint_names = controlled_joints
+        # Creates the wrapper by calling the super.__init__.
+        super(TalosReducedRobot, self).__init__(self.robotId, 
+                                            self.pin_robot,
+                                            controlled_joints,
+                                            ['arm_right_7_link'],
+                                            useFixedBase=True)
+        self.nb_dof = self.nv
+    
+    def forward_robot(self, q=None, dq=None):
+        if q is None:
+            q, dq = self.get_state()
+        elif dq is None:
+            raise ValueError("Need to provide q and dq or non of them.")
+        self.pin_robot.forwardKinematics(q, dq)
+        self.pin_robot.computeJointJacobians(q)
+        self.pin_robot.framesForwardKinematics(q)
+        self.pin_robot.centroidalMomentum(q, dq)
+
 
 # Load robot in PyBullet environment 
 def init_bullet_simulation(robot_name, dt=1e3, x0=None):
@@ -115,7 +197,8 @@ def init_bullet_simulation(robot_name, dt=1e3, x0=None):
             return init_iiwa_bullet(dt=dt, x0=x0)
         elif(robot_name == 'talos'):
             return init_talos_bullet(dt=dt, x0=x0)
-
+        elif(robot_name == 'talos_reduced'):
+            return init_talos_reduced_bullet(dt=dt, x0=x0)
 
 
 # Load KUKA arm in PyBullet environment
@@ -178,6 +261,35 @@ def init_talos_bullet(dt=1e3, x0=None, pos=TALOS_DEFAULT_BASE_POS, orn=TALOS_DEF
     robot_simulator.forward_robot(q0, dq0)
     return env, robot_simulator, base_placement
 
+
+# Load TALOS arm in PyBullet environment
+def init_talos_reduced_bullet(dt=1e3, x0=None, pos=TALOS_DEFAULT_BASE_POS, orn=TALOS_REDUCED_DEFAULT_BASE_RPY):
+    '''
+    Loads TALOS left arm model in PyBullet simulator
+    using the PinBullet wrapper to simplify interactions
+      INPUT:
+        dt        : simulator time step
+        x0        : initial robot state (pos and vel)
+    '''
+    # Info log
+    print("")
+    logger.info("Initializing TALOS left arm in PyBulletsimulator...")
+    print("")
+    # Create PyBullet sim environment + initialize sumulator
+    env = BulletEnvWithGround(p.GUI, dt=dt)
+    orn_quat = p.getQuaternionFromEuler(orn)
+    base_placement = pin.XYZQUATToSE3(pos + list(orn_quat)) 
+    robot_simulator = env.add_robot(TalosReducedRobot(pos, orn_quat))
+    # Initialize
+    if(x0 is None):
+        q0 = np.array([2., 0., 0., 0., 0., 0., 0.])
+        dq0 = np.zeros(robot_simulator.pin_robot.model.nv)
+    else:
+        q0 = x0[:robot_simulator.pin_robot.model.nq]
+        dq0 = x0[robot_simulator.pin_robot.model.nv:]
+    robot_simulator.reset_state(q0, dq0)
+    robot_simulator.forward_robot(q0, dq0)
+    return env, robot_simulator, base_placement
 
 
 # Get contact wrench from robot simulator

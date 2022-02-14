@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-SUPPORTED_ROBOTS = ['iiwa', 'talos', 'talos_full']
+SUPPORTED_ROBOTS = ['iiwa', 'talos', 'talos_reduced' 'talos_full']
 
 DEFAULT_ARMATURE = [.1, .1, .1, .1, .1, .1, .0] 
 
@@ -32,6 +32,30 @@ def load_robot_wrapper(robot_name):
         if(found_example_robot_data_pkg):
             import example_robot_data
             robot = example_robot_data.load('talos_arm') 
+        else:
+            logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
+    elif(robot_name =='talos_reduced'):
+        if(found_example_robot_data_pkg):
+            import example_robot_data
+            robot_full = example_robot_data.load('talos')
+            controlled_joints = ['torso_1_joint',   
+                                 'torso_2_joint', 
+                                 'arm_right_1_joint', 
+                                 'arm_right_2_joint', 
+                                 'arm_right_3_joint', 
+                                 'arm_right_4_joint']
+            controlled_joints_ids = []
+            for joint_name in controlled_joints:
+                controlled_joints_ids.append(robot_full.model.getJointId(joint_name))
+            locked_joints_ids = []
+            for joint_name in robot_full.model.names:
+                if(joint_name not in controlled_joints):
+                    locked_joints_ids.append(robot_full.model.getJointId(joint_name))
+            locked_joints_ids.pop(0) # excl. root joint
+            qref = robot_full.model.referenceConfigurations['half_sitting']
+            reduced_model = pin.buildReducedModel(robot_full.model, locked_joints_ids, qref)      
+            # print(reduced_model)
+            robot = pin.robot_wrapper.RobotWrapper(reduced_model)  
         else:
             logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
     elif(robot_name == 'talos_full'):
