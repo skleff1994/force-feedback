@@ -3,10 +3,10 @@
 
 
 # MPC & sim parameters
-simu_freq: 2000        # Simulation frequency in Hz
+simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 500         # Control frequency
 plan_freq: 500         # Planning frequency
-T_tot: 10.              # Simu duration (s)
+T_tot: 5.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: True              # Add delay in reference torques (low-level)
 DELAY_OCP: True              # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -42,7 +42,7 @@ TILT_PITCH_LOCAL_DEG: -10.
 # General
 dt: 0.02                                             # OCP integration step 
 N_h: 100                                             # Horizon length in nodes
-maxiter: 5                                         # Max number of iterations in DDP
+maxiter: 10                                         # Max number of iterations in DDP
 q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 

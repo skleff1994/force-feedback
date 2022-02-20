@@ -15,24 +15,27 @@ for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([0., angle*np.pi/180, 0.])
 N_EXP = len(TILT_RPY)
 
-def main(npz_path=None, FILTER=1, PLOT=False):
+PREFIX = '/home/skleff/force-feedback/data/'
+prefix_lpf = PREFIX+'iiwa_LPF_contact_circle_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.25_Fc=0.5_Fs1.0'
+# prefix =  PREFIX+'iiwa_contact_circle_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.5_Fc=0.5_Fs2.0'
+prefix =  PREFIX+'iiwa_contact_circle_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.5_Fc=0.5_Fs1.0'
+
+def main(FILTER=1, PLOT=False):
   
-  
-  for n_exp in range(N_EXP):
-    
     lin_err_ee_xyz_avg = np.zeros((3,N_EXP))
     f_ee_err_avg_z = np.zeros(N_EXP)
     f_ee_err_max_z = np.zeros(N_EXP)
 
-    # load plot data
-    if npz_path is None:
-        logger.error("Please specify a DATASET to analyze !")
-    else:
-        # Extract data
-        LPF = 'LPF' in npz_path
-        print(" Extracting data (LPF = "+str(LPF)+")")
-        data = data_utils.extract_plot_data_from_npz(npz_path+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp]), LPF=LPF)    
+    lin_err_ee_xyz_avg_LPF = np.zeros((3,N_EXP))
+    f_ee_err_avg_z_LPF = np.zeros(N_EXP)
+    f_ee_err_max_z_LPF = np.zeros(N_EXP)
 
+    for n_exp in range(N_EXP):
+
+
+        # Extract data
+        print("Extracting data...")
+        data = data_utils.extract_plot_data_from_npz(prefix+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'.npz', LPF=False)    
         # Compute absolute tracking errors |mea - ref|
         # EE tracking
         Np = data['N_plan'] ; Ns = data['N_simu']
@@ -40,24 +43,10 @@ def main(npz_path=None, FILTER=1, PLOT=False):
         lin_err_ee_xyz = np.zeros(data['lin_pos_ee_mea'].shape)
         for i in range( lin_pos_ee_ref.shape[0] ):
             lin_err_ee_xyz[i,:] = np.abs( data['lin_pos_ee_mea'][i,:] - lin_pos_ee_ref[i,:])
-        # Maximum (peak) absolute error along x,y,z
-        # lin_err_ee_max_x   = np.max(lin_err_ee_xyz[:,0])
-        # lin_err_ee_max_y   = np.max(lin_err_ee_xyz[:,1])
-        # lin_err_ee_max_z   = np.max(lin_err_ee_xyz[:,2])
         # Cumulative absolute error
         lin_err_ee_xyz_sum = np.sum(lin_err_ee_xyz, axis=0)
         # Average absolute error 
         lin_err_ee_xyz_avg[:,n_exp] = lin_err_ee_xyz_sum / Ns
-        # # Logs
-        print("\n")
-        print("EE tracking errors : \n")
-        # print(" Peak abs. EE error along x   : "+str(lin_err_ee_max_x))
-        # print(" Peak abs. EE error along y   : "+str(lin_err_ee_max_y))
-        # print(" Peak abs. EE error along z   : "+str(lin_err_ee_max_z))
-        # print(" Cumulative abs. EE xyz error : "+str(lin_err_ee_xyz_sum))
-        print(" Average abs. EE xyz error    : "+str(lin_err_ee_xyz_avg))
-        print("\n")
-        print("----------------------------------")
         # Force tracking
         Np = data['N_plan'] ; Ns = data['N_simu']
         f_ee_ref_z = -20
@@ -70,86 +59,144 @@ def main(npz_path=None, FILTER=1, PLOT=False):
         f_ee_err_sum_z = np.sum(f_ee_err_z, axis=0)
         # Average absolute error 
         f_ee_err_avg_z[n_exp] = f_ee_err_sum_z / Ns
-        # Logs
-        print("\n")
-        print("FORCE tracking errors : \n")
-        print(" Peak abs. FORCE error along z : "+str(f_ee_err_max_z))
-        # print(" Cumulative abs. FORCE z error : "+str(f_ee_err_sum_z))
-        print(" Average abs. FORCE z error    : "+str(f_ee_err_avg_z))
-        print("\n")
-
         # Smooth if necessary
         if(FILTER > 0):
             data['q_mea'] = analysis_utils.moving_average_filter(data['q_mea'].copy(), FILTER)
             data['v_mea'] = analysis_utils.moving_average_filter(data['v_mea'].copy(), FILTER)
-            if(LPF):
-                data['tau_mea'] = analysis_utils.moving_average_filter(data['tau_mea'].copy(), FILTER)
             data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
             data['ang_pos_ee_mea'] = analysis_utils.moving_average_filter(data['ang_pos_ee_mea'].copy(), FILTER)
             data['lin_vel_ee_mea'] = analysis_utils.moving_average_filter(data['lin_vel_ee_mea'].copy(), FILTER)
             data['ang_vel_ee_mea'] = analysis_utils.moving_average_filter(data['ang_vel_ee_mea'].copy(), FILTER)
             data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
+        
+        
+        
+        
+        # Extract data and compute errors
+        print("Extracting data LPF...")
+        data = data_utils.extract_plot_data_from_npz(prefix_lpf+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'.npz', LPF=True)    
+        Np = data['N_plan'] ; Ns = data['N_simu']
+        lin_pos_ee_ref = analysis_utils.linear_interpolation(data['lin_pos_ee_ref'], int((Ns+1)/Np))
+        lin_err_ee_xyz = np.zeros(data['lin_pos_ee_mea'].shape)
+        for i in range( lin_pos_ee_ref.shape[0] ):
+            lin_err_ee_xyz[i,:] = np.abs( data['lin_pos_ee_mea'][i,:] - lin_pos_ee_ref[i,:])
+        # Cumulative absolute error
+        lin_err_ee_xyz_sum = np.sum(lin_err_ee_xyz, axis=0)
+        # Average absolute error 
+        lin_err_ee_xyz_avg_LPF[:,n_exp] = lin_err_ee_xyz_sum / Ns
+        # Force tracking
+        Np = data['N_plan'] ; Ns = data['N_simu']
+        f_ee_ref_z = -20
+        f_ee_err_z = np.zeros(data['f_ee_mea'].shape[0])
+        for i in range( Ns ):
+            f_ee_err_z[i] = np.abs( data['f_ee_mea'][i,2] - f_ee_ref_z)
+        # Maximum (peak) absolute error along x,y,z
+        f_ee_err_max_z[n_exp]   = np.max(f_ee_err_z)
+        # Cumulative absolute error
+        f_ee_err_sum_z = np.sum(f_ee_err_z, axis=0)
+        # Average absolute error 
+        f_ee_err_avg_z_LPF[n_exp] = f_ee_err_sum_z / Ns
+        # Smooth if necessary
+        if(FILTER > 0):
+            data['q_mea'] = analysis_utils.moving_average_filter(data['q_mea'].copy(), FILTER)
+            data['v_mea'] = analysis_utils.moving_average_filter(data['v_mea'].copy(), FILTER)
+            data['tau_mea'] = analysis_utils.moving_average_filter(data['tau_mea'].copy(), FILTER)
+            data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
+            data['ang_pos_ee_mea'] = analysis_utils.moving_average_filter(data['ang_pos_ee_mea'].copy(), FILTER)
+            data['lin_vel_ee_mea'] = analysis_utils.moving_average_filter(data['lin_vel_ee_mea'].copy(), FILTER)
+            data['ang_vel_ee_mea'] = analysis_utils.moving_average_filter(data['ang_vel_ee_mea'].copy(), FILTER)
+            data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
+        print("----------------------------------")    
+
+
+
 
 
     # Plot
     fig1, ax1 = plt.subplots(3, 1, figsize=(19.2,10.8)) # Avg position err x,y,z
-    fig2, ax2 = plt.subplots(1, 1, figsize=(19.2,10.8)) # Avg force err z + max force z
-    # For each experiment plot perf 
+    fig2, ax2 = plt.subplots(2, 1, figsize=(19.2,10.8)) # Avg force err z + max force z
+    xyz = ['x','y','z']
+    color_LPF = 'r'
+    color = 'b'
+
+    ax1[0].plot(TILT_ANGLES_DEG, lin_err_ee_xyz_avg[0, :], color=color, linestyle='-', linewidth=3, label='Classical MPC')
+    ax1[0].plot(TILT_ANGLES_DEG, lin_err_ee_xyz_avg_LPF[0, :], color=color_LPF, linestyle='-', linewidth=3, label='Force feedback MPC')
+    
+    ax1[1].plot(TILT_ANGLES_DEG, lin_err_ee_xyz_avg[1, :], color=color, linestyle='-', linewidth=3)
+    ax1[1].plot(TILT_ANGLES_DEG, lin_err_ee_xyz_avg_LPF[1, :], color=color_LPF, linestyle='-', linewidth=3)
+   
+    ax1[2].plot(TILT_ANGLES_DEG, lin_err_ee_xyz_avg[2, :], color=color, linestyle='-', linewidth=3)
+    ax1[2].plot(TILT_ANGLES_DEG, lin_err_ee_xyz_avg_LPF[2, :], color=color_LPF, linestyle='-', linewidth=3)
+    
+    ax2[0].plot(TILT_ANGLES_DEG, f_ee_err_avg_z, color=color, linestyle='-', linewidth=3, label='Classical MPC')
+    ax2[0].plot(TILT_ANGLES_DEG, f_ee_err_avg_z_LPF, color=color_LPF, linestyle='-', linewidth=3, label='Force feedback MPC')
+    
+    ax2[1].plot(TILT_ANGLES_DEG, f_ee_err_max_z, color=color, linestyle='-', linewidth=3)
+    ax2[1].plot(TILT_ANGLES_DEG, f_ee_err_max_z_LPF, color=color_LPF, linestyle='-', linewidth=3)
+
+
+    # For each experiment plot perf as marker
     for n_exp in range(N_EXP): 
-        # Color for the current freq
-        coef_col = float(n_exp+1) / float(len(data)) 
-        col_exp_avg = [coef_col, coef_col/3., 1-coef_col, 1.]
-        # Transparency gradient for expes
-        coef_exp = float(n_exp+1) / (2*float(N_EXP))
-        col_exp = [coef_col-coef_col*coef_exp, 0.25 - coef_exp/2, 1-coef_col, 2.*coef_exp]
         # Avg position err x,y,z
         for i in range(3):
-            ax1.plot(float(TILT_ANGLES_DEG[n_exp]), lin_err_ee_xyz_avg[i, n_exp], marker='o', markerfacecolor=col_exp, 
-                                                        markersize=10, markeredgecolor='k')
-        # Avg force err
-        ax2.plot(float(TILT_ANGLES_DEG[n_exp]), f_ee_err_avg_z[n_exp], marker='o', markerfacecolor=col_exp,
-                                                        markersize=10, markeredgecolor='k')
-        # Max force err
-        ax1.plot(float(TILT_ANGLES_DEG[n_exp]), f_ee_err_max_z[n_exp], marker='s', markerfacecolor=col_exp_avg,
-                    markersize=14, markeredgecolor='k', label=str(TILT_ANGLES_DEG[n_exp]))
-        ax1.set(xlabel='Angle (degrees)', ylabel='Avg. Err. $|p_{z} - pref_{z}|$ (m)')
-        # # Err norm
-        # ax2.plot(float(TILT_ANGLES_DEG[n_exp]), pz_err_res_avg[k], marker='s', markerfacecolor=col_exp_avg,
-        #             markersize=14, markeredgecolor='k', label=str(TILT_ANGLES_DEG[n_exp])+' Hz')
-        # ax2.set(xlabel='Frequency (Hz)', ylabel='Residual Error $|p_{z} - pref_{z}|$ (m)')
+            ax1[i].plot(float(TILT_ANGLES_DEG[n_exp]), lin_err_ee_xyz_avg[i, n_exp], 
+                                                        marker='o', markerfacecolor=color, 
+                                                        markersize=16, markeredgecolor='k')
+            ax1[i].plot(float(TILT_ANGLES_DEG[n_exp]), lin_err_ee_xyz_avg_LPF[i, n_exp], 
+                                                        marker='s', markerfacecolor=color_LPF, 
+                                                        markersize=16, markeredgecolor='k')
+            ax1[i].grid(True) 
+            ax1[i].set_ylabel('$\Delta P^{EE}_%s$  (m)'%xyz[i], fontsize=16)
+            ax1[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+            ax1[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+            ax1[i].grid(True)
+        ax1[-1].set_xlabel('Angle (deg)', fontsize=16)
 
-    # AVG max err
-    # ax1.plot(1000, pz_err_max_avg[0], marker='s', markerfacecolor=[0., 1., 0., 1.], 
-    #                                     markersize=14, markeredgecolor='k', label='BASELINE (1000) Hz')
-    # ax1.set(xlabel='Frequency (Hz)', ylabel='$AVG max|p_{z} - pref_{z}|$ (m)')
-    # # Err norm
-    # ax2.plot(1000, pz_err_res_avg[0], marker='s', markerfacecolor=[0., 1., 0., 1.], 
-    #                                     markersize=14, markeredgecolor='k', label='BASELINE (1000) Hz')
-    # ax2.set(xlabel='Frequency (Hz)', ylabel='$AVG Steady-State Error |p_{z} - pref_{z}|$')
-    # Grids
-    ax2.grid() 
-    ax1.grid() 
+        # Avg force err
+        ax2[0].plot(float(TILT_ANGLES_DEG[n_exp]), f_ee_err_avg_z[n_exp], 
+                                                     marker='o', markerfacecolor=color,
+                                                     markersize=16, markeredgecolor='k')
+        ax2[0].plot(float(TILT_ANGLES_DEG[n_exp]), f_ee_err_avg_z_LPF[n_exp],
+                                                     marker='s', markerfacecolor=color_LPF,
+                                                     markersize=16, markeredgecolor='k')
+        ax2[0].set_ylabel('$\Delta \lambda_{z}$  (m)', fontsize=16)
+        ax2[0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax2[0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax2[0].grid(True)
+        # Max force err
+        ax2[1].plot(float(TILT_ANGLES_DEG[n_exp]), f_ee_err_max_z[n_exp], 
+                                                     marker='o', markerfacecolor=color,
+                                                     markersize=16, markeredgecolor='k')
+        ax2[1].plot(float(TILT_ANGLES_DEG[n_exp]), f_ee_err_max_z_LPF[n_exp], 
+                                                     marker='s', markerfacecolor=color_LPF,
+                                                     markersize=16, markeredgecolor='k')
+        ax2[1].set_ylabel('$\lambda^{max}_{z}$  (m)', fontsize=16)
+        ax2[1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax2[1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
+        ax2[1].grid(True)
+        ax2[-1].set_xlabel('Angle (deg)', fontsize=16)
+  
     # Legend error
-    handles1, labels1 = ax1.get_legend_handles_labels()
+    handles1, labels1 = ax1[0].get_legend_handles_labels()
     fig1.legend(handles1, labels1, loc='upper right', prop={'size': 16})
     # Legend error norm 
-    handles2, labels2 = ax2.get_legend_handles_labels()
+    handles2, labels2 = ax2[0].get_legend_handles_labels()
     fig2.legend(handles2, labels2, loc='upper right', prop={'size': 16})
     # titles
     fig1.suptitle('Average position tracking error')
     fig2.suptitle('Average and maximum force error')
     # Save, show , clean
-    # fig1.savefig('/home/skleff/impedance_mpc/data/'+DATASET_NAME+'/peak_err.png')
-    # fig2.savefig('/home/skleff/impedance_mpc/data/'+DATASET_NAME+'/resi_err.png')
+    fig1.savefig('/home/skleff/force-feedback/data//pos_err.png')
+    fig2.savefig('/home/skleff/force-feedback/data//force_err.png')
     plt.show()
     plt.close('all')
 
 
 
 if __name__=='__main__':
-    if len(sys.argv) <= 2:
-        print("Usage: python analyze_TILT.py [arg1: npz_path (str)] [arg2: FILTER (int)]")
+    if len(sys.argv) <= 1:
+        print("Usage: python analyze_TILT.py [arg1: FILTER (int)]")
         sys.exit(0)
-    sys.exit(main(sys.argv[1], int(sys.argv[2])))
+    sys.exit(main(int(sys.argv[1])))
 
 
