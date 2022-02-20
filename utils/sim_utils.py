@@ -414,6 +414,16 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, with_collision
 
 
 
+
+# Load contact surface in PyBullet for contact experiments
+def remove_body_from_sim(bodyId):
+    '''
+    Removes bodyfrom sim env
+    '''
+    logger.info("Removing body "+str(bodyId)+" from simulation !")
+    p.removeBody(int(bodyId))
+
+
 # Set lateral friction coefficient to PyBullet body
 def set_friction_coef(bodyId, coef):
   '''

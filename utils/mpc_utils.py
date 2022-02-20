@@ -33,7 +33,7 @@ class ActuationModel:
         self.DELAY_SIM         = config['DELAY_SIM']                     # Add delay in reference torques (low-level)
         self.SCALE_TORQUES     = config['SCALE_TORQUES']                 # Affinescaling of reference torque
         self.FILTER_TORQUES    = config['FILTER_TORQUES']                # Moving average smoothing of reference torques
-        self.TORQUE_TRACKING   = False                                   # NOT READY
+        self.TORQUE_TRACKING   = config['TORQUE_TRACKING']                # NOT READY
         logger.info("Created ActuationModel(DELAY_SIM="+str(self.DELAY_SIM)+
                     ", SCALE_TORQUES="+str(self.SCALE_TORQUES)+
                     ", FILTER_TORQUES="+str(self.FILTER_TORQUES)+").")
@@ -70,7 +70,7 @@ class ActuationModel:
         if(self.TORQUE_TRACKING):
             self.err_P = measured_torque - reference_torque              
             self.err_I += measured_torque                             
-            measured_torque = reference_torque - self.Kp.dot(self.err_P) - self.Ki.dot(self.err_I)
+            measured_torque = reference_torque - self.gain_P.dot(self.err_P) - self.gain_I.dot(self.err_I)
         return measured_torque
 
 
