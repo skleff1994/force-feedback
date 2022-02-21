@@ -49,13 +49,13 @@ WARM_START_IK = True
 
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [-20, -10, -5, 5, 10, 20] 
+TILT_ANGLES_DEG = [-20, -15, -10, -5, 0, 5, 10, 15, 20] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([0., angle*np.pi/180, 0.])
 N_EXP = len(TILT_RPY)
 
-SEEDS = [1, 2, 3]
+SEEDS = [1, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
     
 
@@ -176,13 +176,14 @@ def main(robot_name='iiwa', simulator='bullet'):
         simulator_utils.set_friction_coef(contact_surface_bulletId, 0.5)
         # Display target circle  trajectory (reference)
         nb_points = 20 
-        ballsId = np.zeros(nb_points, dtype=int)
+        ballsIdTarget = np.zeros(nb_points, dtype=int)
         for i in range(nb_points):
             t = (i/nb_points)*2*np.pi/OMEGA
             pl = pin_utils.rotate(ee_frame_placement, rpy=TILT_RPY[n_exp])
             pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA)
-            ballsId[i] = simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
+            ballsIdTarget[i] = simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
         draw_rate = 200
+        ballsIdReal = []
 
 
         # # # # # # # # # # #
@@ -352,12 +353,14 @@ def main(robot_name='iiwa', simulator='bullet'):
             # Display real 
             if(i%draw_rate==0):
                 pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
-                simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
-        
+                ballId = simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
+                ballsIdReal.append(ballId)
 
         # Remove table
         simulator_utils.remove_body_from_sim(contact_surface_bulletId)
-        for ballId in ballsId:
+        for ballId in ballsIdTarget:
+            simulator_utils.remove_body_from_sim(ballId)
+        for ballId in ballsIdReal:
             simulator_utils.remove_body_from_sim(ballId)
             
         # # # # # # # # # # #
