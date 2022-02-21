@@ -36,11 +36,12 @@ def main(npz_path=None, FILTER=1, PLOT=False):
     # Logs
     print("\n")
     print("EE tracking errors : \n")
-    print(" Peak abs. EE error along x   : "+str(lin_err_ee_max_x))
-    print(" Peak abs. EE error along y   : "+str(lin_err_ee_max_y))
-    print(" Peak abs. EE error along z   : "+str(lin_err_ee_max_z))
-    print(" Cumulative abs. EE xyz error : "+str(lin_err_ee_xyz_sum))
-    print(" Average abs. EE xyz error    : "+str(lin_err_ee_xyz_avg))
+    # print(" Peak abs. EE error along x   : "+str(lin_err_ee_max_x))
+    # print(" Peak abs. EE error along y   : "+str(lin_err_ee_max_y))
+    # print(" Peak abs. EE error along z   : "+str(lin_err_ee_max_z))
+    # print(" Cumulative abs. EE xyz error : "+str(lin_err_ee_xyz_sum))
+    print(" Average abs. EE xyz error      : "+str(lin_err_ee_xyz_avg))
+    print(" Average abs. EE xyz error norm : "+str(np.linalg.norm(lin_err_ee_xyz_avg)))
     print("\n")
     print("----------------------------------")
      # Force tracking
@@ -59,7 +60,7 @@ def main(npz_path=None, FILTER=1, PLOT=False):
     print("\n")
     print("FORCE tracking errors : \n")
     print(" Peak abs. FORCE error along z : "+str(f_ee_err_max_z))
-    print(" Cumulative abs. FORCE z error : "+str(f_ee_err_sum_z))
+    # print(" Cumulative abs. FORCE z error : "+str(f_ee_err_sum_z))
     print(" Average abs. FORCE z error    : "+str(f_ee_err_avg_z))
     print("\n")
 
@@ -76,12 +77,12 @@ def main(npz_path=None, FILTER=1, PLOT=False):
         data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
 
 
-    # Plot
-    WHICH_PLOTS = ['f', 'ee']
-    if(LPF):
-        plot_utils.plot_mpc_results_LPF(data, which_plots=WHICH_PLOTS, PLOT_PREDICTIONS=False)
-    else:
-        plot_utils.plot_mpc_results(data, which_plots=WHICH_PLOTS, PLOT_PREDICTIONS=False)
+    # # Plot
+    # WHICH_PLOTS = ['f', 'ee']
+    # if(LPF):
+    #     plot_utils.plot_mpc_results_LPF(data, which_plots=WHICH_PLOTS, PLOT_PREDICTIONS=False)
+    # else:
+    #     plot_utils.plot_mpc_results(data, which_plots=WHICH_PLOTS, PLOT_PREDICTIONS=False)
 
 
 

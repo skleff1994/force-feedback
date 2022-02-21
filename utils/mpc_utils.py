@@ -8,7 +8,7 @@ logger.setLevel(logging.INFO)
 
 class ActuationModel:
 
-    def __init__(self, config, nu=7):
+    def __init__(self, config, nu=7, SEED=1):
         '''
         Actuation model with parameters defined in config YAML file
         Simulates (optionally) 
@@ -17,6 +17,7 @@ class ActuationModel:
          - delay tau_ref(i) = tau_ref(i-delay)
          - torque PI control (tau_mea, tau_ref)
         '''
+        np.random.seed(SEED)
         self.config = config
         self.nu = nu
         # Scaling of desired torque
@@ -117,13 +118,14 @@ class CommunicationModel:
 
 class SensorModel:
 
-    def __init__(self, config, nq=7, nv=7, ntau=0):
+    def __init__(self, config, nq=7, nv=7, ntau=0, SEED=1):
         '''
         Sensing model with parameters defined in config YAML file
         Simulates (optionally)
          - gaussian noise on measured state
          - moving avg filtering on measured state
         '''
+        np.random.seed(SEED)
         self.config = config
         self.nq = nq
         self.nv = nv
