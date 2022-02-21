@@ -15,8 +15,6 @@ for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([0., angle*np.pi/180, 0.])
 N_EXP = len(TILT_RPY)
 
-SEEDS = [1, 2, 3]
-N_SEEDS = len(SEEDS)
 
 PREFIX = '/home/skleff/force-feedback/data/'
 prefix_lpf = PREFIX+'iiwa_LPF_contact_circle_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.25_Fc=0.5_Fs1.0'
@@ -38,76 +36,75 @@ def main(FILTER=1, PLOT=False):
     # Compute errors 
     for n_exp in range(N_EXP):
 
-        for n_seed in range(N_SEEDS):
 
-            # Extract data
-            print("Extracting data...")
-            data = data_utils.extract_plot_data_from_npz(prefix+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'.npz', LPF=False)    
-            # Compute absolute tracking errors |mea - ref|
-            # EE tracking
-            Np = data['N_plan'] ; Ns = data['N_simu']
-            lin_pos_ee_ref = analysis_utils.linear_interpolation(data['lin_pos_ee_ref'], int((Ns+1)/Np))
-            lin_err_ee_xy = np.zeros( (data['lin_pos_ee_mea'].shape[0], 2) )
-            for i in range( lin_pos_ee_ref.shape[0] ):
-                lin_err_ee_xy[i,:] = np.abs( data['lin_pos_ee_mea'][i,:2] - lin_pos_ee_ref[i,:2])
-            # Average absolute error 
-            lin_err_ee_xy_avg[:,n_exp] = np.sum(lin_err_ee_xy, axis=0) / Ns
-            lin_err_ee_xy_avg_NORM[n_exp] = np.linalg.norm(lin_err_ee_xy_avg[:,n_exp])
-            # Force tracking
-            Np = data['N_plan'] ; Ns = data['N_simu']
-            f_ee_ref_z = -20
-            f_ee_err_z = np.zeros(data['f_ee_mea'].shape[0])
-            for i in range( Ns ):
-                f_ee_err_z[i] = np.abs( data['f_ee_mea'][i,2] - f_ee_ref_z)
-            # Maximum (peak) absolute error along x,y,z
-            f_ee_err_max_z[n_exp]   = np.max(f_ee_err_z)
-            # Average absolute error 
-            f_ee_err_avg_z[n_exp] = np.sum(f_ee_err_z, axis=0) / Ns
-            # Smooth if necessary
-            if(FILTER > 0):
-                data['q_mea'] = analysis_utils.moving_average_filter(data['q_mea'].copy(), FILTER)
-                data['v_mea'] = analysis_utils.moving_average_filter(data['v_mea'].copy(), FILTER)
-                data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
-                data['ang_pos_ee_mea'] = analysis_utils.moving_average_filter(data['ang_pos_ee_mea'].copy(), FILTER)
-                data['lin_vel_ee_mea'] = analysis_utils.moving_average_filter(data['lin_vel_ee_mea'].copy(), FILTER)
-                data['ang_vel_ee_mea'] = analysis_utils.moving_average_filter(data['ang_vel_ee_mea'].copy(), FILTER)
-                data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
-            
-            
-            
-            
-            # Extract data and compute errors
-            print("Extracting data LPF...")
-            data = data_utils.extract_plot_data_from_npz(prefix_lpf+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'.npz', LPF=True)    
-            Np = data['N_plan'] ; Ns = data['N_simu']
-            lin_pos_ee_ref = analysis_utils.linear_interpolation(data['lin_pos_ee_ref'], int((Ns+1)/Np))
-            lin_err_ee_xy = np.zeros( (data['lin_pos_ee_mea'].shape[0], 2) )
-            for i in range( lin_pos_ee_ref.shape[0] ):
-                lin_err_ee_xy[i,:] = np.abs( data['lin_pos_ee_mea'][i,:2] - lin_pos_ee_ref[i,:2])
-            # Average absolute error 
-            lin_err_ee_xy_avg_LPF[:,n_exp] = np.sum(lin_err_ee_xy, axis=0) / Ns
-            lin_err_ee_xy_avg_LPF_NORM[n_exp] = np.linalg.norm(lin_err_ee_xy_avg_LPF[:,n_exp])
-            # Force tracking
-            Np = data['N_plan'] ; Ns = data['N_simu']
-            f_ee_ref_z = -20
-            f_ee_err_z = np.zeros(data['f_ee_mea'].shape[0])
-            for i in range( Ns ):
-                f_ee_err_z[i] = np.abs( data['f_ee_mea'][i,2] - f_ee_ref_z)
-            # Maximum (peak) absolute error along x,y,z
-            f_ee_err_max_z_LPF[n_exp]   = np.max(f_ee_err_z)
-            # Average absolute error 
-            f_ee_err_avg_z_LPF[n_exp] = np.sum(f_ee_err_z, axis=0) / Ns
-            # Smooth if necessary
-            if(FILTER > 0):
-                data['q_mea'] = analysis_utils.moving_average_filter(data['q_mea'].copy(), FILTER)
-                data['v_mea'] = analysis_utils.moving_average_filter(data['v_mea'].copy(), FILTER)
-                data['tau_mea'] = analysis_utils.moving_average_filter(data['tau_mea'].copy(), FILTER)
-                data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
-                data['ang_pos_ee_mea'] = analysis_utils.moving_average_filter(data['ang_pos_ee_mea'].copy(), FILTER)
-                data['lin_vel_ee_mea'] = analysis_utils.moving_average_filter(data['lin_vel_ee_mea'].copy(), FILTER)
-                data['ang_vel_ee_mea'] = analysis_utils.moving_average_filter(data['ang_vel_ee_mea'].copy(), FILTER)
-                data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
-            print("----------------------------------")    
+        # Extract data
+        print("Extracting data...")
+        data = data_utils.extract_plot_data_from_npz(prefix+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'.npz', LPF=False)    
+        # Compute absolute tracking errors |mea - ref|
+        # EE tracking
+        Np = data['N_plan'] ; Ns = data['N_simu']
+        lin_pos_ee_ref = analysis_utils.linear_interpolation(data['lin_pos_ee_ref'], int((Ns+1)/Np))
+        lin_err_ee_xy = np.zeros( (data['lin_pos_ee_mea'].shape[0], 2) )
+        for i in range( lin_pos_ee_ref.shape[0] ):
+            lin_err_ee_xy[i,:] = np.abs( data['lin_pos_ee_mea'][i,:2] - lin_pos_ee_ref[i,:2])
+        # Average absolute error 
+        lin_err_ee_xy_avg[:,n_exp] = np.sum(lin_err_ee_xy, axis=0) / Ns
+        lin_err_ee_xy_avg_NORM[n_exp] = np.linalg.norm(lin_err_ee_xy_avg[:,n_exp])
+        # Force tracking
+        Np = data['N_plan'] ; Ns = data['N_simu']
+        f_ee_ref_z = -20
+        f_ee_err_z = np.zeros(data['f_ee_mea'].shape[0])
+        for i in range( Ns ):
+            f_ee_err_z[i] = np.abs( data['f_ee_mea'][i,2] - f_ee_ref_z)
+        # Maximum (peak) absolute error along x,y,z
+        f_ee_err_max_z[n_exp]   = np.max(f_ee_err_z)
+        # Average absolute error 
+        f_ee_err_avg_z[n_exp] = np.sum(f_ee_err_z, axis=0) / Ns
+        # Smooth if necessary
+        if(FILTER > 0):
+            data['q_mea'] = analysis_utils.moving_average_filter(data['q_mea'].copy(), FILTER)
+            data['v_mea'] = analysis_utils.moving_average_filter(data['v_mea'].copy(), FILTER)
+            data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
+            data['ang_pos_ee_mea'] = analysis_utils.moving_average_filter(data['ang_pos_ee_mea'].copy(), FILTER)
+            data['lin_vel_ee_mea'] = analysis_utils.moving_average_filter(data['lin_vel_ee_mea'].copy(), FILTER)
+            data['ang_vel_ee_mea'] = analysis_utils.moving_average_filter(data['ang_vel_ee_mea'].copy(), FILTER)
+            data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
+        
+        
+        
+        
+        # Extract data and compute errors
+        print("Extracting data LPF...")
+        data = data_utils.extract_plot_data_from_npz(prefix_lpf+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'.npz', LPF=True)    
+        Np = data['N_plan'] ; Ns = data['N_simu']
+        lin_pos_ee_ref = analysis_utils.linear_interpolation(data['lin_pos_ee_ref'], int((Ns+1)/Np))
+        lin_err_ee_xy = np.zeros( (data['lin_pos_ee_mea'].shape[0], 2) )
+        for i in range( lin_pos_ee_ref.shape[0] ):
+            lin_err_ee_xy[i,:] = np.abs( data['lin_pos_ee_mea'][i,:2] - lin_pos_ee_ref[i,:2])
+        # Average absolute error 
+        lin_err_ee_xy_avg_LPF[:,n_exp] = np.sum(lin_err_ee_xy, axis=0) / Ns
+        lin_err_ee_xy_avg_LPF_NORM[n_exp] = np.linalg.norm(lin_err_ee_xy_avg_LPF[:,n_exp])
+        # Force tracking
+        Np = data['N_plan'] ; Ns = data['N_simu']
+        f_ee_ref_z = -20
+        f_ee_err_z = np.zeros(data['f_ee_mea'].shape[0])
+        for i in range( Ns ):
+            f_ee_err_z[i] = np.abs( data['f_ee_mea'][i,2] - f_ee_ref_z)
+        # Maximum (peak) absolute error along x,y,z
+        f_ee_err_max_z_LPF[n_exp]   = np.max(f_ee_err_z)
+        # Average absolute error 
+        f_ee_err_avg_z_LPF[n_exp] = np.sum(f_ee_err_z, axis=0) / Ns
+        # Smooth if necessary
+        if(FILTER > 0):
+            data['q_mea'] = analysis_utils.moving_average_filter(data['q_mea'].copy(), FILTER)
+            data['v_mea'] = analysis_utils.moving_average_filter(data['v_mea'].copy(), FILTER)
+            data['tau_mea'] = analysis_utils.moving_average_filter(data['tau_mea'].copy(), FILTER)
+            data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
+            data['ang_pos_ee_mea'] = analysis_utils.moving_average_filter(data['ang_pos_ee_mea'].copy(), FILTER)
+            data['lin_vel_ee_mea'] = analysis_utils.moving_average_filter(data['lin_vel_ee_mea'].copy(), FILTER)
+            data['ang_vel_ee_mea'] = analysis_utils.moving_average_filter(data['ang_vel_ee_mea'].copy(), FILTER)
+            data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
+        print("----------------------------------")    
 
 
 

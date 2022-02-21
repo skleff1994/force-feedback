@@ -216,8 +216,8 @@ def main(robot_name='iiwa', simulator='bullet'):
 
 
         # Additional simulation blocks 
-        communication = mpc_utils.CommunicationModel(config, SEED=SEEDS[n_seed])
-        actuation     = mpc_utils.ActuationModel(config)
+        communication = mpc_utils.CommunicationModel(config)
+        actuation     = mpc_utils.ActuationModel(config, SEED=SEEDS[n_seed])
         sensing       = mpc_utils.SensorModel(config, ntau=nu, SEED=SEEDS[n_seed])
 
 
