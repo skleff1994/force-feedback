@@ -14,6 +14,7 @@ DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES: False            # Affine scaling of reference torque
 NOISE_TORQUES: False            # Add Gaussian noise on reference torques
+TORQUE_TRACKING: False        # Simulate low-level torque control loop
 FILTER_TORQUES: False          # Moving average smoothing of reference torques
 NOISE_STATE: False              # Add Gaussian noise on the measured state 
 FILTER_STATE: False            # Moving average smoothing of reference torques

@@ -17,33 +17,29 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
-from robot_properties_kuka.config import IiwaConfig
-np.set_printoptions(precision=4, linewidth=180)
-import time
-import pinocchio as pin
-
 import logging
 FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
 FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
 logging.basicConfig(format=FORMAT_SHORT)
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
+import numpy as np  
+np.set_printoptions(precision=4, linewidth=180)
 
-TASK = 'rotation'
+from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
 
 
-def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
+
+def main(robot_name, PLOT, VISUALIZE):
+
 
     # # # # # # # # # # # #
     ### LOAD ROBOT MODEL ## 
     # # # # # # # # # # # # 
     # Read config file
-    config = path_utils.load_config_file(robot_name+'_'+TASK+'_OCP')
+    config, _ = path_utils.load_config_file(__file__, robot_name)
     q0 = np.asarray(config['q0'])
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])   
@@ -189,12 +185,5 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
 
 
 if __name__=='__main__':
-    if(len(sys.argv) < 2 or len(sys.argv) > 4):
-        print("Usage: python rotation_OCP.py [arg1: robot_name (str)] [arg2: PLOT (bool)] [arg3: VISUALIZE (bool)]")
-        sys.exit(0)
-    elif(len(sys.argv)==2):
-        sys.exit(main(str(sys.argv[1])))
-    elif(len(sys.argv)==3):
-        sys.exit(main(str(sys.argv[1]), bool(sys.argv[2])))
-    elif(len(sys.argv)==4):
-        sys.exit(main(str(sys.argv[1]), bool(sys.argv[2]), bool(sys.argv[3])))
+    args = misc_utils.parse_OCP_script(sys.argv[1:])
+    main(args.robot_name, args.PLOT, args.VISUALIZE)
