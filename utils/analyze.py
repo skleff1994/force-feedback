@@ -64,6 +64,12 @@ def main(npz_path=None, FILTER=1, PLOT=False):
     print(" Average abs. FORCE z error    : "+str(f_ee_err_avg_z))
     print("\n")
 
+    bool_contact = np.isclose(data['f_ee_mea'][:,2], np.zeros(data['f_ee_mea'][:,2].shape), rtol=1e-6)
+    cycles_not_in_contact = (100.*np.count_nonzero(bool_contact))/Ns
+    print(" # Cycles not in contact       : "+str(cycles_not_in_contact))
+    print("\n")
+
+
     # Smooth if necessary
     if(FILTER > 0):
         data['q_mea'] = analysis_utils.moving_average_filter(data['q_mea'].copy(), FILTER)

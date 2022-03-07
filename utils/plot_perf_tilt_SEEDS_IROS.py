@@ -167,27 +167,16 @@ def main(FILTER=1):
     # Average
     ax2[0].plot(TILT_ANGLES_DEG, f_avg_abs_err_z_AVG, color=color, linestyle='-', linewidth=4, label='Classical MPC')
     ax2[0].plot(TILT_ANGLES_DEG, f_avg_abs_err_z_AVG_LPF, color=color_LPF, linestyle='-', linewidth=4, label='Force feedback MPC')
-    # for n_seed in range(N_SEEDS):
-    #     ax2[0].plot(TILT_ANGLES_DEG, f_avg_abs_err_z[n_seed,:], color=color, linestyle='-', linewidth=3, alpha=0.3)
-    #     ax2[0].plot(TILT_ANGLES_DEG, f_avg_abs_err_z_LPF[n_seed,:], color=color_LPF, linestyle='-', linewidth=3, alpha=0.3)
 
     # FORCE MAX
     # Average 
     ax2[1].plot(TILT_ANGLES_DEG, f_abs_max_z_AVG, color=color, linestyle='-', linewidth=4)
     ax2[1].plot(TILT_ANGLES_DEG, f_abs_max_z_AVG_LPF, color=color_LPF, linestyle='-', linewidth=4)
-    # for n_seed in range(N_SEEDS):
-    #     ax2[1].plot(TILT_ANGLES_DEG, f_abs_max_z[n_seed,:], color=color, linestyle='-', linewidth=3, alpha=0.3)
-    #     ax2[1].plot(TILT_ANGLES_DEG, f_abs_max_z_LPF[n_seed,:], color=color_LPF, linestyle='-', linewidth=3, alpha=0.3)
 
 
     # TIMINGS
     ax3.plot(TILT_ANGLES_DEG, cycles_not_in_contact_AVG, color=color, linestyle='-', linewidth=4)
     ax3.plot(TILT_ANGLES_DEG, cycles_not_in_contact_AVG_LPF, color=color_LPF, linestyle='-', linewidth=4)
-    # for n_seed in range(N_SEEDS):
-    #     # ax3.hist(cycles_not_in_contact[n_seed,:], TILT_ANGLES_DEG) #color=color, linestyle='-', linewidth=3, alpha=0.3)
-    #     ax3.plot(TILT_ANGLES_DEG, cycles_not_in_contact_LPF[n_seed,:], color=color_LPF, linestyle='-', linewidth=3, alpha=0.3)
-    #     # ax3.hist(cycles_not_in_contact[n_seed,:], TILT_ANGLES_DEG)# color=color, linestyle='-', linewidth=3, alpha=0.3)
-    #     ax3.plot(TILT_ANGLES_DEG, cycles_not_in_contact_LPF[n_seed,:], color=color_LPF, linestyle='-', linewidth=3, alpha=0.3)
 
     # For each experiment plot perf as marker
     for n_exp in range(N_EXP): 
@@ -202,13 +191,13 @@ def main(FILTER=1):
         for n_seed in range(N_SEEDS):
             ax1.plot(TILT_ANGLES_DEG[n_exp], p_avg_abs_err_xy_NORM[n_seed,n_exp], marker='o', markerfacecolor=color, markersize=16, alpha=0.3)
             ax1.plot(TILT_ANGLES_DEG[n_exp], p_avg_abs_err_xy_NORM_LPF[n_seed,n_exp], marker='s', markerfacecolor=color_LPF, markersize=16, alpha=0.3)
-        ax1.set_ylabel('$|| \Delta P^{EE}_{xy} ||$  (m)', fontsize=26)
-        ax1.yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax1.yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        ax1.set_ylabel('$|| \Delta P^{EE}_{xy} ||$  (m)', fontsize=30)
+        ax1.yaxis.set_major_locator(plt.MaxNLocator(4))
+        # ax1.yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
         ax1.grid(True) 
-        ax1.tick_params(axis = 'y', labelsize=22)
-        ax1.set_xlabel('Angle (deg)', fontsize=26)
-        ax1.tick_params(axis = 'x', labelsize = 22)
+        ax1.tick_params(axis = 'y', labelsize=24)
+        ax1.set_xlabel('Angle (deg)', fontsize=30)
+        ax1.tick_params(axis = 'x', labelsize = 24)
 
 
         # FORCE ERR
@@ -221,11 +210,11 @@ def main(FILTER=1):
         for n_seed in range(N_SEEDS):
             ax2[0].plot(TILT_ANGLES_DEG[n_exp], f_avg_abs_err_z[n_seed,n_exp], marker='o', markerfacecolor=color, markersize=16, alpha=0.3)
             ax2[0].plot(TILT_ANGLES_DEG[n_exp], f_avg_abs_err_z_LPF[n_seed,n_exp], marker='s', markerfacecolor=color_LPF, markersize=16, alpha=0.3)
-        ax2[0].set_ylabel('$\Delta \lambda_{z}$  (m)', fontsize=26)
-        ax2[0].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax2[0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        ax2[0].set_ylabel('$\Delta \lambda_{z}$  (N)', fontsize=30)
+        ax2[0].yaxis.set_major_locator(plt.MaxNLocator(3))
+        # ax2[0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
         ax2[0].grid(True) 
-        ax2[0].tick_params(axis = 'y', labelsize=22)
+        ax2[0].tick_params(axis = 'y', labelsize=24)
         ax2[0].xaxis.set_ticklabels([])
         ax2[0].tick_params(bottom=False)
 
@@ -241,13 +230,13 @@ def main(FILTER=1):
         for n_seed in range(N_SEEDS):
             ax2[1].plot(TILT_ANGLES_DEG[n_exp], f_abs_max_z[n_seed,n_exp], marker='o', markerfacecolor=color, markersize=16, alpha=0.3)
             ax2[1].plot(TILT_ANGLES_DEG[n_exp], f_abs_max_z_LPF[n_seed,n_exp], marker='s', markerfacecolor=color_LPF, markersize=16, alpha=0.3)
-        ax2[1].set_ylabel('$\lambda^{max}_{z}$  (m)', fontsize=26)
-        ax2[1].yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax2[1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        ax2[1].set_ylabel('$\lambda^{max}_{z}$  (N)', fontsize=30)
+        ax2[1].yaxis.set_major_locator(plt.MaxNLocator(3))
+        # ax2[1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.1f'))
         ax2[1].grid(True) 
-        ax2[1].tick_params(axis = 'y', labelsize=22)
-        ax2[1].set_xlabel('Angle (deg)', fontsize=26)
-        ax2[1].tick_params(axis = 'x', labelsize = 22)
+        ax2[1].tick_params(axis = 'y', labelsize=24)
+        ax2[1].set_xlabel('Angle (deg)', fontsize=30)
+        ax2[1].tick_params(axis = 'x', labelsize = 24)
 
 
         # TIME
@@ -260,27 +249,27 @@ def main(FILTER=1):
         for n_seed in range(N_SEEDS):
             ax3.plot(TILT_ANGLES_DEG[n_exp], cycles_not_in_contact[n_seed,n_exp], marker='o', markerfacecolor=color, markersize=16, alpha=0.3)
             ax3.plot(TILT_ANGLES_DEG[n_exp], cycles_not_in_contact_LPF[n_seed,n_exp], marker='s', markerfacecolor=color_LPF, markersize=16, alpha=0.3)
-        ax3.set_ylabel('Simulation cycles (%)', fontsize=26)
-        ax3.yaxis.set_major_locator(plt.MaxNLocator(2))
-        ax3.yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
+        ax3.set_ylabel('Simulation cycles (%)', fontsize=30)
+        ax3.yaxis.set_major_locator(plt.MaxNLocator(10))
+        # ax3.yaxis.set_major_formatter(plt.FormatStrFormatter('%.1e'))
         ax3.set_yscale('symlog')
         ax3.grid(True) 
-        ax3.tick_params(axis = 'y', labelsize=22)
-        ax3.set_xlabel('Angle (deg)', fontsize=26)
-        ax3.tick_params(axis = 'x', labelsize = 22)
+        ax3.tick_params(axis = 'y', labelsize=24)
+        ax3.set_xlabel('Angle (deg)', fontsize=30)
+        ax3.tick_params(axis = 'x', labelsize = 24)
 
 
 
     # Legend error
     handles1, labels1 = ax1.get_legend_handles_labels()
-    fig1.legend(handles1, labels1, loc='upper right', prop={'size': 26})
+    fig1.legend(handles1, labels1, loc='upper right', prop={'size': 30})
     # Legend error norm 
     handles2, labels2 = ax2[0].get_legend_handles_labels()
-    fig2.legend(handles2, labels2, loc='upper right', prop={'size': 26})
+    fig2.legend(handles2, labels2, loc='upper right', prop={'size': 30})
     # titles
     # Save, show , clean
     fig1.savefig('/home/skleff/force-feedback/data/pos_err.png')
-    fig2.savefig('/home/skleff/force-feedback/data/force_err_LOCAL.png')
+    fig2.savefig('/home/skleff/force-feedback/data/force_err.png')
     fig3.savefig('/home/skleff/force-feedback/data/time_free.png')
     plt.show()
     plt.close('all')
