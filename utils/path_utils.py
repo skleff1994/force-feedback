@@ -44,17 +44,20 @@ def get_mesh_dir(robot_family='kuka'):
 def load_config_file(script_name, robot_name='iiwa'):
     '''
     Loads YAML config file in demos/task_dir/config as a python dictionary
-    type = 'OCP' or 'MPC'
     '''
     task_name         = re.split("\.", os.path.basename(script_name))[0] # drop ".py"
-    task_dir          = re.split("_", task_name)[0]                      # drop "_OCP" or "_MPC"
+    if('lpf' in task_name.lower()):
+        task_dir = re.split("_", task_name)[1]                      # drop "_OCP" or "_MPC"
+    else:
+        task_dir = re.split("_", task_name)[0]
     # config_path = os.path.abspath(os.path.join(os.path.dirname(__file__),'../demos', 'config/'))
     # print(task_dir, task_name)
     config_path = os.path.abspath(os.path.join(os.path.dirname(__file__),'../demos', task_dir, 'config/'))
-    config_file = config_path+"/"+robot_name+'_'+task_name+".yml"
+    config_name = robot_name+'_'+task_name
+    config_file = config_path+"/"+config_name+".yml"
     print("")
     logger.info("Loading config file '"+str(config_file)+"'...")
     print("")
     config = load_yaml_file(config_file)
-    return config
+    return config, config_name
 

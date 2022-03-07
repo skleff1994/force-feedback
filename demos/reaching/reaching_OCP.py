@@ -31,8 +31,6 @@ np.set_printoptions(precision=4, linewidth=180)
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
 
 
-TASK = 'reaching'
-
 
 def main(robot_name, PLOT, VISUALIZE):
 
@@ -40,7 +38,7 @@ def main(robot_name, PLOT, VISUALIZE):
     ### LOAD ROBOT MODEL ## 
     # # # # # # # # # # # # 
     # Read config file
-    config = path_utils.load_config_file(__file__, robot_name)
+    config, _ = path_utils.load_config_file(__file__, robot_name)
     q0 = np.asarray(config['q0'])
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])   
@@ -76,7 +74,7 @@ def main(robot_name, PLOT, VISUALIZE):
     #  Plot
     if(PLOT):
         ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest=frame_name)
-        fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
+        _, _ = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
 
     # Visualize motion in Gepetto-viewer
     if(VISUALIZE):

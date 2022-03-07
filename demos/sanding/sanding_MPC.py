@@ -27,25 +27,25 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 import sys
 sys.path.append('.')
 
-import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils
-import time 
-np.set_printoptions(precision=4, linewidth=180)
-
-RANDOM_SEED = 1
-
-
 import logging
 FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
 FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
 logging.basicConfig(format=FORMAT_SHORT)
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
+import numpy as np  
+np.set_printoptions(precision=4, linewidth=180)
+RANDOM_SEED = 1
 
-TASK = 'contact_circle'
+
+from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
+
+import time 
+
+
+
 WARM_START_IK = True
 
 
@@ -56,8 +56,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### LOAD ROBOT MODEL and SIMU ENV ### 
   # # # # # # # # # # # # # # # # # # # 
   # Read config file
-  config_name = robot_name+'_'+TASK+'_MPC'
-  config      = path_utils.load_config_file(config_name)
+  config, config_name = path_utils.load_config_file(__file__, robot_name)
   # Create a simulation environment & simu-pin wrapper 
   dt_simu = 1./float(config['simu_freq'])  
   q0 = np.asarray(config['q0'])
@@ -341,12 +340,5 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
 
 if __name__=='__main__':
-    if(len(sys.argv) < 2 or len(sys.argv) > 3):
-        print("Usage: python contact_circle_MPC.py [arg1: robot_name (str)] [arg2: simulator (str)] [arg3: PLOT_INIT (bool)]")
-        sys.exit(0)
-    elif(len(sys.argv)==2):
-        sys.exit(main(str(sys.argv[1])))
-    elif(len(sys.argv)==3):
-        sys.exit(main(str(sys.argv[1]), str(sys.argv[2])))
-    elif(len(sys.argv)==4):
-        sys.exit(main(str(sys.argv[1]), str(sys.argv[2]), bool(sys.argv[3])))
+    args = misc_utils.parse_MPC_script(sys.argv[1:])
+    main(args.robot_name, args.simulator, args.PLOT_INIT)

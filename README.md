@@ -47,6 +47,8 @@ python demos/static_raching_task/LPF_reaching_OCP.py 'talos' True False
 ```
 
 ## Simulate MPC 
+! No active RaiSim support currently, use PyBullet instead !
+
 Similar syntax as previously, replacing "OCP" by "MPC". We also need to specify the simulator. For instance
 ```
 python demos/static_reaching_task/reaching_MPC.py  'iiwa' 'bullet' 

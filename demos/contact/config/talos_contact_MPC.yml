@@ -13,6 +13,7 @@ DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resoluti
 SCALE_TORQUES: False            # Affine scaling of reference torque
 NOISE_TORQUES: False            # Add Gaussian noise on reference torques
 FILTER_TORQUES: False           # Moving average smoothing of reference torques
+TORQUE_TRACKING: False        # Simulate low-level torque control loop
 NOISE_STATE: False              # Add Gaussian noise on the measured state 
 FILTER_STATE: False             # Moving average smoothing of reference torques
 SAVE_DATA: True                 # Save plot_data to npz
