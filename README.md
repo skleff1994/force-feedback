@@ -22,28 +22,28 @@ If you don't have PyYaml and six installed : `pip3 install PyYaml && pip3 instal
 
 # How to use it
 As of Jan. 10, 2022, all relevant scripts are in `demos` and `utils`. In `demos` you'll find python scripts sorted by tasks:
-- Static reaching task : reach a 3D position with a speficied end-endeffector
-- Circle tracking task : track a circular EE trajectory at a constant speed
-- Rotation tracking task : track an EE orientation at constant speed 
-- Normal force task : exert a constant normal force on a flat horizontal surface
-- Sanding task : track a circular EE tajectory on a flat surface _while_ exerting a constant normal force
+- "reaching" (Static reaching task) : reach a 3D position with a speficied end-endeffector
+- "circle" (Circle tracking task) : track a circular EE trajectory at a constant speed
+- "rotation" (Rotation tracking task) : track an EE orientation at constant speed 
+- "contact" (Normal force task) : exert a constant normal force on a flat horizontal surface
+- "sanding" (Sanding task) : track a circular EE tajectory on a flat surface _while_ exerting a constant normal force
 
-The sanding task is meant to compare task performance between classical MPC and LPF MPC and therebt highlight the benefits of force feedback in MPC.
+The sanding task is meant to compare task performance between classical MPC and LPF MPC and therebt highlight the benefits of force feedback in MPC (submitted to IROS 2022). 
 
 
 Python scripts (in `demos`) and config files in (`utils`) are contain the name of the task, "LPF" (or not), "OCP" or "MPC" and the name of the robot "iiwa" or "talos" (only config files). "OCP" scripts are just setting up the OCP and solving it _offline_ with Crocoddyl, plotting the solution and animating it in Gepetto Viewer. "MPC" scripts setup & solve the OCP _online_ using a simulator (PyBullet or Raisim), plot and save the results. 
 
 ## Solve an OCP
 ```
-python demos/{task_name}/{task}_OCP.py '{robot_name}' {PLOT} {VISUALIZE}
+python demos/{task_name}/{task}_OCP.py {--robot_name=''} {--PLOT} {--VISUALIZE}
 ```
 For instance, to solve an OCP for a reaching task for the KUKA arm, plot the results and animate in Gepetto-viewer
 ```
-python demos/static_raching_task/reaching_OCP.py 'iiwa' True True
+python demos/static_raching_task/reaching_OCP.py --robot_name='iiwa' --PLOT --VISUALIZE
 ```
-This script reads the corresponding YAML configuration file `demos/config/iiwa_reaching_OCP.yml` and sets up the OCP defined in `utils/ocp_utils` and solves it. The results are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_ddp"). Now if we want instead to solve an OCP for TALOS left arm, using the LPF approach, plot results but not animate
+This script reads the corresponding YAML configuration file `demos/config/iiwa_reaching_OCP.yml` and sets up the OCP defined in `utils/ocp_utils` and solves it. The results are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_ddp"). Now if we want instead to solve an OCP for TALOS left arm, using the LPF approach, animate the results but not plot 
 ```
-python demos/static_raching_task/LPF_reaching_OCP.py 'talos' True False
+python demos/static_raching_task/LPF_reaching_OCP.py --robot_name='talos' --VISUALIZE
 ```
 
 ## Simulate MPC 
@@ -51,7 +51,7 @@ python demos/static_raching_task/LPF_reaching_OCP.py 'talos' True False
 
 Similar syntax as previously, replacing "OCP" by "MPC". We also need to specify the simulator. For instance
 ```
-python demos/static_reaching_task/reaching_MPC.py  'iiwa' 'bullet' 
+python demos/static_reaching_task/reaching_MPC.py  --robot_name='iiwa' --simulator='bullet' 
 ```
 This script reads the corresponding YAML configuration file in `demos/config/iiwa_reaching_MPC.yml` and sets up an OCP defined in `utils/ocp_utils` and simulates the MPC in PyBullet (or RaiSim). The results are of the simulations are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_mpc"). The simulation data can be optionally saved as .npz for offline analysis. 
 
