@@ -97,7 +97,7 @@ def main(robot_name, simulator, PLOT_INIT):
   OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
   # Additional simulation blocks 
   communication = mpc_utils.CommunicationModel(config)
-  actuation     = mpc_utils.ActuationModel(config)
+  actuation     = mpc_utils.ActuationModel(config, nu=nu)
   sensing       = mpc_utils.SensorModel(config)
   # Display target
   if(hasattr(simulator_utils, 'display_ball')):

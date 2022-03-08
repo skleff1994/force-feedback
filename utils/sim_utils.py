@@ -1,33 +1,46 @@
 import numpy as np
 import pinocchio as pin
 from pinocchio.robot_wrapper import RobotWrapper
+from utils import pin_utils
 
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 # Check installed pkg
 import importlib
-FOUND_PYBULLET_PKG            = importlib.util.find_spec("pybullet")              is not None
-FOUND_ROB_PROP_KUKA_PKG       = importlib.util.find_spec("robot_properties_kuka") is not None
-FOUND_BULLET_UTILS_PKG        = importlib.util.find_spec("bullet_utils")          is not None
-FOUND_EXAMPLE_ROBOT_DATA_PKG  = importlib.util.find_spec("example_robot_data")    is not None
+FOUND_PYBULLET_PKG            = importlib.util.find_spec("pybullet")               is not None
+FOUND_ROB_PROP_KUKA_PKG       = importlib.util.find_spec("robot_properties_kuka")  is not None
+FOUND_ROB_PROP_TALOS_PKG      = importlib.util.find_spec("robot_properties_talos") is not None
+FOUND_BULLET_UTILS_PKG        = importlib.util.find_spec("bullet_utils")           is not None
+# FOUND_EXAMPLE_ROBOT_DATA_PKG  = importlib.util.find_spec("example_robot_data")     is not None
+
 if(FOUND_PYBULLET_PKG):
     import pybullet as p
 else:
-    logger.error('You need to install PyBullet !')
+    logger.error('You need to install PyBullet ( https://pypi.org/project/pybullet/ )')
+
 if(FOUND_ROB_PROP_KUKA_PKG):
     from robot_properties_kuka.iiwaWrapper import IiwaRobot as IiwaRobot
 else:
-    logger.error('You need to install robot_properties_kuka !')
+    logger.error('You need to install robot_properties_kuka ( https://github.com/machines-in-motion/robot_properties_kuka )')
+
+if(FOUND_ROB_PROP_TALOS_PKG):
+    from robot_properties_talos.talosArmWrapper import TalosArmRobot
+    from robot_properties_talos.talosReducedWrapper import TalosReducedRobot
+    from robot_properties_talos.talosFullWrapper import TalosFullRobot
+else:
+    logger.error('You need to install robot_properties_talos ( https://github.com/machines-in-motion/robot_properties_talos )')
+
 if(FOUND_BULLET_UTILS_PKG):
     from bullet_utils.env import BulletEnvWithGround
     from bullet_utils.wrapper import PinBulletWrapper
 else:
-    logger.error('You need to install bullet_utils !')
-if(FOUND_EXAMPLE_ROBOT_DATA_PKG):
-    import example_robot_data
-else:
-    logger.error('You need to install example_robot_data !')
+    logger.error('You need to install bullet_utils ( https://github.com/machines-in-motion/bullet_utils )')
+
+# if(FOUND_EXAMPLE_ROBOT_DATA_PKG):
+#     import example_robot_data
+# else:
+#     logger.error('You need to install example_robot_data !')
 
 # Global & default settings
 SUPPORTED_ROBOTS         = ['iiwa', 'talos_arm', 'talos_reduced']
@@ -40,148 +53,6 @@ TALOS_REDUCED_DEFAULT_BASE_RPY   = [0, 0, 0]
 
 IIWA_DEFAULT_BASE_POS   = [0, 0, 0]
 IIWA_DEFAULT_BASE_RPY   = [0, 0, 0]
-
-
-# Pinocchio-bullet wrapper for TALOS arm
-class TalosArmRobot(PinBulletWrapper):
-    '''
-    Pinocchio-PyBullet wrapper class for reduced TALOS model
-    '''
-    def __init__(self, pos, orn): 
-
-        # Load the robot
-        self.base_pos = pos
-        self.base_orn = orn
-
-        robot_loader = example_robot_data.robots_loader.TalosArmLoader()
-        p.setAdditionalSearchPath(robot_loader.model_path)
-        self.urdf_path = robot_loader.df_path
-        self.meshes_path = TALOS_DEFAULT_MESH_PATH
-        self.robotId = p.loadURDF(self.urdf_path,
-                                  self.base_pos, 
-                                  self.base_orn,
-                                  flags=p.URDF_USE_INERTIA_FROM_FILE,
-                                  useFixedBase=True)
-        p.getBasePositionAndOrientation(self.robotId)
-        self.pin_robot = RobotWrapper.BuildFromURDF(self.urdf_path, self.meshes_path)
-        # Query all the joints.
-        num_joints = p.getNumJoints(self.robotId)
-        for ji in range(num_joints):
-            p.changeDynamics(self.robotId, 
-                             ji, 
-                             linearDamping=.04,
-                             angularDamping=0.04, 
-                             restitution=0.0, 
-                             lateralFriction=0.5)
-        self.base_link_name = "arm_left_1_link"
-        self.end_eff_ids = []
-        controlled_joints = ["arm_left_2_joint",
-                             "arm_left_3_joint",
-                             "arm_left_4_joint",
-                             "arm_left_5_joint",
-                             "arm_left_6_joint",
-                             "arm_left_7_joint",
-                             "gripper_left_joint"]
-        self.end_eff_ids.append(self.pin_robot.model.getFrameId('gripper_left_motor_single_link'))
-        self.joint_names = controlled_joints
-        # Creates the wrapper by calling the super.__init__.
-        super(TalosArmRobot, self).__init__(self.robotId, 
-                                            self.pin_robot,
-                                            controlled_joints,
-                                            ["gripper_left_joint"],
-                                            useFixedBase=True)
-        self.nb_dof = self.nv
-    
-    def forward_robot(self, q=None, dq=None):
-        if q is None:
-            q, dq = self.get_state()
-        elif dq is None:
-            raise ValueError("Need to provide q and dq or non of them.")
-        self.pin_robot.forwardKinematics(q, dq)
-        self.pin_robot.computeJointJacobians(q)
-        self.pin_robot.framesForwardKinematics(q)
-        self.pin_robot.centroidalMomentum(q, dq)
-
-
-# Pinocchio-bullet wrapper for TALOS reduced model torso + arm right
-class TalosReducedRobot(PinBulletWrapper):
-    '''
-    Pinocchio-PyBullet wrapper class for reduced TALOS model
-    '''
-    def __init__(self, pos, orn): 
-
-        # Load the robot
-        self.base_pos = pos
-        self.base_orn = orn
-
-        robot_loader = example_robot_data.robots_loader.TalosLoader()
-        p.setAdditionalSearchPath(robot_loader.model_path)
-        self.urdf_path = robot_loader.df_path
-        self.meshes_path = TALOS_DEFAULT_MESH_PATH
-        self.robotId = p.loadURDF(self.urdf_path,
-                                  self.base_pos, 
-                                  self.base_orn,
-                                  flags=p.URDF_USE_INERTIA_FROM_FILE,
-                                  useFixedBase=True)
-        p.getBasePositionAndOrientation(self.robotId)
-        self.pin_robot  = RobotWrapper.BuildFromURDF(self.urdf_path, self.meshes_path)
-        # self.pin_robot = example_robot_data.load('talos')
-        controlled_joints = ['torso_1_joint',   
-                             'torso_2_joint', 
-                             'arm_right_1_joint', 
-                             'arm_right_2_joint', 
-                             'arm_right_3_joint', 
-                             'arm_right_4_joint']
-        uncontrolled_joints = []
-        for joint_name in controlled_joints:
-            if(joint_name not in self.pin_robot.model.names):
-                uncontrolled_joints.append(joint_name)
-        p.setJointMotorControlArray(self.robotId, 
-                                    jointIndices= JointIndices, 
-                                    controlMode= p.POSITION_CONTROL,
-                                        forces = [0.0 for m in JointIndices]) 
-        # controlled_joints_ids = []
-        # for joint_name in controlled_joints:
-        #     controlled_joints_ids.append(robot_full.model.getJointId(joint_name))
-        # locked_joints_ids = []
-        # for joint_name in robot_full.model.names:
-        #     if(joint_name not in controlled_joints):
-        #         locked_joints_ids.append(robot_full.model.getJointId(joint_name))
-        # locked_joints_ids.pop(0) # excl. root joint
-        # qref = robot_full.model.referenceConfigurations['half_sitting']
-        # reduced_model = pin.buildReducedModel(robot_full.model, locked_joints_ids, qref)      
-        # self.pin_robot = pin.robot_wrapper.RobotWrapper(reduced_model)  
-        
-        # Query all the joints.
-        num_joints = p.getNumJoints(self.robotId)
-        for ji in range(num_joints):
-            p.changeDynamics(self.robotId, 
-                             ji, 
-                             linearDamping=.04,
-                             angularDamping=0.04, 
-                             restitution=0.0, 
-                             lateralFriction=0.5)
-        self.base_link_name = "arm_left_1_link"
-        self.end_eff_ids = []
-        self.end_eff_ids.append(self.pin_robot.model.getFrameId('arm_right_7_link'))
-        self.joint_names = controlled_joints
-        # Creates the wrapper by calling the super.__init__.
-        super(TalosReducedRobot, self).__init__(self.robotId, 
-                                            self.pin_robot,
-                                            controlled_joints,
-                                            ['arm_right_7_link'],
-                                            useFixedBase=True)
-        self.nb_dof = self.nv
-    
-    def forward_robot(self, q=None, dq=None):
-        if q is None:
-            q, dq = self.get_state()
-        elif dq is None:
-            raise ValueError("Need to provide q and dq or non of them.")
-        self.pin_robot.forwardKinematics(q, dq)
-        self.pin_robot.computeJointJacobians(q)
-        self.pin_robot.framesForwardKinematics(q)
-        self.pin_robot.centroidalMomentum(q, dq)
 
 
 # Load robot in PyBullet environment 

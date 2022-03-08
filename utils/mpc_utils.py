@@ -8,7 +8,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 class ActuationModel:
 
-    def __init__(self, config, nu=7, SEED=1):
+    def __init__(self, config, nu, SEED=1):
         '''
         Actuation model with parameters defined in config YAML file
         Simulates (optionally) 

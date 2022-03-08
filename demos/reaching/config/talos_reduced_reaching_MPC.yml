@@ -95,7 +95,7 @@ alpha_max: 1.05
 beta_min: -0.1
 beta_max: 0.1
   # White noise on desired torque and measured state
-var_u: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1, 0.1]
+var_u: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1]
 var_q: 0.028 #x10
 var_v: 0.028 #x10
   # Buffer for torque delay
