@@ -3,7 +3,7 @@ import pinocchio as pin
 from pinocchio.robot_wrapper import RobotWrapper
 
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
-logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 # Check installed pkg
 import importlib
@@ -34,7 +34,8 @@ SUPPORTED_ROBOTS         = ['iiwa', 'talos_arm', 'talos_reduced']
 
 TALOS_DEFAULT_MESH_PATH  = '/opt/openrobots/share'
 TALOS_DEFAULT_BASE_POS   = [0, 0, 0.5]
-TALOS_DEFAULT_BASE_RPY   = [0, -np.pi/2, 0]
+TALOS_DEFAULT_BASE_RPY   = [0, np.pi/2, 0]
+# TALOS_DEFAULT_BASE_RPY   = [0, 0, 0]
 TALOS_REDUCED_DEFAULT_BASE_RPY   = [0, 0, 0]
 
 IIWA_DEFAULT_BASE_POS   = [0, 0, 0]
@@ -193,8 +194,8 @@ def init_bullet_simulation(robot_name, dt=1e3, x0=None):
     else:
         if(robot_name == 'iiwa'):
             return init_iiwa_bullet(dt=dt, x0=x0)
-        elif(robot_name == 'talos'):
-            return init_talos_bullet(dt=dt, x0=x0)
+        elif(robot_name == 'talos_arm'):
+            return init_talos_arm_bullet(dt=dt, x0=x0)
         elif(robot_name == 'talos_reduced'):
             return init_talos_reduced_bullet(dt=dt, x0=x0)
 
@@ -231,7 +232,7 @@ def init_iiwa_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIWA_DEFAUL
 
 
 # Load TALOS arm in PyBullet environment
-def init_talos_bullet(dt=1e3, x0=None, pos=TALOS_DEFAULT_BASE_POS, orn=TALOS_DEFAULT_BASE_RPY):
+def init_talos_arm_bullet(dt=1e3, x0=None, pos=TALOS_DEFAULT_BASE_POS, orn=TALOS_DEFAULT_BASE_RPY):
     '''
     Loads TALOS left arm model in PyBullet simulator
     using the PinBullet wrapper to simplify interactions
@@ -333,9 +334,11 @@ def get_contact_joint_torques(pybullet_simulator, id_endeff):
 
 
 # Display
-def display_ball(p_des, RADIUS=.05, COLOR=[1.,1.,1.,1.]):
+def display_ball(p_des, robot_base_pose=pin.SE3.Identity(), RADIUS=.05, COLOR=[1.,1.,1.,1.]):
     '''
     Create a sphere visual object in PyBullet
+    Transformed because reference p_des is in pinocchio WORLD frame, which is different
+    than PyBullet WORLD frame if the base placement in the simulator is not (eye(3), zeros(3))
     '''
     logger.debug("Creating PyBullet target ball...")
     # p.setAdditionalSearchPath(pybullet_data.getDataPath())
@@ -343,8 +346,9 @@ def display_ball(p_des, RADIUS=.05, COLOR=[1.,1.,1.,1.]):
     # # Disable collisons
     # p.setCollisionFilterGroupMask(target, -1, 0, 0)
     # p.changeVisualShape(target, -1, rgbaColor=COLOR)
-    M = pin.SE3.Identity()
-    M.translation = p_des
+    # M = robot_base_pose.act(pin.SE3(np.eye(3), p_des))
+    M = pin.SE3(np.eye(3), robot_base_pose.act(p_des))
+    # M = pin.SE3(np.eye(3), p_des)
     quat = pin.SE3ToXYZQUAT(M)
     visualBallId = p.createVisualShape(shapeType=p.GEOM_SPHERE,
                                        radius=RADIUS,

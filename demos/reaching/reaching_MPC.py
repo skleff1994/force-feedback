@@ -22,7 +22,7 @@ import sys
 sys.path.append('.')
 
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
-logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
 np.random.seed(1)
@@ -34,7 +34,7 @@ from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_
 
 
 
-def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
+def main(robot_name, simulator, PLOT_INIT):
 
 
   # # # # # # # # # # # # # # # # # # #
@@ -49,7 +49,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   x0 = np.concatenate([q0, v0])   
   if(simulator == 'bullet'):
     from utils import sim_utils as simulator_utils
-    env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
+    env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
     from utils import raisim_utils as simulator_utils
@@ -65,10 +65,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # 
   ### OCP SETUP ###
   # # # # # # # # # 
-  ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
-                                              WHICH_COSTS=config['WHICH_COSTS']) 
+  ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False) 
   # Warm start and solve
-  ug  = pin_utils.get_u_grav(q0, robot.model)
+  ug  = pin_utils.get_u_grav(q0, robot.model, config['armature'])
   xs_init = [x0 for i in range(config['N_h']+1)]
   us_init = [ug for i in range(config['N_h'])]
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
@@ -102,12 +101,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   sensing       = mpc_utils.SensorModel(config)
   # Display target
   if(hasattr(simulator_utils, 'display_ball')):
-    # Correct with fixed based position in bullet
-    if(hasattr(robot_simulator, 'base_pos')):
-      p_ball = np.asarray(config['frameTranslationRef']) + np.asarray(robot_simulator.base_pos)
-    else:
-      p_ball = np.asarray(config['frameTranslationRef'])
-    simulator_utils.display_ball(p_ball, RADIUS=.05, COLOR=[1.,0.,0.,.6])
+    p_ball = np.asarray(config['frameTranslationRef'])
+    simulator_utils.display_ball(p_ball, robot_base_pose=base_placement, RADIUS=.05, COLOR=[1.,0.,0.,.6])
 
 
 

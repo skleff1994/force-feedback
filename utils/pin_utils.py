@@ -11,7 +11,7 @@ found_example_robot_data_pkg = importlib.util.find_spec("example_robot_data") is
 
 
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
-logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 SUPPORTED_ROBOTS = ['iiwa', 'talos_arm', 'talos_reduced', 'talos_full']

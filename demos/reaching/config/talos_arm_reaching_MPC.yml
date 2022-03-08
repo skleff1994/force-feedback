@@ -62,7 +62,7 @@ ctrlRegRef: 'DEFAULT' # DEFAULT = g(q) | NOT used for 'ctrlRegGrav' cost
 frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 5
 frameTranslationWeightTerminal: 5
-frameTranslationRef: [0.3, 0.4, 0.5]
+frameTranslationRef: [0.3, -0.3, .5]
 frameTranslationFrameName: 'DEFAULT' # 'DEFAULT' = $(frame_of_interest)
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
