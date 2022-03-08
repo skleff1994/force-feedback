@@ -7,7 +7,9 @@ import time
 
 import importlib
 found_robot_properties_kuka_pkg = importlib.util.find_spec("robot_properties_kuka") is not None
-found_example_robot_data_pkg = importlib.util.find_spec("example_robot_data") is not None
+found_robot_properties_talos_pkg = importlib.util.find_spec("robot_properties_talos") is not None
+
+# found_example_robot_data_pkg = importlib.util.find_spec("example_robot_data") is not None
 
 
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
@@ -29,41 +31,27 @@ def load_robot_wrapper(robot_name):
             logger.error("Either install robot_properties_kuka, or directly build the pinocchio robot wrapper from URDF file.")
     # Load talos left arm robot wrapper
     elif(robot_name == 'talos_arm'):
-        if(found_example_robot_data_pkg):
-            import example_robot_data
-            robot = example_robot_data.load('talos_arm') 
+        if(found_robot_properties_talos_pkg):
+            from robot_properties_talos.config import TalosArmConfig
+            robot = TalosArmConfig.buildRobotWrapper()
+            # import example_robot_data
+            # robot = example_robot_data.load('talos_arm') 
         else:
             logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
     # Load talos reduced robot wrapper
     elif(robot_name =='talos_reduced'):
-        if(found_example_robot_data_pkg):
-            import example_robot_data
-            robot_full = example_robot_data.load('talos')
-            controlled_joints = ['torso_1_joint',   
-                                 'torso_2_joint', 
-                                 'arm_right_1_joint', 
-                                 'arm_right_2_joint', 
-                                 'arm_right_3_joint', 
-                                 'arm_right_4_joint']
-            controlled_joints_ids = []
-            for joint_name in controlled_joints:
-                controlled_joints_ids.append(robot_full.model.getJointId(joint_name))
-            locked_joints_ids = []
-            for joint_name in robot_full.model.names:
-                if(joint_name not in controlled_joints):
-                    locked_joints_ids.append(robot_full.model.getJointId(joint_name))
-            locked_joints_ids.pop(0) # excl. root joint
-            qref = robot_full.model.referenceConfigurations['half_sitting']
-            reduced_model, [visual_model, collision_model] = pin.buildReducedModel(robot_full.model, [robot_full.visual_model, robot_full.collision_model], locked_joints_ids, qref)      
-            # print(reduced_model)
-            robot = pin.robot_wrapper.RobotWrapper(reduced_model, collision_model, visual_model)  
+        if(found_robot_properties_talos_pkg):
+            from robot_properties_talos.config import TalosReducedConfig
+            robot = TalosReducedConfig.buildRobotWrapper()
         else:
             logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
     # Load talos full robot wrapper
     elif(robot_name == 'talos_full'):
-        if(found_example_robot_data_pkg):
-            import example_robot_data
-            robot = example_robot_data.load('talos') 
+        if(found_robot_properties_talos_pkg):
+            from robot_properties_talos.config import TalosFullConfig
+            robot = TalosFullConfig.buildRobotWrapper()
+            # import example_robot_data
+            # robot = example_robot_data.load('talos') 
         else:
             logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
     else:
