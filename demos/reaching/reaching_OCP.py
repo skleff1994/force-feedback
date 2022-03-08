@@ -65,7 +65,7 @@ def main(robot_name, PLOT, VISUALIZE):
     ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
                                                 WHICH_COSTS=config['WHICH_COSTS']) 
     # Warmstart and solve
-    ug = pin_utils.get_u_grav(q0, robot.model)
+    ug = pin_utils.get_u_grav(q0, robot.model, config['armature'])
     xs_init = [x0 for i in range(N_h+1)]
     us_init = [ug  for i in range(N_h)]
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
@@ -76,15 +76,19 @@ def main(robot_name, PLOT, VISUALIZE):
         ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest=frame_name)
         _, _ = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
 
+
+
     # Visualize motion in Gepetto-viewer
     if(VISUALIZE):
         import time
         import pinocchio as pin
         N_h = config['N_h']
         # Init viewer
-        robot.initViewer(loadModel=True)
-        robot.display(q0)
-        viewer = robot.viz.viewer; gui = viewer.gui
+        viz = pin.visualize.GepettoVisualizer(robot.model, robot.collision_model, robot.visual_model)
+        viz.initViewer()
+        viz.loadViewerModel()
+        viz.display(q0)
+        viewer = viz.viewer; gui = viewer.gui
         draw_rate = int(N_h/50)
         log_rate  = int(N_h/10)    
         ref_color  = [1., 0., 0., 1.]
@@ -123,7 +127,7 @@ def main(robot_name, PLOT, VISUALIZE):
         for i in range(N_h):
             # Display robot in config q
             q = ddp.xs[i][:nq]
-            robot.display(q)
+            viz.display(q)
             # Display EE traj and ref circle traj
             if(i%draw_rate==0):
                 # EE trajectory

@@ -15,25 +15,27 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-SUPPORTED_ROBOTS = ['iiwa', 'talos', 'talos_reduced' 'talos_full']
+SUPPORTED_ROBOTS = ['iiwa', 'talos_arm', 'talos_reduced', 'talos_full']
 
-DEFAULT_ARMATURE = [.1, .1, .1, .1, .1, .1, .0] 
 
 # Returns pinocchio robot wrapper
 def load_robot_wrapper(robot_name):
     logger.info('Loading robot wrapper : "'+str(robot_name)+'"...')
+    # Load iiwa robot wrapper 
     if(robot_name == 'iiwa'):
         if(found_robot_properties_kuka_pkg):
             from robot_properties_kuka.config import IiwaConfig
             robot = IiwaConfig.buildRobotWrapper()
         else:
             logger.error("Either install robot_properties_kuka, or directly build the pinocchio robot wrapper from URDF file.")
-    elif(robot_name == 'talos'):
+    # Load talos left arm robot wrapper
+    elif(robot_name == 'talos_arm'):
         if(found_example_robot_data_pkg):
             import example_robot_data
             robot = example_robot_data.load('talos_arm') 
         else:
             logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
+    # Load talos reduced robot wrapper
     elif(robot_name =='talos_reduced'):
         if(found_example_robot_data_pkg):
             import example_robot_data
@@ -53,11 +55,12 @@ def load_robot_wrapper(robot_name):
                     locked_joints_ids.append(robot_full.model.getJointId(joint_name))
             locked_joints_ids.pop(0) # excl. root joint
             qref = robot_full.model.referenceConfigurations['half_sitting']
-            reduced_model = pin.buildReducedModel(robot_full.model, locked_joints_ids, qref)      
+            reduced_model, [visual_model, collision_model] = pin.buildReducedModel(robot_full.model, [robot_full.visual_model, robot_full.collision_model], locked_joints_ids, qref)      
             # print(reduced_model)
-            robot = pin.robot_wrapper.RobotWrapper(reduced_model)  
+            robot = pin.robot_wrapper.RobotWrapper(reduced_model, collision_model, visual_model)  
         else:
             logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
+    # Load talos full robot wrapper
     elif(robot_name == 'talos_full'):
         if(found_example_robot_data_pkg):
             import example_robot_data
@@ -67,6 +70,10 @@ def load_robot_wrapper(robot_name):
     else:
         logger.error('Unknown robot name ! Choose a robot in supported robots '+str(SUPPORTED_ROBOTS))
     return robot
+
+
+
+
 
 # Rotate placement
 def rotate(se3_placement, rpy=[0., 0., 0.]):
@@ -83,6 +90,7 @@ def rotate(se3_placement, rpy=[0., 0., 0.]):
     return se3_placement_rotated
 
     
+
 # Get frame position
 def get_p(q, pin_robot, id_endeff):
     '''
@@ -114,6 +122,7 @@ def get_p_(q, model, id_endeff):
             pin.updateFramePlacements(model, data)
             p[i,:] = data.oMf[id_endeff].translation.T
     return p
+
 
 
 # Get frame linear velocity
@@ -156,6 +165,7 @@ def get_v_(q, dq, model, id_endeff):
     return v
 
 
+
 # Get frame orientation (rotation)
 def get_R(q, pin_robot, id_endeff):
     '''
@@ -187,6 +197,7 @@ def get_R_(q, model, id_endeff):
     return R
 
 
+
 # Get frame orientation (RPY)
 def get_rpy(q, pin_robot, id_endeff):
     '''
@@ -213,6 +224,7 @@ def get_rpy_(q, model, id_endeff):
     else:
         rpy = pin.rpy.matrixToRpy(R)%(2*np.pi)
     return rpy
+
 
 
 # Get frame angular velocity
@@ -251,8 +263,9 @@ def get_w_(q, dq, model, id_endeff):
     return w
 
 
+
 # Get frame force
-def get_f_(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE, REG=0.):
+def get_f_(q, v, tau, model, id_endeff, armature, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -286,7 +299,7 @@ def get_f_(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE, REG=0.):
         # f[i,:] = np.linalg.solve( J @ Minv @ J.T + REGMAT,  J @ Minv @ (h - tau[i,:]) + gamma.vector )
     return f
 
-def get_f_lambda(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE, REG=0.):
+def get_f_lambda(q, v, tau, model, id_endeff, armature, REG=0.):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -317,7 +330,7 @@ def get_f_lambda(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE, REG=0.)
         f[i,:] = data.lambda_c
     return f
 
-def get_f_kkt(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE, REG=0.):
+def get_f_kkt(q, v, tau, model, id_endeff):
     '''
     Returns contact force in LOCAL frame based on FD estimate of joint acc
         q         : joint positions
@@ -347,8 +360,9 @@ def get_f_kkt(q, v, tau, model, id_endeff, armature=DEFAULT_ARMATURE, REG=0.):
     return f
 
 
+
 # Get gravity joint torque
-def get_u_grav(q, model, armature=DEFAULT_ARMATURE):
+def get_u_grav(q, model, armature):
     '''
     Return gravity torque at q
     '''
@@ -356,16 +370,14 @@ def get_u_grav(q, model, armature=DEFAULT_ARMATURE):
     data.M += np.diag(armature)
     return pin.computeGeneralizedGravity(model, data, q)
 
-
 # Get joint torques 
-def get_tau(q, v, a, f, model, armature=DEFAULT_ARMATURE):
+def get_tau(q, v, a, f, model, armature):
     '''
     Return torque using rnea
     '''
     data = model.createData()
     data.M += np.diag(armature)
     return pin.rnea(model, data, q, v, a, f)
-
 
 # Get joint torques due to an external wrench 
 def get_external_joint_torques(M_contact, wrench, robot):
@@ -385,6 +397,8 @@ def get_external_joint_torques(M_contact, wrench, robot):
         f_JOINT = j_M_W.actionInverse.T.dot(f_WORLD)
         f_ext.append(pin.Force(f_JOINT))
     return f_ext
+
+
 
 
 # Inverse kinematics

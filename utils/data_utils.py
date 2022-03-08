@@ -64,6 +64,7 @@ def init_sim_data(config, robot, x0, frame_of_interest='contact'):
     sim_data['dt_simu'] = float(1./sim_data['simu_freq'])             # Duration of 1 simulation cycle (s)
     # Misc params
     sim_data['pin_model'] = robot.model
+    sim_data['armature'] = config['armature']
     sim_data['nq'] = sim_data['pin_model'].nq
     sim_data['nv'] = sim_data['pin_model'].nv
     sim_data['nu'] = sim_data['pin_model'].nq
@@ -184,7 +185,7 @@ def record_cost_references(ddp, sim_data, nb_plan):
     sim_data['ctrl_ref'][nb_plan, :] = m.differential.costs.costs['ctrlReg'].cost.residual.reference
   if('ctrlRegGrav' in sim_data['WHICH_COSTS']):
     q = sim_data['state_pred'][nb_plan, 0, :sim_data['nq']]
-    sim_data['ctrl_ref'][nb_plan, :] = pin_utils.get_u_grav(q, m.differential.pinocchio)
+    sim_data['ctrl_ref'][nb_plan, :] = pin_utils.get_u_grav(q, m.differential.pinocchio, sim_data['armature'])
   if('force' in sim_data['WHICH_COSTS']):
     sim_data['f_ee_ref'][nb_plan, :] = m.differential.costs.costs['force'].cost.residual.reference.vector
   if('stateReg' in sim_data['WHICH_COSTS']):
@@ -254,7 +255,7 @@ def extract_plot_data_from_sim_data(sim_data):
     # Extract gravity torques
     plot_data['grav'] = np.zeros((sim_data['N_simu']+1, plot_data['nq']))
     for i in range(plot_data['N_simu']+1):
-      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'])
+      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'], sim_data['armature'])
     # EE predictions (at PLAN freq)
       # Linear position velocity of EE
     plot_data['lin_pos_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
@@ -364,6 +365,7 @@ def init_sim_data_LPF(config, robot, y0, frame_of_interest='contact'):
     sim_data['dt_simu'] = float(1./sim_data['simu_freq'])             # Duration of 1 simulation cycle (s)
     # # Misc params
     sim_data['pin_model'] = robot.model
+    sim_data['armature'] = config['armature']
     sim_data['nq'] = sim_data['pin_model'].nq
     sim_data['nv'] = sim_data['pin_model'].nv
     sim_data['nu'] = sim_data['pin_model'].nq
@@ -497,7 +499,7 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
     # Extract gravity torques
     plot_data['grav'] = np.zeros((sim_data['N_simu']+1, plot_data['nq']))
     for i in range(plot_data['N_simu']+1):
-      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'])
+      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'], sim_data['armature'])
     # EE predictions (at PLAN freq)
       # Linear position velocity of EE
     plot_data['lin_pos_ee_pred'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, 3))
@@ -602,6 +604,7 @@ def extract_ddp_data(ddp, frame_of_interest='contact'):
     ddp_data['nx'] = ddp.problem.runningModels[0].state.nx
     # Pin model
     ddp_data['pin_model'] = ddp.problem.runningModels[0].differential.pinocchio
+    ddp_data['armature'] = ddp.problem.runningModels[0].differential.armature
     ddp_data['frame_id'] = ddp_data['pin_model'].getFrameId(frame_of_interest)
     # Solution trajectories
     ddp_data['xs'] = ddp.xs
@@ -644,7 +647,7 @@ def extract_ddp_data(ddp, frame_of_interest='contact'):
     if('ctrlReg' in ddp_data['active_costs']):
         ddp_data['ctrlReg_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].cost.residual.reference for i in range(ddp.problem.T)]
     if('ctrlRegGrav' in ddp_data['active_costs']):
-        ddp_data['ctrlRegGrav_ref'] = [pin_utils.get_u_grav(ddp.xs[i][:ddp_data['nq']], ddp_data['pin_model']) for i in range(ddp.problem.T)]
+        ddp_data['ctrlRegGrav_ref'] = [pin_utils.get_u_grav(ddp.xs[i][:ddp_data['nq']], ddp_data['pin_model'], ddp_data['armature']) for i in range(ddp.problem.T)]
     if('stateLim' in ddp_data['active_costs']):
         ddp_data['stateLim_ub'] = [ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.ub for i in range(ddp.problem.T)]
         ddp_data['stateLim_lb'] = [ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.lb for i in range(ddp.problem.T)]
@@ -686,7 +689,7 @@ def extract_ddp_data_LPF(ddp, frame_of_interest='contact'):
     if('ctrlReg' in ddp_data['active_costs']):
         ddp_data['ctrlReg_ref'].append(ddp.problem.terminalModel.differential.costs.costs['ctrlReg'].cost.residual.reference)
     if('ctrlRegGrav' in ddp_data['active_costs']):
-        ddp_data['ctrlRegGrav_ref'].append(pin_utils.get_u_grav(ddp.xs[-1][:ddp_data['nq']], ddp_data['pin_model']))
+        ddp_data['ctrlRegGrav_ref'].append(pin_utils.get_u_grav(ddp.xs[-1][:ddp_data['nq']], ddp_data['pin_model'], ddp_data['armature']))
     return ddp_data
 
 

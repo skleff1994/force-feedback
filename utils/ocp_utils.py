@@ -203,6 +203,8 @@ def activation_decreasing_exponential(r, alpha=1., max_weight=1., min_weight=0.5
     return max(min(np.exp(1/(alpha*r+1))-1, max_weight), min_weight)
 
 
+
+
 # Utils for circle trajectory tracking (position of EE frame) task
 
 def circle_point_LOCAL_XY(t, radius=1., omega=1.):
@@ -285,6 +287,8 @@ def circle_point_WORLD(t, M, radius=1., omega=1., LOCAL_PLANE='XY'):
   return point_WORLD
 
 
+
+
 # Utils for rotation trajectory tracking (orientation of EE frame) task
 
 def rotation_orientation_LOCAL_X(t, omega=1.):
@@ -355,6 +359,8 @@ def rotation_orientation_WORLD(t, M, omega=1., LOCAL_AXIS='Z'):
   else:
     logger.error("Unknown LOCAL_AXIS for circle trajectory. Choose LOCAL_AXIS in {'X', 'Y', 'Z'}")
   return orientation_WORLD
+
+
 
 
 
@@ -525,12 +531,9 @@ def init_DDP(robot, config, x0, callbacks=False,
         # State limits penalization
         if('stateLim' in WHICH_COSTS):
           # Default reference = zero state
-          if(config['stateLimRef']=='DEFAULT'):
-            stateLimRef = np.zeros(nq+nv)
-          else:
-            stateLimRef = np.asarray(config['stateLimRef'])
-          x_max = state.ub 
-          x_min = state.lb
+          stateLimRef = np.zeros(nq+nv)
+          x_max = config['coef_xlim']*state.ub 
+          x_min = config['coef_xlim']*state.lb
           stateLimWeights = np.asarray(config['stateLimWeights'])
           xLimitCost = crocoddyl.CostModelResidual(state, 
                                                 crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(x_min, x_max), stateLimWeights), 
@@ -540,12 +543,9 @@ def init_DDP(robot, config, x0, callbacks=False,
         # Control limits penalization
         if('ctrlLim' in WHICH_COSTS):
           # Default reference = zero torque
-          if(config['ctrlLimRef']=='DEFAULT'):
-            ctrlLimRef = np.zeros(nq)
-          else:
-            ctrlLimRef = np.asarray(config['ctrlLimRef'])
-          u_min = -np.asarray(config['ctrlBounds']) 
-          u_max = +np.asarray(config['ctrlBounds']) 
+          ctrlLimRef = np.zeros(nq)
+          u_min = -config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
+          u_max = +config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
           ctrlLimWeights = np.asarray(config['ctrlLimWeights'])
           uLimitCost = crocoddyl.CostModelResidual(state, 
                                                   crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max), ctrlLimWeights), 
@@ -613,9 +613,16 @@ def init_DDP(robot, config, x0, callbacks=False,
             frameTranslationRef = robot.data.oMf[frameTranslationFrameId].translation.copy()
           else:
             frameTranslationRef = np.asarray(config['frameTranslationRef'])
-          frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+          if('frameTranslationWeights' in config):
+            frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+            frameTranslationActivation = crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2)
+          elif('alpha_quadflatlog' in config):
+            alpha_quadflatlog = config['alpha_quadflatlog']
+            frameTranslationActivation = crocoddyl.ActivationModelQuadFlatLog(3, alpha_quadflatlog)
+          else:
+            logger.error("Please specify either 'alpha_quadflatlog' or 'frameTranslationWeights' in config file")
           frameTranslationCost = crocoddyl.CostModelResidual(state, 
-                                                          crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
+                                                          frameTranslationActivation, 
                                                           crocoddyl.ResidualModelFrameTranslation(state, 
                                                                                                   frameTranslationFrameId, 
                                                                                                   frameTranslationRef, 
@@ -822,12 +829,9 @@ def init_DDP(robot, config, x0, callbacks=False,
     # State limits
     if('stateLim' in WHICH_COSTS):
       # Default reference = zero state
-      if(config['stateLimRef']=='DEFAULT'):
-        stateLimRef = np.zeros(nq+nv)
-      else:
-        stateLimRef = np.asarray(config['stateLimRef'])
-      x_max = state.ub 
-      x_min = state.lb
+      stateLimRef = np.zeros(nq+nv)
+      x_max = config['coef_xlim']*state.ub 
+      x_min = config['coef_xlim']*state.lb
       stateLimWeights = np.asarray(config['stateLimWeights'])
       xLimitCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(x_min, x_max), stateLimWeights), 
@@ -893,9 +897,16 @@ def init_DDP(robot, config, x0, callbacks=False,
         frameTranslationRef = robot.data.oMf[frameTranslationFrameId].translation.copy()
       else:
         frameTranslationRef = np.asarray(config['frameTranslationRef'])
-      frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+      if('frameTranslationWeights' in config):
+        frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+        frameTranslationActivation = crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2)
+      elif('alpha_quadflatlog' in config):
+        alpha_quadflatlog = config['alpha_quadflatlog']
+        frameTranslationActivation = crocoddyl.ActivationModelQuadFlatLog(3, alpha_quadflatlog)
+      else:
+        logger.error("Please specify either 'alpha_quadflatlog' or 'frameTranslationWeights' in config file")
       frameTranslationCost = crocoddyl.CostModelResidual(state, 
-                                                      crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
+                                                      frameTranslationActivation, 
                                                       crocoddyl.ResidualModelFrameTranslation(state, 
                                                                                               frameTranslationFrameId, 
                                                                                               frameTranslationRef, 
@@ -1173,12 +1184,9 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         # State limits penalization
         if('stateLim' in WHICH_COSTS):
           # Default reference = zero state
-          if(config['stateLimRef']=='DEFAULT'):
-            stateLimRef = np.zeros(nq+nv)
-          else:
-            stateLimRef = np.asarray(config['stateLimRef'])
-          x_max = state.ub 
-          x_min = state.lb
+          stateLimRef = np.zeros(nq+nv)
+          x_max = config['coef_xlim']*state.ub 
+          x_min = config['coef_xlim']*state.lb
           stateLimWeights = np.asarray(config['stateLimWeights'])
           xLimitCost = crocoddyl.CostModelResidual(state, 
                                                 crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(x_min, x_max), stateLimWeights), 
@@ -1188,12 +1196,9 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         # Control limits penalization
         if('ctrlLim' in WHICH_COSTS):
           # Default reference = zero torque
-          if(config['ctrlLimRef']=='DEFAULT'):
-            ctrlLimRef = np.zeros(nq)
-          else:
-            ctrlLimRef = np.asarray(config['ctrlLimRef'])
-          u_min = -np.asarray(config['ctrlBounds']) 
-          u_max = +np.asarray(config['ctrlBounds']) 
+          ctrlLimRef = np.zeros(nq)
+          u_min = -config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
+          u_max = +config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
           ctrlLimWeights = np.asarray(config['ctrlLimWeights'])
           uLimitCost = crocoddyl.CostModelResidual(state, 
                                                   crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max), ctrlLimWeights), 
@@ -1261,9 +1266,16 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
             frameTranslationRef = robot.data.oMf[frameTranslationFrameId].translation.copy()
           else:
             frameTranslationRef = np.asarray(config['frameTranslationRef'])
-          frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+          if('frameTranslationWeights' in config):
+            frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+            frameTranslationActivation = crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2)
+          elif('alpha_quadflatlog' in config):
+            alpha_quadflatlog = config['alpha_quadflatlog']
+            frameTranslationActivation = crocoddyl.ActivationModelQuadFlatLog(3, alpha_quadflatlog)
+          else:
+            logger.error("Please specify either 'alpha_quadflatlog' or 'frameTranslationWeights' in config file")
           frameTranslationCost = crocoddyl.CostModelResidual(state, 
-                                                          crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
+                                                          crocoddyl.ActivationModelWeightedQuad(frameTranslationActivation), 
                                                           crocoddyl.ResidualModelFrameTranslation(state, 
                                                                                                   frameTranslationFrameId, 
                                                                                                   frameTranslationRef, 
@@ -1489,12 +1501,9 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     # Terminal state limits cost
     if('stateLim' in WHICH_COSTS):
       # Default reference = zero state
-      if(config['stateLimRef']=='DEFAULT'):
-        stateLimRef = np.zeros(nq+nv)
-      else:
-        stateLimRef = np.asarray(config['stateLimRef'])
-      x_max = state.ub 
-      x_min = state.lb
+      stateLimRef = np.zeros(nq+nv)
+      x_max = config['coef_xlim']*state.ub 
+      x_min = config['coef_xlim']*state.lb
       stateLimWeights = np.asarray(config['stateLimWeights'])
       xLimitCost = crocoddyl.CostModelResidual(state, 
                                             crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(x_min, x_max), stateLimWeights), 
@@ -1504,12 +1513,9 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     #  Terminal control limits penalization
     if('ctrlLim' in WHICH_COSTS):
       # Default reference = zero torque
-      if(config['ctrlLimRef']=='DEFAULT'):
-        ctrlLimRef = np.zeros(nq)
-      else:
-        ctrlLimRef = np.asarray(config['ctrlLimRef'])
-      u_min = -np.asarray(config['ctrlBounds']) 
-      u_max = +np.asarray(config['ctrlBounds']) 
+      ctrlLimRef = np.zeros(nq)
+      u_min = -config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
+      u_max = +config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
       ctrlLimWeights = np.asarray(config['ctrlLimWeights'])
       uLimitCost = crocoddyl.CostModelResidual(state, 
                                               crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max), ctrlLimWeights), 
@@ -1577,9 +1583,16 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         frameTranslationRef = robot.data.oMf[frameTranslationFrameId].translation.copy()
       else:
         frameTranslationRef = np.asarray(config['frameTranslationRef'])
-      frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+      if('frameTranslationWeights' in config):
+        frameTranslationWeights = np.asarray(config['frameTranslationWeights'])
+        frameTranslationActivation = crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2)
+      elif('alpha_quadflatlog' in config):
+        alpha_quadflatlog = config['alpha_quadflatlog']
+        frameTranslationActivation = crocoddyl.ActivationModelQuadFlatLog(3, alpha_quadflatlog)
+      else:
+        logger.error("Please specify either 'alpha_quadflatlog' or 'frameTranslationWeights' in config file")
       frameTranslationCost = crocoddyl.CostModelResidual(state, 
-                                                      crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2), 
+                                                      frameTranslationActivation, 
                                                       crocoddyl.ResidualModelFrameTranslation(state, 
                                                                                               frameTranslationFrameId, 
                                                                                               frameTranslationRef, 
