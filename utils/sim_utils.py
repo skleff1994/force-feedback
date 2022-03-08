@@ -1,11 +1,9 @@
-from ntpath import join
 import numpy as np
 import pinocchio as pin
 from pinocchio.robot_wrapper import RobotWrapper
-import logging
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger
+logger = CustomLogger(__name__, log_level_name='DEBUG', USE_LONG_FORMAT=False).logger
 
 # Check installed pkg
 import importlib
@@ -32,7 +30,7 @@ else:
     logger.error('You need to install example_robot_data !')
 
 # Global & default settings
-SUPPORTED_ROBOTS         = ['iiwa', 'talos', 'talos_reduced']
+SUPPORTED_ROBOTS         = ['iiwa', 'talos_arm', 'talos_reduced']
 
 TALOS_DEFAULT_MESH_PATH  = '/opt/openrobots/share'
 TALOS_DEFAULT_BASE_POS   = [0, 0, 0.5]

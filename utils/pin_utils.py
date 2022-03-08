@@ -9,11 +9,8 @@ import importlib
 found_robot_properties_kuka_pkg = importlib.util.find_spec("robot_properties_kuka") is not None
 found_example_robot_data_pkg = importlib.util.find_spec("example_robot_data") is not None
 
-import logging
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
+from utils.misc_utils import CustomLogger
+logger = CustomLogger(__name__, log_level_name='DEBUG', USE_LONG_FORMAT=False).logger
 
 SUPPORTED_ROBOTS = ['iiwa', 'talos_arm', 'talos_reduced', 'talos_full']
 

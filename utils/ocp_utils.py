@@ -13,9 +13,8 @@ import numpy as np
 import pinocchio as pin
 from utils import pin_utils
 
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+from utils.misc_utils import CustomLogger
+logger = CustomLogger(__name__, log_level_name='INFO', USE_LONG_FORMAT=False).logger
 
 
 # Cost weights profiles, useful for reaching tasks/cost design

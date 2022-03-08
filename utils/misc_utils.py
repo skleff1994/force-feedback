@@ -1,13 +1,7 @@
 import argparse
-
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-import sys 
-
-if(sys.version_info[0] < 3):
-    logger.error("python version 3.x required ! ")
+# import sys 
+# if(sys.version_info[0] < 3):
+#     logger.error("python version 3.x required ! ")
 
 def parse_OCP_script(argv=None):
     PARSER = argparse.ArgumentParser()
@@ -23,3 +17,77 @@ def parse_MPC_script(argv=None):
     PARSER.add_argument('--simulator', type=str, default='bullet', help="Name of the simulator")
     PARSER.add_argument('--PLOT_INIT', action='store_true', default=False, help="Plot warm-start solution")
     return PARSER.parse_args(argv)
+
+
+
+# Custom logging style
+import logging
+
+grey = "\x1b[38;21m" #"\x1b[38;20m"
+blue = "\x1b[1;34m"
+yellow = "\x1b[33;20m"
+red = "\x1b[31;20m"
+bold_red = "\x1b[31;1m"
+reset = "\x1b[0m"
+
+FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
+FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
+
+
+class CustomFormatterLong(logging.Formatter):
+    
+    FORMATS = {
+        logging.DEBUG:    blue     + FORMAT_LONG + reset,
+        logging.INFO:     grey      + FORMAT_LONG + reset,
+        logging.WARNING:  yellow   + FORMAT_LONG + reset,
+        logging.ERROR:    red      + FORMAT_LONG + reset,
+        logging.CRITICAL: bold_red + FORMAT_LONG + reset
+    }
+
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+
+class CustomFormatterShort(logging.Formatter):
+
+    FORMATS = {
+        logging.DEBUG:    blue     + FORMAT_SHORT + reset,
+        logging.INFO:     grey      + FORMAT_SHORT + reset,
+        logging.WARNING:  yellow   + FORMAT_SHORT + reset,
+        logging.ERROR:    red      + FORMAT_SHORT + reset,
+        logging.CRITICAL: bold_red + FORMAT_SHORT + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+
+class CustomLogger:
+
+    def __init__(self, module_name, log_level_name='DEBUG', USE_LONG_FORMAT=False):
+
+        # Create logger woth desired logging level               
+        self.logger = logging.getLogger(module_name)
+        
+        if(log_level_name=='INFO'):
+            self.log_level = logging.INFO
+        elif(log_level_name == 'DEBUG'):
+            self.log_level = logging.DEBUG
+        else:
+            print("Unknown logging level")
+        
+        self.logger.setLevel(self.log_level)
+
+        # Add custom formatter (long or short)
+        self.ch = logging.StreamHandler()
+        self.ch.setLevel(logging.DEBUG)
+        if(USE_LONG_FORMAT):
+            self.ch.setFormatter(CustomFormatterLong())
+        else:
+            self.ch.setFormatter(CustomFormatterShort())
+        self.logger.addHandler(self.ch)

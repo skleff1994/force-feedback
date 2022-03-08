@@ -4,9 +4,8 @@ import os
 from utils import pin_utils
 import pinocchio as pin
 
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+from utils.misc_utils import CustomLogger
+logger = CustomLogger(__name__, log_level_name='DEBUG', USE_LONG_FORMAT=False).logger
 
 
 # Save data (dict) into compressed npz

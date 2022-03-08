@@ -17,19 +17,12 @@ The goal of this script is to setup the OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
 
+logger = misc_utils.CustomLogger(__name__).logger
 
 
 def main(robot_name, PLOT, VISUALIZE):
