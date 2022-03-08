@@ -8,12 +8,17 @@ import time
 import importlib
 found_robot_properties_kuka_pkg = importlib.util.find_spec("robot_properties_kuka") is not None
 found_robot_properties_talos_pkg = importlib.util.find_spec("robot_properties_talos") is not None
-
 # found_example_robot_data_pkg = importlib.util.find_spec("example_robot_data") is not None
 
 
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
+
+
+if(not found_robot_properties_kuka_pkg):
+    logger.error("Either install robot_properties_kuka, or directly build the pinocchio robot wrapper from URDF file.")
+if(not found_robot_properties_kuka_pkg):
+    logger.error("Either install robot_properties_talos, or directly build the pinocchio robot wrapper from URDF file.")
 
 
 SUPPORTED_ROBOTS = ['iiwa', 'talos_arm', 'talos_reduced', 'talos_full']
@@ -23,40 +28,27 @@ SUPPORTED_ROBOTS = ['iiwa', 'talos_arm', 'talos_reduced', 'talos_full']
 def load_robot_wrapper(robot_name):
     logger.info('Loading robot wrapper : "'+str(robot_name)+'"...')
     # Load iiwa robot wrapper 
-    if(robot_name == 'iiwa'):
-        if(found_robot_properties_kuka_pkg):
+    if(robot_name not in SUPPORTED_ROBOTS):
+        logger.error('Unknown robot name ! Choose a robot in supported robots '+str(SUPPORTED_ROBOTS))
+    else:
+        if(robot_name == 'iiwa'):
             from robot_properties_kuka.config import IiwaConfig
             robot = IiwaConfig.buildRobotWrapper()
-        else:
-            logger.error("Either install robot_properties_kuka, or directly build the pinocchio robot wrapper from URDF file.")
-    # Load talos left arm robot wrapper
-    elif(robot_name == 'talos_arm'):
-        if(found_robot_properties_talos_pkg):
+        # Load talos left arm robot wrapper
+        elif(robot_name == 'talos_arm'):
             from robot_properties_talos.config import TalosArmConfig
             robot = TalosArmConfig.buildRobotWrapper()
-            # import example_robot_data
-            # robot = example_robot_data.load('talos_arm') 
-        else:
-            logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
-    # Load talos reduced robot wrapper
-    elif(robot_name =='talos_reduced'):
-        if(found_robot_properties_talos_pkg):
+        # Load talos reduced robot wrapper
+        elif(robot_name =='talos_reduced'):
             from robot_properties_talos.config import TalosReducedConfig
             robot = TalosReducedConfig.buildRobotWrapper()
-        else:
-            logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
-    # Load talos full robot wrapper
-    elif(robot_name == 'talos_full'):
-        if(found_robot_properties_talos_pkg):
+        # Load talos full robot wrapper
+        elif(robot_name == 'talos_full'):
             from robot_properties_talos.config import TalosFullConfig
             robot = TalosFullConfig.buildRobotWrapper()
             # import example_robot_data
             # robot = example_robot_data.load('talos') 
-        else:
-            logger.error("Either install example_robot_data, or directly build the pinocchio robot wrapper from URDF file.")
-    else:
-        logger.error('Unknown robot name ! Choose a robot in supported robots '+str(SUPPORTED_ROBOTS))
-    return robot
+        return robot
 
 
 
