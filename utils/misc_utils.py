@@ -1,3 +1,5 @@
+
+
 import argparse
 # import sys 
 # if(sys.version_info[0] < 3):
@@ -22,6 +24,10 @@ def parse_MPC_script(argv=None):
 
 # Custom logging style
 import logging
+# Global setting used by default in the whole package
+GLOBAL_LOG_LEVEL  = 'DEBUG'
+GLOBAL_LOG_FORMAT = 'LONG'
+
 
 grey = "\x1b[38;21m" #"\x1b[38;20m"
 blue = "\x1b[1;34m"

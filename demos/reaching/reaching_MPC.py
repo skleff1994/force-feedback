@@ -21,13 +21,8 @@ The goal of this script is to simulate closed-loop MPC on a simple reaching task
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
 np.random.seed(1)

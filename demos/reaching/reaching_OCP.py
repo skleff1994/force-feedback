@@ -17,12 +17,15 @@ The goal of this script is to setup the OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
+
+
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
 
-logger = misc_utils.CustomLogger(__name__).logger
 
 
 def main(robot_name, PLOT, VISUALIZE):
@@ -30,18 +33,17 @@ def main(robot_name, PLOT, VISUALIZE):
     # # # # # # # # # # # #
     ### LOAD ROBOT MODEL ## 
     # # # # # # # # # # # # 
-    # Read config file
+    # Read config file and initial state
     config, _ = path_utils.load_config_file(__file__, robot_name)
     q0 = np.asarray(config['q0'])
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])   
-    # Get pin wrapper
+    # Make pin wrapper
     robot = pin_utils.load_robot_wrapper(robot_name)
     # Get initial frame placement + dimensions of joint space
     frame_name = config['frame_of_interest']
     id_endeff = robot.model.getFrameId(frame_name)
-    nq, nv = robot.model.nq, robot.model.nv
-    nx = nq+nv; nu = nq
+    nq = robot.model.nq
     # Update robot model with initial state
     robot.framesForwardKinematics(q0)
     robot.computeJointJacobians(q0)
@@ -52,15 +54,12 @@ def main(robot_name, PLOT, VISUALIZE):
     # # # # # # # # # 
     ### OCP SETUP ###
     # # # # # # # # # 
-    N_h = config['N_h']
-    dt = config['dt']
     # Setup Croco OCP and create solver
-    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                                WHICH_COSTS=config['WHICH_COSTS']) 
+    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True) 
     # Warmstart and solve
     ug = pin_utils.get_u_grav(q0, robot.model, config['armature'])
-    xs_init = [x0 for i in range(N_h+1)]
-    us_init = [ug  for i in range(N_h)]
+    xs_init = [x0 for i in range(config['N_h']+1)]
+    us_init = [ug  for i in range(config['N_h'])]
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 

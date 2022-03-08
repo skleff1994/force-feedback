@@ -13,8 +13,8 @@ import numpy as np
 import pinocchio as pin
 from utils import pin_utils
 
-from utils.misc_utils import CustomLogger
-logger = CustomLogger(__name__, log_level_name='INFO', USE_LONG_FORMAT=False).logger
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
 
 
 # Cost weights profiles, useful for reaching tasks/cost design
@@ -364,8 +364,7 @@ def rotation_orientation_WORLD(t, M, omega=1., LOCAL_AXIS='Z'):
 
 
 # Setup OCP and solver using Crocoddyl
-def init_DDP(robot, config, x0, callbacks=False, 
-                                WHICH_COSTS=['all']):
+def init_DDP(robot, config, x0, callbacks=False):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       INPUT: 
@@ -373,9 +372,6 @@ def init_DDP(robot, config, x0, callbacks=False,
           config      : dict from YAML config file of OCP params
           x0          : initial state of shooting problem
           callbacks   : display Crocoddyl's DDP solver callbacks
-          WHICH_COSTS : which cost terms in the running & terminal cost?
-                          'placement', 'velocity', 'stateReg', 'ctrlReg', 'ctrlRegGrav'
-                          'stateLim', 'ctrlLim', 'force', 'friction', 'translation'
       OUTPUT:
         FDDP solver
 
@@ -488,7 +484,7 @@ def init_DDP(robot, config, x0, callbacks=False,
       
       # Create and add cost function terms to current IAM
         # State regularization 
-        if('stateReg' in WHICH_COSTS):
+        if('stateReg' in config['WHICH_COSTS']):
           # Default reference = initial state
           if(config['stateRegRef']=='DEFAULT'):
             stateRegRef = np.concatenate([np.asarray(config['q0']), np.asarray(config['dq0'])]) #np.zeros(nq+nv) 
@@ -501,7 +497,7 @@ def init_DDP(robot, config, x0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['stateRegWeight'])
         # Control regularization
-        if('ctrlReg' in WHICH_COSTS):
+        if('ctrlReg' in config['WHICH_COSTS']):
           # Default reference = zero torque 
           if(config['ctrlRegRef']=='DEFAULT'):
             u_reg_ref = np.zeros(nq)
@@ -515,7 +511,7 @@ def init_DDP(robot, config, x0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeight'])
         # Control regularization (gravity)
-        if('ctrlRegGrav' in WHICH_COSTS):
+        if('ctrlRegGrav' in config['WHICH_COSTS']):
           # Contact or not?
           if(CONTACT):
             residual = crocoddyl.ResidualModelContactControlGrav(state)
@@ -528,7 +524,7 @@ def init_DDP(robot, config, x0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("ctrlRegGrav", uRegGravCost, config['ctrlRegWeight'])
         # State limits penalization
-        if('stateLim' in WHICH_COSTS):
+        if('stateLim' in config['WHICH_COSTS']):
           # Default reference = zero state
           stateLimRef = np.zeros(nq+nv)
           x_max = config['coef_xlim']*state.ub 
@@ -540,7 +536,7 @@ def init_DDP(robot, config, x0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
         # Control limits penalization
-        if('ctrlLim' in WHICH_COSTS):
+        if('ctrlLim' in config['WHICH_COSTS']):
           # Default reference = zero torque
           ctrlLimRef = np.zeros(nq)
           u_min = -config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
@@ -552,7 +548,7 @@ def init_DDP(robot, config, x0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
         # End-effector placement 
-        if('placement' in WHICH_COSTS):
+        if('placement' in config['WHICH_COSTS']):
           if(config['framePlacementFrameName']=='DEFAULT'):
             framePlacementFrameName = config['frame_of_interest']
           else:
@@ -579,7 +575,7 @@ def init_DDP(robot, config, x0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
         # End-effector velocity
-        if('velocity' in WHICH_COSTS): 
+        if('velocity' in config['WHICH_COSTS']): 
           if(config['frameVelocityFrameName']=='DEFAULT'):
             frameVelocityFrameName = config['frame_of_interest']
           else:
@@ -601,7 +597,7 @@ def init_DDP(robot, config, x0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
         # Frame translation cost
-        if('translation' in WHICH_COSTS):
+        if('translation' in config['WHICH_COSTS']):
           if(config['frameTranslationFrameName']=='DEFAULT'):
             frameTranslationFrameName = config['frame_of_interest']
           else:
@@ -629,7 +625,7 @@ def init_DDP(robot, config, x0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeight'])
         # End-effector orientation 
-        if('rotation' in WHICH_COSTS):
+        if('rotation' in config['WHICH_COSTS']):
           if(config['frameRotationFrameName']=='DEFAULT'):
             frameRotationFrameName = config['frame_of_interest']
           else:
@@ -650,7 +646,7 @@ def init_DDP(robot, config, x0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("rotation", frameRotationCost, config['frameRotationWeight'])
         # Frame force cost
-        if('force' in WHICH_COSTS):
+        if('force' in config['WHICH_COSTS']):
           if(not CONTACT):
             logger.error("Force cost but no contact model is defined ! ")
           if(config['frameForceFrameName']=='DEFAULT'):
@@ -706,7 +702,7 @@ def init_DDP(robot, config, x0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("force", frameForceCost, config['frameForceWeight'])
         # Friction cone 
-        if('friction' in WHICH_COSTS):
+        if('friction' in config['WHICH_COSTS']):
           if(not CONTACT):
             logger.error("Friction cost but no contact model is defined !!! ")
           # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
@@ -813,7 +809,7 @@ def init_DDP(robot, config, x0, callbacks=False,
   
   # Create and add terminal cost models to terminal IAM
     # State regularization
-    if('stateReg' in WHICH_COSTS):
+    if('stateReg' in config['WHICH_COSTS']):
       # Default reference = initial state
       if(config['stateRegRef']=='DEFAULT'):
         stateRegRef = np.concatenate([np.asarray(config['q0']), np.asarray(config['dq0'])]) 
@@ -826,7 +822,7 @@ def init_DDP(robot, config, x0, callbacks=False,
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal']*dt)
     # State limits
-    if('stateLim' in WHICH_COSTS):
+    if('stateLim' in config['WHICH_COSTS']):
       # Default reference = zero state
       stateLimRef = np.zeros(nq+nv)
       x_max = config['coef_xlim']*state.ub 
@@ -838,7 +834,7 @@ def init_DDP(robot, config, x0, callbacks=False,
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal']*dt)
     # EE placement
-    if('placement' in WHICH_COSTS):
+    if('placement' in config['WHICH_COSTS']):
       if(config['framePlacementFrameName']=='DEFAULT'):
         framePlacementFrameName = config['frame_of_interest']
       else:
@@ -864,7 +860,7 @@ def init_DDP(robot, config, x0, callbacks=False,
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal']*dt)
     # EE velocity
-    if('velocity' in WHICH_COSTS):
+    if('velocity' in config['WHICH_COSTS']):
       if(config['frameVelocityFrameName']=='DEFAULT'):
         frameVelocityFrameName = config['frame_of_interest']
       else:
@@ -886,7 +882,7 @@ def init_DDP(robot, config, x0, callbacks=False,
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal']*dt)
     # EE translation
-    if('translation' in WHICH_COSTS):
+    if('translation' in config['WHICH_COSTS']):
       if(config['frameTranslationFrameName']=='DEFAULT'):
         frameTranslationFrameName = config['frame_of_interest']
       else:
@@ -913,7 +909,7 @@ def init_DDP(robot, config, x0, callbacks=False,
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal']*dt)
     # End-effector orientation 
-    if('rotation' in WHICH_COSTS):
+    if('rotation' in config['WHICH_COSTS']):
       if(config['frameRotationFrameName']=='DEFAULT'):
         frameRotationFrameName = config['frame_of_interest']
       else:
@@ -956,7 +952,7 @@ def init_DDP(robot, config, x0, callbacks=False,
   
   # Finish
     logger.info("OCP is ready")
-    logger.info("    COSTS   = "+str(WHICH_COSTS))
+    logger.info("    COSTS   = "+str(config['WHICH_COSTS']))
     if(CONTACT):
       logger.info("    CONTACT = "+str(CONTACT)+" [ "+str(CONTACT_TYPE)+" ] (Baumgarte stab. gains = "+str(contactModelGains)+" )")
     else:
@@ -974,8 +970,7 @@ def init_DDP(robot, config, x0, callbacks=False,
 def init_DDP_LPF(robot, config, y0, callbacks=False, 
                                     w_reg_ref='gravity',
                                     TAU_PLUS=False,
-                                    LPF_TYPE=0,
-                                    WHICH_COSTS=['all']):
+                                    LPF_TYPE=0):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       INPUT: 
@@ -986,9 +981,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           w_reg_ref   : reference for reg. cost on unfiltered input w
           TAU_PLUS    : use "TAU_PLUS" integration if True, "TAU" otherwise
           LPF_TYPE    : use expo moving avg (0), classical lpf (1) or exact (2)
-          WHICH_COSTS : which cost terms in the running & terminal cost?
-                          'placement', 'velocity', 'stateReg', 'ctrlReg', 'ctrlRegGrav'
-                          'stateLim', 'ctrlLim', 'translation', 'friction', 'force'
       OUTPUT:
           FDDP solver
 
@@ -1141,7 +1133,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       
       # Create and add cost function terms to current IAM
         # State regularization 
-        if('stateReg' in WHICH_COSTS):
+        if('stateReg' in config['WHICH_COSTS']):
           # Default reference = initial state
           if(config['stateRegRef']=='DEFAULT'):
             stateRegRef = np.concatenate([np.asarray(config['q0']), np.asarray(config['dq0'])]) #np.zeros(nq+nv) 
@@ -1154,7 +1146,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("stateReg", xRegCost, config['stateRegWeight'])
         # Control regularization
-        if('ctrlReg' in WHICH_COSTS):
+        if('ctrlReg' in config['WHICH_COSTS']):
           # Default reference = zero torque 
           if(config['ctrlRegRef']=='DEFAULT'):
             u_reg_ref = np.zeros(nq)
@@ -1168,7 +1160,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeight'])
         # Control regularization (gravity)
-        if('ctrlRegGrav' in WHICH_COSTS):
+        if('ctrlRegGrav' in config['WHICH_COSTS']):
           # Contact or not?
           if(CONTACT):
             residual = crocoddyl.ResidualModelContactControlGrav(state)
@@ -1181,7 +1173,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("ctrlRegGrav", uRegGravCost, config['ctrlRegWeight'])
         # State limits penalization
-        if('stateLim' in WHICH_COSTS):
+        if('stateLim' in config['WHICH_COSTS']):
           # Default reference = zero state
           stateLimRef = np.zeros(nq+nv)
           x_max = config['coef_xlim']*state.ub 
@@ -1193,7 +1185,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeight'])
         # Control limits penalization
-        if('ctrlLim' in WHICH_COSTS):
+        if('ctrlLim' in config['WHICH_COSTS']):
           # Default reference = zero torque
           ctrlLimRef = np.zeros(nq)
           u_min = -config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
@@ -1205,7 +1197,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
         # End-effector placement 
-        if('placement' in WHICH_COSTS):
+        if('placement' in config['WHICH_COSTS']):
           if(config['framePlacementFrameName']=='DEFAULT'):
             framePlacementFrameName = config['frame_of_interest']
           else:
@@ -1232,7 +1224,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
         # End-effector velocity
-        if('velocity' in WHICH_COSTS): 
+        if('velocity' in config['WHICH_COSTS']): 
           if(config['frameVelocityFrameName']=='DEFAULT'):
             frameVelocityFrameName = config['frame_of_interest']
           else:
@@ -1254,7 +1246,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
         # Frame translation cost
-        if('translation' in WHICH_COSTS):
+        if('translation' in config['WHICH_COSTS']):
           if(config['frameTranslationFrameName']=='DEFAULT'):
             frameTranslationFrameName = config['frame_of_interest']
           else:
@@ -1282,7 +1274,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeight'])
         # End-effector orientation 
-        if('rotation' in WHICH_COSTS):
+        if('rotation' in config['WHICH_COSTS']):
           if(config['frameRotationFrameName']=='DEFAULT'):
             frameRotationFrameName = config['frame_of_interest']
           else:
@@ -1303,7 +1295,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("rotation", frameRotationCost, config['frameRotationWeight'])
         # Frame force cost
-        if('force' in WHICH_COSTS):
+        if('force' in config['WHICH_COSTS']):
           if(not CONTACT):
             logger.error("Force cost but no contact model is defined ! ")
           # 6D contact case : wrench = linear in (x,y,z) + angular in (Ox,Oy,Oz)
@@ -1359,7 +1351,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("force", frameForceCost, config['frameForceWeight'])
         # Friction cone 
-        if('friction' in WHICH_COSTS):
+        if('friction' in config['WHICH_COSTS']):
           if(not CONTACT):
             logger.error("Friction cost but no contact model is defined !!! ")
           cone_rotation = contactModelPlacementRef.rotation
@@ -1471,7 +1463,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
 
   # Create and add terminal cost models to terminal IAM
     # Terminal state regularization
-    if('stateReg' in WHICH_COSTS):
+    if('stateReg' in config['WHICH_COSTS']):
       # Default reference = initial state
       if(config['stateRegRef']=='DEFAULT'):
         stateRegRef = np.concatenate([np.asarray(config['q0']), np.asarray(config['dq0'])]) 
@@ -1484,7 +1476,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("stateReg", xRegCost, config['stateRegWeightTerminal']*dt)
     # Terminal (filtered) torque regularization
-    if('ctrlReg' in WHICH_COSTS):
+    if('ctrlReg' in config['WHICH_COSTS']):
       # Default reference = zero torque 
       if(config['ctrlRegRef']=='DEFAULT'):
         u_reg_ref = np.zeros(nq)
@@ -1498,7 +1490,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       # Add cost term to IAM
       terminalModel.differential.costs.addCost("ctrlReg", uRegCost, config['ctrlRegWeightTerminal']*dt)
     # Terminal state limits cost
-    if('stateLim' in WHICH_COSTS):
+    if('stateLim' in config['WHICH_COSTS']):
       # Default reference = zero state
       stateLimRef = np.zeros(nq+nv)
       x_max = config['coef_xlim']*state.ub 
@@ -1510,7 +1502,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal']*dt)
     #  Terminal control limits penalization
-    if('ctrlLim' in WHICH_COSTS):
+    if('ctrlLim' in config['WHICH_COSTS']):
       # Default reference = zero torque
       ctrlLimRef = np.zeros(nq)
       u_min = -config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
@@ -1522,7 +1514,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       # Add cost term to IAM
       runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeightTerminal']*dt)
     # Terminal EE placement cost
-    if('placement' in WHICH_COSTS):
+    if('placement' in config['WHICH_COSTS']):
       if(config['framePlacementFrameName']=='DEFAULT'):
         framePlacementFrameName = config['frame_of_interest']
       else:
@@ -1549,7 +1541,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal']*dt)
     # Terminal EE velocity cost
-    if('velocity' in WHICH_COSTS):
+    if('velocity' in config['WHICH_COSTS']):
       if(config['frameVelocityFrameName']=='DEFAULT'):
         frameVelocityFrameName = config['frame_of_interest']
       else:
@@ -1571,7 +1563,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal']*dt)
     # Terminal EE translation cost
-    if('translation' in WHICH_COSTS):
+    if('translation' in config['WHICH_COSTS']):
       if(config['frameTranslationFrameName']=='DEFAULT'):
         frameTranslationFrameName = config['frame_of_interest']
       else:
@@ -1599,7 +1591,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       # Add cost term to terminal IAM
       terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal']*dt)
     # Terminal end-effector orientation cost
-    if('rotation' in WHICH_COSTS):
+    if('rotation' in config['WHICH_COSTS']):
       if(config['frameRotationFrameName']=='DEFAULT'):
         frameRotationFrameName = config['frame_of_interest']
       else:
@@ -1619,7 +1611,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                                               actuation.nu)) 
       terminalModel.differential.costs.addCost("rotation", frameRotationCost, config['frameRotationWeightTerminal']*dt)
     # # Frame force cost
-    # if('force' in WHICH_COSTS):
+    # if('force' in config['WHICH_COSTS']):
     #   if(not CONTACT):
     #     logger.error("Force cost but no contact model is defined ! ")
     #   # 6D contact case : wrench = linear in (x,y,z) + angular in (Ox,Oy,Oz)
@@ -1699,7 +1691,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
   
   # Finish
     logger.info("OCP (LPF) is ready")
-    logger.info("    COSTS   = "+str(WHICH_COSTS))
+    logger.info("    COSTS   = "+str(config['WHICH_COSTS']))
     if(CONTACT):
       logger.info("    CONTACT = "+str(CONTACT)+" [ "+str(CONTACT_TYPE)+" ] (Baumgarte stab. gains = "+str(contactModelGains)+" )")
     else:

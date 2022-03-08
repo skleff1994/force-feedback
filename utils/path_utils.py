@@ -3,10 +3,8 @@ import yaml
 import os
 import re 
 
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
 
 
 # Load a yaml file (e.g. simu config file)

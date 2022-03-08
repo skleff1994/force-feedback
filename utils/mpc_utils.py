@@ -1,10 +1,10 @@
 
 import numpy as np
-np.random.seed(1)
 
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
+
+
 
 class ActuationModel:
 

@@ -8,9 +8,9 @@ from scipy.spatial.transform import Rotation
 from numpy.linalg import norm
 import pinocchio as pin
 
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
+
 
 import importlib
 FOUND_RAISIMPY_PKG = importlib.util.find_spec("raisimpy") is not None

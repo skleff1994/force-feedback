@@ -2,9 +2,8 @@ import sys
 from utils import data_utils, analysis_utils, plot_utils
 import numpy as np
 
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
 
 
 def main(npz_path=None, FILTER=1, PLOT=False):

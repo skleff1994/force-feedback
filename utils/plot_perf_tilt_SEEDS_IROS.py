@@ -4,9 +4,8 @@ from utils import data_utils, analysis_utils, pin_utils
 import numpy as np
 import matplotlib.pyplot as plt
 
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
 
 
 # tilt table of several angles around y-axis
