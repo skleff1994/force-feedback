@@ -1,7 +1,7 @@
-# What is it
+# Description
 Several approaches toward Force feedback in Optimal Control are explored:
 - Relaxing the rigid contact assumption (a.k.a. "augmented state" and "observer")
-- Assuming imperfect torque actuation (a.k.a. "LPF") 
+- __Assuming imperfect torque actuation (a.k.a. "LPF")__
 
 In particular, the second approach is explored in details throughout simulations on 7-DoF manipulators (on the KUKA iiwa LBR 14 and PAL Robotics' TALOS left arm). We call it the "LPF" approach, which consists basically in modeling the actuation as a low-pass filter (LPF) on the torques. The OCP uses an augmented dynamics model treating joint torques as states, and unfiltered torque as control input. This is implemented in C++ my fork of the Crocoddyl library. Reaching tasks and contact tasks are simulated in both PyBullet and Raisim.
 
@@ -35,15 +35,15 @@ Python scripts (in `demos`) and config files in (`utils`) are contain the name o
 
 ## Solve an OCP
 ```
-python demos/{task_name}/{task}_OCP.py {--robot_name=''} {--PLOT} {--VISUALIZE}
+python demos/{task_name}/{task}_OCP.py [--robot_name=$NAME] [--PLOT] [--VISUALIZE]
 ```
 For instance, to solve an OCP for a reaching task for the KUKA arm, plot the results and animate in Gepetto-viewer
 ```
-python demos/static_raching_task/reaching_OCP.py --robot_name='iiwa' --PLOT --VISUALIZE
+python demos/static_raching_task/reaching_OCP.py --robot_name=iiwa --PLOT --VISUALIZE
 ```
 This script reads the corresponding YAML configuration file `demos/config/iiwa_reaching_OCP.yml` and sets up the OCP defined in `utils/ocp_utils` and solves it. The results are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_ddp"). Now if we want instead to solve an OCP for TALOS left arm, using the LPF approach, animate the results but not plot 
 ```
-python demos/static_raching_task/LPF_reaching_OCP.py --robot_name='talos' --VISUALIZE
+python demos/static_raching_task/LPF_reaching_OCP.py --robot_name=talos --VISUALIZE
 ```
 
 ## Simulate MPC 
@@ -51,7 +51,7 @@ python demos/static_raching_task/LPF_reaching_OCP.py --robot_name='talos' --VISU
 
 Similar syntax as previously, replacing "OCP" by "MPC". We also need to specify the simulator. For instance
 ```
-python demos/static_reaching_task/reaching_MPC.py  --robot_name='iiwa' --simulator='bullet' 
+python demos/static_reaching_task/reaching_MPC.py  --robot_name=iiwa --simulator=bullet 
 ```
 This script reads the corresponding YAML configuration file in `demos/config/iiwa_reaching_MPC.yml` and sets up an OCP defined in `utils/ocp_utils` and simulates the MPC in PyBullet (or RaiSim). The results are of the simulations are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_mpc"). The simulation data can be optionally saved as .npz for offline analysis. 
 
