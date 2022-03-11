@@ -61,11 +61,10 @@ def main(robot_name, PLOT, VISUALIZE):
     ### OCP SETUP ###
     # # # # # # # # # 
     # Setup Croco OCP and create solver
-    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                                WHICH_COSTS=config['WHICH_COSTS']) 
+    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True) 
     # Warmstart and solve
     f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
-    u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+    u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
     xs_init = [x0 for i in range(config['N_h']+1)]
     us_init = [u0 for i in range(config['N_h'])]
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)

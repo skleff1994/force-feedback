@@ -82,13 +82,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # 
   # Create DDP solver + compute warm start torque
   f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
-  u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+  u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
   y0 = np.concatenate([x0, u0])
   ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                  w_reg_ref=np.zeros(nq), #'gravity',
-                                                  TAU_PLUS=False, 
-                                                  LPF_TYPE=config['LPF_TYPE'],
-                                                  WHICH_COSTS=config['WHICH_COSTS'] ) 
+                                                  w_reg_ref=np.zeros(nq)) 
   # Warmstart and solve
   xs_init = [y0 for i in range(config['N_h']+1)]
   us_init = [u0 for i in range(config['N_h'])]
@@ -119,7 +116,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # Additional simulation blocks 
   communication = mpc_utils.CommunicationModel(config)
-  actuation     = mpc_utils.ActuationModel(config)
+  actuation     = mpc_utils.ActuationModel(config, nu)
   sensing       = mpc_utils.SensorModel(config, ntau=nu)
 
   # # # # # # # # # # # #

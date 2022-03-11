@@ -24,23 +24,20 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
   - Simulator = custom actuation model (not LPF) + PyBullet RBD
 '''
 
+
 import sys
 sys.path.append('.')
 
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
+
 import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils
-import time 
+np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
 
+from utils import path_utils, ocp_utils, pin_utils, data_utils, mpc_utils, misc_utils
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 
@@ -62,15 +59,16 @@ SEEDS = [1, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
 # np.random.seed(1)
 
-def main(robot_name='iiwa', simulator='bullet'):
+def main(robot_name, simulator, PLOT_INIT):
 
 
   # # # # # # # # # # # # # # # # # # #
   ### LOAD ROBOT MODEL and SIMU ENV ### 
   # # # # # # # # # # # # # # # # # # # 
   # Read config file
-  config_name = robot_name+'_'+TASK+'_MPC'
-  config      = path_utils.load_config_file(config_name)
+  config, config_name = path_utils.load_config_file('sanding_MPC', robot_name)
+#   config_name = robot_name+'_'+TASK+'_MPC'
+#   config      = path_utils.load_config_file(config_name)
   # Create a simulation environment & simu-pin wrapper 
   dt_simu = 1./float(config['simu_freq'])  
   q0 = np.asarray(config['q0'])
@@ -98,8 +96,7 @@ def main(robot_name='iiwa', simulator='bullet'):
   ### OCP SETUP ###
   # # # # # # # # # 
   # Init shooting problem and solver
-  ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
-                                              WHICH_COSTS=config['WHICH_COSTS']) 
+  ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False) 
   # Setup tracking problem with circle ref EE trajectory
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -130,10 +127,10 @@ def main(robot_name='iiwa', simulator='bullet'):
           Mref.translation = p_ee_ref
           q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
           xs_init.append(np.concatenate([q_ws, v_ws]))
-      us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(config['N_h'])]
+      us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model, config['armature']) for i in range(config['N_h'])]
   # Classical warm start using initial config
   else:
-      ug  = pin_utils.get_u_grav(q0, robot.model)
+      ug  = pin_utils.get_u_grav(q0, robot.model, config['armature'])
       xs_init = [x0 for i in range(config['N_h']+1)]
       us_init = [ug for i in range(config['N_h'])]
 
@@ -200,7 +197,7 @@ def main(robot_name='iiwa', simulator='bullet'):
 
         # Additional simulation blocks 
         communication = mpc_utils.CommunicationModel(config)
-        actuation     = mpc_utils.ActuationModel(config, SEED=SEEDS[n_seed])
+        actuation     = mpc_utils.ActuationModel(config, nu, SEED=SEEDS[n_seed])
         sensing       = mpc_utils.SensorModel(config, SEED=SEEDS[n_seed])
 
 
@@ -349,10 +346,5 @@ def main(robot_name='iiwa', simulator='bullet'):
 
 
 if __name__=='__main__':
-    if(len(sys.argv) < 2 or len(sys.argv) > 3):
-        print("Usage: python contact_circle_MPC.py [arg1: robot_name (str)] [arg2: simulator (str)]")
-        sys.exit(0)
-    elif(len(sys.argv)==2):
-        sys.exit(main(str(sys.argv[1])))
-    elif(len(sys.argv)==3):
-        sys.exit(main(str(sys.argv[1]), str(sys.argv[2])))
+    args = misc_utils.parse_MPC_script(sys.argv[1:])
+    main(args.robot_name, args.simulator, args.PLOT_INIT)

@@ -64,8 +64,7 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
     N_h = config['N_h']
     dt = config['dt']
     # Setup Croco OCP and create solver
-    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                                WHICH_COSTS=config['WHICH_COSTS']) 
+    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True) 
     # Setup tracking problem with circle ref EE trajectory
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -91,7 +90,7 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
             ref = m.differential.costs.costs['translation'].cost.residual.reference
             q_ws, v_ws, eps = pin_utils.IK_position(robot, q_ws, id_endeff, ref, DT=1e-2, IT_MAX=100)
             xs_init.append(np.concatenate([q_ws, v_ws]))
-        us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(N_h)]
+        us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model, config['armature']) for i in range(N_h)]
 
     # Classical warm start using initial config
     else:

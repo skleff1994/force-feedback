@@ -968,9 +968,7 @@ def init_DDP(robot, config, x0, callbacks=False):
 
 # Setup OCP and solver using Crocoddyl
 def init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                    w_reg_ref='gravity',
-                                    TAU_PLUS=False,
-                                    LPF_TYPE=0):
+                                    w_reg_ref='gravity'):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       INPUT: 
@@ -979,8 +977,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           x0          : initial state of shooting problem
           callbacks   : display Crocoddyl's DDP solver callbacks
           w_reg_ref   : reference for reg. cost on unfiltered input w
-          TAU_PLUS    : use "TAU_PLUS" integration if True, "TAU" otherwise
-          LPF_TYPE    : use expo moving avg (0), classical lpf (1) or exact (2)
       OUTPUT:
           FDDP solver
 
@@ -1015,7 +1011,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         CONTACT_TYPE = config['contactModelType']
 
   # LPF parameters (a.k.a simplified actuation model)
-    f_c = config['f_c']    
+    f_c      = config['f_c'] 
+    LPF_TYPE = config['LPF_TYPE']   
     # Approx. LPF obtained from Z.O.H. discretization on CT LPF 
     if(LPF_TYPE==0):
         alpha = np.exp(-2*np.pi*f_c*dt)
@@ -1127,7 +1124,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                 cost_ref_w_reg=w_reg_ref,
                                                                 w_gravity_reg=w_gravity_reg,
                                                                 cost_weight_w_lim=config['wLimWeight'],
-                                                                tau_plus_integration=TAU_PLUS,
+                                                                tau_plus_integration=config['tau_plus_integration'],
                                                                 filter=LPF_TYPE,
                                                                 is_terminal=False))      
       
@@ -1266,7 +1263,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           else:
             logger.error("Please specify either 'alpha_quadflatlog' or 'frameTranslationWeights' in config file")
           frameTranslationCost = crocoddyl.CostModelResidual(state, 
-                                                          crocoddyl.ActivationModelWeightedQuad(frameTranslationActivation), 
+                                                          frameTranslationActivation, 
                                                           crocoddyl.ResidualModelFrameTranslation(state, 
                                                                                                   frameTranslationFrameId, 
                                                                                                   frameTranslationRef, 
@@ -1457,7 +1454,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                         cost_ref_w_reg=w_reg_ref,
                                                         w_gravity_reg=w_gravity_reg,
                                                         cost_weight_w_lim=config['wLimWeight'],
-                                                        tau_plus_integration=TAU_PLUS,
+                                                        tau_plus_integration=config['tau_plus_integration'],
                                                         filter=LPF_TYPE,
                                                         is_terminal=True)   
 
@@ -1687,7 +1684,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     
   # Warm start by default
     ddp.xs = [y0 for i in range(N_h+1)]
-    ddp.us = [pin_utils.get_u_grav(y0[:nq], robot.model) for i in range(N_h)]
+    ddp.us = [pin_utils.get_u_grav(y0[:nq], robot.model, config['armature']) for i in range(N_h)]
   
   # Finish
     logger.info("OCP (LPF) is ready")

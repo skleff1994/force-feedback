@@ -16,8 +16,9 @@
 # q0 = [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]
 
 # General 
-LPF_TYPE: 1
-f_c: 5                                                               # Low-pass filter cut-off frequency
+LPF_TYPE: 1                            # (0) ZOH (1) Euler (2) exact EMA
+f_c: 2                                 # Low-pass filter cut-off frequency
+tau_plus_integration: False            # semi-implicit if true, explicit if false
 dt: 0.01                                                             # OCP integration step 
 N_h: 400                                                             # Horizon length in nodes
 maxiter: 1000                                                        # Max number of iterations in DDP
@@ -85,6 +86,8 @@ frameTranslationWeight: 20.
 frameTranslationWeightTerminal: 20. 
 frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'DEFAULT'
+frameTranslationActivation: ''
+
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
@@ -105,14 +108,13 @@ frameRotationFrameName: 'DEFAULT'
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
 stateLimWeight: 0.
 stateLimWeightTerminal: 0.
-stateLimRef: 'DEFAULT'
+coef_xlim: 1
 
  # 'ctrlLim' : torque limits
-ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
 ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlLimWeight: 10
 ctrlLimWeightTerminal: 10
-ctrlLimRef: 'DEFAULT'
+coef_ulim: 1
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, 0.]

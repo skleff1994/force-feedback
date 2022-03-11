@@ -5,8 +5,9 @@
 
 
 # General 
-LPF_TYPE: 1
+LPF_TYPE: 1                            # (0) ZOH (1) Euler (2) exact EMA
 f_c: 5                                 # Low-pass filter cut-off frequency
+tau_plus_integration: False            # semi-implicit if true, explicit if false
 dt: 0.02                               # OCP integration step 
 N_h: 200                               # Horizon length in nodes
 maxiter: 1000                          # Max number of iterations in DDP

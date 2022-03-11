@@ -64,16 +64,12 @@ def main(robot_name, PLOT, VISUALIZE):
     LPF_TYPE = 1
     # Warm start and reg
     f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
-    u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+    u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
     # ug = pin_utils.get_u_grav(q0, robot.model)
     # Define initial state
     y0 = np.concatenate([x0, u0])
     # Setup Croco OCP and create solver
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                    w_reg_ref=np.zeros(nq), # 'gravity', 
-                                                    TAU_PLUS=False, 
-                                                    LPF_TYPE=LPF_TYPE,
-                                                    WHICH_COSTS=config['WHICH_COSTS'] ) 
+    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, w_reg_ref=np.zeros(nq)) 
     # Solve and extract solution trajectories
     xs_init = [y0 for i in range(N_h+1)]
     us_init = [u0 for i in range(N_h)]

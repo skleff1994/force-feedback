@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file LPF_contact_circle_MPC.py
+@file exp_TILT_LPF_sanding_MPC.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2021, New York University & LAAS-CNRS
@@ -27,29 +27,28 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 import sys
 sys.path.append('.')
 
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
+
 import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils
-import time 
-np.set_printoptions(precision=4, linewidth=180)
 np.random.seed(1)
+np.set_printoptions(precision=4, linewidth=180)
 
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
+from utils import path_utils, ocp_utils, pin_utils, data_utils, mpc_utils, misc_utils
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 
 TASK = 'contact_circle'
 WARM_START_IK = True
 
-
 # tilt table of several angles around y-axis
 TILT_ANGLES_DEG = [-20, -15, -10, -5, 0, 5, 10, 15, 20] 
+
+# EXPERIMENTS = [TILT_ANGLES_DEG[n_exp] for n_s in range(len(SEEDS)) for n_exp in range(len(TILT_ANGLES_DEG)) ]
+# N_EXP = len(EXPERIMENTS)
+
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([0., angle*np.pi/180, 0.])
@@ -57,19 +56,16 @@ N_EXP = len(TILT_RPY)
 
 SEEDS = [1, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
-    
+# np.random.seed(1)
 
-
-
-def main(robot_name='iiwa', simulator='bullet'):
+def main(robot_name, simulator, PLOT_INIT):
 
 
   # # # # # # # # # # # # # # # # # # #
   ### LOAD ROBOT MODEL and SIMU ENV ### 
   # # # # # # # # # # # # # # # # # # # 
   # Read config file
-  config_name = robot_name+'_LPF_'+TASK+'_MPC'
-  config      = path_utils.load_config_file(config_name)
+  config, config_name = path_utils.load_config_file('LPF_sanding_MPC', robot_name)
   # Create a simulation environment & simu-pin wrapper 
   dt_simu = 1./float(config['simu_freq'])  
   q0 = np.asarray(config['q0'])
@@ -103,13 +99,10 @@ def main(robot_name='iiwa', simulator='bullet'):
   dt = config['dt']
   # Create DDP solver + compute warm start torque
   f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
-  u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+  u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
   y0 = np.concatenate([x0, u0])
   ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                  w_reg_ref=np.zeros(nq), #'gravity',
-                                                  TAU_PLUS=False, 
-                                                  LPF_TYPE=config['LPF_TYPE'],
-                                                  WHICH_COSTS=config['WHICH_COSTS'] ) 
+                                                  w_reg_ref=np.zeros(nq))#'gravity' 
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   RADIUS = config['frameCircleTrajectoryRadius'] 
   OMEGA  = config['frameCircleTrajectoryVelocity']
@@ -140,7 +133,7 @@ def main(robot_name='iiwa', simulator='bullet'):
           f_ext = pin_utils.get_external_joint_torques(Mref.copy(), config['frameForceRef'], robot)
           # Get joint state from IK
           q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref.copy(), DT=1e-2, IT_MAX=100)
-          tau_ws = pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model)
+          tau_ws = pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
           xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
           if(k<N_h):
               us_init.append(tau_ws)
@@ -380,11 +373,7 @@ def main(robot_name='iiwa', simulator='bullet'):
 
 
 
+
 if __name__=='__main__':
-    if(len(sys.argv) < 2 or len(sys.argv) > 3):
-        print("Usage: python LPF_contact_circle_MPC.py [arg1: robot_name (str)] [arg2: simulator (str)] ")
-        sys.exit(0)
-    elif(len(sys.argv)==2):
-        sys.exit(main(str(sys.argv[1])))
-    elif(len(sys.argv)==3):
-        sys.exit(main(str(sys.argv[1]), str(sys.argv[2])))
+    args = misc_utils.parse_MPC_script(sys.argv[1:])
+    main(args.robot_name, args.simulator, args.PLOT_INIT)

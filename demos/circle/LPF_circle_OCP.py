@@ -62,13 +62,9 @@ def main(robot_name='iiwa', PLOT=True, VISUALIZE=True):
     N_h = config['N_h']
     dt = config['dt']
     # Setup Croco OCP and create solver
-    ug = pin_utils.get_u_grav(q0, robot.model) 
+    ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
     y0 = np.concatenate([x0, ug])
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, 
-                                                    w_reg_ref='gravity',
-                                                    TAU_PLUS=False, 
-                                                    LPF_TYPE=config['LPF_TYPE'],
-                                                    WHICH_COSTS=config['WHICH_COSTS'] ) 
+    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, w_reg_ref='gravity') 
     # Setup tracking problem with circle ref EE trajectory
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -94,7 +90,7 @@ def main(robot_name='iiwa', PLOT=True, VISUALIZE=True):
             Mref = M_ee.copy()
             Mref.translation = p_ee_ref
             q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
-            tau_ws = pin_utils.get_u_grav(q_ws, robot.model)
+            tau_ws = pin_utils.get_u_grav(q_ws, robot.model, config['armature'])
             xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
             if(k<N_h):
                 us_init.append(tau_ws)

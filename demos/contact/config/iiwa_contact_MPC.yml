@@ -116,13 +116,12 @@ framePlacementFrameName: 'DEFAULT'
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
 stateLimWeight: 10.
 stateLimWeightTerminal: 10.
-stateLimRef: 'DEFAULT'
+coef_xlim: 1
 
  # 'ctrlLim' : torque limits
-ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
 ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlLimWeight: 0.
-ctrlLimRef: 'DEFAULT'
+coef_ulim: 1
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .0]
