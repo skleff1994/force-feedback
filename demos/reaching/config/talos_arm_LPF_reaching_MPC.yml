@@ -7,7 +7,7 @@
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 1000        # Control frequency
 plan_freq: 1000        # Planning frequency
-T_tot: .01              # Simu duration (s)
+T_tot: 5.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -33,7 +33,7 @@ f_c: 5                                 # Low-pass filter cut-off frequency
 tau_plus_integration: False            # semi-implicit if true, explicit if false
 dt: 0.02                               # OCP integration step 
 N_h: 200                               # Horizon length in nodes
-maxiter: 10                            # Max number of iterations in DDP
+maxiter: 5                            # Max number of iterations in DDP
 q0: [2., 0., 0., 0., 0., 0., 0.]       # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]            # Initial robot joint velocity
 

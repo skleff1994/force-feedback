@@ -19,6 +19,13 @@ maxiter: 100                                                         # Max numbe
 q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 
+
+# Pin model frame name of the end-effector 
+#   - Used for frame-related costs and plots generation
+#   - Overrides the frame name 'DEFAULT' values below
+frame_of_interest: 'contact'
+
+
 # Contact model 
 CONTACT: 'True'                         # 'True' or 'False' 
 contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
@@ -63,6 +70,7 @@ frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
 frameCircleTrajectoryVelocity: 1.5 # in rad/s
+CIRCLE_LOCAL_PLANE: 'XY'             # LOCAL plane in which the circle lies
 
  # 'rotation' : end-effector frame orientation
 frameRotationWeights:  [1., 1., 1.]
@@ -82,13 +90,12 @@ frameVelocityFrameName: 'contact'
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
 stateLimWeight: 0.
 stateLimWeightTerminal: 0.
-stateLimRef: 'DEFAULT'
+coef_xlim: 1
 
  # 'ctrlLim' : torque limits
-ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
 ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlLimWeight: 0.
-ctrlLimRef: 'DEFAULT'
+coef_ulim: 1
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .0]

@@ -60,7 +60,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   x0 = np.concatenate([q0, v0])   
   if(simulator == 'bullet'):
     from utils import sim_utils as simulator_utils
-    env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
+    env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
     from utils import raisim_utils as simulator_utils
@@ -77,19 +77,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### OCP SETUP ###
   # # # # # # # # # 
   # Setup Crocoddyl OCP and create solver
-  ug = pin_utils.get_u_grav(q0, robot.model)
+  ug = pin_utils.get_u_grav(q0, robot.model, config['armature'])
   y0 = np.concatenate([x0, ug])
-  ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                  w_reg_ref='gravity',
-                                                  TAU_PLUS=False, 
-                                                  LPF_TYPE=config['LPF_TYPE'],
-                                                  WHICH_COSTS=config['WHICH_COSTS'] ) 
+  ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, w_reg_ref='gravity') 
   # Warm start and solve 
   xs_init = [y0 for i in range(config['N_h']+1)]
   us_init = [ug for i in range(config['N_h'])]
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   # Plot initial solution
-  PLOT_INIT = False
   if(PLOT_INIT):
     ddp_data = data_utils.extract_ddp_data_LPF(ddp, frame_of_interest=config['frame_of_interest'])
     fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
@@ -116,9 +111,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # Additional simulation blocks 
   communication = mpc_utils.CommunicationModel(config)
-  actuation     = mpc_utils.ActuationModel(config)
+  actuation     = mpc_utils.ActuationModel(config, nu)
   sensing       = mpc_utils.SensorModel(config, ntau=nu)
 
+  # Display target
+  if(hasattr(simulator_utils, 'display_ball')):
+    p_ball = np.asarray(config['frameTranslationRef'])
+    simulator_utils.display_ball(p_ball, robot_base_pose=base_placement, RADIUS=.05, COLOR=[1.,0.,0.,.6])
 
 
   # # # # # # # # # # # #

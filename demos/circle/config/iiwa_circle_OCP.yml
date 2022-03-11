@@ -54,24 +54,6 @@ frameCircleTrajectoryRadius: 0.1     # in m
 frameCircleTrajectoryVelocity: 3.    # in rad/s
 CIRCLE_LOCAL_PLANE: 'XY'             # LOCAL plane in which the circle lies
 
- # 'velocity' : end-effector frame velocity (translation + rotation)
-frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: .1
-frameVelocityWeightTerminal: .1
-frameVelocityRef: 'DEFAULT'      
-frameVelocityFrameName: 'DEFAULT'   # 'DEFAULT' = $(frame_of_interest) 
-
- # 'stateLim' : state limits
-stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
-stateLimWeight: 0.
-stateLimWeightTerminal: 0.
-stateLimRef: 'DEFAULT'            # 'DEFAULT' = [0., 0., 0., 0., 0., 0. ,0.]
-
- # 'ctrlLim' : torque limits
-ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
-ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlLimWeight: 0.
-ctrlLimRef: 'DEFAULT'           # 'DEFAULT' = [0., 0., 0., 0., 0., 0. ,0.]
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .0]

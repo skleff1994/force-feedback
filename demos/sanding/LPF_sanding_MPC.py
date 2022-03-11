@@ -99,13 +99,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   dt = config['dt']
   # Create DDP solver + compute warm start torque
   f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
-  u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model)
+  u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
   y0 = np.concatenate([x0, u0])
-  ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                  w_reg_ref=np.zeros(nq), #'gravity',
-                                                  TAU_PLUS=False, 
-                                                  LPF_TYPE=config['LPF_TYPE'],
-                                                  WHICH_COSTS=config['WHICH_COSTS'] ) 
+  ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, w_reg_ref=np.zeros(nq) ) 
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   RADIUS = config['frameCircleTrajectoryRadius'] 
   OMEGA  = config['frameCircleTrajectoryVelocity']
@@ -136,7 +132,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           f_ext = pin_utils.get_external_joint_torques(Mref.copy(), config['frameForceRef'], robot)
           # Get joint state from IK
           q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref.copy(), DT=1e-2, IT_MAX=100)
-          tau_ws = pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model)
+          tau_ws = pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
           xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
           if(k<N_h):
               us_init.append(tau_ws)
@@ -187,7 +183,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # Additional simulation blocks 
   communication = mpc_utils.CommunicationModel(config)
-  actuation     = mpc_utils.ActuationModel(config, SEED=RANDOM_SEED)
+  actuation     = mpc_utils.ActuationModel(config, nu, SEED=RANDOM_SEED)
   sensing       = mpc_utils.SensorModel(config, ntau=nu, SEED=RANDOM_SEED)
 
 

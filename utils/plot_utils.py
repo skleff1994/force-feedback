@@ -910,7 +910,7 @@ def plot_ddp_control_LPF(ddp_data, fig=None, ax=None, label=None, marker=None, c
     # If tau reg cost, compute gravity torque
     w_reg_ref = np.zeros((N,nu))
     for i in range(N):
-        w_reg_ref[i,:] = pin_utils.get_u_grav(q[i,:], ddp_data['pin_model'])
+        w_reg_ref[i,:] = pin_utils.get_u_grav(q[i,:], ddp_data['pin_model'], ddp_data['armature'])
     # Plots
     tspan = np.linspace(0, N*dt-dt, N)
     if(ax is None or fig is None):

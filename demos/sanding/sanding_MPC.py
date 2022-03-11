@@ -96,8 +96,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### OCP SETUP ###
   # # # # # # # # # 
   # Init shooting problem and solver
-  ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
-                                              WHICH_COSTS=config['WHICH_COSTS']) 
+  ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False) 
   # Setup tracking problem with circle ref EE trajectory
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -128,10 +127,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           Mref.translation = p_ee_ref
           q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
           xs_init.append(np.concatenate([q_ws, v_ws]))
-      us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model) for i in range(config['N_h'])]
+      us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model, config['armature']) for i in range(config['N_h'])]
   # Classical warm start using initial config
   else:
-      ug  = pin_utils.get_u_grav(q0, robot.model)
+      ug  = pin_utils.get_u_grav(q0, robot.model, config['armature'])
       xs_init = [x0 for i in range(config['N_h']+1)]
       us_init = [ug for i in range(config['N_h'])]
 
@@ -174,7 +173,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # Additional simulation blocks 
   communication = mpc_utils.CommunicationModel(config)
-  actuation     = mpc_utils.ActuationModel(config, SEED=RANDOM_SEED)
+  actuation     = mpc_utils.ActuationModel(config, nu, SEED=RANDOM_SEED)
   sensing       = mpc_utils.SensorModel(config, SEED=RANDOM_SEED)
 
   # Display target circle  trajectory (reference)
