@@ -63,7 +63,7 @@ def main(robot_name, PLOT, VISUALIZE):
     dt = config['dt']
     ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
     y0 = np.concatenate([x0, ug])
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, w_reg_ref=np.zeros(nq) ) 
+    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, w_reg_ref=ug)
     # Solve and extract solution trajectories
     xs_init = [y0 for i in range(N_h+1)]
     us_init = [ug for i in range(N_h)]

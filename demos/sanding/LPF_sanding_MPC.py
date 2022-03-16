@@ -236,6 +236,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           sim_data['state_pred'][nb_plan, :, :]  = np.array(ddp.xs)
           sim_data['ctrl_pred'][nb_plan, :, :]   = np.array(ddp.us)
           sim_data['force_pred'][nb_plan, :, :]  = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
+          # logger.info("RICCATI TORQUE GAIN = ", ddp.K[0][:,:nq])
           # Extract relevant predictions for interpolations
           y_curr = sim_data['state_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
           y_pred = sim_data['state_pred'][nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 

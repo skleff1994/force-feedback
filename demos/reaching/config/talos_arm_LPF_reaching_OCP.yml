@@ -26,45 +26,46 @@ frame_of_interest: 'gripper_left_joint'
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
 # WHICH_COSTS: ['translation', 'velocity', 'ctrlRegGrav', 'stateReg'] #, 'stateLim'] 
-WHICH_COSTS: ['translation', 'stateLim', 'stateReg', 'ctrlRegGrav']
+WHICH_COSTS: ['translation', 'stateLim', 'stateReg']
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
-stateRegWeights: [0., 0., 0., 0., 0., 0. ,0., 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.001
+stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
+stateRegWeight: 0.1
 stateRegWeightTerminal: 0.1
 stateRegRef: 'DEFAULT'  # 'DEFAULT' = [q0, v0]
 
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.001
-ctrlRegWeightTerminal: 0.1
+ctrlRegWeight: 0.01
+ctrlRegWeightTerminal: 0.01
 ctrlRegRef: 'DEFAULT'  # DEFAULT = g(q) | NOT used for 'ctrlRegGrav' cost
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.00001
+wRegWeight: 0.001
 
 # 'wLim' : unfiltered torque limit
-wLimWeight: 10.
+wLimWeight: 1000.
 
  # 'translation' : end-effector frame translation 
-frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 1.
-frameTranslationWeightTerminal: 1. 
+# frameTranslationWeights:  [1., 1., 1.]
+alpha_quadflatlog: 0.01
+frameTranslationWeight: 0.5
+frameTranslationWeightTerminal: 1 
 frameTranslationRef: [0.3, -0.2, 0.5]
 frameTranslationFrameName: 'DEFAULT' # 'DEFAULT' = $(frame_of_interest)
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
-frameVelocityWeight: 0.
+frameVelocityWeight: 1.
 frameVelocityWeightTerminal: 1.
 frameVelocityRef: [0., 0., 0., 0., 0., 0.]    
 frameVelocityFrameName: 'DEFAULT'  # 'DEFAULT' = $(frame_of_interest)
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
-stateLimWeight: 10.
-stateLimWeightTerminal: 10.
+stateLimWeight: 1000.
+stateLimWeightTerminal: 1000.
 coef_xlim: 1.
 
  # 'ctrlLim' : torque limits
@@ -74,4 +75,4 @@ ctrlLimWeightTerminal: 0.
 coef_ulim: 1.
 
 # armature
-armature: [.1, .1, .1, .1, .1, .1, .0]
+armature: [.0, .0, .0, .0, .0, .0, .0]
