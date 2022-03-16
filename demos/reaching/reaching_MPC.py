@@ -72,7 +72,6 @@ def main(robot_name, simulator, PLOT_INIT):
   us_init = [ug for i in range(config['N_h'])]
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   # Plot initial solution
-  PLOT_INIT = False
   if(PLOT_INIT):
     ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest=config['frame_of_interest'])
     fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
@@ -178,6 +177,11 @@ def main(robot_name, simulator, PLOT_INIT):
       sim_data['state_des_SIMU'][i+1, :] = x_ref_SIMU 
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
       tau_mea_SIMU = actuation.step(i, u_ref_SIMU, sim_data['ctrl_des_SIMU']) 
+
+      # RICCATI GAINS TO INTERPOLATE
+      if(config['RICCATI']):
+        tau_mea_SIMU += ddp.K[0].dot(ddp.problem.x0 - sim_data['state_mea_SIMU'][i,:])
+
       #  Send output of actuation torque to the RBD simulator 
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()

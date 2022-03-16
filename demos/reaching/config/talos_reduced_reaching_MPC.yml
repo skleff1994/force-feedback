@@ -43,7 +43,7 @@ frame_of_interest: 'arm_right_7_link'
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['stateReg', 'translation', 'ctrlReg'] 
+WHICH_COSTS: ['stateReg', 'translation', 'ctrlRegGrav'] 
 
 # Cost terms weights, activations and references
  # 'stateReg' : state regularization  

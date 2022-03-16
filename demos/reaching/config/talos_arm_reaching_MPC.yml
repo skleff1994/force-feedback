@@ -4,9 +4,9 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 1000        # Control frequency
-plan_freq: 1000        # Planning frequency
-T_tot: 5.              # Simu duration (s)
+ctrl_freq: 100        # Control frequency
+plan_freq: 100        # Planning frequency
+T_tot: 2.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False              # Add delay in reference torques (low-level)
 DELAY_OCP: False              # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -23,12 +23,12 @@ init_log_display_time: 1      # How long (s) to display the initial logs ?
 LOG: True                     # Logs during simulation
 log_rate: 500                 # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['x', 'u', 'ee'] # Which plots to generate
-
+RICCATI: False
 
 # General
 dt: 0.01                            # OCP integration step 
-N_h: 50                             # Horizon length in nodes
-maxiter: 5                          # Max number of iterations in DDP
+N_h: 100                             # Horizon length in nodes
+maxiter: 10                          # Max number of iterations in DDP
 q0: [2., 0., 0., 0., 0., 0., 0.]    # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]         # Initial robot joint velocity
 
@@ -44,25 +44,26 @@ frame_of_interest: 'gripper_left_joint'
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['stateReg', 'translation', 'ctrlRegGrav'] 
+WHICH_COSTS: ['stateReg', 'stateLim', 'translation', 'ctrlRegGrav'] 
 
 # Cost terms weights, activations and references
  # 'stateReg' : state regularization  
-stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
+stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 2., 2., 2., 2., 2., 2., 2.]
 stateRegWeight: 0.01
 stateRegWeightTerminal: 0.01
 stateRegRef: 'DEFAULT'  # 'DEFAULT' = [q0, v0]
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.01
+ctrlRegWeight: 0.001
 ctrlRegRef: 'DEFAULT' # DEFAULT = g(q) | NOT used for 'ctrlRegGrav' cost
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 5
-frameTranslationWeightTerminal: 5
-frameTranslationRef: [0.3, -0.3, .5]
+# alpha_quadflatlog: 0.01
+frameTranslationWeight: 0.2
+frameTranslationWeightTerminal: 0.5
+frameTranslationRef: [0.3, 0.2, .5]
 frameTranslationFrameName: 'DEFAULT' # 'DEFAULT' = $(frame_of_interest)
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
@@ -74,8 +75,8 @@ frameVelocityFrameName: 'DEFAULT' # 'DEFAULT' = $(frame_of_interest)
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
-stateLimWeight: 0.
-stateLimWeightTerminal: 0.
+stateLimWeight: 1.
+stateLimWeightTerminal: 1.
 coef_xlim: 1.
 
  # 'ctrlLim' : torque limits
@@ -84,7 +85,7 @@ ctrlLimWeight: 0.
 coef_xlim: 0.
 
 # armature
-armature: [.1, .1, .1, .1, .1, .1, .0]
+armature: [0., 0., 0., 0., 0., 0., 0.]
 
 
 

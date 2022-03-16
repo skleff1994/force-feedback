@@ -191,8 +191,6 @@ def main(robot_name, simulator, PLOT_INIT):
         nb_plan = 0
         nb_ctrl = 0
         # Sim options
-        WHICH_PLOTS = config['WHICH_PLOTS']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
-        FILTER_STATE = config['FILTER_STATE']                  # Moving average smoothing of reference torques
         dt_ocp = config['dt']                                  # OCP sampling rate 
         dt_mpc = float(1./sim_data['plan_freq'])               # planning rate
         OCP_TO_PLAN_RATIO  = dt_mpc / dt_ocp                   # ratio
@@ -201,7 +199,6 @@ def main(robot_name, simulator, PLOT_INIT):
         logger.info("OCP  --> PLAN ratio = "+str(OCP_TO_PLAN_RATIO))
         logger.info("OCP  --> SIMU ratio = "+str(OCP_TO_SIMU_RATIO))
         logger.info("PLAN --> SIMU ratio = "+str(PLAN_TO_SIMU_RATIO))
-        time.sleep(2)
         if(1./PLAN_TO_SIMU_RATIO%1 != 0):
             logger.warning("SIMU->MPC ratio not an integer ! (1./PLAN_TO_SIMU_RATIO = "+str(1./PLAN_TO_SIMU_RATIO)+")")
         if(1./OCP_TO_SIMU_RATIO%1 != 0):

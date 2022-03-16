@@ -199,6 +199,16 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       tau_ref_SIMU =  y_ref_SIMU[-nu:] 
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
       tau_mea_SIMU = actuation.step(i, tau_ref_SIMU, sim_data['state_mea_SIMU'][:,-nu:])   
+
+      # RICCATI GAINS TO INTERPOLATE
+      if(config['RICCATI']):
+        K = ddp.K[0]
+        alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
+        Ktilde  = (1-alpha)*OCP_TO_PLAN_RATIO*K
+        Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
+        tau_mea_SIMU += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data['state_mea_SIMU'][i,:nq+nv]) #position vel
+        tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data['state_mea_SIMU'][i,:-nq])           # torques
+
       # Send output of actuation torque to the RBD simulator 
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()

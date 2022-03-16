@@ -47,8 +47,8 @@ SUPPORTED_ROBOTS         = ['iiwa', 'talos_arm', 'talos_reduced']
 
 TALOS_DEFAULT_MESH_PATH  = '/opt/openrobots/share'
 TALOS_DEFAULT_BASE_POS   = [0, 0, 0.5]
-TALOS_DEFAULT_BASE_RPY   = [0, np.pi/2, 0]
-# TALOS_DEFAULT_BASE_RPY   = [0, 0, 0]
+# TALOS_DEFAULT_BASE_RPY   = [0, np.pi/2, 0]
+TALOS_DEFAULT_BASE_RPY   = [0, 0, 0]
 TALOS_REDUCED_DEFAULT_BASE_RPY   = [0, 0, 0]
 
 IIWA_DEFAULT_BASE_POS   = [0, 0, 0]
@@ -113,7 +113,7 @@ def init_talos_arm_bullet(dt=1e3, x0=None, pos=TALOS_DEFAULT_BASE_POS, orn=TALOS
     '''
     # Info log
     print("")
-    logger.info("Initializing TALOS left arm in PyBulletsimulator...")
+    logger.info("Initializing TALOS left arm in PyBullet simulator...")
     print("")
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.GUI, dt=dt)
@@ -207,17 +207,23 @@ def get_contact_joint_torques(pybullet_simulator, id_endeff):
 # Display
 def display_ball(p_des, robot_base_pose=pin.SE3.Identity(), RADIUS=.05, COLOR=[1.,1.,1.,1.]):
     '''
-    Create a sphere visual object in PyBullet
+    Create a sphere visual object in PyBullet (no collision)
     Transformed because reference p_des is in pinocchio WORLD frame, which is different
     than PyBullet WORLD frame if the base placement in the simulator is not (eye(3), zeros(3))
+    INPUT: 
+        p_des           : desired position of the ball in pinoccio.WORLD
+        robot_base_pose : initial pose of the robot in bullet.WORLD
+        RADIUS          : radius of the ball
+        COLOR           : color of the ball
     '''
-    logger.debug("Creating PyBullet target ball...")
+    logger.debug("Creating PyBullet sphere visual...")
     # p.setAdditionalSearchPath(pybullet_data.getDataPath())
     # target =  p.loadURDF("sphere_small.urdf", basePosition=list(p_des), globalScaling=SCALING, useFixedBase=True)
     # # Disable collisons
     # p.setCollisionFilterGroupMask(target, -1, 0, 0)
     # p.changeVisualShape(target, -1, rgbaColor=COLOR)
     # M = robot_base_pose.act(pin.SE3(np.eye(3), p_des))
+    # pose of the sphere in bullet WORLD
     M = pin.SE3(np.eye(3), robot_base_pose.act(p_des))
     # M = pin.SE3(np.eye(3), p_des)
     quat = pin.SE3ToXYZQUAT(M)
