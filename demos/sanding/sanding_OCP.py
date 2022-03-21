@@ -108,7 +108,8 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
     # Solve initial
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
-
+    for m in ddp.problem.runningDatas:
+        print(m.differential.multibody.contacts.contacts['contact'].f.vector)
 
 
     #  Plot
@@ -117,7 +118,8 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
         fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['all'], markers=['.'], SHOW=True)
 
 
-
+    force_axis = 'z'
+    xyz = {'x': 0, 'y': 1, 'z': 2}
 
     pause = 0.02 # in s
     if(VISUALIZE):
@@ -147,7 +149,9 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
             # Placement of contact in WORLD frame = EE placement + tennis ball radius offset
             ct_frame_placement = M_ee.copy()
             offset = 0.036
-            ct_frame_placement.translation = ct_frame_placement.act(np.array([0., 0., offset])) 
+            offset_vec_LOCAL = np.zeros(3)
+            offset_vec_LOCAL[xyz[force_axis]] += offset
+            ct_frame_placement.translation = ct_frame_placement.act(offset_vec_LOCAL) 
             tf_contact = list(pin.SE3ToXYZQUAT(ct_frame_placement))
 
             # Delete contact point node if already displayed
@@ -167,8 +171,17 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
                 f_des_LOCAL = np.asarray(config['frameForceRef'])
                 ct_frame_placement_aligned = ct_frame_placement.copy()
                     # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
-                    # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
-                ct_frame_placement_aligned.rotation = ct_frame_placement_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+                    # if force is along z axis in local frame , need to transform x-->z , i.e. -90° around y
+                if(force_axis == 'z'):
+                    rotation_matrix = pin.rpy.rpyToMatrix(0., -np.pi/2, 0.)
+                    # if force is along x axis in local frame , no transform
+                elif(force_axis == 'x'):
+                    rotation_matrix = pin.rpy.rpyToMatrix(0., 0., 0.)
+                    # if force is along y axis in local frame , need to transform x-->y , i.e. +90° around z
+                elif(force_axis == 'y'):
+                    rotation_matrix = pin.rpy.rpyToMatrix(0., 0., np.pi/2)
+                ct_frame_placement_aligned.rotation = ct_frame_placement_aligned.rotation.dot(rotation_matrix)
+                # ct_frame_placement_aligned.rotation = ct_frame_placement_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
                 tf_contact_aligned = list(pin.SE3ToXYZQUAT(ct_frame_placement_aligned))
                 arrow_length = wrench_coef*np.linalg.norm(f_des_LOCAL)
                 # Remove force arrow if already displayed
@@ -259,7 +272,7 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
             
             # Move contact point 
             m_ct = m_ee.copy()
-            m_ct.translation = m_ct.act(np.array([0., 0., offset])) 
+            m_ct.translation = m_ct.act(offset_vec_LOCAL) 
             tf_ct = list(pin.SE3ToXYZQUAT(m_ct))
             gui.applyConfiguration('world/contact_point', tf_ct)
 
@@ -267,16 +280,18 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
             if('force' in config['WHICH_COSTS']):
                 # Display wrench
                 wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector
-                gui.resizeArrow('world/force', real_size, wrench_coef*np.linalg.norm(wrench[2]))
+                gui.resizeArrow('world/force', real_size, wrench_coef*np.linalg.norm(wrench[xyz[force_axis]]))
                 m_ct_aligned = m_ct.copy()
                     # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
                     # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
-                m_ct_aligned.rotation = m_ct_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+                # m_ct_aligned.rotation = m_ct_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+                m_ct_aligned.rotation = m_ct_aligned.rotation.dot(rotation_matrix)
                 gui.applyConfiguration('world/force', list(pin.SE3ToXYZQUAT(m_ct_aligned)) )
                 # Move reference wrench 
                 m_ct_ref_aligned = m_ee_ref.copy()
-                m_ct_ref_aligned.translation = m_ct_ref_aligned.act(np.array([0., 0., offset])) 
-                m_ct_ref_aligned.rotation = m_ct_ref_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+                m_ct_ref_aligned.translation = m_ct_ref_aligned.act(offset_vec_LOCAL) 
+                # m_ct_ref_aligned.rotation = m_ct_ref_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+                m_ct_ref_aligned.rotation = m_ct_ref_aligned.rotation.dot(rotation_matrix)
                 tf_ct_ref_aligned = list(pin.SE3ToXYZQUAT(m_ct_ref_aligned))
                 gui.applyConfiguration('world/ref_wrench', tf_ct_ref_aligned)
 

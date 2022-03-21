@@ -403,7 +403,10 @@ def init_DDP(robot, config, x0, callbacks=False):
       else:
         CONTACT_TYPE = config['contactModelType']
   
-  
+    pinRefFrame = pin.LOCAL  #pin.LOCAL_WORLD_ALIGNED
+    xyz = {'x': 0, 'y': 1, 'z': 2}
+    constrainedAxis = xyz['z']
+
   # Create IAMs
     runningModels = []
     for i in range(N_h):  
@@ -438,8 +441,11 @@ def init_DDP(robot, config, x0, callbacks=False):
             if(CONTACT_TYPE=='1D'):
               contactModel = crocoddyl.ContactModel1D(state, 
                                                       contactModelFrameId, 
-                                                      contactModelTranslationRef[2], 
-                                                      contactModelGains)  
+                                                      contactModelTranslationRef[constrainedAxis], 
+                                                      actuation.nu,
+                                                      contactModelGains,
+                                                      constrainedAxis,
+                                                      pinRefFrame)  
 
             # 3D contact model = constraint in (LOCAL) x,y,z translations (fixed position)
             elif(CONTACT_TYPE=='3D'):
@@ -691,7 +697,7 @@ def init_DDP(robot, config, x0, callbacks=False):
               frameForceRef = pin.Force( np.zeros(6) )
             else:
               frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
-            frameForceWeights = np.asarray(config['frameForceWeights'])[2:3]
+            frameForceWeights = np.asarray(config['frameForceWeights'])[constrainedAxis:constrainedAxis+1]
             frameForceCost = crocoddyl.CostModelResidual(state, 
                                                         crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                         crocoddyl.ResidualModelContactForce(state, 
@@ -766,8 +772,11 @@ def init_DDP(robot, config, x0, callbacks=False):
       if(CONTACT_TYPE=='1D'):
         contactModel = crocoddyl.ContactModel1D(state, 
                                                 contactModelFrameId, 
-                                                contactModelTranslationRef[2], 
-                                                contactModelGains)  
+                                                contactModelTranslationRef[constrainedAxis], 
+                                                actuation.nu,
+                                                contactModelGains,
+                                                constrainedAxis,
+                                                pinRefFrame)  
       # 3D contact model = constraint in (LOCAL) x,y,z translations (fixed position)
       elif(CONTACT_TYPE=='3D'):
         contactModel = crocoddyl.ContactModel3D(state, 
@@ -1010,6 +1019,11 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       else:
         CONTACT_TYPE = config['contactModelType']
 
+    pinRefFrame = pin.LOCAL  #pin.LOCAL_WORLD_ALIGNED
+    xyz = {'x': 0, 'y': 1, 'z': 2}
+    constrainedAxis = 2 # xyz['z']
+    
+
   # LPF parameters (a.k.a simplified actuation model)
     f_c      = config['f_c'] 
     LPF_TYPE = config['LPF_TYPE']   
@@ -1074,8 +1088,11 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
             if(CONTACT_TYPE=='1D'):
               contactModel = crocoddyl.ContactModel1D(state, 
                                                       contactModelFrameId, 
-                                                      contactModelTranslationRef[2], 
-                                                      contactModelGains)  
+                                                      contactModelTranslationRef[constrainedAxis], 
+                                                      actuation.nu,
+                                                      contactModelGains,
+                                                      constrainedAxis,
+                                                      pinRefFrame)  
 
             # 3D contact model = constraint in (LOCAL) x,y,z translations (fixed position)
             elif(CONTACT_TYPE=='3D'):
@@ -1337,7 +1354,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
               frameForceRef = pin.Force( np.zeros(6) )
             else:
               frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
-            frameForceWeights = np.asarray(config['frameForceWeights'])[2:3]
+            frameForceWeights = np.asarray(config['frameForceWeights'])[constrainedAxis:constrainedAxis+1]
             frameForceCost = crocoddyl.CostModelResidual(state, 
                                                         crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                         crocoddyl.ResidualModelContactForce(state, 
@@ -1407,8 +1424,11 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       if(CONTACT_TYPE=='1D'):
         contactModel = crocoddyl.ContactModel1D(state, 
                                                 contactModelFrameId, 
-                                                contactModelTranslationRef[2], 
-                                                contactModelGains)  
+                                                contactModelTranslationRef[constrainedAxis], 
+                                                actuation.nu,
+                                                contactModelGains,
+                                                constrainedAxis,
+                                                pinRefFrame)  
       # 3D contact model = constraint in (LOCAL) x,y,z translations (fixed position)
       elif(CONTACT_TYPE=='3D'):
         contactModel = crocoddyl.ContactModel3D(state, 

@@ -32,7 +32,7 @@ contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Cro
 contactModelFrameName: 'contact'
 contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
 contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
-contactModelGains: [1., 10.]            # Baumgarte stabilization gains 
+contactModelGains: [0., 10.]            # Baumgarte stabilization gains 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
@@ -41,9 +41,13 @@ WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg', 'ctrlRegGrav']
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeights:  [0., 0., 1., 0., 0., 0.]
+frameForceWeights:  [0., 0., 1., 0., 0., 0.] # z-force 
+# frameForceWeights:  [0., 1., 0., 0., 0., 0.] # y-force
+# frameForceWeights:  [1., 0., 0., 0., 0., 0.] # x-force
 frameForceWeight: 10
-frameForceRef: [0., 0., -20, 0., 0., 0.]    
+frameForceRef: [0., 0., -20, 0., 0., 0.]     # z-force 
+# frameForceRef: [20., 0., 0, 0., 0., 0.]     # x-force
+# frameForceRef: [0., 20., 0, 0., 0., 0.]     # y-force
 frameForceFrameName: 'contact'
 
  # 'friction' : end-effector frame friction cone 
@@ -63,14 +67,19 @@ ctrlRegWeight: 0.0001
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
-frameTranslationWeights:  [1., 1., 0.]
+frameTranslationWeights:  [1., 1., 0.] # z-force 
+# frameTranslationWeights:  [0., 1., 1.] # x-force
+# frameTranslationWeights:  [1., 0., 1.] # y-force
+
 frameTranslationWeight: 10
 frameTranslationWeightTerminal: 10.
 frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
 frameCircleTrajectoryVelocity: 1.5 # in rad/s
-CIRCLE_LOCAL_PLANE: 'XY'             # LOCAL plane in which the circle lies
+# CIRCLE_LOCAL_PLANE: 'YZ'             # LOCAL plane in which the circle lies # x-force
+# CIRCLE_LOCAL_PLANE: 'XZ'             # LOCAL plane in which the circle lies # y-force
+CIRCLE_LOCAL_PLANE: 'XY'             # LOCAL plane in which the circle lies # z-force
 
  # 'rotation' : end-effector frame orientation
 frameRotationWeights:  [1., 1., 1.]
