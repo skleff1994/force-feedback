@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file iiwa_contact_circle_OCP.py
+@file sanding_OCP.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -19,12 +19,8 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
@@ -108,8 +104,8 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
     # Solve initial
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
-    for m in ddp.problem.runningDatas:
-        print(m.differential.multibody.contacts.contacts['contact'].f.vector)
+    # for m in ddp.problem.runningDatas:
+    #     print(m.differential.multibody.contacts.contacts['contact'].f.vector)
 
 
     #  Plot

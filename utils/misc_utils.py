@@ -26,7 +26,7 @@ def parse_MPC_script(argv=None):
 import logging
 # Global setting used by default in the whole package
 GLOBAL_LOG_LEVEL  = 'DEBUG'  # 'DEBUG'
-GLOBAL_LOG_FORMAT = 'LONG' # 'LONG'
+GLOBAL_LOG_FORMAT = 'SHORT' # 'LONG'
 
 
 grey = "\x1b[38;21m" #"\x1b[38;20m"
