@@ -9,7 +9,7 @@ def parse_OCP_script(argv=None):
     PARSER = argparse.ArgumentParser()
     PARSER.add_argument("--robot_name", type=str, default='iiwa', help="Name of the robot")
     PARSER.add_argument('--PLOT', action='store_true', default=False, help="Plot OCP solution")
-    PARSER.add_argument('--VISUALIZE', action='store_true', default=False, help="Animate solution in Gepetto Viewer")
+    PARSER.add_argument('--DISPLAY', action='store_true', default=False, help="Animate solution in Gepetto Viewer")
     return PARSER.parse_args(argv)
 
 

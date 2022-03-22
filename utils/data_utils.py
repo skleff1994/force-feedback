@@ -40,7 +40,7 @@ def load_data(npz_file):
 
 #### Classical MPC
 # Initialize simulation data for MPC simulation
-def init_sim_data(config, robot, x0, frame_of_interest='contact'):
+def init_sim_data(config, robot, x0, ee_frame_name='contact'):
     '''
     Initialize simulation data from config file
     '''
@@ -67,7 +67,7 @@ def init_sim_data(config, robot, x0, frame_of_interest='contact'):
     sim_data['nv'] = sim_data['pin_model'].nv
     sim_data['nu'] = sim_data['pin_model'].nq
     sim_data['nx'] = sim_data['nq'] + sim_data['nv']
-    sim_data['id_endeff'] = sim_data['pin_model'].getFrameId(frame_of_interest) # hard-coded contact frame here !!!
+    sim_data['id_endeff'] = sim_data['pin_model'].getFrameId(ee_frame_name) # hard-coded contact frame here !!!
     # Cost references 
     sim_data['ctrl_ref'] = np.zeros((sim_data['N_plan'], sim_data['nu']))
     sim_data['state_ref'] = np.zeros((sim_data['N_plan'], sim_data['nx']))
@@ -341,7 +341,7 @@ def extract_plot_data_from_sim_data(sim_data):
 
 #### Low Pass Filter MPC
 # Initialize MPC simulation with torque feedback based on Low-Pass-Filter (LPF) Actuation Model
-def init_sim_data_LPF(config, robot, y0, frame_of_interest='contact'):
+def init_sim_data_LPF(config, robot, y0, ee_frame_name='contact'):
     '''
     Initialize simulation data from config file (for torque feedback MPC based on LPF)
     '''
@@ -369,7 +369,7 @@ def init_sim_data_LPF(config, robot, y0, frame_of_interest='contact'):
     sim_data['nu'] = sim_data['pin_model'].nq
     sim_data['nx'] = sim_data['nq'] + sim_data['nv']
     sim_data['ny'] = sim_data['nx'] + sim_data['nu']
-    sim_data['id_endeff'] = sim_data['pin_model'].getFrameId(frame_of_interest)
+    sim_data['id_endeff'] = sim_data['pin_model'].getFrameId(ee_frame_name)
     # Cost references 
     sim_data['ctrl_ref'] = np.zeros((sim_data['N_plan'], sim_data['nu']))
     sim_data['state_ref'] = np.zeros((sim_data['N_plan'], sim_data['nx']))
@@ -584,10 +584,12 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
 
 
 #### Classical OCP
-def extract_ddp_data(ddp, frame_of_interest='contact'): 
+def extract_ddp_data(ddp, ee_frame_name='contact', ct_frame_name='contact'): 
     '''
     Record relevant data from ddp solver in order to plot 
-    frame_of_interest = name of frame for which ee plots will be generated
+    ee_frame_name = name of frame for which ee plots will be generated
+                        by default 'contact' as in KUKA urdf model (Tennis ball)
+    ct_frame_name = name of frame for which force plots will be generated
                         by default 'contact' as in KUKA urdf model (Tennis ball)
     '''
     logger.info("Extracting DDP data...")
@@ -603,7 +605,7 @@ def extract_ddp_data(ddp, frame_of_interest='contact'):
     # Pin model
     ddp_data['pin_model'] = ddp.problem.runningModels[0].differential.pinocchio
     ddp_data['armature'] = ddp.problem.runningModels[0].differential.armature
-    ddp_data['frame_id'] = ddp_data['pin_model'].getFrameId(frame_of_interest)
+    ddp_data['frame_id'] = ddp_data['pin_model'].getFrameId(ee_frame_name)
     # Solution trajectories
     ddp_data['xs'] = ddp.xs
     ddp_data['us'] = ddp.us
@@ -611,27 +613,27 @@ def extract_ddp_data(ddp, frame_of_interest='contact'):
     # Extract force at EE frame and contact info 
     if(hasattr(ddp.problem.runningModels[0].differential, 'contacts')):
       # Get refs for contact model
-      contactModelRef0 = ddp.problem.runningModels[0].differential.contacts.contacts["contact"].contact.reference
+      contactModelRef0 = ddp.problem.runningModels[0].differential.contacts.contacts[ct_frame_name].contact.reference
       # Case 6D contact (x,y,z,Ox,Oy,Oz)
       if(hasattr(contactModelRef0, 'rotation')):
-        ddp_data['contact_rotation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.rotation for i in range(ddp.problem.T)]
-        ddp_data['contact_rotation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.rotation)
-        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference.translation for i in range(ddp.problem.T)]
-        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference.translation)
+        ddp_data['contact_rotation'] = [ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference.rotation for i in range(ddp.problem.T)]
+        ddp_data['contact_rotation'].append(ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference.rotation)
+        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference.translation for i in range(ddp.problem.T)]
+        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference.translation)
         ddp_data['CONTACT_TYPE'] = '6D'
       # Case 3D contact (x,y,z)
       elif(np.size(contactModelRef0)==3):
         # Get ref translation for 3D 
-        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference for i in range(ddp.problem.T)]
-        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference)
+        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference for i in range(ddp.problem.T)]
+        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference)
         ddp_data['CONTACT_TYPE'] = '3D'
       # Case 1D contact (z)
       elif(np.size(contactModelRef0)==1):
-        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts["contact"].contact.reference for i in range(ddp.problem.T)]
-        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts["contact"].contact.reference)
+        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference for i in range(ddp.problem.T)]
+        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference)
         ddp_data['CONTACT_TYPE'] = '1D'
       # Get contact force
-      datas = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'] for i in range(ddp.problem.T)]
+      datas = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[ct_frame_name] for i in range(ddp.problem.T)]
       # data.f = force exerted at parent joint expressed in WORLD frame (oMi)
       # express it in LOCAL contact frame using jMf 
       ee_forces = [data.jMf.actInv(data.f).vector for data in datas] 
@@ -667,7 +669,7 @@ def extract_ddp_data(ddp, frame_of_interest='contact'):
     if('velocity' in ddp_data['active_costs']):
         ddp_data['velocity_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['velocity'].cost.residual.reference.vector for i in range(ddp.problem.T)]
         ddp_data['velocity_ref'].append(ddp.problem.terminalModel.differential.costs.costs['velocity'].cost.residual.reference.vector)
-        ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['velocity'].cost.residual.id
+        # ddp_data['frame_id'] = ddp.problem.runningModels[0].differential.costs.costs['velocity'].cost.residual.id
     if('rotation' in ddp_data['active_costs']):
         ddp_data['rotation_ref'] = [ddp.problem.runningModels[i].differential.costs.costs['rotation'].cost.residual.reference for i in range(ddp.problem.T)]
         ddp_data['rotation_ref'].append(ddp.problem.terminalModel.differential.costs.costs['rotation'].cost.residual.reference)
@@ -677,12 +679,12 @@ def extract_ddp_data(ddp, frame_of_interest='contact'):
 
 
 #### Low Pass Filter OCP
-def extract_ddp_data_LPF(ddp, frame_of_interest='contact'):
+def extract_ddp_data_LPF(ddp, ee_frame_name='contact', ct_frame_name='contact'):
     '''
     Record relevant data from ddp solver in order to plot 
     '''
     logger.info("Extracting DDP data (LPF)...")
-    ddp_data = extract_ddp_data(ddp, frame_of_interest=frame_of_interest)
+    ddp_data = extract_ddp_data(ddp, ee_frame_name=ee_frame_name, ct_frame_name=ct_frame_name)
     # Add terminal regularization references on filtered torques
     if('ctrlReg' in ddp_data['active_costs']):
         ddp_data['ctrlReg_ref'].append(ddp.problem.terminalModel.differential.costs.costs['ctrlReg'].cost.residual.reference)

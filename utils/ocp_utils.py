@@ -735,7 +735,7 @@ def init_DDP(robot, config, x0, callbacks=False):
         # Add contact model to current IAM
         if(CONTACT):
           for k,contactModel in enumerate(contactModels):
-            runningModels[i].differential.contacts.addContact("contact_"+str(k), contactModel, active=cts[k]['active'])
+            runningModels[i].differential.contacts.addContact(cts[k]['contactModelFrameName'], contactModel, active=cts[k]['active'])
 
 
 
@@ -877,7 +877,7 @@ def init_DDP(robot, config, x0, callbacks=False):
   # Add contact model
     if(CONTACT):
       for k,contactModel in enumerate(contactModels):
-        terminalModel.differential.contacts.addContact("contact_"+str(k), contactModel, active=cts[k]['active'])
+        terminalModel.differential.contacts.addContact(cts[k]['contactModelFrameName'], contactModel, active=cts[k]['active'])
     
     logger.info("Created IAMs.")  
 
@@ -1255,7 +1255,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
         # Add contact model to current IAM
         if(CONTACT):
           for k,contactModel in enumerate(contactModels):
-            runningModels[i].differential.contacts.addContact("contact_"+str(k), contactModel, active=cts[k]['active'])
+            runningModels[i].differential.contacts.addContact(cts[k]['contactModelFrameName'], contactModel, active=cts[k]['active'])
 
 
 
@@ -1437,7 +1437,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
   # Add contact model
     if(CONTACT):
       for k,contactModel in enumerate(contactModels):
-        terminalModel.differential.contacts.addContact("contact_"+str(k), contactModel, active=cts[k]['active'])
+        terminalModel.differential.contacts.addContact(cts[k]['contactModelFrameName'], contactModel, active=cts[k]['active'])
 
     logger.info("Created IAMs.")  
 

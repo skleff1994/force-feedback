@@ -31,7 +31,7 @@ from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc
 
 WARM_START_IK = True
 
-def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
+def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
 
     # # # # # # # # # # # #
     ### LOAD ROBOT MODEL ## 
@@ -44,7 +44,7 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
     # Get pin wrapper
     robot = pin_utils.load_robot_wrapper(robot_name)
     # Get initial frame placement + dimensions of joint space
-    frame_name = config['frame_of_interest']
+    frame_name = config['contacts'][0]['contactModelFrameName'] #['frame_of_interest']
     id_endeff = robot.model.getFrameId(frame_name)
     nq, nv = robot.model.nq, robot.model.nv
     nx = nq+nv; nu = nq
@@ -110,7 +110,7 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
 
     #  Plot
     if(PLOT):
-        ddp_data = data_utils.extract_ddp_data(ddp)
+        ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name='contact', ct_frame_name=frame_name)
         fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['all'], markers=['.'], SHOW=True)
 
 
@@ -118,7 +118,7 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
     xyz = {'x': 0, 'y': 1, 'z': 2}
 
     pause = 0.02 # in s
-    if(VISUALIZE):
+    if(DISPLAY):
         import time
         import pinocchio as pin
         N_h = config['N_h']
@@ -140,7 +140,7 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
         wrench_coef = 0.02
 
         # Display contact point as sphere + landmark
-        if('contactModelFrameName' in config.keys()):
+        if(len(config['contacts']) != 0):
 
             # Placement of contact in WORLD frame = EE placement + tennis ball radius offset
             ct_frame_placement = M_ee.copy()
@@ -275,7 +275,7 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
             # Display force (magnitude and placement)
             if('force' in config['WHICH_COSTS']):
                 # Display wrench
-                wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector
+                wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['contacts'][0]['contactModelFrameName']].f.vector
                 gui.resizeArrow('world/force', real_size, wrench_coef*np.linalg.norm(wrench[xyz[force_axis]]))
                 m_ct_aligned = m_ct.copy()
                     # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
@@ -308,4 +308,4 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
 
 if __name__=='__main__':
     args = misc_utils.parse_OCP_script(sys.argv[1:])
-    main(args.robot_name, args.PLOT, args.VISUALIZE)
+    main(args.robot_name, args.PLOT, args.DISPLAY)

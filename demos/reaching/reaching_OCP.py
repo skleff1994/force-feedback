@@ -28,7 +28,7 @@ from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc
 
 
 
-def main(robot_name, PLOT, VISUALIZE):
+def main(robot_name, PLOT, DISPLAY):
 
     # # # # # # # # # # # #
     ### LOAD ROBOT MODEL ## 
@@ -71,7 +71,7 @@ def main(robot_name, PLOT, VISUALIZE):
 
 
     # Visualize motion in Gepetto-viewer
-    if(VISUALIZE):
+    if(DISPLAY):
         import time
         import pinocchio as pin
         N_h = config['N_h']
@@ -138,4 +138,4 @@ def main(robot_name, PLOT, VISUALIZE):
 
 if __name__=='__main__':
     args = misc_utils.parse_OCP_script(sys.argv[1:])
-    main(args.robot_name, args.PLOT, args.VISUALIZE)
+    main(args.robot_name, args.PLOT, args.DISPLAY)
