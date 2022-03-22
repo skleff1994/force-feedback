@@ -37,25 +37,15 @@ contacts:
       contactModelGains: [0., 10.],           # Baumgarte stabilization gains
       active: True                            # Initially active? 
     }
-  - {
-      contactModelFrameName: 'A1',
-      pinocchioReferenceFrame: 'LOCAL',
-      contactModelType: '3D',
-      contactModelTranslationRef: '',
-      contactModelRotationRef: '',
-      contactModelGains: [0., 10.],
-      active: False
-    }
-# # Contact model 
-# contact_list: 
-# CONTACT: 'True'                         # 'True' or 'False' 
-# pinRefFrame: 'LOCAL'                    # LOCAL, WORLD, LOCAL_WORLD_ALIGNED
-# contactModelType: '1D'                  # select in ['1D', '3D', '6D'] 
-# constrainedAxes: 'x'                    # Select in (x,y,z)
-# contactModelFrameName: 'contact'
-# contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
-# contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
-# contactModelGains: [0., 10.]            # Baumgarte stabilization gains 
+  # - {
+  #     contactModelFrameName: 'A1',
+  #     pinocchioReferenceFrame: 'LOCAL',
+  #     contactModelType: '3D',
+  #     contactModelTranslationRef: '',
+  #     contactModelRotationRef: '',
+  #     contactModelGains: [0., 10.],
+  #     active: False
+  #   }
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'

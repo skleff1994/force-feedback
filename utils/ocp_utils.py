@@ -568,10 +568,7 @@ def init_DDP(robot, config, x0, callbacks=False):
           runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
         # End-effector placement 
         if('placement' in config['WHICH_COSTS']):
-          if(config['framePlacementFrameName']=='DEFAULT'):
-            framePlacementFrameName = config['frame_of_interest']
-          else:
-            framePlacementFrameName = config['framePlacementFrameName']
+          framePlacementFrameName = config['framePlacementFrameName']
           framePlacementFrameId = robot.model.getFrameId(framePlacementFrameName)
           # Default translation reference = initial translation
           if(config['framePlacementTranslationRef']=='DEFAULT'):
@@ -595,10 +592,7 @@ def init_DDP(robot, config, x0, callbacks=False):
           runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
         # End-effector velocity
         if('velocity' in config['WHICH_COSTS']): 
-          if(config['frameVelocityFrameName']=='DEFAULT'):
-            frameVelocityFrameName = config['frame_of_interest']
-          else:
-            frameVelocityFrameName = config['frameVelocityFrameName']
+          frameVelocityFrameName = config['frameVelocityFrameName']
           frameVelocityFrameId = robot.model.getFrameId(frameVelocityFrameName)
           # Default reference = zero velocity
           if(config['frameVelocityRef']=='DEFAULT'):
@@ -617,10 +611,7 @@ def init_DDP(robot, config, x0, callbacks=False):
           runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
         # Frame translation cost
         if('translation' in config['WHICH_COSTS']):
-          if(config['frameTranslationFrameName']=='DEFAULT'):
-            frameTranslationFrameName = config['frame_of_interest']
-          else:
-            frameTranslationFrameName = config['frameTranslationFrameName']
+          frameTranslationFrameName = config['frameTranslationFrameName']
           frameTranslationFrameId = robot.model.getFrameId(frameTranslationFrameName)
           # Default reference translation = initial translation
           if(config['frameTranslationRef']=='DEFAULT'):
@@ -645,10 +636,7 @@ def init_DDP(robot, config, x0, callbacks=False):
           runningModels[i].differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeight'])
         # End-effector orientation 
         if('rotation' in config['WHICH_COSTS']):
-          if(config['frameRotationFrameName']=='DEFAULT'):
-            frameRotationFrameName = config['frame_of_interest']
-          else:
-            frameRotationFrameName = config['frameRotationFrameName']
+          frameRotationFrameName = config['frameRotationFrameName']
           frameRotationFrameId = robot.model.getFrameId(frameRotationFrameName)
           # Default rotation reference = initial rotation
           if(config['frameRotationRef']=='DEFAULT'):
@@ -668,10 +656,7 @@ def init_DDP(robot, config, x0, callbacks=False):
         if('force' in config['WHICH_COSTS']):
           if(not CONTACT):
             logger.error("Force cost but no contact model is defined ! ")
-          if(config['frameForceFrameName']=='DEFAULT'):
-            frameForceFrameName = config['frame_of_interest']
-          else:
-            frameForceFrameName = config['frameForceFrameName']
+          frameForceFrameName = config['frameForceFrameName']
           frameForceFrameId = robot.model.getFrameId(frameForceFrameName) 
           found_contact_frame = False
           for ct in cts:
@@ -727,10 +712,7 @@ def init_DDP(robot, config, x0, callbacks=False):
             logger.error("Friction cost but no contact model is defined !!! ")
           # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
           mu = config['mu']
-          if(config['frictionConeFrameName']=='DEFAULT'):
-            frictionConeFrameName = config['frame_of_interest']
-          else:
-            frictionConeFrameName = config['frictionConeFrameName']
+          frictionConeFrameName = config['frictionConeFrameName']
           frictionConeFrameId = robot.model.getFrameId(frictionConeFrameName)  
           # axis_
           cone_placement = robot.data.oMf[frictionConeFrameId].copy()
@@ -808,10 +790,7 @@ def init_DDP(robot, config, x0, callbacks=False):
       terminalModel.differential.costs.addCost("stateLim", xLimitCost, config['stateLimWeightTerminal']*dt)
     # EE placement
     if('placement' in config['WHICH_COSTS']):
-      if(config['framePlacementFrameName']=='DEFAULT'):
-        framePlacementFrameName = config['frame_of_interest']
-      else:
-        framePlacementFrameName = config['framePlacementFrameName']
+      framePlacementFrameName = config['framePlacementFrameName']
       framePlacementFrameId = robot.model.getFrameId(framePlacementFrameName)      
       if(config['framePlacementTranslationRef']=='DEFAULT'):
         framePlacementTranslationRef = robot.data.oMf[framePlacementFrameId].translation.copy()
@@ -834,10 +813,7 @@ def init_DDP(robot, config, x0, callbacks=False):
       terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal']*dt)
     # EE velocity
     if('velocity' in config['WHICH_COSTS']):
-      if(config['frameVelocityFrameName']=='DEFAULT'):
-        frameVelocityFrameName = config['frame_of_interest']
-      else:
-        frameVelocityFrameName = config['frameVelocityFrameName']
+      frameVelocityFrameName = config['frameVelocityFrameName']
       frameVelocityFrameId = robot.model.getFrameId(frameVelocityFrameName)      
       # Default reference = zero velocity
       if(config['frameVelocityRef']=='DEFAULT'):
@@ -856,10 +832,7 @@ def init_DDP(robot, config, x0, callbacks=False):
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal']*dt)
     # EE translation
     if('translation' in config['WHICH_COSTS']):
-      if(config['frameTranslationFrameName']=='DEFAULT'):
-        frameTranslationFrameName = config['frame_of_interest']
-      else:
-        frameTranslationFrameName = config['frameTranslationFrameName']
+      frameTranslationFrameName = config['frameTranslationFrameName']
       frameTranslationFrameId = robot.model.getFrameId(frameTranslationFrameName)      
       if(config['frameTranslationRef']=='DEFAULT'):
         frameTranslationRef = robot.data.oMf[frameTranslationFrameId].translation.copy()
@@ -883,10 +856,7 @@ def init_DDP(robot, config, x0, callbacks=False):
       terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal']*dt)
     # End-effector orientation 
     if('rotation' in config['WHICH_COSTS']):
-      if(config['frameRotationFrameName']=='DEFAULT'):
-        frameRotationFrameName = config['frame_of_interest']
-      else:
-        frameRotationFrameName = config['frameRotationFrameName']
+      frameRotationFrameName = config['frameRotationFrameName']
       frameRotationFrameId = robot.model.getFrameId(frameRotationFrameName)      
       if(config['frameRotationRef']=='DEFAULT'):
         frameRotationRef = robot.data.oMf[frameRotationFrameId].rotation.copy()
@@ -1036,10 +1006,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
             if('contactModelFrameName' not in config.keys()):
               logger.error("CONTACT='True' but no contact frame id found in config file !")
             else:
-              if(config['contactModelFrameName']=='DEFAULT'):
-                contactModelFrameName = config['frame_of_interest']
-              else:
-                contactModelFrameName = config['contactModelFrameName']
+              contactModelFrameName = config['contactModelFrameName']
               contactModelFrameId = robot.model.getFrameId(contactModelFrameName)
             # WARNING if no contact frame position found in config file
             if('contactModelTranslationRef' not in config.keys()):
@@ -1179,10 +1146,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeight'])
         # End-effector placement 
         if('placement' in config['WHICH_COSTS']):
-          if(config['framePlacementFrameName']=='DEFAULT'):
-            framePlacementFrameName = config['frame_of_interest']
-          else:
-            framePlacementFrameName = config['framePlacementFrameName']
+          framePlacementFrameName = config['framePlacementFrameName']
           framePlacementFrameId = robot.model.getFrameId(framePlacementFrameName)          
           # Default translation reference = initial translation
           if(config['framePlacementTranslationRef']=='DEFAULT'):
@@ -1206,10 +1170,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           runningModels[i].differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeight'])
         # End-effector velocity
         if('velocity' in config['WHICH_COSTS']): 
-          if(config['frameVelocityFrameName']=='DEFAULT'):
-            frameVelocityFrameName = config['frame_of_interest']
-          else:
-            frameVelocityFrameName = config['frameVelocityFrameName']
+          frameVelocityFrameName = config['frameVelocityFrameName']
           frameVelocityFrameId = robot.model.getFrameId(frameVelocityFrameName)
           # Default reference = zero velocity
           if(config['frameVelocityRef']=='DEFAULT'):
@@ -1228,10 +1189,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeight'])
         # Frame translation cost
         if('translation' in config['WHICH_COSTS']):
-          if(config['frameTranslationFrameName']=='DEFAULT'):
-            frameTranslationFrameName = config['frame_of_interest']
-          else:
-            frameTranslationFrameName = config['frameTranslationFrameName']
+          frameTranslationFrameName = config['frameTranslationFrameName']
           frameTranslationFrameId = robot.model.getFrameId(frameTranslationFrameName)
           # Default reference translation = initial translation
           if(config['frameTranslationRef']=='DEFAULT'):
@@ -1256,10 +1214,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           runningModels[i].differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeight'])
         # End-effector orientation 
         if('rotation' in config['WHICH_COSTS']):
-          if(config['frameRotationFrameName']=='DEFAULT'):
-            frameRotationFrameName = config['frame_of_interest']
-          else:
-            frameRotationFrameName = config['frameRotationFrameName']
+          frameRotationFrameName = config['frameRotationFrameName']
           frameRotationFrameId = robot.model.getFrameId(frameRotationFrameName)
           # Default rotation reference = initial rotation
           if(config['frameRotationRef']=='DEFAULT'):
@@ -1280,10 +1235,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           if(not CONTACT):
             logger.error("Force cost but no contact model is defined ! ")
           # 6D contact case : wrench = linear in (x,y,z) + angular in (Ox,Oy,Oz)
-          if(config['frameForceFrameName']=='DEFAULT'):
-            frameForceFrameName = config['frame_of_interest']
-          else:
-            frameForceFrameName = config['frameForceFrameName']
+          frameForceFrameName = config['frameForceFrameName']
           frameForceFrameId = robot.model.getFrameId(frameForceFrameName)  
           if(CONTACT_TYPE=='6D'):
             # Default force reference = zero force
@@ -1338,10 +1290,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           cone_rotation = contactModelPlacementRef.rotation
           # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
           mu = config['mu']
-          if(config['frictionConeFrameName']=='DEFAULT'):
-            frictionConeFrameName = config['frame_of_interest']
-          else:
-            frictionConeFrameName = config['frictionConeFrameName']
+          frictionConeFrameName = config['frictionConeFrameName']
           frictionConeFrameId = robot.model.getFrameId(frictionConeFrameName)  
           frictionCone = crocoddyl.FrictionCone(cone_rotation, mu, 4, False) #, 0, 1000)
           frictionConeCost = crocoddyl.CostModelResidual(state,
@@ -1373,10 +1322,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       if('contactModelFrameName' not in config.keys()):
         logger.error("CONTACT='True' but no contact frame id found in config file !")
       else:
-        if(config['contactModelFrameName']=='DEFAULT'):
-          contactModelFrameName = config['frame_of_interest']
-        else:
-          contactModelFrameName = config['contactModelFrameName']
+        contactModelFrameName = config['contactModelFrameName']
         contactModelFrameId = robot.model.getFrameId(contactModelFrameName)
       # WARNING if no contact frame position found in config file
       if('contactModelTranslationRef' not in config.keys()):
@@ -1499,10 +1445,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, config['ctrlLimWeightTerminal']*dt)
     # Terminal EE placement cost
     if('placement' in config['WHICH_COSTS']):
-      if(config['framePlacementFrameName']=='DEFAULT'):
-        framePlacementFrameName = config['frame_of_interest']
-      else:
-        framePlacementFrameName = config['framePlacementFrameName']
+      framePlacementFrameName = config['framePlacementFrameName']
       framePlacementFrameId = robot.model.getFrameId(framePlacementFrameName)   
       # Default translation reference = initial translation
       if(config['framePlacementTranslationRef']=='DEFAULT'):
@@ -1526,10 +1469,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       terminalModel.differential.costs.addCost("placement", framePlacementCost, config['framePlacementWeightTerminal']*dt)
     # Terminal EE velocity cost
     if('velocity' in config['WHICH_COSTS']):
-      if(config['frameVelocityFrameName']=='DEFAULT'):
-        frameVelocityFrameName = config['frame_of_interest']
-      else:
-        frameVelocityFrameName = config['frameVelocityFrameName']
+      frameVelocityFrameName = config['frameVelocityFrameName']
       frameVelocityFrameId = robot.model.getFrameId(frameVelocityFrameName)
       # Default reference = zero velocity
       if(config['frameVelocityRef']=='DEFAULT'):
@@ -1548,10 +1488,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       terminalModel.differential.costs.addCost("velocity", frameVelocityCost, config['frameVelocityWeightTerminal']*dt)
     # Terminal EE translation cost
     if('translation' in config['WHICH_COSTS']):
-      if(config['frameTranslationFrameName']=='DEFAULT'):
-        frameTranslationFrameName = config['frame_of_interest']
-      else:
-        frameTranslationFrameName = config['frameTranslationFrameName']
+      frameTranslationFrameName = config['frameTranslationFrameName']
       frameTranslationFrameId = robot.model.getFrameId(frameTranslationFrameName) 
       # Default reference translation = initial translation
       if(config['frameTranslationRef']=='DEFAULT'):
@@ -1576,10 +1513,7 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
       terminalModel.differential.costs.addCost("translation", frameTranslationCost, config['frameTranslationWeightTerminal']*dt)
     # Terminal end-effector orientation cost
     if('rotation' in config['WHICH_COSTS']):
-      if(config['frameRotationFrameName']=='DEFAULT'):
-        frameRotationFrameName = config['frame_of_interest']
-      else:
-        frameRotationFrameName = config['frameRotationFrameName']
+      frameRotationFrameName = config['frameRotationFrameName']
       frameRotationFrameId = robot.model.getFrameId(frameRotationFrameName)      
       # Default rotation reference = initial rotation
       if(config['frameRotationRef']=='DEFAULT'):
