@@ -23,20 +23,27 @@ q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial r
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 tau0: [  0., -16.4279,  -0.,  14.4554, -0.6963, 0.027, 0.]           # Initial robot joint torque
 
+# List of contacts
+contacts:
+  - {
+      contactModelFrameName: 'contact',       # frame name in pinocchio model
+      pinocchioReferenceFrame: 'LOCAL',       #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
+      contactModelType: '1Dz',                # 1Dx, 1Dy, 1Dz, 3D, 6D
+      contactModelTranslationRef: '',         # 3d vector
+      contactModelRotationRef: '',            # 3d matrix
+      contactModelGains: [0, 0.],             # Baumgarte stabilization gains
+      active: True                            # Initially active? 
+    }
+  # - {
+  #     contactModelFrameName: 'A1',
+  #     pinocchioReferenceFrame: 'LOCAL',
+  #     contactModelType: '3D',
+  #     contactModelTranslationRef: '',
+  #     contactModelRotationRef: '',
+  #     contactModelGains: [0., 10.],
+  #     active: False
+  #   }
 
-# Pin model frame name of the end-effector 
-#   - Used for frame-related costs and plots generation
-#   - Overrides the frame name 'DEFAULT' values below
-frame_of_interest: 'contact'
-
-
-# Contact model 
-CONTACT: 'True'                         # 'True' or 'False' 
-contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
-contactModelFrameName: 'contact'
-contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
-contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
-contactModelGains: [0., 50.]            # Baumgarte stabilization gains 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'

@@ -2524,7 +2524,7 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
     return fig, ax
 
 def plot_ddp_force(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
-                                                MAKE_LEGEND=False, SHOW=True, AUTOSCALE=False):
+                                                MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
     '''
     Plot ddp results (force)
     '''

@@ -41,7 +41,7 @@ def main(robot_name, PLOT, DISPLAY):
     # Make pin wrapper
     robot = pin_utils.load_robot_wrapper(robot_name)
     # Get initial frame placement + dimensions of joint space
-    frame_name = config['frame_of_interest']
+    frame_name = config['frameTranslationFrameName']
     id_endeff = robot.model.getFrameId(frame_name)
     nq = robot.model.nq
     # Update robot model with initial state
@@ -65,7 +65,7 @@ def main(robot_name, PLOT, DISPLAY):
 
     #  Plot
     if(PLOT):
-        ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest=frame_name)
+        ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=frame_name)
         _, _ = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
 
 

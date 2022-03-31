@@ -10,10 +10,10 @@ q0: [2., 0., 0., 0., 0., 0., 0.]    # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]         # Initial robot joint velocity
 
 
-# Pin model frame name of the end-effector 
-#   - Used for frame-related costs and plots generation
-#   - Overrides the frame name 'DEFAULT' values below
-frame_of_interest: 'gripper_left_joint'
+# # Pin model frame name of the end-effector 
+# #   - Used for frame-related costs and plots generation
+# #   - Overrides the frame name 'DEFAULT' values below
+# frame_of_interest: 'gripper_left_joint'
 
 
 
@@ -39,14 +39,14 @@ frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 2.
 frameTranslationWeightTerminal: 2. 
 frameTranslationRef: [0.3, -0.2, 0.5]
-frameTranslationFrameName: 'DEFAULT' # 'DEFAULT' = $(frame_of_interest)
+frameTranslationFrameName: 'gripper_left_joint' # 'DEFAULT' = $(frame_of_interest)
  
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
 frameVelocityWeight: 0.1
 frameVelocityWeightTerminal: 1
 frameVelocityRef: [0., 0., 0., 0., 0., 0.]    
-frameVelocityFrameName: 'DEFAULT'  # 'DEFAULT' = $(frame_of_interest)
+frameVelocityFrameName: 'gripper_left_joint'  # 'DEFAULT' = $(frame_of_interest)
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]

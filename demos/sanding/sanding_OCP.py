@@ -102,16 +102,25 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
         us_init = [u0 for i in range(config['N_h'])]
 
     # Solve initial
-    ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+    # ddp.problem.reg_max = 0
+    # ddp.problem.reg_min = 0
+    # ddp.problem.reg_decFactor = 0
+    # ddp.problem.reg_incFactor = 0
+    # ddp.problem.regFactor = 0
+    # ddp.problem.regMin = 0
+    # ddp.problem.regMax = 0
+    # ddp.problem.x_reg = 0
+    # ddp.problem.u_reg = 0
+    ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False) #, regInit = 0.)
 
-    # for m in ddp.problem.runningDatas:
-    #     print(m.differential.multibody.contacts.contacts['contact'].f.vector)
-
+    for m in ddp.problem.runningDatas[:10]:
+        print("JOINT LEVEL : ", m.differential.multibody.contacts.contacts['contact'].f.vector)
+        print("FRAME LEVEL : ", m.differential.multibody.contacts.contacts['contact'].pinocchio.lambda_c)
 
     #  Plot
     if(PLOT):
         ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name='contact', ct_frame_name=frame_name)
-        fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['all'], markers=['.'], SHOW=True)
+        fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['f'], markers=['.'], SHOW=True)
 
 
     force_axis = 'z'

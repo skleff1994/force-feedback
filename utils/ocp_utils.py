@@ -403,11 +403,11 @@ def create_contact_model(contact_config, robot, state, actuation):
   # Detect contact model type and create Crocoddyl contact model 
   if('1D' in contactModelType):
     if('x' in contactModelType):
-      constrainedAxis = 0
+      constrainedAxis = crocoddyl.x
     elif('y' in contactModelType):
-      constrainedAxis = 1
+      constrainedAxis = crocoddyl.y
     elif('z' in contactModelType):
-      constrainedAxis = 2
+      constrainedAxis = crocoddyl.z
     else: logger.error('Unknown 1D contact model. Please select 1D contactModelType in {1Dx, 1Dy, 1Dz} !')
     contactModel = crocoddyl.ContactModel1D(state, 
                                             contactModelFrameId, 
@@ -433,7 +433,6 @@ def create_contact_model(contact_config, robot, state, actuation):
   else: logger.error("Unknown contactModelType. Please select in {1Dx, 1Dy, 1Dz, 3D, 6D}")
 
   return contactModel
-
 
 
 
@@ -466,13 +465,13 @@ def init_DDP(robot, config, x0, callbacks=False):
     actuation = crocoddyl.ActuationModelFull(state)
   
   # Contact or not ?
-    cts = config['contacts']
-    if(len(cts) == 0):
+    if('contacts' not in config.keys()):
       CONTACT = False
     else:
+      cts = config['contacts']
       CONTACT = True
-    CONTACT_TYPES = [ct['contactModelType'] for ct in cts]
-    logger.debug("Detected "+str(len(cts))+" contacts with types = "+str(CONTACT_TYPES))
+      CONTACT_TYPES = [ct['contactModelType'] for ct in cts]
+      logger.debug("Detected "+str(len(cts))+" contacts with types = "+str(CONTACT_TYPES))
 
   # Create IAMs
     runningModels = []
@@ -500,7 +499,7 @@ def init_DDP(robot, config, x0, callbacks=False):
       
       # Create IAM from DAM
         runningModels.append(crocoddyl.IntegratedActionModelEuler(dam, stepTime=dt))
-      
+        
       # Create and add cost function terms to current IAM
         # State regularization 
         if('stateReg' in config['WHICH_COSTS']):
@@ -691,9 +690,18 @@ def init_DDP(robot, config, x0, callbacks=False):
                                                                                             actuation.nu))
           # 1D contact case : linear force along z (LOCAL)
           if('1D' in ct_force_frame_type):
-            if('x' in ct_force_frame_type): constrainedAxis = 0
-            if('y' in ct_force_frame_type): constrainedAxis = 1
-            if('z' in ct_force_frame_type): constrainedAxis = 2
+            if('x' in ct_force_frame_type): constrainedAxis = crocoddyl.x
+            if('y' in ct_force_frame_type): constrainedAxis = crocoddyl.y
+            if('z' in ct_force_frame_type): constrainedAxis = crocoddyl.z
+            # Detect pinocchio reference frame
+            if(config['forceReferenceType'] == 'LOCAL'):
+              pinocchioReferenceFrame = pin.LOCAL
+            elif(config['forceReferenceType'] == 'WORLD'):
+              pinocchioReferenceFrame = pin.WORLD
+            elif(config['forceReferenceType'] == 'LOCAL_WORLD_ALIGNED'):
+              pinocchioReferenceFrame = pin.LOCAL_WORLD_ALIGNED
+            else:
+              logger.error('Unknown pinocchio reference frame. Please select in {LOCAL, WORLD, LOCAL_WORLD_ALIGNED} !')
             # Default force reference = zero force
             frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
             frameForceWeights = np.asarray(config['frameForceWeights'])[constrainedAxis:constrainedAxis+1]
@@ -704,6 +712,7 @@ def init_DDP(robot, config, x0, callbacks=False):
                                                                                             frameForceRef, 
                                                                                             1, 
                                                                                             actuation.nu))
+                                                                                            # pinocchioReferenceFrame))
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("force", frameForceCost, config['frameForceWeight'])
         # Friction cone 
@@ -761,7 +770,7 @@ def init_DDP(robot, config, x0, callbacks=False):
   
   # Create terminal IAM from terminal DAM
     terminalModel = crocoddyl.IntegratedActionModelEuler( dam_t, stepTime=0. )
-  
+
   # Create and add terminal cost models to terminal IAM
     # State regularization
     if('stateReg' in config['WHICH_COSTS']):
@@ -945,14 +954,13 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     actuation = crocoddyl.ActuationModelFull(state)
   
   # Contact or not ?
-    cts = config['contacts']
-    if(len(cts) == 0):
+    if('contacts' not in config.keys()):
       CONTACT = False
     else:
+      cts = config['contacts']
       CONTACT = True
-    CONTACT_TYPES = [ct['contactModelType'] for ct in cts]
-    logger.debug("Detected "+str(len(cts))+" contacts with types = "+str(CONTACT_TYPES))
-    
+      CONTACT_TYPES = [ct['contactModelType'] for ct in cts]
+      logger.debug("Detected "+str(len(cts))+" contacts with types = "+str(CONTACT_TYPES))
 
   # LPF parameters (a.k.a simplified actuation model)
     f_c      = config['f_c'] 
@@ -1211,9 +1219,9 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
                                                                                             actuation.nu))
           # 1D contact case : linear force along z (LOCAL)
           if('1D' in ct_force_frame_type):
-            if('x' in ct_force_frame_type): constrainedAxis = 0
-            if('y' in ct_force_frame_type): constrainedAxis = 1
-            if('z' in ct_force_frame_type): constrainedAxis = 2
+            if('x' in ct_force_frame_type): constrainedAxis = crocoddyl.x
+            if('y' in ct_force_frame_type): constrainedAxis = crocoddyl.y
+            if('z' in ct_force_frame_type): constrainedAxis = crocoddyl.z
             # Default force reference = zero force
             frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
             frameForceWeights = np.asarray(config['frameForceWeights'])[constrainedAxis:constrainedAxis+1]

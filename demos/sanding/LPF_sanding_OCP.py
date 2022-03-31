@@ -19,12 +19,8 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
@@ -36,7 +32,7 @@ from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc
 WARM_START_IK = True
 
 
-def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
+def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
 
     # # # # # # # # # # # #
     ### LOAD ROBOT MODEL ## 
@@ -49,7 +45,7 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
     # Get pin wrapper
     robot = pin_utils.load_robot_wrapper(robot_name)
     # Get initial frame placement + dimensions of joint space
-    frame_name = config['frame_of_interest']
+    frame_name = config['frameTranslationFrameName']
     id_endeff = robot.model.getFrameId(frame_name)
     nq, nv = robot.model.nq, robot.model.nv
     nx = nq+nv; nu = nq
@@ -124,7 +120,7 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
             fig, ax = plot_utils.plot_ddp_results_LPF( ddp_data, which_plots=['all'], markers=['.'], SHOW=True)
 
     pause = 0.01 # in s
-    if(VISUALIZE):
+    if(DISPLAY):
             import time
             import pinocchio as pin
 
@@ -302,5 +298,5 @@ def main(robot_name='iiwa', PLOT=False, VISUALIZE=True):
 
 if __name__=='__main__':
     args = misc_utils.parse_OCP_script(sys.argv[1:])
-    main(args.robot_name, args.PLOT, args.VISUALIZE)
+    main(args.robot_name, args.PLOT, args.DISPLAY)
 

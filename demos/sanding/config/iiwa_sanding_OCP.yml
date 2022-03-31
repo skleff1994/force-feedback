@@ -24,11 +24,11 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial r
 contacts:
   - {
       contactModelFrameName: 'contact',       # frame name in pinocchio model
-      pinocchioReferenceFrame: 'LOCAL_WORLD_ALIGNED',       # LOCAL, WORLD, LOCAL_WORLD_ALIGNED
+      pinocchioReferenceFrame: 'LOCAL_WORLD_ALIGNED',       #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
       contactModelType: '1Dz',                # 1Dx, 1Dy, 1Dz, 3D, 6D
       contactModelTranslationRef: '',         # 3d vector
       contactModelRotationRef: '',            # 3d matrix
-      contactModelGains: [.1, 10.],           # Baumgarte stabilization gains
+      contactModelGains: [0, 0.],             # Baumgarte stabilization gains
       active: True                            # Initially active? 
     }
   # - {
@@ -48,14 +48,13 @@ WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg', 'ctrlRegGrav']
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeights:  [0., 0., 1., 0., 0., 0.] # z-force 
-# frameForceWeights:  [0., 1., 0., 0., 0., 0.] # y-force
-# frameForceWeights:  [1., 0., 0., 0., 0., 0.] # x-force
+frameForceWeights:  [1., 1., 1., 1., 1., 1.] # z-force 
 frameForceWeight: 10
 frameForceRef: [0., 0., -20, 0., 0., 0.]     # z-force 
 # frameForceRef: [20., 0., 0, 0., 0., 0.]     # x-force
 # frameForceRef: [0., 20., 0, 0., 0., 0.]     # y-force
 frameForceFrameName: 'contact'
+forceReferenceType: 'LOCAL' #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
 
 #  # 'friction' : end-effector frame friction cone 
 # mu:  0.5
@@ -74,10 +73,7 @@ ctrlRegWeight: 0.0001
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
-frameTranslationWeights:  [1., 1., 0.] # z-force 
-# frameTranslationWeights:  [0., 1., 1.] # x-force
-# frameTranslationWeights:  [1., 0., 1.] # y-force
-
+frameTranslationWeights:  [1., 1., 1.] # z-force 
 frameTranslationWeight: 10
 frameTranslationWeightTerminal: 10.
 frameTranslationRef: 'DEFAULT' 

@@ -17,12 +17,8 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
@@ -31,7 +27,7 @@ np.set_printoptions(precision=4, linewidth=180)
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
 
 
-def main(robot_name, PLOT, VISUALIZE):
+def main(robot_name, PLOT, DISPLAY):
 
 
     # # # # # # # # # # # #
@@ -47,7 +43,7 @@ def main(robot_name, PLOT, VISUALIZE):
     robot.framesForwardKinematics(q0)
     robot.computeJointJacobians(q0)
     # Get initial frame placement + dimensions of joint space
-    frame_name = config['frame_of_interest']
+    frame_name = config['frameTranslationFrameName']
     id_endeff = robot.model.getFrameId(frame_name)
     M_ee = robot.data.oMf[id_endeff]
     nq = robot.model.nq; nv = robot.model.nv; nx = nq+nv; nu = nq
@@ -71,7 +67,7 @@ def main(robot_name, PLOT, VISUALIZE):
     # ddp.reg_max = 1e-3
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False) # regInit=0.)
 
-    if(VISUALIZE):
+    if(DISPLAY):
 
         import time
         import pinocchio as pin
@@ -150,7 +146,7 @@ def main(robot_name, PLOT, VISUALIZE):
 
     if(PLOT):
         #  Plot
-        ddp_data = data_utils.extract_ddp_data_LPF(ddp, frame_of_interest=frame_name)
+        ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=frame_name)
         fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], 
                                                             colors=['r'], 
                                                             markers=['.'], 
@@ -158,4 +154,4 @@ def main(robot_name, PLOT, VISUALIZE):
 
 if __name__=='__main__':
     args = misc_utils.parse_OCP_script(sys.argv[1:])
-    main(args.robot_name, args.PLOT, args.VISUALIZE)
+    main(args.robot_name, args.PLOT, args.DISPLAY)

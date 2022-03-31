@@ -18,7 +18,7 @@ tau0: [0., -2.5503, -0.52852, -0.021027, 0.0000000013604, -0.36474, 0.] # Initi
 # Pin model frame name of the end-effector 
 #   - Used for frame-related costs and plots generation
 #   - Overrides the frame name 'DEFAULT' values below
-frame_of_interest: 'contact'
+# frame_of_interest: 'contact'
 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
@@ -51,14 +51,14 @@ frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 2.
 frameTranslationWeightTerminal: 2. 
 frameTranslationRef: [-0.5, -0.5, 0.7]
-frameTranslationFrameName: 'DEFAULT'   # 'DEFAULT' = $(frame_of_interest)
+frameTranslationFrameName: 'contact'   # 'DEFAULT' = $(frame_of_interest)
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
 frameVelocityWeight: 0.
 frameVelocityWeightTerminal: 1.
 frameVelocityRef: [0., 0., 0., 0., 0., 0.]    
-frameVelocityFrameName: 'DEFAULT'     # 'DEFAULT' = $(frame_of_interest)
+frameVelocityFrameName: 'contact'     # 'DEFAULT' = $(frame_of_interest)
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
