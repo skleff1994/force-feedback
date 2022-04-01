@@ -18,16 +18,13 @@ The goal of this script is to simulate closed-loop MPC on a simple reaching task
 '''
 
 
+
+from errno import EEXIST
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
 np.random.seed(1)
@@ -35,6 +32,7 @@ np.set_printoptions(precision=4, linewidth=180)
 
 
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
+
 
 
 WARM_START_IK = True
@@ -66,7 +64,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Get dimensions 
   nq, nv = robot.model.nq, robot.model.nv; nu = nq
   # Initial placement
-  id_endeff = robot.model.getFrameId(config['frame_of_interest'])
+  id_endeff = robot.model.getFrameId(config['frameTranslationFrameName'])
   M_ee = robot.data.oMf[id_endeff].copy()
 
 
@@ -112,7 +110,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Plot initial solution
   PLOT_INIT = False
   if(PLOT_INIT):
-    ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest=config['frame_of_interest'])
+    ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=config['frameTranslationFrameName'])
     fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 
@@ -120,7 +118,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
   # # # # # # # # # # #
-  sim_data = data_utils.init_sim_data(config, robot, x0, frame_of_interest=config['frame_of_interest'])
+  sim_data = data_utils.init_sim_data(config, robot, x0, ee_frame_name=config['frameTranslationFrameName'])
     # Get frequencies
   freq_PLAN = sim_data['plan_freq']
   freq_CTRL = sim_data['ctrl_freq']

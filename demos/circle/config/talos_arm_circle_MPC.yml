@@ -65,29 +65,29 @@ frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 10.
 frameTranslationWeightTerminal: 10.
 frameTranslationRef: 'DEFAULT' 
-frameTranslationFrameName: 'DEFAULT'   # 'DEFAULT' = $(frame_of_interest)
+frameTranslationFrameName: 'gripper_left_joint'   
 frameCircleTrajectoryRadius: 0.1       # in m
 frameCircleTrajectoryVelocity: 1.5     # in rad/s
-CIRCLE_LOCAL_PLANE: 'XZ'               # LOCAL plane in which the circle lies
+CIRCLE_LOCAL_PLANE: 'XY'               # LOCAL plane in which the circle lies
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
 frameVelocityWeight: .1
 frameVelocityWeightTerminal: .1
 frameVelocityRef: 'DEFAULT'      
-frameVelocityFrameName: 'DEFAULT'   # 'DEFAULT' = $(frame_of_interest) 
+frameVelocityFrameName: 'gripper_left_joint'   
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
-stateLimWeight: 100.
-stateLimWeightTerminal: 100.
-stateLimRef: 'DEFAULT'            # 'DEFAULT' = [0., 0., 0., 0., 0., 0. ,0.]
+stateLimWeight: 10.
+stateLimWeightTerminal: 10.
+coef_xlim: 0.9
 
- # 'ctrlLim' : torque limits
-ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
-ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlLimWeight: 0.
-ctrlLimRef: 'DEFAULT'           # 'DEFAULT' = [0., 0., 0., 0., 0., 0. ,0.]
+#  # 'ctrlLim' : torque limits
+# ctrlBounds: [320, 320, 176, 176, 110, 40, 40]
+# ctrlLimWeights: [1., 1., 1., 1., 1., 1., 1.]
+# ctrlLimWeight: 10.
+# coef_ulim: 0.9
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .0]

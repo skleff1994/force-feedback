@@ -21,12 +21,6 @@ q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial r
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 
 
-# Pin model frame name of the end-effector 
-#   - Used for frame-related costs and plots generation
-#   - Overrides the frame name 'DEFAULT' values below
-frame_of_interest: 'contact'
-
-
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'translation', 'velocity',
@@ -49,7 +43,7 @@ frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 100.
 frameTranslationWeightTerminal: 100.
 frameTranslationRef: 'DEFAULT' 
-frameTranslationFrameName: 'DEFAULT' # 'DEFAULT' = $(frame_of_interest)
+frameTranslationFrameName: 'contact' 
 frameCircleTrajectoryRadius: 0.1     # in m
 frameCircleTrajectoryVelocity: 3.    # in rad/s
 CIRCLE_LOCAL_PLANE: 'XY'             # LOCAL plane in which the circle lies
