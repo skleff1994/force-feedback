@@ -1,5 +1,6 @@
 # ROBOT : 'talos_reduced' 
 # TASK  : 3D position target reaching
+# with Low-Pass-Filter (LPF) in dynamics
 
 
 # MPC & sim parameters
@@ -23,7 +24,7 @@ init_log_display_time: 1      # How long (s) to display the initial logs ?
 LOG: True                     # Logs during simulation
 log_rate: 500                 # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['x', 'u', 'ee'] # Which plots to generate
-RICCATI: True
+RICCATI: False
 
 # General
 dt: 0.01                        # OCP integration step 
@@ -36,7 +37,7 @@ dq0: [0.,0.,0.,0.,0.,0.]                                      # Initial robot jo
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['stateReg', 'translation', 'ctrlRegGrav']  
+WHICH_COSTS: ['stateReg', 'ctrlRegGrav']  #'translation',
 
 # Cost terms weights, activations and references
  # 'stateReg' : state regularization  
@@ -53,7 +54,7 @@ ctrlRegRef: 'DEFAULT' # DEFAULT g(q0) | NOT used for 'ctrlRegGrav' cost
  # 'translation' : end-effector frame translation 
 frameTranslationWeight: 2.
 frameTranslationWeightTerminal: 5. 
-frameTranslationRef: [0.2, 0., 0.9] #[0.2, -0.3, 0.9]
+frameTranslationRef: [0.3, 0., 0.5] #[0.2, -0.3, 0.9]
 alpha_quadflatlog: 0.01
 frameTranslationFrameName: 'arm_right_7_link'
  
