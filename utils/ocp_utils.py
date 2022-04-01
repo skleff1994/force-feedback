@@ -922,8 +922,7 @@ def init_DDP(robot, config, x0, callbacks=False):
 
 
 # Setup OCP and solver using Crocoddyl
-def init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                    w_reg_ref='gravity'):
+def init_DDP_LPF(robot, config, y0, callbacks=False):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       INPUT: 
@@ -931,7 +930,6 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
           config      : dict from YAML config file describing task and MPC params
           x0          : initial state of shooting problem
           callbacks   : display Crocoddyl's DDP solver callbacks
-          w_reg_ref   : reference for reg. cost on unfiltered input w
       OUTPUT:
           FDDP solver
 
@@ -980,7 +978,9 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     logger.info("          alpha = "+str(alpha))
 
   # Regularization cost of unfiltered torque (inside IAM_LPF in Crocoddyl)
-    if(w_reg_ref is None or w_reg_ref == 'gravity'):
+    if('wRegRef' not in config.keys()):
+      logger.error("Need to specify 'wRegRef' in YAML config. Please select in ['zero', 'tau0', 'gravity']")
+    elif(config['wRegRef'] == 'gravity'):
       # If no reference is provided, assume default reg w.r.t. gravity torque
       w_gravity_reg = True
       w_reg_ref = np.zeros(nq) # dummy reference not used
@@ -988,8 +988,15 @@ def init_DDP_LPF(robot, config, y0, callbacks=False,
     else:
       # Otherwise, take the user-provided constant torque reference for w_reg
       w_gravity_reg = False
-      log_msg_w_reg = 'constant reference'
-    logger.info("Unfiltered torque regularization w.r.t. "+log_msg_w_reg+".")
+      if(config['wRegRef'] == 'zero'):
+        w_reg_ref = np.zeros(nq)
+      elif(config['wRegRef'] == 'tau0'):
+        w_reg_ref = pin_utils.get_u_grav(y0[:nq], robot.model, config['armature'])
+      else:
+        logger.error("Unknown 'wRegRef' in YAML config. Please select in ['zero', 'tau0', 'gravity']")
+      # w_reg_ref = np.asarray(config['wRegRef'])
+      log_msg_w_reg = 'constant reference '+config['wRegRef']
+    logger.debug("Unfiltered torque regularization w.r.t. "+log_msg_w_reg)
 
 
   # Create IAMs

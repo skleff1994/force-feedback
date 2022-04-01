@@ -35,6 +35,7 @@ ctrlRegRef: 'DEFAULT' # DEFAULT g(q0) | NOT used for 'ctrlRegGrav' cost
 
 # 'wReg' : unfiltered torque regularization
 wRegWeight: 0.001
+wRegRef: 'tau0' # in ['zero', 'tau0' , 'gravity']
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 1000.
