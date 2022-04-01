@@ -17,24 +17,17 @@ Using PyBullet simulator & GUI for rigid-body dynamics + visualization
 The goal of this script is to simulate closed-loop MPC on a simple reaching task 
 '''
 
-
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
-np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
-
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
+from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils, mpc_utils
 
 
 
@@ -65,7 +58,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     else:
         logger.error('Please choose a simulator from ["bullet", "raisim"] !')
     # Initial placement
-    id_endeff = robot.model.getFrameId(config['frame_of_interest'])
+    id_endeff = robot.model.getFrameId(config['frameTranslationFrameName'])
     nq, nv = robot.model.nq, robot.model.nv; ny = nq+nv+nq; nu = nq
     M_ee = robot.data.oMf[id_endeff].copy()
 
@@ -79,7 +72,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     # Setup Croco OCP and create solver
     ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
     y0 = np.concatenate([x0, ug])
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, w_reg_ref=np.zeros(nq) ) 
+    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False) 
     # Setup tracking problem with circle ref EE trajectory
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -122,7 +115,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
     # Plot initial solution
     if(PLOT_INIT):
-        ddp_data = data_utils.extract_ddp_data_LPF(ddp, frame_of_interest=config['frame_of_interest'])
+        ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=config['frameTranslationFrameName'])
         fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
     
     
@@ -130,7 +123,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     # # # # # # # # # # #
     ### INIT MPC SIMU ###
     # # # # # # # # # # #
-    sim_data = data_utils.init_sim_data_LPF(config, robot, y0, frame_of_interest=config['frame_of_interest'])
+    sim_data = data_utils.init_sim_data_LPF(config, robot, y0, ee_frame_name=config['frameTranslationFrameName'])
         # Get frequencies
     freq_PLAN = sim_data['plan_freq']
     freq_CTRL = sim_data['ctrl_freq']
