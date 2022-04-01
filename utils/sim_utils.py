@@ -46,7 +46,7 @@ else:
 SUPPORTED_ROBOTS         = ['iiwa', 'talos_arm', 'talos_reduced']
 
 TALOS_DEFAULT_MESH_PATH  = '/opt/openrobots/share'
-TALOS_DEFAULT_BASE_POS   = [0, 0, 1.1]
+TALOS_DEFAULT_BASE_POS   = [0, 0, 1.03]
 # TALOS_DEFAULT_BASE_RPY   = [0, np.pi/2, 0]
 TALOS_DEFAULT_BASE_RPY   = [0, 0, 0]
 TALOS_REDUCED_DEFAULT_BASE_RPY   = [0, 0, 0]

@@ -73,7 +73,7 @@ def main(robot_name, simulator, PLOT_INIT):
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   # Plot initial solution
   if(PLOT_INIT):
-    ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest=config['frame_of_interest'])
+    ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=config['frameTranslationFrameName'])
     fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 
@@ -81,7 +81,7 @@ def main(robot_name, simulator, PLOT_INIT):
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
   # # # # # # # # # # #
-  sim_data = data_utils.init_sim_data(config, robot, x0, frame_of_interest=config['frame_of_interest'])
+  sim_data = data_utils.init_sim_data(config, robot, x0, ee_frame_name=config['frameTranslationFrameName'])
     # Get frequencies
   freq_PLAN = sim_data['plan_freq']
   freq_CTRL = sim_data['ctrl_freq']

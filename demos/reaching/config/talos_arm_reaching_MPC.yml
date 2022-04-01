@@ -4,8 +4,8 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 100        # Control frequency
-plan_freq: 100        # Planning frequency
+ctrl_freq: 100         # Control frequency
+plan_freq: 100         # Planning frequency
 T_tot: 5.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False              # Add delay in reference torques (low-level)
@@ -34,13 +34,6 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]         # Initial robot joint velocity
 
 
 
-# Pin model frame name of the end-effector 
-#   - Used for frame-related costs and plots generation
-#   - Overrides the frame name 'DEFAULT' values below
-frame_of_interest: 'gripper_left_joint'
-
-
-
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
@@ -64,10 +57,7 @@ alpha_quadflatlog: 0.01
 frameTranslationWeight: 1
 frameTranslationWeightTerminal: 10
 frameTranslationRef: [0.3, -0.2, .5]
-frameTranslationFrameName: 'DEFAULT' # 'DEFAULT' = $(frame_of_interest)
-
- # 'velocity' : end-effector frame velocity (translation + rotation)
-# frameVelocityWeights:  [1., 1., x' # 'DEFAULT' = $(frame_of_interest)
+frameTranslationFrameName: 'gripper_left_joint' 
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]

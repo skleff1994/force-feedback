@@ -23,7 +23,7 @@ init_log_display_time: 1      # How long (s) to display the initial logs ?
 LOG: True                     # Logs during simulation
 log_rate: 500                 # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['x', 'u', 'ee'] # Which plots to generate
-RICCATI: True
+RICCATI: False
 
 # General
 dt: 0.01                        # OCP integration step 
@@ -33,17 +33,10 @@ q0: [0., 0.006761, -0.25847, -0.173046, 0.0002, -0.525366]    # Initial robot jo
 dq0: [0.,0.,0.,0.,0.,0.]                                      # Initial robot joint velocity
 
 
-# Pin model frame name of the end-effector 
-#   - Used for frame-related costs and plots generation
-#   - Overrides the frame name 'DEFAULT' values below
-frame_of_interest: 'arm_right_7_link'
-
-
-
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['stateReg', 'translation', 'ctrlRegGrav'] 
+WHICH_COSTS: ['stateReg', 'ctrlRegGrav']  #'translation',
 
 # Cost terms weights, activations and references
  # 'stateReg' : state regularization  
@@ -62,14 +55,14 @@ frameTranslationWeight: 2.
 frameTranslationWeightTerminal: 5. 
 frameTranslationRef: [0.3, 0., 0.5] #[0.2, -0.3, 0.9]
 alpha_quadflatlog: 0.01
-frameTranslationFrameName: 'DEFAULT' # 'DEFAULT' = $(frame_of_interest)
+frameTranslationFrameName: 'arm_right_7_link'
  
 #  # 'velocity' : end-effector frame velocity (translation + rotation)
 # frameVelocityWeights:  [1., 1., 1., 0., 0., 0.]
 # frameVelocityWeight: 0.
 # frameVelocityWeightTerminal: 0
 # frameVelocityRef: [0., 0., 0., 0., 0., 0.]    
-# frameVelocityFrameName: 'DEFAULT'  # 'DEFAULT' = $(frame_of_interest)
+# frameVelocityFrameName: 'arm_right_7_link' 
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]

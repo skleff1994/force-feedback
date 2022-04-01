@@ -64,8 +64,8 @@ def main(robot_name, PLOT, DISPLAY):
     xs_init = [y0 for i in range(N_h+1)]
     us_init = [ug for i in range(N_h)]
 
-    # ddp.reg_max = 1e-3
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False) # regInit=0.)
+
 
     if(DISPLAY):
 
@@ -147,7 +147,7 @@ def main(robot_name, PLOT, DISPLAY):
     if(PLOT):
         #  Plot
         ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=frame_name)
-        fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], 
+        fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                             colors=['r'], 
                                                             markers=['.'], 
                                                             SHOW=True)
