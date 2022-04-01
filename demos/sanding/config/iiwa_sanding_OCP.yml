@@ -51,15 +51,8 @@ WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg', 'ctrlRegGrav']
 frameForceWeights:  [1., 1., 1., 1., 1., 1.] # z-force 
 frameForceWeight: 10
 frameForceRef: [0., 0., -20, 0., 0., 0.]     # z-force 
-# frameForceRef: [20., 0., 0, 0., 0., 0.]     # x-force
-# frameForceRef: [0., 20., 0, 0., 0., 0.]     # y-force
 frameForceFrameName: 'contact'
-forceReferenceType: 'LOCAL' #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
 
-#  # 'friction' : end-effector frame friction cone 
-# mu:  0.5
-# frictionConeWeight: 1
-# frictionConeFrameName: 'contact'
 
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]

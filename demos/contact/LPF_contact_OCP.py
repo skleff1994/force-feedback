@@ -17,12 +17,8 @@ The goal of this script is to setup OCP (play with weights)
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
@@ -31,7 +27,8 @@ np.set_printoptions(precision=4, linewidth=180)
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
 
 
-def main(robot_name, PLOT, VISUALIZE):
+
+def main(robot_name, PLOT, DISPLAY):
 
 
     # # # # # # # # # # # #
@@ -77,7 +74,7 @@ def main(robot_name, PLOT, VISUALIZE):
 
 
     pause = 0.01 # in s
-    if(VISUALIZE):
+    if(DISPLAY):
         import time
         import pinocchio as pin
         N_h = config['N_h']
@@ -272,4 +269,4 @@ def main(robot_name, PLOT, VISUALIZE):
 
 if __name__=='__main__':
     args = misc_utils.parse_OCP_script(sys.argv[1:])
-    main(args.robot_name, args.PLOT, args.VISUALIZE)
+    main(args.robot_name, args.PLOT, args.DISPLAY)

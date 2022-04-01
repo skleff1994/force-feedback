@@ -18,12 +18,8 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
@@ -32,7 +28,8 @@ np.set_printoptions(precision=4, linewidth=180)
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
 
 
-def main(robot_name, PLOT, VISUALIZE):
+
+def main(robot_name, PLOT, DISPLAY):
 
 
     # # # # # # # # # # # #
@@ -46,7 +43,7 @@ def main(robot_name, PLOT, VISUALIZE):
     # Get pin wrapper
     robot = pin_utils.load_robot_wrapper(robot_name)
     # Get initial frame placement + dimensions of joint space
-    frame_name = config['frame_of_interest']
+    frame_name = config['frameForceFrameName']
     id_endeff = robot.model.getFrameId(frame_name)
     nq, nv = robot.model.nq, robot.model.nv
     nx = nq+nv; nu = nq
@@ -70,12 +67,12 @@ def main(robot_name, PLOT, VISUALIZE):
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
     #  Plot
     if(PLOT):
-        ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest=config['frame_of_interest'])
+        ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=frame_name, ct_frame_name=frame_name)
         _, _ = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
 
 
     pause = 0.01 # in s
-    if(VISUALIZE):
+    if(DISPLAY):
         import time
         import pinocchio as pin
         N_h = config['N_h']
@@ -97,72 +94,70 @@ def main(robot_name, PLOT, VISUALIZE):
         ct_size     = 0.02
         wrench_coef = 0.02
 
-        # Display contact point as sphere + landmark
-        if('contactModelFrameName' in config.keys()):
 
-            # Placement of contact in WORLD frame = EE placement + tennis ball radius offset
-            ct_frame_placement = M_ct.copy()
-            offset = 0.036
-            ct_frame_placement.translation = ct_frame_placement.act(np.array([0., 0., offset])) 
-            tf_contact = list(pin.SE3ToXYZQUAT(ct_frame_placement))
+        # Placement of contact in WORLD frame = EE placement + tennis ball radius offset
+        ct_frame_placement = M_ct.copy()
+        offset = 0.036
+        ct_frame_placement.translation = ct_frame_placement.act(np.array([0., 0., offset])) 
+        tf_contact = list(pin.SE3ToXYZQUAT(ct_frame_placement))
 
-            # Delete contact point node if already displayed
-            if(gui.nodeExists('world/contact_point')):
-                gui.deleteNode('world/contact_point', True)
-                gui.deleteLandmark('world/contact_point')
-            # Display contact point node as green sphere
-            gui.addSphere('world/contact_point', ct_size, ct_color)
-            gui.addLandmark('world/contact_point', .25)
-            gui.applyConfiguration('world/contact_point', tf_contact)
+        # Delete contact point node if already displayed
+        if(gui.nodeExists('world/contact_point')):
+            gui.deleteNode('world/contact_point', True)
+            gui.deleteLandmark('world/contact_point')
+        # Display contact point node as green sphere
+        gui.addSphere('world/contact_point', ct_size, ct_color)
+        gui.addLandmark('world/contact_point', .25)
+        gui.applyConfiguration('world/contact_point', tf_contact)
+        
+        viewer.gui.refresh()
+
+        # Display reference contact wrench as red arrow
+        if('force' in config['WHICH_COSTS']):
+            # Display contact force as arrow
+            f_des_LOCAL = np.asarray(config['frameForceRef'])
+            ct_frame_placement_aligned = ct_frame_placement.copy()
+                # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
+                # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
+            ct_frame_placement_aligned.rotation = ct_frame_placement_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
+            tf_contact_aligned = list(pin.SE3ToXYZQUAT(ct_frame_placement_aligned))
+            arrow_length = wrench_coef*np.linalg.norm(f_des_LOCAL)
+            # Remove force arrow if already displayed
+            if(gui.nodeExists('world/ref_wrench')):
+                gui.deleteNode('world/ref_wrench', True)
+            # Display force arrow
+            gui.addArrow('world/ref_wrench', ref_size, arrow_length, ref_color)
+            gui.applyConfiguration('world/ref_wrench', tf_contact_aligned )
             
             viewer.gui.refresh()
 
-            # Display reference contact wrench as red arrow
-            if('force' in config['WHICH_COSTS']):
-                # Display contact force as arrow
-                f_des_LOCAL = np.asarray(config['frameForceRef'])
-                ct_frame_placement_aligned = ct_frame_placement.copy()
-                    # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
-                    # but force is along z axis in local frame so need to transform x-->z , i.e. -90° around y
-                ct_frame_placement_aligned.rotation = ct_frame_placement_aligned.rotation.dot(pin.rpy.rpyToMatrix(0., -np.pi/2, 0.))
-                tf_contact_aligned = list(pin.SE3ToXYZQUAT(ct_frame_placement_aligned))
-                arrow_length = wrench_coef*np.linalg.norm(f_des_LOCAL)
-                # Remove force arrow if already displayed
-                if(gui.nodeExists('world/ref_wrench')):
-                    gui.deleteNode('world/ref_wrench', True)
-                # Display force arrow
-                gui.addArrow('world/ref_wrench', ref_size, arrow_length, ref_color)
-                gui.applyConfiguration('world/ref_wrench', tf_contact_aligned )
-                
-                viewer.gui.refresh()
+        # Display friction cones 
+        if('friction' in config['WHICH_COSTS']):
+            mu = config['mu']
+            frictionConeColor = [1., 1., 0., 0.3]
+            m_generatrices = np.matrix(np.empty([3, 4]))
+            m_generatrices[:, 0] = np.matrix([mu, mu, 1.]).T
+            m_generatrices[:, 0] = m_generatrices[:, 0] / np.linalg.norm(m_generatrices[:, 0])
+            m_generatrices[:, 1] = m_generatrices[:, 0]
+            m_generatrices[0, 1] *= -1.
+            m_generatrices[:, 2] = m_generatrices[:, 0]
+            m_generatrices[:2, 2] *= -1.
+            m_generatrices[:, 3] = m_generatrices[:, 0]
+            m_generatrices[1, 3] *= -1.
+            generatrices = m_generatrices
+            v = [[0., 0., 0.]]
+            for k in range(m_generatrices.shape[1]):
+                v.append(m_generatrices[:3, k].T.tolist()[0])
+            v.append(m_generatrices[:3, 0].T.tolist()[0])
+            result = robot.viewer.gui.addCurve('world/cone', v, frictionConeColor)
+            robot.viewer.gui.setCurveMode('world/cone', 'TRIANGLE_FAN')
+            for k in range(m_generatrices.shape[1]):
+                l = robot.viewer.gui.addLine('world/cone_ray/' + str(k), [0., 0., 0.],
+                                                    m_generatrices[:3, k].T.tolist()[0], frictionConeColor)
+            robot.viewer.gui.setScale('world/cone', [.5, .5, .5])
+            robot.viewer.gui.setVisibility('world/cone', "ALWAYS_ON_TOP")
 
-            # Display friction cones 
-            if('friction' in config['WHICH_COSTS']):
-                mu = config['mu']
-                frictionConeColor = [1., 1., 0., 0.3]
-                m_generatrices = np.matrix(np.empty([3, 4]))
-                m_generatrices[:, 0] = np.matrix([mu, mu, 1.]).T
-                m_generatrices[:, 0] = m_generatrices[:, 0] / np.linalg.norm(m_generatrices[:, 0])
-                m_generatrices[:, 1] = m_generatrices[:, 0]
-                m_generatrices[0, 1] *= -1.
-                m_generatrices[:, 2] = m_generatrices[:, 0]
-                m_generatrices[:2, 2] *= -1.
-                m_generatrices[:, 3] = m_generatrices[:, 0]
-                m_generatrices[1, 3] *= -1.
-                generatrices = m_generatrices
-                v = [[0., 0., 0.]]
-                for k in range(m_generatrices.shape[1]):
-                    v.append(m_generatrices[:3, k].T.tolist()[0])
-                v.append(m_generatrices[:3, 0].T.tolist()[0])
-                result = robot.viewer.gui.addCurve('world/cone', v, frictionConeColor)
-                robot.viewer.gui.setCurveMode('world/cone', 'TRIANGLE_FAN')
-                for k in range(m_generatrices.shape[1]):
-                    l = robot.viewer.gui.addLine('world/cone_ray/' + str(k), [0., 0., 0.],
-                                                        m_generatrices[:3, k].T.tolist()[0], frictionConeColor)
-                robot.viewer.gui.setScale('world/cone', [.5, .5, .5])
-                robot.viewer.gui.setVisibility('world/cone', "ALWAYS_ON_TOP")
-
-                viewer.gui.refresh()
+            viewer.gui.refresh()
 
         # Display reference trajectory as red spheres
         if('translation' in config['WHICH_COSTS']):
@@ -229,7 +224,7 @@ def main(robot_name, PLOT, VISUALIZE):
             # Display force (magnitude and placement)
             if('force' in config['WHICH_COSTS']):
                 # Display wrench
-                wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector
+                wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[frame_name].f.vector
                 gui.resizeArrow('world/force', real_size, wrench_coef*np.linalg.norm(wrench[2]))
                 m_ct_aligned = m_ct.copy()
                     # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
@@ -260,4 +255,4 @@ def main(robot_name, PLOT, VISUALIZE):
 
 if __name__=='__main__':
     args = misc_utils.parse_OCP_script(sys.argv[1:])
-    main(args.robot_name, args.PLOT, args.VISUALIZE)
+    main(args.robot_name, args.PLOT, args.DISPLAY)

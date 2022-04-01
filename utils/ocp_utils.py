@@ -693,15 +693,6 @@ def init_DDP(robot, config, x0, callbacks=False):
             if('x' in ct_force_frame_type): constrainedAxis = crocoddyl.x
             if('y' in ct_force_frame_type): constrainedAxis = crocoddyl.y
             if('z' in ct_force_frame_type): constrainedAxis = crocoddyl.z
-            # Detect pinocchio reference frame
-            if(config['forceReferenceType'] == 'LOCAL'):
-              pinocchioReferenceFrame = pin.LOCAL
-            elif(config['forceReferenceType'] == 'WORLD'):
-              pinocchioReferenceFrame = pin.WORLD
-            elif(config['forceReferenceType'] == 'LOCAL_WORLD_ALIGNED'):
-              pinocchioReferenceFrame = pin.LOCAL_WORLD_ALIGNED
-            else:
-              logger.error('Unknown pinocchio reference frame. Please select in {LOCAL, WORLD, LOCAL_WORLD_ALIGNED} !')
             # Default force reference = zero force
             frameForceRef = pin.Force( np.asarray(config['frameForceRef']) )
             frameForceWeights = np.asarray(config['frameForceWeights'])[constrainedAxis:constrainedAxis+1]
@@ -712,7 +703,6 @@ def init_DDP(robot, config, x0, callbacks=False):
                                                                                             frameForceRef, 
                                                                                             1, 
                                                                                             actuation.nu))
-                                                                                            # pinocchioReferenceFrame))
           # Add cost term to IAM
           runningModels[i].differential.costs.addCost("force", frameForceCost, config['frameForceWeight'])
         # Friction cone 
