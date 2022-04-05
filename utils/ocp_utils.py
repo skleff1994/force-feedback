@@ -385,8 +385,8 @@ def create_contact_model(contact_config, robot, state, actuation):
   contactModelType = contact_config['contactModelType']
 
   # Default reference of contact model if not specified in config
-  if(contactModelTranslationRef == ''):
-    contactModelTranslationRef = robot.data.oMf[contactModelFrameId].translation.copy()
+  if(contactModelTranslationRef == ''): 
+    contactModelTranslationRef = np.array([0.1, 0., 0.]) #robot.data.oMf[contactModelFrameId].translation.copy()+np.array([0.1, 0., 0.])
   if(contactModelRotationRef == ''):
     contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
   

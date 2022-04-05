@@ -105,7 +105,7 @@ def get_p_(q, model, id_endeff):
 
 
 # Get frame linear velocity
-def get_v(q, dq, pin_robot, id_endeff):
+def get_v(q, dq, pin_robot, id_endeff, ref=pin.LOCAL):
     '''
     Returns end-effector velocities given q,dq trajectory 
         q         : joint positions
@@ -113,9 +113,9 @@ def get_v(q, dq, pin_robot, id_endeff):
         pin_robot : pinocchio wrapper
         id_endeff : id of EE frame
     '''
-    return get_v_(q, dq, pin_robot.model, id_endeff)
+    return get_v_(q, dq, pin_robot.model, id_endeff, ref)
 
-def get_v_(q, dq, model, id_endeff):
+def get_v_(q, dq, model, id_endeff, ref=pin.LOCAL):
     '''
     Returns end-effector velocities given q,dq trajectory 
         q         : joint positions
@@ -130,7 +130,7 @@ def get_v_(q, dq, model, id_endeff):
         # J = pin.computeFrameJacobian(model, data, q, id_endeff)
         # v = J.dot(dq)[:3] 
         pin.forwardKinematics(model, data, q, dq)
-        spatial_vel =  pin.getFrameVelocity(model, data, id_endeff)
+        spatial_vel =  pin.getFrameVelocity(model, data, id_endeff, ref)
         v = spatial_vel.linear
     else:
         N = np.shape(q)[0]
@@ -139,7 +139,7 @@ def get_v_(q, dq, model, id_endeff):
             # J = pin.computeFrameJacobian(model, data, q[i,:], id_endeff)
             # v[i,:] = J.dot(dq[i])[:3] 
             pin.forwardKinematics(model, data, q[i], dq[i])
-            spatial_vel =  pin.getFrameVelocity(model, data, id_endeff)
+            spatial_vel =  pin.getFrameVelocity(model, data, id_endeff, ref)
             v[i,:] = spatial_vel.linear    
     return v
 
@@ -199,15 +199,15 @@ def get_rpy_(q, model, id_endeff):
         N = np.shape(q)[0]
         rpy = np.empty((N,3))
         for i in range(N):
-            rpy[i,:] = pin.rpy.matrixToRpy(R[i])%(2*np.pi)
+            rpy[i,:] = pin.rpy.matrixToRpy(R[i]) #%(2*np.pi)
     else:
-        rpy = pin.rpy.matrixToRpy(R)%(2*np.pi)
+        rpy = pin.rpy.matrixToRpy(R) #%(2*np.pi)
     return rpy
 
 
 
 # Get frame angular velocity
-def get_w(q, dq, pin_robot, id_endeff):
+def get_w(q, dq, pin_robot, id_endeff, ref=pin.LOCAL):
     '''
     Returns end-effector angular velocity given q,dq trajectory 
         q         : joint positions
@@ -215,9 +215,9 @@ def get_w(q, dq, pin_robot, id_endeff):
         pin_robot : pinocchio wrapper
         id_endeff : id of EE frame
     '''
-    return get_w_(q, dq, pin_robot.model, id_endeff)
+    return get_w_(q, dq, pin_robot.model, id_endeff, ref)
 
-def get_w_(q, dq, model, id_endeff):
+def get_w_(q, dq, model, id_endeff, ref=pin.LOCAL):
     '''
     Returns end-effector  angular velocity given q,dq trajectory 
         q         : joint positions
@@ -230,14 +230,14 @@ def get_w_(q, dq, model, id_endeff):
         logger.error("q and dq must have the same size !")
     if(type(q)==np.ndarray and len(q.shape)==1):
         pin.forwardKinematics(model, data, q, dq)
-        spatial_vel =  pin.getFrameVelocity(model, data, id_endeff)
+        spatial_vel =  pin.getFrameVelocity(model, data, id_endeff, ref)
         w = spatial_vel.angular
     else:
         N = np.shape(q)[0]
         w = np.empty((N,3))
         for i in range(N):
             pin.forwardKinematics(model, data, q[i], dq[i])
-            spatial_vel =  pin.getFrameVelocity(model, data, id_endeff)
+            spatial_vel =  pin.getFrameVelocity(model, data, id_endeff, ref)
             w[i,:] = spatial_vel.angular    
     return w
 

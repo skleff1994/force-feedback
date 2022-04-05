@@ -9,6 +9,7 @@ maxiter: 100                                                  # Max number of it
 # q0: [ 1.7305e-01, -2.0000e-04, -5.2537e-01,  0., 0., 0.1, 0.] # Initial robot joint configuration
 q0: [ 1.4399,  0.    , -1.1781,  0.    ,  0.    ,  0.    , -0.5236]
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                   # Initial robot joint velocity
+WHICH_PLOTS: ['all']                                          # which plots to generate 
 
 
 # List of contacts

@@ -8,6 +8,7 @@ N_h: 400                                             # Horizon length in nodes
 maxiter: 100                                         # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
+WHICH_PLOTS: ['ee']                                          # which plots to generate 
 
 
 # List of contacts
@@ -15,10 +16,10 @@ contacts:
   - {
       contactModelFrameName: 'contact',       # frame name in pinocchio model
       pinocchioReferenceFrame: 'LOCAL',       #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
-      contactModelType: '1Dz',                 # 1Dx, 1Dy, 1Dz, 3D, 6D
+      contactModelType: '3D',                 # 1Dx, 1Dy, 1Dz, 3D, 6D
       contactModelTranslationRef: '',         # 3d vector
       contactModelRotationRef: '',            # 3d matrix
-      contactModelGains: [0, 10.],             # Baumgarte stabilization gains
+      contactModelGains: [10, 1.],             # Baumgarte stabilization gains
       active: True                            # Initially active? 
     }
 

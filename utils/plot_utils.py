@@ -2467,7 +2467,7 @@ def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None
                 labels.remove('reference')
             ax[i,0].plot(tspan, rpy_ee_ref[:,i], linestyle='--', color='k', marker=None, label='reference', alpha=0.5)
         
-        # Plot CONTACT reference frame translation in WORLD frame
+        # Plot CONTACT reference frame rotation in WORLD frame
         if(ddp_data['CONTACT_TYPE']=='6D'):
             handles, labels = ax[i,0].get_legend_handles_labels()
             if('contact' in labels):
