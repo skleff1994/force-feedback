@@ -2314,7 +2314,7 @@ def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, marker=None, color
     return fig, ax
 
 def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
-                                                    MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
+                                                    MAKE_LEGEND=False, SHOW=True, AUTOSCALE=False):
     '''
     Plot ddp results (endeff linear position, velocity)
     '''
@@ -2419,7 +2419,7 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
     return fig, ax
 
 def plot_ddp_endeff_angular(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
-                                                    MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
+                                                    MAKE_LEGEND=False, SHOW=True, AUTOSCALE=False):
     '''
     Plot ddp results (endeff angular position, velocity)
     '''
