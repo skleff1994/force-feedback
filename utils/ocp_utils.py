@@ -386,7 +386,7 @@ def create_contact_model(contact_config, robot, state, actuation):
 
   # Default reference of contact model if not specified in config
   if(contactModelTranslationRef == ''): 
-    contactModelTranslationRef =  robot.data.oMf[contactModelFrameId].translation.copy()+np.array([0., 0.05, 0.05])
+    contactModelTranslationRef =  robot.data.oMf[contactModelFrameId].translation.copy()  
   if(contactModelRotationRef == ''):
     contactModelRotationRef = robot.data.oMf[contactModelFrameId].rotation.copy()
   
@@ -397,8 +397,9 @@ def create_contact_model(contact_config, robot, state, actuation):
     pinocchioReferenceFrame = pin.WORLD
   elif(contact_config['pinocchioReferenceFrame'] == 'LOCAL_WORLD_ALIGNED'):
     pinocchioReferenceFrame = pin.LOCAL_WORLD_ALIGNED
-  else:
+  else: 
     logger.error('Unknown pinocchio reference frame. Please select0 in {LOCAL, WORLD, LOCAL_WORLD_ALIGNED} !')
+  # logger.debug("found pin ref frame = "+str(pinocchioReferenceFrame))
   
   # Detect contact model type and create Crocoddyl contact model 
   if('1D' in contactModelType):
