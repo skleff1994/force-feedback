@@ -110,9 +110,13 @@ def main():
     data  = model.createData()
     contactData = contactModel.createData(data)
     actuationData = actuation.createData()
+    
     pin.computeAllTerms(model, data, q0, v0)
-    contactModel.calc(contactData, x0)
+    pin.computeCentroidalMomentum(model, data)
+
     actuation.calc(actuationData, x0, tau)
+    contactModel.calc(contactData, x0)
+    
     logger.debug("   -- a0 test vs pin -- ")
     logger.info("a0 :"+str(contactData.a0))
     logger.debug(np.allclose(contactData.a0, DAD.multibody.contacts.a0, RTOL, ATOL))
@@ -130,6 +134,7 @@ def main():
     logger.debug("   -- lambda_c test vs pin --")
     logger.info("lambda_c = "+str(data.lambda_c))
     logger.debug(np.allclose(data.lambda_c, DAD.multibody.pinocchio.lambda_c, RTOL, ATOL))
+    contactModel.updateAcceleration(contactData, xout)
     contactModel.updateForce(contactData, data.lambda_c)
 
     print("\n")
@@ -148,11 +153,14 @@ def main():
     # logger.info("MODEL.Fx   :\n "+ str(DAD.Fx))
     # logger.info("NUMDIFF.Fx :\n "+ str(DAD_ND.Fx))
     logger.debug(np.allclose(DAD.Fx, DAD_ND.Fx, RTOL, ATOL))
+    
     # Calc vs pinocchio analytical 
     pin.computeRNEADerivatives(model, data, q0, v0, xout, contactData.fext)
-    Kinv = pin.getKKTContactDynamicMatrixInverse(model, data, contactData.Jc)
+    Kinv = pin.getKKTContactDynamicMatrixInverse(model, data, contactData.Jc[:nc])
+    
     actuation.calcDiff(actuationData, x0, tau)
     contactModel.calcDiff(contactData, x0) 
+    
     a_partial_dtau = Kinv[:nv, :nv]
     a_partial_da   = Kinv[-nv:, -nc:]     
     # f_partial_dtau = Kinv[-nc:, :nq]
@@ -167,8 +175,14 @@ def main():
     # print("Fx = \n")
     logger.debug("   -- Test Fu vs pin --")
     logger.debug(np.allclose(Fu, DAD.Fu, RTOL, ATOL))
+    logger.debug("   -- Test ND Fu vs pin --")
+    logger.debug(np.allclose(Fu, DAD_ND.Fu, RTOL, ATOL))
     logger.debug("   -- Test Fx vs pin --")
-    logger.debug(np.allclose(Fx, DAD.Fx, RTOL, ATOL))
+    # print(DAD.Fx)
+    # # print("\n")
+    # print(Fx)
+    logger.debug("\n"+str(np.isclose(Fx, DAD.Fx, RTOL, ATOL)))
+    logger.debug("\n"+str(np.isclose(Fx, DAD_ND.Fx, RTOL, ATOL)))
 
 
 
