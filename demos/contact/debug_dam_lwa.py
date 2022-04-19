@@ -23,27 +23,27 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
-np.set_printoptions(precision=4, linewidth=180, suppress=True)
+np.set_printoptions(precision=6, linewidth=180, suppress=True)
 
 from utils import pin_utils #path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
 import crocoddyl
 import pinocchio as pin
 
 WITH_COSTS      = False
-ND_DISTURBANCE  = 1e-6
+# ND_DISTURBANCE  = 1e-10
 GAUSS_APPROX    = True
-RTOL            = 1e-3
-ATOL            = 1e-6
+RTOL            = 1e-3 #1e-3
+ATOL            = 1e-4 #1e-5
 RANDOM_SEED     = 10
 np.random.seed(RANDOM_SEED)
 CONTACT_FRAME   = pin.WORLD
 
 def main():
 
-    robot = pin_utils.load_robot_wrapper('iiwa')
+    robot = pin_utils.load_robot_wrapper('talos_arm')
     nq = robot.model.nq; nv = robot.model.nv; nu = nq; nx = nq+nv
-    q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
-    v0 = np.zeros(nv)
+    q0 = np.array([ 1.4399,  0.    , -1.1781,  0.    ,  0.    ,  0.    , -0.5236])
+    v0 = np.random.rand(nv)
     x0 = np.concatenate([q0, v0])
     robot.framesForwardKinematics(q0)
     robot.computeJointJacobians(q0)
@@ -59,13 +59,14 @@ def main():
     # Contact model 
     contactModel = crocoddyl.ContactModelMultiple(state, actuation.nu)
         # Create 3D contact on the en-effector frame
-    contact_frame_id = robot.model.getFrameId("contact")
+    contact_frame_name = "gripper_left_fingertip_1_link" #"contact"
+    contact_frame_id = robot.model.getFrameId(contact_frame_name)
     contact_position = robot.data.oMf[contact_frame_id].translation.copy()
-    baumgarte_gains  = np.array([0., 1.])
-    contact3d = crocoddyl.ContactModel3D(state, contact_frame_id, contact_position, baumgarte_gains, CONTACT_FRAME) 
-    nc = 3
+    baumgarte_gains  = np.array([0., 0.0])
+    contact3d = crocoddyl.ContactModel1D(state, contact_frame_id, contact_position, baumgarte_gains, CONTACT_FRAME) 
+    nc = 1
         # Populate contact model with contacts
-    contactModel.addContact("contact", contact3d, active=True)
+    contactModel.addContact("contact_"+contact_frame_name, contact3d, active=True)
 
     # if(WITH_COSTS):
     #     # Control regularization cost
@@ -89,7 +90,14 @@ def main():
     DAM_ND = crocoddyl.DifferentialActionModelNumDiff(DAM, GAUSS_APPROX)
     DAD    = DAM.createData()
     DAD_ND = DAM_ND.createData()
-    DAM_ND.disturbance = ND_DISTURBANCE
+    # DAM_ND.disturbance = 1e-3
+
+    #   contact->addContact("lf", boost::make_shared<crocoddyl::ContactModel3D>(
+    #                                 state, state->get_pinocchio()->getFrameId("gripper_left_fingertip_1_link"),
+    #                                 Eigen::Vector3d::Zero(), 
+    #                                 actuation->get_nu(),
+    #                                 Eigen::Vector2d::Zero(), //Eigen::Vector2d(0., 50.),
+    #                                 pinocchio::LOCAL_WORLD_ALIGNED));
 
     # Allocate new data to test model against python 
     model         = robot.model.copy()
@@ -112,7 +120,9 @@ def main():
     pin.computeCentroidalMomentum(model, data)
     actuation.calc(actuationData, x0, tau)
     contactModel.calc(contactData, x0)
-    pin.forwardDynamics(model, data, actuationData.tau, contactData.Jc, contactData.a0)
+    Jc = np.zeros((nc, nv))
+    Jc[:nc, :nv] = contactData.Jc
+    pin.forwardDynamics(model, data, actuationData.tau, Jc, contactData.a0)
     xout = data.ddq
     contactModel.updateAcceleration(contactData, xout)
     contactModel.updateForce(contactData, data.lambda_c)
@@ -153,13 +163,13 @@ def main():
     logger.debug(np.allclose(DAD.Fu, DAD_ND.Fu, RTOL, ATOL))
     
     logger.debug("   -- Test Fx (model vs numdiff) --")
-    # logger.info("MODEL.Fx   :\n "+ str(DAD.Fx))
-    # logger.info("NUMDIFF.Fx :\n "+ str(DAD_ND.Fx))
+    logger.info("MODEL.Fx   :\n "+ str(DAD.Fx))
+    logger.info("NUMDIFF.Fx :\n "+ str(DAD_ND.Fx))
     logger.debug(np.allclose(DAD.Fx, DAD_ND.Fx, RTOL, ATOL))
     
     # Calc vs pinocchio analytical 
     pin.computeRNEADerivatives(model, data, q0, v0, xout, contactData.fext)
-    Kinv = pin.getKKTContactDynamicMatrixInverse(model, data, contactData.Jc[:nc])
+    Kinv = pin.getKKTContactDynamicMatrixInverse(model, data, Jc[:nc])
     actuation.calcDiff(actuationData, x0, tau)
     contactModel.calcDiff(contactData, x0) 
 
@@ -193,6 +203,8 @@ def main():
     # logger.info("da0_dx :\n"+str(DAD.multibody.contacts.da0_dx))
     logger.debug(np.allclose(contactData.da0_dx, DAD.multibody.contacts.da0_dx, RTOL, ATOL))
 
+    da0_dx = np.zeros((nc, nx))
+    da0_dx[:nc, :nx] = contactData.da0_dx 
     # Fill out stuff 
     a_partial_dtau = Kinv[:nv, :nv]
     a_partial_da   = Kinv[:nv, -nc:]     
@@ -202,7 +214,7 @@ def main():
     Fx = np.zeros((nv, nx))
     Fx[:,:nq] = -a_partial_dtau @ data.dtau_dq
     Fx[:,nq:] = -a_partial_dtau @ data.dtau_dv
-    Fx -= a_partial_da @ contactData.da0_dx[:nc]
+    Fx -= a_partial_da @ da0_dx[:nc]
     Fx += a_partial_dtau @ actuationData.dtau_dx
     Fu = a_partial_dtau @ actuationData.dtau_du
 
@@ -211,7 +223,7 @@ def main():
 
     df_dx[:nc, :nv]  = f_partial_dtau @ data.dtau_dq
     df_dx[:nc, -nv:] = f_partial_dtau @ data.dtau_dv
-    df_dx[:nc, :]   += f_partial_da @ contactData.da0_dx[:nc]
+    df_dx[:nc, :]   += f_partial_da @ da0_dx[:nc]
     df_dx[:nc, :]   -= f_partial_dtau @ actuationData.dtau_dx
 
     df_du[:nc, :] = -f_partial_dtau @ actuationData.dtau_du
@@ -228,14 +240,14 @@ def main():
 
 
     logger.debug("   -- Test df_dx (model vs python) --")
-    # logger.info("PIN.df_dx   :\n "+ str(contactData.contacts['contact'].df_dx))
-    # logger.info("MODEL.df_dx :\n "+ str(DAD.multibody.contacts.contacts['contact'].df_dx))
-    logger.debug(np.allclose(contactData.contacts['contact'].df_dx, DAD.multibody.contacts.contacts['contact'].df_dx, RTOL, ATOL))
+    # logger.info("PIN.df_dx   :\n "+ str(contactData.contacts["contact_"+contact_frame_name].df_dx))
+    # logger.info("MODEL.df_dx :\n "+ str(DAD.multibody.contacts.contacts["contact_"+contact_frame_name].df_dx))
+    logger.debug(np.allclose(contactData.contacts["contact_"+contact_frame_name].df_dx, DAD.multibody.contacts.contacts["contact_"+contact_frame_name].df_dx, RTOL, ATOL))
 
     logger.debug("   -- Test df_du (model vs python) --")
-    # logger.info("PIN.df_du   :\n "+ str(contactData.contacts['contact'].df_du))
-    # logger.info("MODEL.df_du :\n "+ str(DAD.multibody.contacts.contacts['contact'].df_du))
-    logger.debug(np.allclose(contactData.contacts['contact'].df_du, DAD.multibody.contacts.contacts['contact'].df_du, RTOL, ATOL))
+    # logger.info("PIN.df_du   :\n "+ str(contactData.contacts["contact_"+contact_frame_name].df_du))
+    # logger.info("MODEL.df_du :\n "+ str(DAD.multibody.contacts.contacts["contact_"+contact_frame_name].df_du))
+    logger.debug(np.allclose(contactData.contacts["contact_"+contact_frame_name].df_du, DAD.multibody.contacts.contacts["contact_"+contact_frame_name].df_du, RTOL, ATOL))
 
     runningCostModel.calcDiff(costData, x0, tau)
 
