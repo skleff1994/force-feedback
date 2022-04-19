@@ -2314,7 +2314,7 @@ def plot_ddp_control(ddp_data, fig=None, ax=None, label=None, marker=None, color
     return fig, ax
 
 def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
-                                                    MAKE_LEGEND=False, SHOW=True, AUTOSCALE=False):
+                                                    MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
     '''
     Plot ddp results (endeff linear position, velocity)
     '''
@@ -2404,8 +2404,8 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
     # Set ylim if any
     if(AUTOSCALE):
         TOL = 0.1
-        ax_p_ylim = 1.1*max(np.max(np.abs(lin_pos_ee)), TOL)
-        ax_v_ylim = 1.1*max(np.max(np.abs(lin_vel_ee)), TOL)
+        ax_p_ylim = 1  #1.1*max(np.max(np.abs(lin_pos_ee)), TOL)
+        ax_v_ylim = 1 #1.1*max(np.max(np.abs(lin_vel_ee)), TOL)
         for i in range(3):
             ax[i,0].set_ylim(lin_pos_ee_ref[0,i]-ax_p_ylim, lin_pos_ee_ref[0,i]+ax_p_ylim) 
             ax[i,1].set_ylim(lin_vel_ee_ref[0,i]-ax_v_ylim, lin_vel_ee_ref[0,i]+ax_v_ylim)

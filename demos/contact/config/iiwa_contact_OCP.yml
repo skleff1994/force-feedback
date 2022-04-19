@@ -8,31 +8,31 @@ N_h: 400                                             # Horizon length in nodes
 maxiter: 100                                         # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
-WHICH_PLOTS: ['ee', 'x', 'u']                                          # which plots to generate 
+WHICH_PLOTS: ['ee', 'f', 'u']                                          # which plots to generate 
 
 
 # List of contacts
 contacts:
   - {
-      contactModelFrameName: 'contact',       # frame name in pinocchio model
-      pinocchioReferenceFrame: 'LOCAL_WORLD_ALIGNED',       #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
-      contactModelType: '3D',                 # 1Dx, 1Dy, 1Dz, 3D, 6D
-      contactModelTranslationRef: '',         # 3d vector
-      contactModelRotationRef: '',            # 3d matrix
-      contactModelGains: [10, 3],             # Baumgarte stabilization gains
-      # contactModelGains: [5, 1],             # Baumgarte stabilization gains
-      active: True                            # Initially active? 
+      contactModelFrameName: 'contact',                 # frame name in pinocchio model
+      pinocchioReferenceFrame: 'LOCAL',   #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
+      contactModelType: '3D',                        # 1Dx, 1Dy, 1Dz, 3D, 6D
+      contactModelTranslationRef: '',               # 3d vector
+      contactModelRotationRef: '',                  # 3d matrix
+      contactModelGains: [10, 3],                   # Baumgarte stabilization gains
+      # contactModelGains: [5, 1],                  # Baumgarte stabilization gains
+      active: True                                  # Initially active? 
     }
 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['translation', 'rotation', 'stateReg', 'ctrlRegGrav']  
+WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg', 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeights:  [0., 0., 1., 0., 0., 0.]
+frameForceWeights:  [1., 1., 1., 0., 0., 0.]
 frameForceWeight: 10.
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
 frameForceFrameName: 'contact'

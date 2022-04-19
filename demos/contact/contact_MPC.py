@@ -97,7 +97,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
   # # # # # # # # # # #
-  sim_data = data_utils.init_sim_data(config, robot, x0, frame_of_interest=config['frame_of_interest'])
+  sim_data = data_utils.init_sim_data(config, robot, x0, ee_frame_name=config['frame_of_interest'])
     # Get frequencies
   freq_PLAN = sim_data['plan_freq']
   freq_CTRL = sim_data['ctrl_freq']

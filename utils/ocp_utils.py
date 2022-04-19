@@ -412,7 +412,7 @@ def create_contact_model(contact_config, robot, state, actuation):
     else: logger.error('Unknown 1D contact model. Please select 1D contactModelType in {1Dx, 1Dy, 1Dz} !')
     contactModel = crocoddyl.ContactModel1D(state, 
                                             contactModelFrameId, 
-                                            contactModelTranslationRef[constrainedAxis], 
+                                            contactModelTranslationRef, #[constrainedAxis], 
                                             actuation.nu,
                                             contactModelGains,
                                             constrainedAxis,

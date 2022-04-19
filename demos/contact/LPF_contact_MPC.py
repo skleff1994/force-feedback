@@ -79,8 +79,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
   u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
   y0 = np.concatenate([x0, u0])
-  ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, 
-                                                  w_reg_ref=np.zeros(nq)) 
+  ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False) #w_reg_ref=np.zeros(nq)) 
   # Warmstart and solve
   xs_init = [y0 for i in range(config['N_h']+1)]
   us_init = [u0 for i in range(config['N_h'])]

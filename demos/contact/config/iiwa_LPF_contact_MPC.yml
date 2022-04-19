@@ -57,13 +57,18 @@ frame_of_interest: 'contact'
 
 
 
-# Contact model 
-CONTACT: 'True'                         # 'True' or 'False' 
-contactModelType: '1D'                  # select in ['1D', '3D', '6D'] (cf. Crocoddyl contact models)
-contactModelFrameName: 'DEFAULT'
-contactModelTranslationRef: 'DEFAULT'   # Position of contact frame in WORLD frame 
-contactModelRotationRef: 'DEFAULT'      # Orientation of contact frame in WORLD frame (! for '6D' contact only !)
-contactModelGains: [0., 50.]             # Baumgarte stabilization gains 
+# List of contacts
+contacts:
+  - {
+      contactModelFrameName: 'contact',     # frame name in pinocchio model
+      pinocchioReferenceFrame: 'LOCAL',     # LOCAL, WORLD, LOCAL_WORLD_ALIGNED
+      contactModelType: '1Dz',              # 1Dx, 1Dy, 1Dz, 3D, 6D
+      contactModelTranslationRef: '',       # 3d vector
+      contactModelRotationRef: '',          # 3d matrix
+      contactModelGains: [0, 50],           # Baumgarte stabilization gains
+      active: True                          # Initially active? 
+    }
+
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
@@ -76,12 +81,7 @@ frameForceWeights:  [0., 0., 1., 0., 0., 0.]
 frameForceWeight: 10.
 frameForceWeightTerminal: 10.
 frameForceRef: [0., 0., -20, 0., 0., 0.]    
-frameForceFrameName: 'DEFAULT'
-
- # 'friction' : end-effector frame friction cone 
-mu:  0.7
-frictionConeWeight: 1
-frictionConeFrameName: 'DEFAULT'
+frameForceFrameName: 'contact'
 
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
@@ -97,6 +97,7 @@ ctrlRegRef: 'DEFAULT'  # default 0 if None
 
 # 'wReg' : unfiltered torque regularization
 wRegWeight: 0.0001
+wRegRef: 'zero'
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 100
@@ -106,14 +107,14 @@ frameTranslationWeights:  [1., 1., 0.]
 frameTranslationWeight: 20.
 frameTranslationWeightTerminal: 20. 
 frameTranslationRef: 'DEFAULT'
-frameTranslationFrameName: 'DEFAULT'
+frameTranslationFrameName: 'contact'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
 frameVelocityWeight: .01
 frameVelocityWeightTerminal: .01
 frameVelocityRef: 'DEFAULT'    
-frameVelocityFrameName: 'DEFAULT'
+frameVelocityFrameName: 'contact'
 
 
  # 'rotation' : end-effector frame orientation
@@ -121,7 +122,7 @@ frameRotationWeights:  [1., 1., 1.]
 frameRotationWeight: 10.
 frameRotationWeightTerminal: 10.
 frameRotationRef: 'DEFAULT'
-frameRotationFrameName: 'DEFAULT'
+frameRotationFrameName: 'contact'
 
 
  # 'stateLim' : state limits
