@@ -19,16 +19,17 @@ contacts:
       contactModelType: '3D',                        # 1Dx, 1Dy, 1Dz, 3D, 6D
       contactModelTranslationRef: '',               # 3d vector
       contactModelRotationRef: '',                  # 3d matrix
-      contactModelGains: [10, 1],                   # Baumgarte stabilization gains
+      contactModelGains: [0, 10],                   # Baumgarte stabilization gains
       # contactModelGains: [5, 1],                  # Baumgarte stabilization gains
       active: True                                  # Initially active? 
     }
 
+# inv_damping: 100000
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: [ 'translation', 'rotation', 'stateReg', 'ctrlRegGrav']  
+WHICH_COSTS: ['translation', 'rotation', 'stateReg', 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
