@@ -42,7 +42,7 @@ RTOL            = 1e-3 #1e-3
 ATOL            = 1e-4 #1e-5
 RANDOM_SEED     = 1
 np.random.seed(RANDOM_SEED)
-CONTACT_FRAME   = pin.WORLD
+CONTACT_FRAME   = pin.LOCAL
 
 def main():
     
@@ -72,6 +72,7 @@ def main():
         # Create 3D contact on the en-effector frame
     contact_frame_name = "gripper_left_fingertip_1_link" #'gripper_right_fingertip_1_link' #"arm_right_7_link" 
     contact_frame_id = robot.model.getFrameId(contact_frame_name)
+    parent_frame_id = robot.model.frames[contact_frame_id].parent
     contact_position = robot.data.oMf[contact_frame_id].translation.copy()
     baumgarte_gains  = np.array([0., 0])
     contact3d = crocoddyl.ContactModel3D(state, contact_frame_id, contact_position, baumgarte_gains, CONTACT_FRAME) 
@@ -122,6 +123,8 @@ def main():
     a_W = pin.getFrameAcceleration(model, data, contact_frame_id, pin.LOCAL_WORLD_ALIGNED)
     logger.debug(np.allclose(a0_W, a_W.linear + np.cross(v_W.angular, v_W.linear), RTOL, ATOL))
 
+    # Check forces 
+
 
     # calc versus ND
     DAM.calc(DAD, x0, tau)
@@ -137,9 +140,47 @@ def main():
     pin.computeCentroidalMomentum(model, data)
     actuation.calc(actuationData, x0, tau)
     contactModel.calc(contactData, x0)
-    Jc = np.zeros((nc, nv))
-    Jc[:nc, :nv] = contactData.Jc
-    pin.forwardDynamics(model, data, actuationData.tau, Jc, contactData.a0)
+
+    # check contact forces OK equal in both cases
+    jMf = model.frames[contact_frame_id].placement
+    # WORLD ALIGNED
+    if(CONTACT_FRAME == pin.WORLD or CONTACT_FRAME == pin.LOCAL_WORLD_ALIGNED):
+        print('Force in WORLD_ALIGNED frame')
+        pin.forwardDynamics(model, data, actuationData.tau, contactData.Jc, contactData.a0)
+        print(data.ddq)
+        contactModel.updateForce(contactData, data.lambda_c)
+        print("   force in WORLD_ALIGNED from pin.ForwardDynamics(tau, Jc, a0) = \n", data.lambda_c)
+        f_W_joint = jMf.act(pin.Force(oRf.T @ data.lambda_c, np.zeros(3)))
+        print("   force at JOINT level  : \n", f_W_joint)
+        fext = [f for f in contactData.fext]
+        print(fext)
+        print("   force at JOINT level (from fext) : \n", fext[parent_frame_id])
+        logger.debug(np.allclose(f_W_joint.linear, fext[parent_frame_id].linear, RTOL, ATOL))
+        logger.debug(np.allclose(f_W_joint.angular, fext[parent_frame_id].angular, RTOL, ATOL))
+        logger.debug(np.allclose(f_W_joint.linear, contactData.contacts['contact_'+contact_frame_name].f.linear, RTOL, ATOL))
+        logger.debug(np.allclose(f_W_joint.angular, contactData.contacts['contact_'+contact_frame_name].f.angular, RTOL, ATOL))
+    # LOCAL
+    elif(CONTACT_FRAME == pin.LOCAL):
+        print('Force in LOCAL frame')
+        pin.forwardDynamics(model, data, actuationData.tau, contactData.Jc, contactData.a0)
+        print(data.ddq)
+        contactModel.updateForce(contactData, data.lambda_c)
+        print("force in LOCAL from pin.ForwardDynamics(tau, Jc, a0) = \n", data.lambda_c)
+        f_L_joint = jMf.act(pin.Force(data.lambda_c, np.zeros(3)))
+        print("force at JOINT level  : \n", f_L_joint)
+        fext = [f for f in contactData.fext]
+        print(fext)
+        print("force at JOINT level (from fext) : \n", fext[parent_frame_id])
+        logger.debug(np.allclose(f_L_joint.linear, fext[parent_frame_id].linear, RTOL, ATOL))
+        logger.debug(np.allclose(f_L_joint.angular, fext[parent_frame_id].angular, RTOL, ATOL))
+        logger.debug(np.allclose(f_L_joint.linear, contactData.contacts['contact_'+contact_frame_name].f.linear, RTOL, ATOL))
+        logger.debug(np.allclose(f_L_joint.angular, contactData.contacts['contact_'+contact_frame_name].f.angular, RTOL, ATOL))
+
+
+    # Go on with DAM.Calc
+    # Jc = np.zeros((nc, nv))
+    # Jc[:nc, :nv] = contactData.Jc
+    pin.forwardDynamics(model, data, actuationData.tau, contactData.Jc, contactData.a0)
     xout = data.ddq
     contactModel.updateAcceleration(contactData, xout)
     contactModel.updateForce(contactData, data.lambda_c)
@@ -199,8 +240,9 @@ def main():
     # logger.debug("\n"+str(np.isclose(DAD.Fx[:,nq:], DAD_ND.Fx[:,nq:], RTOL, ATOL)))
 
     # Calc vs pinocchio analytical 
+    # print("TAU = ", pin_utils.get_tau(q0, v0, xout, contactData.fext, model, np.zeros(nq)))
     pin.computeRNEADerivatives(model, data, q0, v0, xout, contactData.fext)
-    Kinv = pin.getKKTContactDynamicMatrixInverse(model, data, Jc[:nc])
+    Kinv = pin.getKKTContactDynamicMatrixInverse(model, data, contactData.Jc) #Jc[:nc])
     actuation.calcDiff(actuationData, x0, tau)
     contactModel.calcDiff(contactData, x0) 
 
@@ -214,12 +256,12 @@ def main():
     logger.debug(np.allclose(Kinv, np.linalg.inv(KKT), RTOL, ATOL))
 
     logger.debug("   -- Test dtau_dq (model vs python) --")
-    # logger.info("dtau_dq :\n"+str(data.dtau_dq))
+    logger.info("dtau_dq :\n"+str(data.dtau_dq))
     # logger.info("dtau_dq :\n"+str(DAD.multibody.pinocchio.dtau_dq))
     logger.debug(np.allclose(data.dtau_dq, DAD.multibody.pinocchio.dtau_dq, RTOL, ATOL))
     
     logger.debug("   -- Test dtau_dv (model vs python) --")
-    # logger.info("dtau_dv :\n"+str(data.dtau_dv))
+    logger.info("dtau_dv :\n"+str(data.dtau_dv))
     # logger.info("dtau_dv :\n"+str(DAD.multibody.pinocchio.dtau_dv))
     logger.debug(np.allclose(data.dtau_dv, DAD.multibody.pinocchio.dtau_dv, RTOL, ATOL))
 

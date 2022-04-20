@@ -257,12 +257,13 @@ def get_f_(q, v, tau, model, id_endeff, armature, REG=0.):
     '''
     data = model.createData()
     # Calculate contact force from (q, v, a, tau)
-    f = np.empty((q.shape[0]-1, 6))
+    f = np.empty((q.shape[0], 6))
     for i in range(f.shape[0]):
         # Get spatial acceleration at EE frame
         pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
         pin.updateFramePlacements(model, data)
-        gamma = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        # gamma = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        gamma = -pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
         pin.computeJointJacobians(model, data)
         J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
         # Joint space inertia and its inverse + NL terms
@@ -300,7 +301,8 @@ def get_f_lambda(q, v, tau, model, id_endeff, armature, REG=0.):
           # Forward kinematics & placements
         pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
         pin.updateFramePlacements(model, data)
-        gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        # gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        gamma = pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
         # Joint space inertia and its inverse + NL terms
         # pin.computeAllTerms(model, data, q[i,:], v[i,:])
         data.M += np.diag(armature)
@@ -331,7 +333,8 @@ def get_f_kkt(q, v, tau, model, id_endeff):
           # Forward kinematics & placements
         pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
         pin.updateFramePlacements(model, data)
-        gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        # gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        gamma = pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
         # Joint space inertia and its inverse + NL terms
         h = pin.nonLinearEffects(model, data, q[i,:], v[i,:])
         rhs = np.vstack([np.array([h - tau[i,:]]).T, np.array([gamma.vector]).T ])
