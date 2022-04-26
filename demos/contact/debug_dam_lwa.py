@@ -101,20 +101,15 @@ contactModel.addContact("contact_"+contact_frame_name, contact3d, active=True)
 
 
 f_ext = [pin.Force.Zero() for i in range(robot.model.njoints)]
-# f_ext = pin_utils.get_external_joint_torques(robot.data.oMf[contact_frame_id], np.zeros(6), robot)
-# print("desired force : f_ext (0) = \n")
-# print(f_ext)
-# print("")
 pin.computeAllTerms(robot.model, robot.data, q0, v0)
 J = pin.getFrameJacobian(robot.model, robot.data, contact_frame_id, pin.LOCAL)[:3,:]
 gamma = -pin.getFrameClassicalAcceleration(robot.model, robot.data, contact_frame_id, pin.LOCAL)
-aq = np.linalg.pinv(J) @ gamma.vector[:3]
-rnea    = pin.rnea(robot.model, robot.data, q0, v0, aq, f_ext)
-nle     = pin.nonLinearEffects(robot.model, robot.data, q0, v0)
-tau = rnea
+aq    = np.linalg.pinv(J) @ gamma.vector[:3]
+tau   = pin.rnea(robot.model, robot.data, q0, v0, aq, f_ext)
 print("tau such that f=0 : RNEA(q,vq,aq=J^+ a0, f_ext=0)", tau)
 
 # # Check that force is zero using the above torque
+# nle     = pin.nonLinearEffects(robot.model, robot.data, q0, v0)
 # Minv = pin.computeMinverse(robot.model, robot.data, q0) 
 # # f = (JMiJ')^+ ( JMi (b-tau) + gamma )
 # import eigenpy
