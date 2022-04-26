@@ -364,7 +364,7 @@ def get_tau(q, v, a, f, model, armature):
 # Get joint torques due to an external wrench 
 def get_external_joint_torques(M_contact, wrench, robot):
     '''
-    Computes the torques induced at each joint by an external contact wrench
+    Computes the forces acting on each joint due to a 6D contact wrench at EE
     '''
     f_ext = []
     if(type(wrench)=='list'):
