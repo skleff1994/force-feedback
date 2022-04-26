@@ -97,11 +97,12 @@ class DADContact3D(crocoddyl.DifferentialActionDataContactFwdDynamics):
         self.a0 = np.zeros(dam.nc)
         self.Jc = np.zeros((dam.nv, dam.nc))
         self.wrench = pin.Force.Zero()
-        self.f_ext = [pin.Force.Zero() for i in range(dam.nu)]
+        self.f_ext = [pin.Force.Zero() for i in range(dam.rmodel.njoints)]
+        self.da0_dx = np.zeros((dam.nc, dam.nx))
 
 # Custom DAM with one 3D contact, empty cost
 class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
-    def __init__(self, state, actuation, costModel, contactFrameId, refPosition=np.zeros(3), gains=[0.,0.], ref=pin.LOCAL):
+    def __init__(self, state, actuation, costModel, contactFrameId, refPosition=np.zeros(3), gains=np.zeros(2), ref=pin.LOCAL):
         # dummy contact model to size the DAM (overwritten in self.calc and self.calcDiff)
         contactModel = crocoddyl.ContactModelMultiple(state, actuation.nu)
         contactModel.addContact("contact", crocoddyl.ContactModel3D(state, contactFrameId, refPosition, gains), active=True)
@@ -114,24 +115,24 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
         self.gains = gains
         self.ref = ref
         self.nc = 3
+        self.enable_force = True
+        self.jMf = self.rmodel.frames[contactFrameId].placement
+        self.fXj = self.rmodel.frames[contactFrameId].placement.actionInverse
 
     def calc(self, data, x, u):
-
         rdata = data.pinocchio 
-
+        q = x[:self.nv]
+        v = x[self.nv:]
         # Compute calc in python
-        pin.computeAllTerms(self.rmodel, rdata, q0, v0)
+        pin.computeAllTerms(self.rmodel, rdata, q, v)
         pin.computeCentroidalMomentum(self.rmodel, rdata)
-        self.actuation.calc(data.multibody.actuation, x0, tau)
-
+        self.actuation.calc(data.multibody.actuation, x, u)
         # Contact model calc
-            # LOCAL jacobian
         pin.updateFramePlacement(self.rmodel, rdata, self.contactFrameId)
         fJf = pin.getFrameJacobian(self.rmodel, rdata, self.contactFrameId, pin.LOCAL)
         oRf = rdata.oMf[self.contactFrameId].rotation
         data.a0 = pin.getFrameClassicalAcceleration(self.rmodel, rdata, self.contactFrameId, pin.LOCAL).linear
         data.Jc =fJf[:3,:]
-
         # WORLD ALIGNED
         if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
             data.a0 = oRf @ data.a0.copy()   
@@ -139,33 +140,129 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
             # call forward dyn
             pin.forwardDynamics(self.rmodel, rdata, data.multibody.actuation.tau, data.Jc, data.a0)
             # record force at joint level
-            data.wrench = pin.Force(oRf.T @ data.lambda_c, np.zeros(3))
-            for i in range(self.nu):
+            data.wrench = pin.Force(oRf.T @ rdata.lambda_c, np.zeros(3))
+            for i in range(self.rmodel.njoints):
                 # CONTACT --> WORLD --> JOINT
                 f_WORLD = data.oMf[self.contactFrameId].act(data.wrench)
                 f_JOINT = robot.data.oMi[i].actInv(f_WORLD)
                 data.f_ext[i] = pin.Force(f_JOINT)
-
+        # LOCAL
         elif(self.ref == pin.LOCAL):
             pin.forwardDynamics(self.rmodel, rdata, data.multibody.actuation.tau, data.Jc, data.a0)
             # record force at joint level
-            data.wrench = pin.Force(data.lambda_c, np.zeros(3))
-            for i in range(self.nu):
+            data.wrench = pin.Force(rdata.lambda_c, np.zeros(3))
+            for i in range(self.rmodel.njoints):
                 # CONTACT --> JOINT
                 data.f_ext[i] = self.rmodel.frames[contactFrameId].placement.act(data.wrench)
-        
         # Record joint acceleration     
         data.xout = rdata.ddq
-        
         return data 
 
-    def calcDiff(self, x, u):
-        pass
+    def calcDiff(self, data, x, u):
+        
+        rdata = data.pinocchio 
+        q = x[:self.nv]
+        v = x[self.nv:]
+        oRf = rdata.oMf[self.contactFrameId].rotation
+        
+        pin.computeRNEADerivatives(self.rmodel, rdata, q, v, data.xout, data.f_ext)
+        Kinv = pin.getKKTContactDynamicMatrixInverse(self.rmodel, rdata, data.Jc)
+        actuation.calcDiff(data.multibody.actuation, x, tau)
+
+        # Contact model calcDiff     
+        parendJointId = self.rmodel.frames[self.contactFrameId].parent   
+        pin.getJointAccelerationDerivatives(self.rmodel, rdata, parendJointId, pin.LOCAL) 
+        fXjdv_dq = 
+
+        # KKT = np.zeros((self.nv+self.nc, self.nv+self.nc))
+        # KKT[:nq,:nq] = rdata.M         ; KKT[:nq,nq:] = data.Jc.T
+        # KKT[nq:,:nq] = data.Jc ; KKT[nq:,nq:] = np.zeros((self.nc, self.nc))
+
+        # # print(bcolors.DEBUG + np.allclose(Kinv, np.linalg.inv(KKT), RTOL, ATOL))
+
+        
+        # # print(contactData.da0_dx )
+        # oJf = pin.getFrameJacobian(self.rmodel, rdata, self.contactFrameId, pin.LOCAL_WORLD_ALIGNED)
+        # # data.da0_dx[:self.nc, :self.nx] = data.da0_dx 
+        # data.da0_dx[:self.nc, :self.nv] += pin.skew(oRf @ data.a0) @ oJf[3:]
+        # data.da0_dx[:self.nc, :self.nv] = oRf.T @ da0_dx[:self.nc, :self.nv]
+        # data.da0_dx[:self.nc, self.nv:] = oRf.T @ da0_dx[:self.nc, self.nv:]
+        # # print(pin.skew(oRf @ contactData.a0) @ oJf[3:])
+        # # Fill out stuff 
+        # a_partial_dtau = Kinv[:nv, :nv]
+        # a_partial_da   = Kinv[:nv, -self.nc:]     
+        # f_partial_dtau = Kinv[-self.nc:, :nv]
+        # f_partial_da   = Kinv[-self.nc:, -self.nc:]
+
+        # data.Fx = np.zeros((nv, nx))
+        # data.Fx[:,:nq] = -a_partial_dtau @ rdata.dtau_dq
+        # data.Fx[:,nq:] = -a_partial_dtau @ rdata.dtau_dv
+        # data.Fx -= a_partial_da @ da0_dx[:self.nc]
+        # data.Fx += a_partial_dtau @ data.multibody.actuation.dtau_dx
+        # data.Fu = a_partial_dtau @ data.multibody.actuation.dtau_du
+
+        # if(self.enable_force):
+        #     df_dx = np.zeros((self.nc, self.nx))
+        #     df_du = np.zeros((self.nc, self.nu))
+
+        #     df_dx[:self.nc, :self.nv]  = f_partial_dtau @ rdata.dtau_dq
+        #     df_dx[:self.nc, -self.nv:] = f_partial_dtau @ rdata.dtau_dv
+        #     df_dx[:self.nc, :]   += f_partial_da @ da0_dx[:self.nc]
+        #     df_dx[:self.nc, :]   -= f_partial_dtau @ data.multibody.actuation.dtau_dx
+
+        #     df_du[:self.nc, :] = -f_partial_dtau @ data.multibody.actuation.dtau_du
+
+        #     # Update acc and force derivatives
+        #     # contactModel.updateAccelerationDiff(contactData, Fx[-self.nv:,:])
+        #     # contactModel.updateForceDiff(contactData, df_dx[:self.nc, :], df_du[:self.nc, :])
+        # # runningCostModel.calcDiff(data, x0, tau)
+        return data 
 
     def createData(self):
         data = DADContact3D(self) 
         return data         
 
+
+
+                                         const Eigen::Ref<const VectorXs>&) {
+  Data* d = static_cast<Data*>(data.get());
+  const pinocchio::JointIndex joint = state_->get_pinocchio()->frames[d->frame].parent;
+  pinocchio::getJointAccelerationDerivatives(*state_->get_pinocchio().get(), *d->pinocchio, joint, pinocchio::LOCAL,
+                                          d->v_partial_dq, d->a_partial_dq, d->a_partial_dv, d->a_partial_da); 
+  const std::size_t nv = state_->get_nv();
+  pinocchio::skew(d->vv, d->vv_skew);
+  pinocchio::skew(d->vw, d->vw_skew);
+  
+  d->fXjdv_dq.noalias() = d->fXj * d->v_partial_dq;
+  d->fXjda_dq.noalias() = d->fXj * d->a_partial_dq;
+  d->fXjda_dv.noalias() = d->fXj * d->a_partial_dv;
+
+  d->da0_dx.leftCols(nv) = d->fXjda_dq.template topRows<3>();
+  d->da0_dx.leftCols(nv).noalias() += d->vw_skew * d->fXjdv_dq.template topRows<3>();
+  d->da0_dx.leftCols(nv).noalias() -= d->vv_skew * d->fXjdv_dq.template bottomRows<3>();
+  d->da0_dx.rightCols(nv) = d->fXjda_dv.template topRows<3>();
+  d->da0_dx.rightCols(nv).noalias() += d->vw_skew * d->fJf.template topRows<3>(); 
+  d->da0_dx.rightCols(nv).noalias() -= d->vv_skew * d->fJf.template bottomRows<3>();
+
+  if (gains_[0] != 0.) {
+    pinocchio::skew(d->oRf.transpose() * (d->pinocchio->oMf[id_].translation() - xref_), d->tmp_skew);
+    d->da0_dx.leftCols(nv).noalias() += gains_[0] * ( d->tmp_skew * d->fJf.template bottomRows<3>() + d->fJf.template topRows<3>()); 
+  }
+
+  if (gains_[1] != 0.) {
+    d->da0_dx.leftCols(nv).noalias() += gains_[1] * d->fXjdv_dq.template topRows<3>();
+    d->da0_dx.rightCols(nv).noalias() += gains_[1] * d->fJf.template topRows<3>(); 
+  }
+
+  d->da0_dx_temp_ = d->da0_dx;
+                      
+  if(type_ == pinocchio::LOCAL_WORLD_ALIGNED || type_ == pinocchio::WORLD){  
+    pinocchio::skew(d->oRf * d->a0_temp_, d->tmp_skew);
+    d->da0_dx.leftCols(nv) = d->oRf*d->da0_dx_temp_.leftCols(nv) - d->tmp_skew * d->oRf * d->fJf.template bottomRows<3>();
+    // d->da0_dx.leftCols(nv) = d->oRf*d->da0_dx_temp_.leftCols(nv) - d->tmp_skew * d->oJf.template bottomRows<3>();
+    d->da0_dx.rightCols(nv) = d->oRf*d->da0_dx_temp_.rightCols(nv);
+  }  
+}
 
 
 # State, actuation, cost models
@@ -180,8 +277,6 @@ DAM_ND = crocoddyl.DifferentialActionModelNumDiff(DAM, GAUSS_APPROX)
 DAD    = DAM.createData()
 DAD_ND = DAM_ND.createData()
 DAM_ND.disturbance = ND_DISTURBANCE
-
-
 # calc versus ND
 DAM.calc(DAD, x0, tau)
 DAM_ND.calc(DAD_ND, x0, tau)
@@ -191,108 +286,29 @@ print("MODEL.xout   : "+str(DAD.xout))
 print("NUMDIFF.xout : "+str(DAD_ND.xout))
 print(bcolors.DEBUG + str(np.allclose(DAD.xout, DAD_ND.xout, RTOL, ATOL)))
 
-# # Compute calc in python
-# pin.computeAllTerms(model, data, q0, v0)
-# pin.computeCentroidalMomentum(model, data)
-# actuation.calc(actuationData, x0, tau)
-# contactModel.calc(contactData, x0)
 
-# # check contact forces OK equal in both cases
-# jMf = model.frames[contactFrameId].placement
-# # WORLD ALIGNED
-# if(PIN_REFERENCE_FRAME == pin.WORLD or PIN_REFERENCE_FRAME == pin.LOCAL_WORLD_ALIGNED):
-#     # print('Force in WORLD_ALIGNED frame')
-#     pin.forwardDynamics(model, data, actuationData.tau, contactData.Jc, contactData.a0)
-#     # print(data.ddq)
-#     contactModel.updateForce(contactData, data.lambda_c)
-#     print("   force in WORLD_ALIGNED from pin.ForwardDynamics(tau, Jc, a0) = \n", data.lambda_c)
-#     f_W_joint = jMf.act(pin.Force(oRf.T @ data.lambda_c, np.zeros(3)))
-#     # print("   force at JOINT level  : \n", f_W_joint)
-#     fext = [f for f in contactData.fext]
-#     # print(fext)
-#     # print("   force at JOINT level (from fext) : \n", fext[parentFrameId])
-#     print(bcolors.DEBUG + np.allclose(f_W_joint.linear, fext[parentFrameId].linear, RTOL, ATOL))
-#     print(bcolors.DEBUG + np.allclose(f_W_joint.angular, fext[parentFrameId].angular, RTOL, ATOL))
-#     print(bcolors.DEBUG + np.allclose(f_W_joint.linear, contactData.contacts['contact_'+contact_frame_name].f.linear, RTOL, ATOL))
-#     print(bcolors.DEBUG + np.allclose(f_W_joint.angular, contactData.contacts['contact_'+contact_frame_name].f.angular, RTOL, ATOL))
-# # LOCAL
-# elif(PIN_REFERENCE_FRAME == pin.LOCAL):
-#     # print('Force in LOCAL frame')
-#     pin.forwardDynamics(model, data, actuationData.tau, contactData.Jc, contactData.a0)
-#     # print(data.ddq)
-#     contactModel.updateForce(contactData, data.lambda_c)
-#     print("force in LOCAL from pin.ForwardDynamics(tau, Jc, a0) = \n", data.lambda_c)
-#     f_L_joint = jMf.act(pin.Force(data.lambda_c, np.zeros(3)))
-#     # print("force at JOINT level  : \n", f_L_joint)
-#     fext = [f for f in contactData.fext]
-#     # print(fext)
-#     # print("force at JOINT level (from fext) : \n", fext[parentFrameId])
-#     print(bcolors.DEBUG + np.allclose(f_L_joint.linear, fext[parentFrameId].linear, RTOL, ATOL))
-#     print(bcolors.DEBUG + np.allclose(f_L_joint.angular, fext[parentFrameId].angular, RTOL, ATOL))
-#     print(bcolors.DEBUG + np.allclose(f_L_joint.linear, contactData.contacts['contact_'+contact_frame_name].f.linear, RTOL, ATOL))
-#     print(bcolors.DEBUG + np.allclose(f_L_joint.angular, contactData.contacts['contact_'+contact_frame_name].f.angular, RTOL, ATOL))
+print("\n")
 
-# # Go on with DAM.Calc
-# # Jc = np.zeros((nc, nv))
-# # Jc[:nc, :nv] = contactData.Jc
-# pin.forwardDynamics(model, data, actuationData.tau, contactData.Jc, contactData.a0)
-# xout = data.ddq
-# contactModel.updateAcceleration(contactData, xout)
-# contactModel.updateForce(contactData, data.lambda_c)
-# runningCostModel.calc(costData, x0, tau)
+# calcDiff
+print(bcolors.DEBUG + "--- TEST CALCDIFF FUNCTION ---" + bcolors.ENDC)
+DAM.calcDiff(DAD, x0, tau)
+DAM_ND.calcDiff(DAD_ND, x0, tau)
 
-# # Compare against model 
-# print(bcolors.DEBUG + "   -- a0 (model vs python) -- ")
-# # print("a0 :"+str(contactData.a0))
-# print(bcolors.DEBUG + np.allclose(contactData.a0, DAD.multibody.contacts.a0, RTOL, ATOL))
-# if(PIN_REFERENCE_FRAME == pin.WORLD or PIN_REFERENCE_FRAME == pin.LOCAL_WORLD_ALIGNED):
-#     print(bcolors.DEBUG + np.allclose(contactData.a0, a0_W, RTOL, ATOL))
-# elif(PIN_REFERENCE_FRAME == pin.LOCAL):
-#     print(bcolors.DEBUG + np.allclose(contactData.a0, a0_L, RTOL, ATOL))
+print(bcolors.DEBUG + "   -- Test Fu (model vs numdiff) --" + bcolors.ENDC)
+# print("MODEL.Fu   :\n "+ str(DAD.Fu))
+# print("NUMDIFF.Fu :\n "+ str(DAD_ND.Fu))
+print(bcolors.DEBUG + str(np.allclose(DAD.Fu, DAD_ND.Fu, RTOL, ATOL)))
 
-# print(bcolors.DEBUG + "   -- Jc (model vs python) --" + bcolors.ENDC)
-# # print("Jc = \n"+str(contactData.Jc))
-# print(bcolors.DEBUG + np.allclose(contactData.Jc, DAD.multibody.contacts.Jc, RTOL, ATOL))
-# if(PIN_REFERENCE_FRAME == pin.WORLD or PIN_REFERENCE_FRAME == pin.LOCAL_WORLD_ALIGNED):
-#     print(bcolors.DEBUG + np.allclose(contactData.Jc, oJf[:3], RTOL, ATOL))
-# elif(PIN_REFERENCE_FRAME == pin.LOCAL):
-#     print(bcolors.DEBUG + np.allclose(contactData.Jc, fJf[:3], RTOL, ATOL))
-
-# print(bcolors.DEBUG + "   -- tau (model vs python) --" + bcolors.ENDC)
-# # print("tau = "+str(actuationData.tau))
-# print(bcolors.DEBUG + np.allclose(actuationData.tau, tau, RTOL, ATOL))
-
-# print(bcolors.DEBUG + "   -- xout (model vs python) --" + bcolors.ENDC)
-# # print("xout = "+str(xout))
-# print(bcolors.DEBUG + np.allclose(xout, DAD.xout, RTOL, ATOL))
-
-# print(bcolors.DEBUG + "   -- lambda_c (model vs python) --" + bcolors.ENDC)
-# # print("lambda_c = "+str(data.lambda_c))
-# print(bcolors.DEBUG + np.allclose(data.lambda_c, DAD.multibody.pin.lambda_c, RTOL, ATOL))
-
-
-# print("\n")
-
-# # calcDiff
-# print(bcolors.DEBUG + "--- TEST CALCDIFF FUNCTION ---" + bcolors.ENDC)
-# DAM.calcDiff(DAD, x0, tau)
-# DAM_ND.calcDiff(DAD_ND, x0, tau)
-
-# print(bcolors.DEBUG + "   -- Test Fu (model vs numdiff) --" + bcolors.ENDC)
-# # print("MODEL.Fu   :\n "+ str(DAD.Fu))
-# # print("NUMDIFF.Fu :\n "+ str(DAD_ND.Fu))
-# print(bcolors.DEBUG + np.allclose(DAD.Fu, DAD_ND.Fu, RTOL, ATOL))
-
-# print(bcolors.DEBUG + "   -- Test Fx (model vs numdiff) --" + bcolors.ENDC)
-# # print(bcolors.DEBUG + "           Fx")
-# # print("MODEL.Fx   :\n "+ str(DAD.Fx))
-# # print("NUMDIFF.Fx :\n "+ str(DAD_ND.Fx))
-# print(bcolors.DEBUG + "           Fq")
-# print(bcolors.DEBUG + np.allclose(DAD.Fx[:,:nq], DAD_ND.Fx[:,:nq], RTOL, ATOL))
-# # print(bcolors.DEBUG + "\n"+str(np.isclose(DAD.Fx[:,:nq], DAD_ND.Fx[:,:nq], RTOL, ATOL)))
-# print(bcolors.DEBUG + "           Fv")
-# print(bcolors.DEBUG + np.allclose(DAD.Fx[:,nq:], DAD_ND.Fx[:,nq:], RTOL, ATOL))
-# # print(bcolors.DEBUG + "\n"+str(np.isclose(DAD.Fx[:,nq:], DAD_ND.Fx[:,nq:], RTOL, ATOL)))
+print(bcolors.DEBUG + "   -- Test Fx (model vs numdiff) --" + bcolors.ENDC)
+# print(bcolors.DEBUG + "           Fx")
+# print("MODEL.Fx   :\n "+ str(DAD.Fx))
+# print("NUMDIFF.Fx :\n "+ str(DAD_ND.Fx))
+print(bcolors.DEBUG + "           Fq")
+print(bcolors.DEBUG + str(np.allclose(DAD.Fx[:,:nq], DAD_ND.Fx[:,:nq], RTOL, ATOL)))
+# print(bcolors.DEBUG + "\n"+str(np.isclose(DAD.Fx[:,:nq], DAD_ND.Fx[:,:nq], RTOL, ATOL)))
+print(bcolors.DEBUG + "           Fv")
+print(bcolors.DEBUG + str(np.allclose(DAD.Fx[:,nq:], DAD_ND.Fx[:,nq:], RTOL, ATOL)))
+# print(bcolors.DEBUG + "\n"+str(np.isclose(DAD.Fx[:,nq:], DAD_ND.Fx[:,nq:], RTOL, ATOL)))
 
 # # Calc vs pinocchio analytical 
 # # print("TAU = ", pin_utils.get_tau(q0, v0, xout, contactData.fext, model, np.zeros(nq)))
@@ -344,9 +360,9 @@ print(bcolors.DEBUG + str(np.allclose(DAD.xout, DAD_ND.xout, RTOL, ATOL)))
 # # print(pin.skew(oRf @ contactData.a0) @ oJf[3:])
 # # Fill out stuff 
 # a_partial_dtau = Kinv[:nv, :nv]
-# a_partial_da   = Kinv[:nv, -nc:]     
-# f_partial_dtau = Kinv[-nc:, :nv]
-# f_partial_da   = Kinv[-nc:, -nc:]
+# a_partial_da   = Kinv[:nv, -self.nc:]     
+# f_partial_dtau = Kinv[-self.nc:, :nv]
+# f_partial_da   = Kinv[-self.nc:, -self.nc:]
 
 # Fx = np.zeros((nv, nx))
 # Fx[:,:nq] = -a_partial_dtau @ data.dtau_dq
