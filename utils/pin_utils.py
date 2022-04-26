@@ -256,14 +256,20 @@ def get_f_(q, v, tau, model, id_endeff, armature, REG=0.):
         dt        : step size for FD estimate of joint acceleration
     '''
     data = model.createData()
+    if(len(q) != len(v) or len(q) != len(tau) or len(v) != len(tau)):
+        logger.error("q,v,tau must have the same size !")
+    if(type(q)==np.ndarray and len(q.shape)==1):
+        q = np.array([q])
+        v = np.array([v])
+        tau = np.array([tau])
     # Calculate contact force from (q, v, a, tau)
     f = np.empty((q.shape[0], 6))
     for i in range(f.shape[0]):
         # Get spatial acceleration at EE frame
         pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
         pin.updateFramePlacements(model, data)
-        # gamma = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
-        gamma = -pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        gamma = -pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        # gamma = -pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
         pin.computeJointJacobians(model, data)
         J = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
         # Joint space inertia and its inverse + NL terms
@@ -291,6 +297,12 @@ def get_f_lambda(q, v, tau, model, id_endeff, armature, REG=0.):
         dt        : step size for FD estimate of joint acceleration
     '''
     data = model.createData()
+    if(len(q) != len(v) or len(q) != len(tau) or len(v) != len(tau)):
+        logger.error("q,v,tau must have the same size !")
+    if(type(q)==np.ndarray and len(q.shape)==1):
+        q = np.array([q])
+        v = np.array([v])
+        tau = np.array([tau])
     # Calculate contact force from (q, v, a, tau)
     f = np.empty((q.shape[0]-1, 6))
     for i in range(f.shape[0]):
@@ -301,8 +313,8 @@ def get_f_lambda(q, v, tau, model, id_endeff, armature, REG=0.):
           # Forward kinematics & placements
         pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
         pin.updateFramePlacements(model, data)
-        # gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
-        gamma = pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        # gamma = pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
         # Joint space inertia and its inverse + NL terms
         # pin.computeAllTerms(model, data, q[i,:], v[i,:])
         data.M += np.diag(armature)
@@ -323,6 +335,12 @@ def get_f_kkt(q, v, tau, model, id_endeff):
         dt        : step size for FD estimate of joint acceleration
     '''
     data = model.createData()
+    if(len(q) != len(v) or len(q) != len(tau) or len(v) != len(tau)):
+        logger.error("q,v,tau must have the same size !")
+    if(type(q)==np.ndarray and len(q.shape)==1):
+        q = np.array([q])
+        v = np.array([v])
+        tau = np.array([tau])
     # Calculate contact force from (q, v, a, tau)
     f = np.empty((q.shape[0]-1, 6))
     for i in range(f.shape[0]):
@@ -333,8 +351,8 @@ def get_f_kkt(q, v, tau, model, id_endeff):
           # Forward kinematics & placements
         pin.forwardKinematics(model, data, q[i,:], v[i,:], np.zeros(q.shape[1]))
         pin.updateFramePlacements(model, data)
-        # gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
-        gamma = pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        gamma = pin.getFrameAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
+        # gamma = pin.getFrameClassicalAcceleration(model, data, id_endeff, pin.ReferenceFrame.LOCAL)
         # Joint space inertia and its inverse + NL terms
         h = pin.nonLinearEffects(model, data, q[i,:], v[i,:])
         rhs = np.vstack([np.array([h - tau[i,:]]).T, np.array([gamma.vector]).T ])
@@ -371,6 +389,7 @@ def get_external_joint_torques(M_contact, wrench, robot):
         wrench = np.array(wrench)
     # Compute joint torques due to desired external force 
     for i in range(robot.model.nq+1):
+        # logger.debug(" joint "+str(i)+" : "+str(robot.joints[i].na))
         # CONTACT --> WORLD
         W_M_ct = M_contact.copy()
         f_WORLD = W_M_ct.actionInverse.T.dot(wrench)
