@@ -42,7 +42,7 @@ RTOL            = 1e-3 #1e-3
 ATOL            = 1e-4 #1e-5
 RANDOM_SEED     = 1
 np.random.seed(RANDOM_SEED)
-CONTACT_FRAME   = pin.WORLD
+CONTACT_FRAME   = pin.LOCAL
 
 
 # Load robot 
@@ -57,8 +57,8 @@ v0 = np.random.rand(nv) #np.zeros(nq)  #
 x0 = np.concatenate([q0, v0])
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
-# tau = np.random.rand(nq)
-# logger.info("tau random = "+str(tau))
+tau = np.random.rand(nq)
+logger.info("tau random = "+str(tau))
 
 
 # # Add a custom frame aligned with WORLD to have oRf = identity
@@ -100,13 +100,13 @@ nc = 3
 contactModel.addContact("contact_"+contact_frame_name, contact3d, active=True)
 
 
-f_ext = [pin.Force.Zero() for i in range(robot.model.njoints)]
-pin.computeAllTerms(robot.model, robot.data, q0, v0)
-J = pin.getFrameJacobian(robot.model, robot.data, contact_frame_id, pin.LOCAL)[:3,:]
-gamma = -pin.getFrameClassicalAcceleration(robot.model, robot.data, contact_frame_id, pin.LOCAL)
-aq    = np.linalg.pinv(J) @ gamma.vector[:3]
-tau   = pin.rnea(robot.model, robot.data, q0, v0, aq, f_ext)
-print("tau such that f=0 : RNEA(q,vq,aq=J^+ a0, f_ext=0)", tau)
+# f_ext = [pin.Force.Zero() for i in range(robot.model.njoints)]
+# pin.computeAllTerms(robot.model, robot.data, q0, v0)
+# J = pin.getFrameJacobian(robot.model, robot.data, contact_frame_id, pin.LOCAL)[:3,:]
+# gamma = -pin.getFrameClassicalAcceleration(robot.model, robot.data, contact_frame_id, pin.LOCAL)
+# aq    = np.linalg.pinv(J) @ gamma.vector[:3]
+# tau   = pin.rnea(robot.model, robot.data, q0, v0, aq, f_ext)
+# print("tau such that f=0 : RNEA(q,vq,aq=J^+ a0, f_ext=0)", tau)
 
 # # Check that force is zero using the above torque
 # nle     = pin.nonLinearEffects(robot.model, robot.data, q0, v0)
@@ -187,6 +187,7 @@ pin.computeCentroidalMomentum(model, data)
 actuation.calc(actuationData, x0, tau)
 contactModel.calc(contactData, x0)
 
+
 # check contact forces OK equal in both cases
 jMf = model.frames[contact_frame_id].placement
 # WORLD ALIGNED
@@ -222,6 +223,7 @@ elif(CONTACT_FRAME == pin.LOCAL):
     logger.debug(np.allclose(f_L_joint.linear, contactData.contacts['contact_'+contact_frame_name].f.linear, RTOL, ATOL))
     logger.debug(np.allclose(f_L_joint.angular, contactData.contacts['contact_'+contact_frame_name].f.angular, RTOL, ATOL))
 
+# print(fext)
 # Go on with DAM.Calc
 # Jc = np.zeros((nc, nv))
 # Jc[:nc, :nv] = contactData.Jc
@@ -230,7 +232,7 @@ xout = data.ddq
 contactModel.updateAcceleration(contactData, xout)
 contactModel.updateForce(contactData, data.lambda_c)
 runningCostModel.calc(costData, x0, tau)
-
+# print(xout)
 # # Compare against model 
 # logger.debug("   -- a0 (model vs python) -- ")
 # # logger.info("a0 :"+str(contactData.a0))
@@ -241,7 +243,7 @@ runningCostModel.calc(costData, x0, tau)
 #     logger.debug(np.allclose(contactData.a0, a0_L, RTOL, ATOL))
 
 # logger.debug("   -- Jc (model vs python) --")
-# # logger.info("Jc = \n"+str(contactData.Jc))
+# logger.info("Jc = \n"+str(contactData.Jc))
 # logger.debug(np.allclose(contactData.Jc, DAD.multibody.contacts.Jc, RTOL, ATOL))
 # if(CONTACT_FRAME == pin.WORLD or CONTACT_FRAME == pin.LOCAL_WORLD_ALIGNED):
 #     logger.debug(np.allclose(contactData.Jc, oJf[:3], RTOL, ATOL))
@@ -288,8 +290,13 @@ logger.debug(np.allclose(DAD.Fx[:,nq:], DAD_ND.Fx[:,nq:], RTOL, ATOL))
 # print("TAU = ", pin_utils.get_tau(q0, v0, xout, contactData.fext, model, np.zeros(nq)))
 pin.computeRNEADerivatives(model, data, q0, v0, xout, contactData.fext)
 Kinv = pin.getKKTContactDynamicMatrixInverse(model, data, contactData.Jc) #Jc[:nc])
+
+# print(Kinv)
 actuation.calcDiff(actuationData, x0, tau)
 contactModel.calcDiff(contactData, x0) 
+
+print("da0_dx = ", contactData.contacts['contact_'+contact_frame_name].da0_dx)
+
 
 # logger.debug("   -- Test KKT (model vs python) --")
 # # logger.info("PIN.KKTinv   :\n "+ str(Kinv))
@@ -328,6 +335,7 @@ contactModel.calcDiff(contactData, x0)
 da0_dx = np.zeros((nc, nx))
 # print(contactData.da0_dx )
 da0_dx[:nc, :nx] = contactData.da0_dx 
+
 # da0_dx[:nc, :nq] += pin.skew(oRf @ contactData.a0) @ oJf[3:]
 # da0_dx[:nc, :nq] = oRf.T @ da0_dx[:nc, :nq]
 # da0_dx[:nc, nq:] = oRf.T @ da0_dx[:nc, nq:]
