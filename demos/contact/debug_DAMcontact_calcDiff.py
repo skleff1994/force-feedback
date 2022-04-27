@@ -17,7 +17,7 @@ class bcolors:
 
 
 ND_DISTURBANCE  = 1e-6
-GAUSS_APPROX    = False
+GAUSS_APPROX    = True
 RTOL            = 1e-3 
 ATOL            = 1e-4 
 RANDOM_SEED     = 1
@@ -25,7 +25,7 @@ np.random.seed(RANDOM_SEED)
 
 # Test parameters 
 PIN_REFERENCE_FRAME   = pin.WORLD
-ALIGN_LOCAL_WITH_WORLD      = True
+ALIGN_LOCAL_WITH_WORLD      = False
 TORQUE_SUCH_THAT_ZERO_FORCE = False
 ZERO_JOINT_VELOCITY         = False
 
@@ -162,12 +162,12 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
             data.da0_dx[:,:self.nv] = oRf @ data.da0_dx_temp[:,:self.nv]
 
         # Fill out DAM partials
-        a_partial_dtau = Kinv[:nv, :nv]
-        a_partial_da   = Kinv[:nv, -self.nc:]     
-        f_partial_dtau = Kinv[-self.nc:, :nv]
+        a_partial_dtau = Kinv[:self.nv, :self.nv]
+        a_partial_da   = Kinv[:self.nv, -self.nc:]     
+        f_partial_dtau = Kinv[-self.nc:, :self.nv]
         f_partial_da   = Kinv[-self.nc:, -self.nc:]
-        data.Fx[:,:nq] = -a_partial_dtau @ rdata.dtau_dq
-        data.Fx[:,nq:] = -a_partial_dtau @ rdata.dtau_dv
+        data.Fx[:,:self.nv] = -a_partial_dtau @ rdata.dtau_dq
+        data.Fx[:,self.nv:] = -a_partial_dtau @ rdata.dtau_dv
         data.Fx -= a_partial_da @ data.da0_dx[:self.nc]
         data.Fx += a_partial_dtau @ data.multibody.actuation.dtau_dx
         data.Fu = a_partial_dtau @ data.multibody.actuation.dtau_du
