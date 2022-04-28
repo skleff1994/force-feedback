@@ -92,41 +92,18 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
         self.actuation.calc(data.multibody.actuation, x, u)
         
 
-        # Hard-coded ontact model calc()
-            # Tested against bindings in Python : OK
+        # Hard-coded ontact model calc() LOCAL
         pin.updateFramePlacement(self.rmodel, rdata, self.contactFrameId)
         data.fJf = pin.getFrameJacobian(self.rmodel, rdata, self.contactFrameId, pin.LOCAL)
         data.v = pin.getFrameVelocity(self.rmodel, rdata, self.contactFrameId, pin.LOCAL)
         data.a = pin.getFrameAcceleration(self.rmodel, rdata, self.contactFrameId, pin.LOCAL)
         data.vv = data.v.linear ; data.vw = data.v.angular
-        # if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
-        #     data.a0 = pin.getFrameClassicalAcceleration(self.rmodel, rdata, self.contactFrameId, pin.LOCAL_WORLD_ALIGNED).linear
-        #     data.Jc = oRf @ data.fJf[:3,:] 
-        # else:
         data.a0 = pin.getFrameClassicalAcceleration(self.rmodel, rdata, self.contactFrameId, pin.LOCAL).linear
         data.Jc = data.fJf[:3,:] 
         assert(np.linalg.norm(data.a.linear + np.cross(data.v.angular, data.v.linear) - data.a0) <= 1e-6 )
-        # data.a0 = data.a.linear + np.cross(data.vw, data.vv)
-        # data.Jc = data.fJf[:3,:]
-        
-        # 
-        # if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
-        #     data.a0 = oRf @ data.a0_temp
 
         # Call forward dynamics
         pin.forwardDynamics(self.rmodel, rdata, data.multibody.actuation.tau, data.Jc, data.a0)
-        # print("force lambda_c LOCAL = \n ", rdata.lambda_c)
-        # # Record force at joint level (i.e. contactModel3D.updateForce() in C++)
-        # if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
-        #     data.f = self.jMf.act(pin.Force(oRf.T @ rdata.lambda_c, np.zeros(3)))
-        # elif(self.ref == pin.LOCAL):
-        #     data.f = self.jMf.act(pin.Force(rdata.lambda_c, np.zeros(3)))
-        # # Fill out forces acting on each joint (i.e. contactModelMultiple.updateForce() in C++)
-        # f_WORLD = rdata.oMf[self.contactFrameId].act(self.jMf.actInv(data.f))
-        # f_JOINT = rdata.oMi[self.parentJointId].actInv(f_WORLD)
-        # if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
-        #     data.fext[self.parentJointId] = self.jMf.act(pin.Force(oRf.T @ rdata.lambda_c, np.zeros(3)))
-        # else:
         data.fext[self.parentJointId] = self.jMf.act(pin.Force(rdata.lambda_c, np.zeros(3)))
         # print("FEXT (JOINT) = \n", data.fext[self.parentJointId])
         # Record joint acceleration     
@@ -153,7 +130,7 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
         # Actuation derivatives
         actuation.calcDiff(data.multibody.actuation, x, tau)
 
-        # Hard-coded contact model derivatives 
+        # Hard-coded contact model derivatives LOCAL
             # Tested against numdiff in C++     : OK
             # Tested against bindings in Python : OK
         # parendJointId = self.rmodel.frames[self.contactFrameId].parent   
@@ -168,19 +145,8 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
         data.da0_dx[:,self.nv:] -= vv_skew @ data.fJf[3:,:]
         # print(data.da0_dx)
             # Add Baumgarte gains to data.da0_dx here if necessary
-        # data.da0_dx_temp = data.da0_dx.copy()
 
-        # print("da0_dx_temp before (LOCAL) : \n", data.da0_dx_temp)
-
-        # if(self.ref == pin.LOCAL_WORLD_ALIGNED or self.ref == pin.WORLD):
-        #     # tmp_skew = pin.skew(data.a0) 
-        #     Jw = pin.getFrameJacobian(self.rmodel, rdata, self.contactFrameId, pin.LOCAL_WORLD_ALIGNED)[3:,:]
-        #     data.da0_dx[:,self.nv:] = oRf @ data.da0_dx_temp[:,self.nv:] - pin.skew(data.a0) @ Jw #oRf @ data.fJf[3:,:]
-        #     data.da0_dx[:,:self.nv] = oRf @ data.da0_dx_temp[:,:self.nv]
-        # print("DAO_DX = \n", data.da0_dx)
-        # derivatives of drift in WORLD 
-        # but express dam derivative WORLD as a function of dam deriv LOCAL, which is a function of drift deriv LOCAL
-        # Fill out DAM partials
+        # Fillout partials of DAM 
         a_partial_dtau = Kinv[:self.nv, :self.nv]
         a_partial_da   = Kinv[:self.nv, -self.nc:]     
         f_partial_dtau = Kinv[-self.nc:, :self.nv]
@@ -191,21 +157,19 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
         data.Fx += a_partial_dtau @ data.multibody.actuation.dtau_dx
         data.Fu = a_partial_dtau @ data.multibody.actuation.dtau_du
 
-        # if(self.enable_force):
+        # enable_force
         data.df_dx[:self.nc, :self.nv]  = f_partial_dtau @ rdata.dtau_dq
         data.df_dx[:self.nc, -self.nv:] = f_partial_dtau @ rdata.dtau_dv
         data.df_dx[:self.nc, :]   += f_partial_da @ data.da0_dx[:self.nc] 
         data.df_dx[:self.nc, :]   -= f_partial_dtau @ data.multibody.actuation.dtau_dx
         data.df_du[:self.nc, :]  = -f_partial_dtau @ data.multibody.actuation.dtau_du
         
-        # # Rotate force
-        # df_dx_temp = data.df_dx.copy()
-        # print("df_dx before (LOCAL) : \n", df_dx_temp)
+        # if world, transform force and derivatives here
         if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
             Jw = pin.getFrameJacobian(self.rmodel, rdata, self.contactFrameId, pin.LOCAL_WORLD_ALIGNED)[3:,:]
             data.df_dx[:self.nc,:] = oRf @ data.df_dx[:self.nc,:]
-            data.df_dx[:self.nc,:nv] -= pin.skew(rdata.lambda_c)@Jw
-        # print("drnea_dq = \n", rdata.dtau_dq)
+            data.df_dx[:self.nc,:nv] -= pin.skew(oRf @ rdata.lambda_c)@Jw
+
         print("world : \n", np.vstack([data.Fx, data.df_dx]))
         return data 
 
@@ -304,6 +268,45 @@ if(test_Fx == False):
     test_Fv = np.allclose(DAD.Fx[:,nq:], DAD_ND.Fx[:,nq:], RTOL, ATOL)
     print(testcolormap[test_Fv] + "           -- Fv : " + str(test_Fv) + bcolors.ENDC)
 
+
+def numdiff(f,x0,h=1e-6):
+    f0 = f(x0).copy()
+    x = x0.copy()
+    Fx = []
+    for ix in range(len(x)):
+        x[ix] += h
+        Fx.append((f(x)-f0)/h)
+        x[ix] = x0[ix]
+    return np.array(Fx).T
+
+# Forward dynamics rewritten with forces in world coordinates.
+def fdynw(model, data, id_frame, x,u):
+    '''
+    fwdyn(x,u) = forward contact dynamics(q,v,tau) 
+    returns the concatenation of configuration acceleration and contact forces expressed in world
+    coordinates.
+    '''
+    q=x[:nq]
+    v=x[nq:]
+    pin.computeAllTerms(model,data,q,v)
+    pin.forwardKinematics(model,data,q,v,v*0)
+    pin.updateFramePlacements(model,data)
+    M = data.M
+    J = pin.getFrameJacobian(model,data,id_frame,pin.LOCAL_WORLD_ALIGNED)[:3,:]
+    b = data.nle
+    a0 = pin.getFrameClassicalAcceleration(model,data,id_frame,pin.LOCAL_WORLD_ALIGNED).linear
+    K = np.block([ [M,J.T],[J,np.zeros([3,3])] ])
+    k = np.concatenate([ tau-b, -a0 ])
+    af = np.linalg.inv(K)@k
+    return af 
+
+Fx_nd = numdiff(lambda x_:fdynw(robot.model, robot.data, contactFrameId, x_, tau), x0)
+Fx = np.vstack([DAD.Fx, -DAD.df_dx])
+print(Fx)
+print(Fx_nd)
+print(np.isclose(Fx, Fx_nd, RTOL, ATOL))
+# assert(np.linalg.norm(Fx_nd - Fx)<1e-2)
+# assert(np.linalg.norm(Fx_nd[-3:]+cdata.df_dx)<1e-3)
 
 # print("acc = \n", DAD.xout)
 # print("fext = \n", DAD.f)
