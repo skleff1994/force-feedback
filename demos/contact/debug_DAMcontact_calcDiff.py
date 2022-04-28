@@ -3,7 +3,7 @@ Debugging calc and calcDiff of DAMContactFwdDyn
 '''
 
 import numpy as np
-np.set_printoptions(precision=6, linewidth=180, suppress=True)
+np.set_printoptions(precision=3, linewidth=180, suppress=True)
 
 import example_robot_data 
 import pinocchio as pin
@@ -24,7 +24,7 @@ RANDOM_SEED     = 1
 np.random.seed(RANDOM_SEED)
 
 # Test parameters 
-PIN_REFERENCE_FRAME   = pin.WORLD
+PIN_REFERENCE_FRAME         = pin.WORLD     
 ALIGN_LOCAL_WITH_WORLD      = False
 TORQUE_SUCH_THAT_ZERO_FORCE = False
 ZERO_JOINT_VELOCITY         = False
@@ -85,6 +85,7 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
         rdata = data.pinocchio 
         q = x[:self.nv]
         v = x[self.nv:]
+        # oRf = rdata.oMf[self.contactFrameId].rotation
 
         pin.computeAllTerms(self.rmodel, rdata, q, v)
         pin.computeCentroidalMomentum(self.rmodel, rdata)
@@ -98,31 +99,39 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
         data.v = pin.getFrameVelocity(self.rmodel, rdata, self.contactFrameId, pin.LOCAL)
         data.a = pin.getFrameAcceleration(self.rmodel, rdata, self.contactFrameId, pin.LOCAL)
         data.vv = data.v.linear ; data.vw = data.v.angular
-        # data.a0 = pin.getFrameClassicalAcceleration(self.rmodel, rdata, self.contactFrameId, pin.LOCAL).linear
-        data.a0 = data.a.linear + np.cross(data.vw, data.vv)
-        data.Jc = data.fJf[:3,:]
-        data.a0_temp = data.a0.copy()
-        oRf = rdata.oMf[self.contactFrameId].rotation
-        if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
-            data.a0 = oRf @ data.a0_temp
-            data.Jc = oRf @ data.fJf[:3,:] 
-            
+        # if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
+        #     data.a0 = pin.getFrameClassicalAcceleration(self.rmodel, rdata, self.contactFrameId, pin.LOCAL_WORLD_ALIGNED).linear
+        #     data.Jc = oRf @ data.fJf[:3,:] 
+        # else:
+        data.a0 = pin.getFrameClassicalAcceleration(self.rmodel, rdata, self.contactFrameId, pin.LOCAL).linear
+        data.Jc = data.fJf[:3,:] 
+        assert(np.linalg.norm(data.a.linear + np.cross(data.v.angular, data.v.linear) - data.a0) <= 1e-6 )
+        # data.a0 = data.a.linear + np.cross(data.vw, data.vv)
+        # data.Jc = data.fJf[:3,:]
+        
+        # 
+        # if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
+        #     data.a0 = oRf @ data.a0_temp
 
         # Call forward dynamics
         pin.forwardDynamics(self.rmodel, rdata, data.multibody.actuation.tau, data.Jc, data.a0)
-
-        # Record force at joint level (i.e. contactModel3D.updateForce() in C++)
-        if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
-            data.f = self.jMf.act(pin.Force(oRf.T @ rdata.lambda_c, np.zeros(3)))
-        elif(self.ref == pin.LOCAL):
-            data.f = self.jMf.act(pin.Force(rdata.lambda_c, np.zeros(3)))
-        # Fill out forces acting on each joint (i.e. contactModelMultiple.updateForce() in C++)
-        f_WORLD = rdata.oMf[self.contactFrameId].act(self.jMf.actInv(data.f))
-        f_JOINT = rdata.oMi[self.parentJointId].actInv(f_WORLD)
-        data.fext[self.parentJointId] = pin.Force(f_JOINT)
-
+        # print("force lambda_c LOCAL = \n ", rdata.lambda_c)
+        # # Record force at joint level (i.e. contactModel3D.updateForce() in C++)
+        # if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
+        #     data.f = self.jMf.act(pin.Force(oRf.T @ rdata.lambda_c, np.zeros(3)))
+        # elif(self.ref == pin.LOCAL):
+        #     data.f = self.jMf.act(pin.Force(rdata.lambda_c, np.zeros(3)))
+        # # Fill out forces acting on each joint (i.e. contactModelMultiple.updateForce() in C++)
+        # f_WORLD = rdata.oMf[self.contactFrameId].act(self.jMf.actInv(data.f))
+        # f_JOINT = rdata.oMi[self.parentJointId].actInv(f_WORLD)
+        # if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
+        #     data.fext[self.parentJointId] = self.jMf.act(pin.Force(oRf.T @ rdata.lambda_c, np.zeros(3)))
+        # else:
+        data.fext[self.parentJointId] = self.jMf.act(pin.Force(rdata.lambda_c, np.zeros(3)))
+        # print("FEXT (JOINT) = \n", data.fext[self.parentJointId])
         # Record joint acceleration     
         data.xout = rdata.ddq
+        
         return data 
 
     def calcDiff(self, data, x, u):
@@ -135,8 +144,11 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
         v = x[self.nv:]
         oRf = rdata.oMf[self.contactFrameId].rotation
         # Compute RNEA derivatives and KKT inverse
-        pin.computeRNEADerivatives(self.rmodel, rdata, q, v, data.xout, data.fext)
-        Kinv = pin.getKKTContactDynamicMatrixInverse(self.rmodel, rdata, data.Jc)
+        pin.computeRNEADerivatives(self.rmodel, rdata, q, v, data.xout, data.fext) # SAME
+        # print("xout = \n", data.xout)
+        # print("fext = \n", data.fext)
+        # print("Jc = \n", data.Jc)
+        Kinv = pin.getKKTContactDynamicMatrixInverse(self.rmodel, rdata, data.Jc)  # SAME
         
         # Actuation derivatives
         actuation.calcDiff(data.multibody.actuation, x, tau)
@@ -144,23 +156,30 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
         # Hard-coded contact model derivatives 
             # Tested against numdiff in C++     : OK
             # Tested against bindings in Python : OK
-        parendJointId = self.rmodel.frames[self.contactFrameId].parent   
-        v_partial_dq, a_partial_dq, a_partial_dv, a_partial_da = pin.getJointAccelerationDerivatives(self.rmodel, rdata, parendJointId, pin.LOCAL) 
+        # parendJointId = self.rmodel.frames[self.contactFrameId].parent   
+        v_partial_dq, a_partial_dq, a_partial_dv, a_partial_da = pin.getFrameAccelerationDerivatives(self.rmodel, rdata, self.contactFrameId, pin.LOCAL) 
         vv_skew = pin.skew(data.vv)
         vw_skew = pin.skew(data.vw)
-        data.da0_dx[:,:self.nv] = (self.fXj @ a_partial_dq)[:3,:]
-        data.da0_dx[:,:self.nv] += vw_skew @ (self.fXj @ v_partial_dq)[:3,:]
-        data.da0_dx[:,:self.nv] -= vv_skew @ (self.fXj @ v_partial_dq)[3:,:]
-        data.da0_dx[:,self.nv:] = (self.fXj @ a_partial_dv)[:3,:]
+        data.da0_dx[:,:self.nv] = a_partial_dq[:3,:]
+        data.da0_dx[:,:self.nv] += vw_skew @ v_partial_dq[:3,:]
+        data.da0_dx[:,:self.nv] -= vv_skew @ v_partial_dq[3:,:]
+        data.da0_dx[:,self.nv:] = a_partial_dv[:3,:]
         data.da0_dx[:,self.nv:] += vw_skew @ data.fJf[:3,:] 
         data.da0_dx[:,self.nv:] -= vv_skew @ data.fJf[3:,:]
+        # print(data.da0_dx)
             # Add Baumgarte gains to data.da0_dx here if necessary
-        data.da0_dx_temp = data.da0_dx.copy()
-        if(self.ref == pin.LOCAL_WORLD_ALIGNED or self.ref == pin.WORLD):
-            tmp_skew = pin.skew(oRf @ data.a0_temp)
-            data.da0_dx[:,self.nv:] = oRf @ data.da0_dx_temp[:,self.nv:] - tmp_skew @ oRf @ data.fJf[3:,:]
-            data.da0_dx[:,:self.nv] = oRf @ data.da0_dx_temp[:,:self.nv]
+        # data.da0_dx_temp = data.da0_dx.copy()
 
+        # print("da0_dx_temp before (LOCAL) : \n", data.da0_dx_temp)
+
+        # if(self.ref == pin.LOCAL_WORLD_ALIGNED or self.ref == pin.WORLD):
+        #     # tmp_skew = pin.skew(data.a0) 
+        #     Jw = pin.getFrameJacobian(self.rmodel, rdata, self.contactFrameId, pin.LOCAL_WORLD_ALIGNED)[3:,:]
+        #     data.da0_dx[:,self.nv:] = oRf @ data.da0_dx_temp[:,self.nv:] - pin.skew(data.a0) @ Jw #oRf @ data.fJf[3:,:]
+        #     data.da0_dx[:,:self.nv] = oRf @ data.da0_dx_temp[:,:self.nv]
+        # print("DAO_DX = \n", data.da0_dx)
+        # derivatives of drift in WORLD 
+        # but express dam derivative WORLD as a function of dam deriv LOCAL, which is a function of drift deriv LOCAL
         # Fill out DAM partials
         a_partial_dtau = Kinv[:self.nv, :self.nv]
         a_partial_da   = Kinv[:self.nv, -self.nc:]     
@@ -168,18 +187,26 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
         f_partial_da   = Kinv[-self.nc:, -self.nc:]
         data.Fx[:,:self.nv] = -a_partial_dtau @ rdata.dtau_dq
         data.Fx[:,self.nv:] = -a_partial_dtau @ rdata.dtau_dv
-        data.Fx -= a_partial_da @ data.da0_dx[:self.nc]
+        data.Fx -= a_partial_da @ data.da0_dx[:self.nc] 
         data.Fx += a_partial_dtau @ data.multibody.actuation.dtau_dx
         data.Fu = a_partial_dtau @ data.multibody.actuation.dtau_du
 
-        if(self.enable_force):
-            data.df_dx[:self.nc, :self.nv]  = f_partial_dtau @ rdata.dtau_dq
-            data.df_dx[:self.nc, -self.nv:] = f_partial_dtau @ rdata.dtau_dv
-            data.df_dx[:self.nc, :]   += f_partial_da @ data.da0_dx[:self.nc]
-            data.df_dx[:self.nc, :]   -= f_partial_dtau @ data.multibody.actuation.dtau_dx
-            data.df_du[:self.nc, :] = -f_partial_dtau @ data.multibody.actuation.dtau_du
-            # # Update acc and force derivatives
-            # data.ddv_dx = data.Fx[-self.nv:,:]
+        # if(self.enable_force):
+        data.df_dx[:self.nc, :self.nv]  = f_partial_dtau @ rdata.dtau_dq
+        data.df_dx[:self.nc, -self.nv:] = f_partial_dtau @ rdata.dtau_dv
+        data.df_dx[:self.nc, :]   += f_partial_da @ data.da0_dx[:self.nc] 
+        data.df_dx[:self.nc, :]   -= f_partial_dtau @ data.multibody.actuation.dtau_dx
+        data.df_du[:self.nc, :]  = -f_partial_dtau @ data.multibody.actuation.dtau_du
+        
+        # # Rotate force
+        # df_dx_temp = data.df_dx.copy()
+        # print("df_dx before (LOCAL) : \n", df_dx_temp)
+        if(self.ref == pin.WORLD or self.ref == pin.LOCAL_WORLD_ALIGNED):
+            Jw = pin.getFrameJacobian(self.rmodel, rdata, self.contactFrameId, pin.LOCAL_WORLD_ALIGNED)[3:,:]
+            data.df_dx[:self.nc,:] = oRf @ data.df_dx[:self.nc,:]
+            data.df_dx[:self.nc,:nv] -= pin.skew(rdata.lambda_c)@Jw
+        # print("drnea_dq = \n", rdata.dtau_dq)
+        print("world : \n", np.vstack([data.Fx, data.df_dx]))
         return data 
 
     def createData(self):
@@ -193,7 +220,8 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
 # Load robot and setup params
 robot = example_robot_data.load('talos_arm')
 nq = robot.model.nq; nv = robot.model.nv; nu = nq; nx = nq+nv
-q0 = np.random.rand(nq) 
+# q0 = np.random.rand(nq) 
+q0 = np.array([.5,-1,1.5,0,0,-0.5,0])
 if(ZERO_JOINT_VELOCITY): 
     print(bcolors.DEBUG + "Set zero joint velocity" + bcolors.ENDC)
     v0 = np.zeros(nq)  
@@ -275,3 +303,9 @@ if(test_Fx == False):
     print(testcolormap[test_Fq] + "           -- Fq : " + str(test_Fq) + bcolors.ENDC)
     test_Fv = np.allclose(DAD.Fx[:,nq:], DAD_ND.Fx[:,nq:], RTOL, ATOL)
     print(testcolormap[test_Fv] + "           -- Fv : " + str(test_Fv) + bcolors.ENDC)
+
+
+# print("acc = \n", DAD.xout)
+# print("fext = \n", DAD.f)
+# print("d(acc) = \n", DAD.Fx)
+# print("d(force) = \n", DAD.df_dx)
