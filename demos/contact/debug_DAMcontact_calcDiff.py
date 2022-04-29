@@ -1,5 +1,7 @@
 '''
 Debugging calc and calcDiff of DAMContactFwdDyn
+# Solution 1 : express everything in LOCAL At the contact level
+# Tranform into WORLD frame at the DAM level
 '''
 
 import numpy as np
@@ -29,6 +31,7 @@ ALIGN_LOCAL_WITH_WORLD      = False
 TORQUE_SUCH_THAT_ZERO_FORCE = False
 ZERO_JOINT_VELOCITY         = False
 
+print(bcolors.DEBUG + "Reference frame = " + str(PIN_REFERENCE_FRAME) + bcolors.ENDC)
 
 # Custom DAD with one 3D contact
 class DADContact3D(crocoddyl.DifferentialActionDataContactFwdDynamics):
@@ -170,7 +173,7 @@ class DAMContact3D(crocoddyl.DifferentialActionModelContactFwdDynamics):
             data.df_dx[:self.nc,:] = oRf @ data.df_dx[:self.nc,:]
             data.df_dx[:self.nc,:nv] -= pin.skew(oRf @ rdata.lambda_c)@Jw
 
-        print("world : \n", np.vstack([data.Fx, data.df_dx]))
+        # print("world : \n", np.vstack([data.Fx, data.df_dx]))
         return data 
 
     def createData(self):
@@ -243,7 +246,6 @@ DAD_ND = DAM_ND.createData()
 DAM_ND.disturbance = ND_DISTURBANCE
 testcolormap = {False: bcolors.ERROR , True: bcolors.DEBUG}
 
-print("\n")
 
 # TEST CALC
 DAM.calc(DAD, x0, tau)
@@ -268,7 +270,7 @@ if(test_Fx == False):
     test_Fv = np.allclose(DAD.Fx[:,nq:], DAD_ND.Fx[:,nq:], RTOL, ATOL)
     print(testcolormap[test_Fv] + "           -- Fv : " + str(test_Fv) + bcolors.ENDC)
 
-
+# Test against numerical differences 
 def numdiff(f,x0,h=1e-6):
     f0 = f(x0).copy()
     x = x0.copy()
@@ -280,7 +282,7 @@ def numdiff(f,x0,h=1e-6):
     return np.array(Fx).T
 
 # Forward dynamics rewritten with forces in world coordinates.
-def fdynw(model, data, id_frame, x,u):
+def fdynw(model, data, id_frame, x,u, ref):
     '''
     fwdyn(x,u) = forward contact dynamics(q,v,tau) 
     returns the concatenation of configuration acceleration and contact forces expressed in world
@@ -292,23 +294,21 @@ def fdynw(model, data, id_frame, x,u):
     pin.forwardKinematics(model,data,q,v,v*0)
     pin.updateFramePlacements(model,data)
     M = data.M
-    J = pin.getFrameJacobian(model,data,id_frame,pin.LOCAL_WORLD_ALIGNED)[:3,:]
+    if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
+        J = pin.getFrameJacobian(model,data,id_frame,pin.LOCAL_WORLD_ALIGNED)[:3,:]
+        a0 = pin.getFrameClassicalAcceleration(model,data,id_frame,pin.LOCAL_WORLD_ALIGNED).linear
+    else:
+        J = pin.getFrameJacobian(model, data, id_frame, pin.LOCAL)[:3,:]
+        a0 = pin.getFrameClassicalAcceleration(model,data,id_frame,pin.LOCAL).linear
     b = data.nle
-    a0 = pin.getFrameClassicalAcceleration(model,data,id_frame,pin.LOCAL_WORLD_ALIGNED).linear
     K = np.block([ [M,J.T],[J,np.zeros([3,3])] ])
     k = np.concatenate([ tau-b, -a0 ])
     af = np.linalg.inv(K)@k
     return af 
 
-Fx_nd = numdiff(lambda x_:fdynw(robot.model, robot.data, contactFrameId, x_, tau), x0)
+Fx_nd = numdiff(lambda x_:fdynw(robot.model, robot.data, contactFrameId, x_, tau, PIN_REFERENCE_FRAME), x0)
 Fx = np.vstack([DAD.Fx, -DAD.df_dx])
-print(Fx)
-print(Fx_nd)
-print(np.isclose(Fx, Fx_nd, RTOL, ATOL))
-# assert(np.linalg.norm(Fx_nd - Fx)<1e-2)
-# assert(np.linalg.norm(Fx_nd[-3:]+cdata.df_dx)<1e-3)
-
-# print("acc = \n", DAD.xout)
-# print("fext = \n", DAD.f)
-# print("d(acc) = \n", DAD.Fx)
-# print("d(force) = \n", DAD.df_dx)
+print(Fx_nd[-3:])
+print(Fx[-3:])
+test_Fxdfdx = np.allclose(Fx, Fx_nd, RTOL, ATOL)
+print(testcolormap[test_Fxdfdx] + "   -- Test Fx and df_dx numdiff : " + str(test_Fxdfdx) + bcolors.ENDC)
