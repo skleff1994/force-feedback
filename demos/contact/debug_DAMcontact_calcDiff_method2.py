@@ -7,7 +7,6 @@ Debugging calc and calcDiff of DAMContactFwdDyn
 '''
 
 
-from unicodedata import name
 import numpy as np
 np.set_printoptions(precision=3, linewidth=180, suppress=True)
 
@@ -141,6 +140,7 @@ pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
 pin.computeForwardKinematicsDerivatives(model, data, q0, v0, np.zeros(nq))
 pin.computeJointJacobians(model, data, q0)
 pin.updateFramePlacements(model, data)
+pin.computeForwardKinematicsDerivatives(model, data, q0, v0, np.zeros(nq)) 
 pin.computeRNEADerivatives(model, data, q0, v0, np.zeros(nq)) 
 da0_dx_ND_1 = numdiff(lambda x_:contactCalc1(model, data, contactFrameId, x_, np.zeros(nq)), x0)
 da0_dx_1 = contactCalcDiff1(model, data, contactFrameId, x0)
@@ -168,6 +168,7 @@ pin.forwardDynamics(model, data, tau, fJf[:3,:], a0)
 fext = [pin.Force.Zero() for _ in range(model.njoints)]
 fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(data.lambda_c, np.zeros(3)))
     # Get derivatives
+pin.computeForwardKinematicsDerivatives(model, data, q0, v0, data.ddq) 
 pin.computeRNEADerivatives(model,data, q0, v0, data.ddq, fext)
     # Check constraint acc = 0
 assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear) <= 1e-6 )
@@ -263,6 +264,7 @@ pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
 pin.computeForwardKinematicsDerivatives(model, data, q0, v0, np.zeros(nq))
 pin.computeJointJacobians(model, data, q0)
 pin.updateFramePlacements(model, data)
+pin.computeForwardKinematicsDerivatives(model, data, q0, v0, np.zeros(nq)) 
 pin.computeRNEADerivatives(model, data, q0, v0, np.zeros(nq)) 
 da0_dx_ND_2 = numdiff(lambda x_:contactCalc2(model, data, contactFrameId, x_, np.zeros(nq), PIN_REFERENCE_FRAME), x0)
 da0_dx_2    = contactCalcDiff2(model, data, contactFrameId, x0, PIN_REFERENCE_FRAME)
@@ -340,6 +342,7 @@ pin.forwardDynamics(model, data, tau, fJf[:3,:], a0)
 fext = [pin.Force.Zero() for _ in range(model.njoints)]
 fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(data.lambda_c, np.zeros(3)))
     # Get derivatives
+pin.computeForwardKinematicsDerivatives(model, data, q0, v0, data.ddq) 
 pin.computeRNEADerivatives(model,data, q0, v0, data.ddq, fext)
     # Check constraint acc = 0
 assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear) <= 1e-6 )
@@ -364,32 +367,113 @@ print(testcolormap[test_da0_dx_2crossed] + "   -- Test da0_dx crossed (2 and 2bi
 
 
 
+# Forward dynamics
 
 
-# # Forward dynamics rewritten with forces in world coordinates.
-# def fdyn(model, data, id_frame, x, tau, ref):
-#     '''
-#     fwdyn(x,u) = forward contact dynamics(q,v,tau) 
-#     returns the concatenation of configuration acceleration and contact forces expressed in world
-#     coordinates.
-#     '''
-#     q=x[:nq]
-#     v=x[nq:]
-#     pin.computeAllTerms(model,data,q,v)
-#     pin.forwardKinematics(model,data,q,v,v*0)
-#     pin.updateFramePlacements(model,data)
-#     M = data.M
-#     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-#         J = pin.getFrameJacobian(model,data,id_frame,pin.LOCAL_WORLD_ALIGNED)[:3,:]
-#         a0 = pin.getFrameClassicalAcceleration(model,data,id_frame,pin.LOCAL_WORLD_ALIGNED).linear
-#     else:
-#         J = pin.getFrameJacobian(model, data, id_frame, pin.LOCAL)[:3,:]
-#         a0 = pin.getFrameClassicalAcceleration(model,data,id_frame,pin.LOCAL).linear
-#     b = data.nle
-#     K = np.block([ [M,J.T],[J,np.zeros([3,3])] ])
-#     k = np.concatenate([ tau-b, -a0 ])
-#     af = np.linalg.inv(K)@k
-#     return af 
+# Forward dynamics rewritten with forces in world coordinates.
+def fdyn(model, data, frameId, x, tau, ref):
+    '''
+    fwdyn(x,u) = forward contact dynamics(q,v,tau) 
+    returns the concatenation of configuration acceleration and contact forces expressed in world
+    coordinates.
+    '''
+    q=x[:nq]
+    v=x[nq:]
+    pin.computeAllTerms(model,data,q,v)
+    pin.forwardKinematics(model,data,q,v,v*0)
+    pin.updateFramePlacements(model,data)
+    M = data.M
+    if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
+        J = pin.getFrameJacobian(model,data,frameId,pin.LOCAL_WORLD_ALIGNED)[:3,:]
+        a0 = pin.getFrameClassicalAcceleration(model,data,frameId,pin.LOCAL_WORLD_ALIGNED).linear
+    else:
+        J = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[:3,:]
+        a0 = pin.getFrameClassicalAcceleration(model,data,frameId,pin.LOCAL).linear
+    b = data.nle
+    K = np.block([ [M,J.T],[J,np.zeros([3,3])] ])
+    k = np.concatenate([ tau-b, -a0 ])
+    af = np.linalg.inv(K)@k
+    return af 
+
+
+def fdyn_diff1(self, data, frameId, x, a, fext, tau, ref):
+    '''
+    computes partial derivatives of joint acc (and force)
+        using hard-coded contact model 3D calcDiff()
+    '''
+    q = x[:nv]
+    v = x[nv:]
+    Fx = np.zeros((nq,nx))
+    df_dx = np.zeros((3,nx))
+    # Compute RNEA derivatives and KKT inverse
+    pin.computeRNEADerivatives(model, data, q, v, a, fext) # SAME
+    if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
+        J = pin.getFrameJacobian(model,data,frameId,pin.LOCAL_WORLD_ALIGNED)[:3,:]
+    else:
+        J = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[:3,:]   
+    Kinv = pin.getKKTContactDynamicMatrixInverse(model, data, J)  # SAME
+    # Contact derivatives
+    da0_dx = contactCalcDiff1(model, data, frameId, x)
+    # Fillout partials of DAM 
+    a_partial_dtau = Kinv[:nv, :nv]
+    a_partial_da   = Kinv[:nv, -nc:]     
+    f_partial_dtau = Kinv[-nc:, :nv]
+    f_partial_da   = Kinv[-nc:, -nc:]
+    Fx[:,:nv] = -a_partial_dtau @ data.dtau_dq
+    Fx[:,nv:] = -a_partial_dtau @ data.dtau_dv
+    Fx -= a_partial_da @ da0_dx[:nc] 
+    Fx += a_partial_dtau @ np.zeros((nq,nx))
+    # Fu = a_partial_dtau @ np.eye(nq)
+
+    # enable_force
+    df_dx[:nc, :nv]  = -f_partial_dtau @ data.dtau_dq
+    df_dx[:nc, -nv:] = -f_partial_dtau @ data.dtau_dv
+    df_dx[:nc, :]   += -f_partial_da @ da0_dx[:nc] 
+    df_dx[:nc, :]   -= -f_partial_dtau @ np.zeros((nq,nx))
+    # df_du[:nc, :]  = -f_partial_dtau @ np.eye(nq)
+    
+    # # if world, transform force and derivatives here
+    if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
+        R = data.oMf[frameId].rotation
+        Jw = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)[3:,:]
+        df_dx[:nc,:] = R @ df_dx[:nc,:]
+        df_dx[:nc,:nv] -= pin.skew(R @ data.lambda_c)@Jw
+
+    # print("world : \n", np.vstack([data.Fx, data.df_dx]))
+    return np.vstack([Fx, df_dx])
+
+
+
+# If we want to get the same results as in dam2.py, need to compute joint acc and force with forwardDynamics(Jc,a0)
+# and then update RNEA derivatives using joint acc, f_ext . It should be ckecked that in this case the classical acc is 0 
+# since the constraint is resolved 
+frameId = contactFrameId
+model = robot.model
+data = robot.model.createData()
+pin.computeAllTerms(model, data, q0, v0)
+# Compute forward dynamics with drift obtained from contact model 
+    # Drift 
+a0 = contactCalc1(model, data, frameId, x0, np.zeros(nq))
+fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
+pin.forwardDynamics(model, data, tau, fJf[:3,:], a0)
+    # get force at joint level
+fext = [pin.Force.Zero() for _ in range(model.njoints)]
+fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(data.lambda_c, np.zeros(3)))
+    # Get derivatives
+pin.computeForwardKinematicsDerivatives(model, data, q0, v0, data.ddq) 
+pin.computeRNEADerivatives(model,data, q0, v0, data.ddq, fext)
+    # Check constraint acc = 0
+assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear) <= 1e-6 )
+# daf_dx_ND = numdiff(lambda x_:fdyn(model, data, frameId, x_, tau, PIN_REFERENCE_FRAME), x0)
+daf_dx_ND = numdiff(lambda x_:fdyn1(model, data, frameId, x_, data.ddq, tau, PIN_REFERENCE_FRAME), x0)
+daf_dx    = fdyn_diff1(model, data, frameId, x0, data.ddq, fext, tau, PIN_REFERENCE_FRAME)
+test_daf_dx    = np.allclose(daf_dx_ND, daf_dx, RTOL, ATOL)
+print(testcolormap[test_daf_dx] + "   -- Test daf_dx (using calc1) : " + str(test_daf_dx) + bcolors.ENDC)
+# print(np.linalg.norm(daf_dx_ND, daf_dx, RTOL, ATOL))
+print(daf_dx_ND[-3:])
+print(daf_dx[-3:])
+
+
 
 # # TEST CALC
 # DAM.calc(DAD, x0, tau)
