@@ -83,10 +83,12 @@ else:
     tau = np.random.rand(nq)
 print("x0  = "+str(x0))
 print("tau = "+str(tau))
-print("Contact frame placement oRf : \n"+str(robot.data.oMf[contactFrameId]))
+# print("Contact frame placement oRf : \n"+str(robot.data.oMf[contactFrameId]))
 
 nc = 3
 
+CT_REF = np.zeros(3)
+GAINS  = [1., 5.]
 
 
 # Numerical difference function
@@ -112,6 +114,12 @@ def contactCalc1(model, data, frameId, x, a):
     a = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL)
     a0 = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear
     assert(np.linalg.norm(a.linear + np.cross(v.angular, v.linear) - a0) <= 1e-6 )
+    # Baumgarte term
+    if(GAINS[0] != 0.):
+        R = data.oMf[frameId].rotation
+        a0 += GAINS[0] * R.T @ (data.oMf[frameId].translation - CT_REF)
+    if(GAINS[1] != 0.):
+        a0 += GAINS[1] * v.linear
     return a0
 
 # METHOD 1 : CONTACT LOCAL 
@@ -129,6 +137,13 @@ def contactCalcDiff1(model, data, frameId, x):
     da0_dx[:,nv:] = a_partial_dv[:3,:]
     da0_dx[:,nv:] += pin.skew(vw) @ fJf[:3,:] 
     da0_dx[:,nv:] -= pin.skew(vv) @ fJf[3:,:]
+    if (GAINS[0] != 0.):
+        R = data.oMf[frameId].rotation
+        tmp_skew = pin.skew( R.T @ (data.oMf[frameId].translation - CT_REF) )
+        da0_dx[:,:nv] += GAINS[0] * ( tmp_skew @ fJf[3:,:] + fJf[:3,:] )
+    if (GAINS[1] != 0.):
+        da0_dx[:,:nv] += GAINS[1] * v_partial_dq[:3,:]
+        da0_dx[:,nv:] += GAINS[1] * fJf[:3,:]
     return da0_dx
 
 # Checking calc and calcDiff with zero acceleration (no forces)
@@ -171,7 +186,7 @@ fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.For
 pin.computeForwardKinematicsDerivatives(model, data, q0, v0, data.ddq) 
 pin.computeRNEADerivatives(model,data, q0, v0, data.ddq, fext)
     # Check constraint acc = 0
-assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear) <= 1e-6 )
+# assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear) <= 1e-6 )
 # Check numdiff
 da0_dx_ND_1 = numdiff(lambda x_:contactCalc1(model, data, contactFrameId, x_, data.ddq), x0)
 da0_dx_1 = contactCalcDiff1(model, data, contactFrameId, x0)
@@ -180,186 +195,6 @@ print(testcolormap[test_da0_dx_1] + "   -- Test da0_dx numdiff (1) with constrai
 # if(not test_da0_dx_1):
 #     print("analytic = \n", da0_dx_1)
 #     print("numdiff \n", da0_dx_ND_1)
-
-
-
-# contact calc : acceleration drift + Jacobian
-def contactCalc2(model, data, frameId, x, a, ref):
-    '''
-    approach 1 : everything in REF
-    '''
-    pin.computeAllTerms(model, data, x[:nq], x[nq:])
-    pin.forwardKinematics(model, data, x[:nq], x[nq:], a)
-    pin.updateFramePlacement(model, data, frameId)
-    if(ref == pin.LOCAL):
-        v = pin.getFrameVelocity(model, data, frameId, pin.LOCAL)
-        a = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL)
-        a0 = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear
-    if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-        v = pin.getFrameVelocity(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-        a = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-        a0 = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED).linear
-    assert(np.linalg.norm(a.linear + np.cross(v.angular, v.linear) - a0) <= 1e-6 )
-    return a0
-
-# Contact calcDiff : acceleration derivatives
-def contactCalcDiff2(model, data, frameId, x, ref):
-    if(ref == pin.LOCAL):
-        fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
-        a = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL)
-        v_partial_dq, a_partial_dq, a_partial_dv, a_partial_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL) 
-        v = pin.getFrameVelocity(model, data, frameId, pin.LOCAL)
-    if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-        fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-        a = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-        v_partial_dq, a_partial_dq, a_partial_dv, a_partial_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
-        v = pin.getFrameVelocity(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-    vv = v.linear ; vw = v.angular
-    da0_dx = np.zeros((nc,nx))
-    assert(np.linalg.norm(a_partial_da - fJf) <= 1e-6 )
-    assert(np.linalg.norm(da0_dx) <= 1e-6 )
-    da0_dx[:,:nv] = a_partial_dq[:3,:]
-    da0_dx[:,:nv] += pin.skew(vw) @ v_partial_dq[:3,:]
-    da0_dx[:,:nv] -= pin.skew(vv) @ v_partial_dq[3:,:]
-    da0_dx[:,nv:] = a_partial_dv[:3,:]
-    da0_dx[:,nv:] += pin.skew(vw) @ fJf[:3,:] 
-    da0_dx[:,nv:] -= pin.skew(vv) @ fJf[3:,:]
-    # assert
-    return da0_dx
-
-# Contact calcDiff : acceleration derivatives
-def contactCalcDiff2Bis(model, data, frameId, x, ref):
-    fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
-    v_partial_dq, a_partial_dq, a_partial_dv, a_partial_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL) 
-    v = pin.getFrameVelocity(model, data, frameId, pin.LOCAL)
-    vv = v.linear ; vw = v.angular
-    da0_dx = np.zeros((nc,nx))
-    assert(np.linalg.norm(a_partial_da - fJf) <= 1e-6 )
-    assert(np.linalg.norm(da0_dx) <= 1e-6 )
-    da0_dx[:,:nv] = a_partial_dq[:3,:]
-    da0_dx[:,:nv] += pin.skew(vw) @ v_partial_dq[:3,:]
-    da0_dx[:,:nv] -= pin.skew(vv) @ v_partial_dq[3:,:]
-    da0_dx[:,nv:] = a_partial_dv[:3,:]
-    da0_dx[:,nv:] += pin.skew(vw) @ fJf[:3,:] 
-    da0_dx[:,nv:] -= pin.skew(vv) @ fJf[3:,:]
-    if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-        da0_dx_temp = da0_dx.copy()
-        R = data.oMf[frameId].rotation
-        da0_dx = R @ da0_dx_temp
-        a0 = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED).linear
-        Jw = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)[3:,:]
-        # print("skew term = ", pin.skew(a0)@Jw)  0 if constraint is satisfied since a=0
-        da0_dx[:,:nq] -= pin.skew(a0)@Jw
-    return da0_dx
-
-
-print("\n")
-
-# Checking calc and calcDiff with zero acceleration (no forces)
-frameId = contactFrameId
-model = robot.model
-data = robot.model.createData()
-pin.computeAllTerms(model, data, q0, v0)
-pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
-pin.computeForwardKinematicsDerivatives(model, data, q0, v0, np.zeros(nq))
-pin.computeJointJacobians(model, data, q0)
-pin.updateFramePlacements(model, data)
-pin.computeForwardKinematicsDerivatives(model, data, q0, v0, np.zeros(nq)) 
-pin.computeRNEADerivatives(model, data, q0, v0, np.zeros(nq)) 
-da0_dx_ND_2 = numdiff(lambda x_:contactCalc2(model, data, contactFrameId, x_, np.zeros(nq), PIN_REFERENCE_FRAME), x0)
-da0_dx_2    = contactCalcDiff2(model, data, contactFrameId, x0, PIN_REFERENCE_FRAME)
-da0_dx_2bis = contactCalcDiff2Bis(model, data, contactFrameId, x0, PIN_REFERENCE_FRAME)
-test_da0_dx_2    = np.allclose(da0_dx_2, da0_dx_ND_2, RTOL, ATOL)
-test_da0_dx_2bis = np.allclose(da0_dx_2bis, da0_dx_ND_2, RTOL, ATOL)
-# test_da0_dx_2crossed = np.allclose(da0_dx_2, da0_dx_2bis, RTOL, ATOL)
-print(testcolormap[test_da0_dx_2] + "   -- Test da0_dx numdiff (2) drift : " + str(test_da0_dx_2) + bcolors.ENDC)
-# if(not test_da0_dx_2):
-#     print("analytic 2 = \n", da0_dx_2)
-#     print("numdiff \n", da0_dx_ND_2)
-print(testcolormap[test_da0_dx_2bis] + "   -- Test da0_dx numdiff (2bis) drift: " + str(test_da0_dx_2bis) + bcolors.ENDC)
-# if(not test_da0_dx_2bis):
-#     print("analytic 2bis = \n", da0_dx_2bis)
-#     print("numdiff \n", da0_dx_ND_2)
-# print(testcolormap[test_da0_dx_2crossed] + "   -- Test da0_dx crossed (2 and 2bis) drift: " + str(test_da0_dx_2crossed) + bcolors.ENDC)
-
-
-print("\n")
-
-# Contact calcDiff : acceleration derivatives
-def a_partial_dx(model, data, frameId, x, ref):
-    if(ref == pin.LOCAL):
-        _, a_partial_dq, a_partial_dv, _ = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL)
-    if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-        _, a_partial_dq, a_partial_dv, _ = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
-    a_partial_dx = np.hstack([ a_partial_dq, a_partial_dv ])
-    return a_partial_dx
-
-def linear_acc(model, data, frameId, x, a, ref):
-    pin.forwardKinematics(model,data,x[:nq],x[nq:nq+nv],a)
-    pin.updateFramePlacements(model,data)
-    if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-        a = pin.getFrameAcceleration(model,data,frameId,pin.LOCAL_WORLD_ALIGNED).linear
-    else:
-        a = pin.getFrameAcceleration(model,data,frameId,pin.LOCAL).linear
-    return a
-
-def classical_acc(model, data, frameId, x, a, ref):
-    pin.forwardKinematics(model,data,x[:nq],x[nq:nq+nv],a)
-    pin.updateFramePlacements(model,data)
-    if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-        a = pin.getFrameClassicalAcceleration(model,data,frameId,pin.LOCAL_WORLD_ALIGNED).linear
-    else:
-        a = pin.getFrameClassicalAcceleration(model,data,frameId,pin.LOCAL).linear
-    return a
-
-# Check that a_partial_dx matches the derivative of the acceleration 
-# not the case in LWA, but OK in LOCAL --> see inside pinocchio : could explain why contactCalcDiff2 fails in LWA !
-# fix is to use contactCalcDiff2bis, which uses LOCAL computations to derive LWA quantities (ugly but it works) 
-linear_acc_ND = numdiff(lambda x_:linear_acc(model, data, frameId, x_, data.ddq, PIN_REFERENCE_FRAME), x0)
-a_partial_dx  = a_partial_dx(model, data, frameId, x0, PIN_REFERENCE_FRAME)[:3,:]
-test_partial_dx    = np.allclose(linear_acc_ND, a_partial_dx, RTOL, ATOL)
-print(testcolormap[test_partial_dx] + "   -- Test frame_acc_partial_dx = ND(frame_acc) : " + str(test_partial_dx) + bcolors.ENDC)
-# print("analytic : \n", a_partial_dx)
-# print("numdiff = \n", linear_acc_ND)
-
-
-print("\n")
-
-# If we want to get the same results as in dam2.py, need to compute joint acc and force with forwardDynamics(Jc,a0)
-# and then update RNEA derivatives using joint acc, f_ext . It should be ckecked that in this case the classical acc is 0 
-# since the constraint is resolved 
-frameId = contactFrameId
-model = robot.model
-data = robot.model.createData()
-pin.computeAllTerms(model, data, q0, v0)
-# Compute forward dynamics with drift obtained from contact model 
-    # Drift 
-a0 = contactCalc1(model, data, frameId, x0, np.zeros(nq))
-fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
-pin.forwardDynamics(model, data, tau, fJf[:3,:], a0)
-    # get force at joint level
-fext = [pin.Force.Zero() for _ in range(model.njoints)]
-fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(data.lambda_c, np.zeros(3)))
-    # Get derivatives
-pin.computeForwardKinematicsDerivatives(model, data, q0, v0, data.ddq) 
-pin.computeRNEADerivatives(model,data, q0, v0, data.ddq, fext)
-    # Check constraint acc = 0
-assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear) <= 1e-6 )
-da0_dx_ND_2 = numdiff(lambda x_:contactCalc2(model, data, contactFrameId, x_, data.ddq, PIN_REFERENCE_FRAME), x0)
-da0_dx_2    = contactCalcDiff2(model, data, contactFrameId, x0, PIN_REFERENCE_FRAME)
-da0_dx_2bis = contactCalcDiff2Bis(model, data, contactFrameId, x0, PIN_REFERENCE_FRAME)
-test_da0_dx_2    = np.allclose(da0_dx_2, da0_dx_ND_2, RTOL, ATOL)
-test_da0_dx_2bis = np.allclose(da0_dx_2bis, da0_dx_ND_2, RTOL, ATOL)
-# test_da0_dx_2crossed = np.allclose(da0_dx_2, da0_dx_2bis, RTOL, ATOL)
-print(testcolormap[test_da0_dx_2] + "   -- Test da0_dx numdiff (2) with constraint: " + str(test_da0_dx_2) + bcolors.ENDC)
-# if(not test_da0_dx_2):
-#     print("analytic 2 = \n", da0_dx_2)
-#     print("numdiff \n", da0_dx_ND_2)
-print(testcolormap[test_da0_dx_2bis] + "   -- Test da0_dx numdiff (2bis) constraint : " + str(test_da0_dx_2bis) + bcolors.ENDC)
-# if(not test_da0_dx_2bis):
-#     print("analytic 2bis = \n", da0_dx_2bis)
-#     print("numdiff \n", da0_dx_ND_2)
-# print(testcolormap[test_da0_dx_2crossed] + "   -- Test da0_dx crossed (2 and 2bis) constraint : " + str(test_da0_dx_2crossed) + bcolors.ENDC)
 
 
 

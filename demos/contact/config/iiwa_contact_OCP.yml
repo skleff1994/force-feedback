@@ -19,7 +19,7 @@ contacts:
       contactModelType: '3D',                        # 1Dx, 1Dy, 1Dz, 3D, 6D
       contactModelTranslationRef: '',               # 3d vector
       contactModelRotationRef: '',                  # 3d matrix
-      contactModelGains: [2, 10],                   # Baumgarte stabilization gains
+      contactModelGains: [10, 5],                   # Baumgarte stabilization gains
       # contactModelGains: [5, 1],                  # Baumgarte stabilization gains
       active: True                                  # Initially active? 
     }
