@@ -457,16 +457,16 @@ ldnu_dx = np.hstack([ ldnu_dq,lda_da ])
 lda0_dx = lda_dx[:3,:] - pin.skew(lnu.linear)@ldnu_dx[3:,:] + pin.skew(lnu.angular)@ldnu_dx[:3,:]
 # print("local = \n",lda0_dx)
 
-wda_dx = np.hstack([ wda_dq,wda_dv ])
-wdnu_dx = np.hstack([ wdnu_dq,wda_da ])
+# wda_dx = np.hstack([ wda_dq,wda_dv ])
+# wdnu_dx = np.hstack([ wdnu_dq,wda_da ])
 # wda0_dx = wda_dx[:3,:] - pin.skew(wnu.linear)@wdnu_dx[3:,:] + pin.skew(wnu.angular)@wdnu_dx[:3,:]
 # print("world 1 = \n",wda0_dx)
 wda0_dx = R @ lda0_dx
-# print("nd world = \n", NDwacc)
+print("nd world = \n", NDwacc)
 # Jw = pin.getFrameJacobian(model,data,cid,pin.LOCAL_WORLD_ALIGNED)[3:,:]
-# wda0_dx[:,:nv] = R @ lda0_dx[:,:nv] - pin.skew(R@la0) @ Jw 
-# wda0_dx[:,nv:] = R @ lda0_dx[:,nv:] 
-# print("world 2 = \n",wda0_dx)
+# wda0_dx[:,:nv] -= pin.skew(R@la0) @ Jw 
+# print(pin.getFrameClassicalAcceleration(model, data, cid, pin.LOCAL_WORLD_ALIGNED))
+print("world 2 = \n",wda0_dx)
 
 # Assert fdyn derivatives are the same as crocoddy
 # print("drnea_dx = \n", drnea_dx)
@@ -488,6 +488,7 @@ wdaf_dx[-3:, :nv] -= pin.skew(R @ laf[-3:])@Jw
 wNDaf_dx = numdiff( lambda _x: fdynw(_x,tau),x)
 print("computed \n", wdaf_dx)
 print("numdiff \n", wNDaf_dx)
+# print(wda0_dx)
 assert(norm(wNDaf_dx- wdaf_dx)<1e-3)
 
 ### not working ... WHY!

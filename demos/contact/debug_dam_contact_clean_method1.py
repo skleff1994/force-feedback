@@ -88,7 +88,7 @@ print("tau = "+str(tau))
 nc = 3
 
 CT_REF = np.zeros(3)
-GAINS  = [1., 5.]
+GAINS  = [0., 0.]
 
 
 # Numerical difference function
@@ -193,8 +193,8 @@ da0_dx_1 = contactCalcDiff1(model, data, contactFrameId, x0)
 test_da0_dx_1 = np.allclose(da0_dx_1, da0_dx_ND_1, RTOL, ATOL)
 print(testcolormap[test_da0_dx_1] + "   -- Test da0_dx numdiff (1) with constraint: " + str(test_da0_dx_1) + bcolors.ENDC)
 # if(not test_da0_dx_1):
-#     print("analytic = \n", da0_dx_1)
-#     print("numdiff \n", da0_dx_ND_1)
+    # print("analytic = \n", da0_dx_1)
+    # print("numdiff \n", da0_dx_ND_1)
 
 
 
@@ -261,6 +261,7 @@ def fdyn_diff1(model, data, frameId, x, tau, ref):
     fext = [pin.Force.Zero() for _ in range(model.njoints)]
     fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(data.lambda_c, np.zeros(3)))
     pin.computeRNEADerivatives(model, data, q, v, data.ddq, fext) 
+    # print("drnea_dx = \n", np.hstack([data.dtau_dq, data.dtau_dv]))
     J = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[:3,:]   
     Kinv = pin.getKKTContactDynamicMatrixInverse(model, data, J)  
     # Contact derivatives 
