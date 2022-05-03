@@ -283,61 +283,74 @@ print(testcolormap[test_da0_dx_2bis] + "   -- Test da0_dx ND : " + str(test_da0_
 # print(testcolormap[test_da0_dx_2crossed] + "   -- Test da0_dx crossed (2 and 2bis) drift: " + str(test_da0_dx_2crossed) + bcolors.ENDC)
 
 
-# print("\n")
+print("\n")
 
-# # Contact calcDiff : acceleration derivatives
-# def a_partial_dx(model, data, frameId, x, ref):
-#     if(ref == pin.LOCAL):
-#         _, a_partial_dq, a_partial_dv, _ = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL)
-#     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-#         _, a_partial_dq, a_partial_dv, _ = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
-#     a_partial_dx = np.hstack([ a_partial_dq, a_partial_dv ])
-#     return a_partial_dx
+# Contact calcDiff : acceleration derivatives
+'''
+Checking formula : 
+    ref_{ d(alpha) / dx } =  FD[ ref_alpha / dx ]
 
-# def linear_acc(model, data, frameId, x, a, ref):
-#     pin.forwardKinematics(model,data,x[:nq],x[nq:nq+nv],a)
-#     pin.updateFramePlacements(model,data)
-#     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-#         a = pin.getFrameAcceleration(model,data,frameId,pin.LOCAL_WORLD_ALIGNED).linear
-#     else:
-#         a = pin.getFrameAcceleration(model,data,frameId,pin.LOCAL).linear
-#     return a
+with LHS       := getFrameAccelerationDerivatives(ref)
+     ref_alpha := getFrameAcceleration(ref)
 
-# def classical_acc(model, data, frameId, x, a, ref):
-#     pin.forwardKinematics(model,data,x[:nq],x[nq:nq+nv],a)
-#     pin.updateFramePlacements(model,data)
-#     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-#         a = pin.getFrameClassicalAcceleration(model,data,frameId,pin.LOCAL_WORLD_ALIGNED).linear
-#     else:
-#         a = pin.getFrameClassicalAcceleration(model,data,frameId,pin.LOCAL).linear
-#     return a
+OK for ref=LOCAL and ref=WORLD but NOT for ref=LWA
+'''
+def a_partial_dx(model, data, frameId, x, ref):
+    _, a_partial_dq, a_partial_dv, _ = pin.getFrameAccelerationDerivatives(model, data, frameId, ref)
+    a_partial_dx = np.hstack([ a_partial_dq, a_partial_dv ])
+    return a_partial_dx
 
-# # Check that a_partial_dx matches the derivative of the acceleration 
-# # not the case in LWA, but OK in LOCAL --> see inside pinocchio : could explain why contactCalcDiff2 fails in LWA !
-# # fix is to use contactCalcDiff2bis, which uses LOCAL computations to derive LWA quantities (ugly but it works) 
-# linear_acc_ND = numdiff(lambda x_:linear_acc(model, data, frameId, x_, data.ddq, PIN_REFERENCE_FRAME), x0)
-# a_partial_dx  = a_partial_dx(model, data, frameId, x0, PIN_REFERENCE_FRAME)[:3,:]
-# test_partial_dx    = np.allclose(linear_acc_ND, a_partial_dx, RTOL, ATOL)
-# print(testcolormap[test_partial_dx] + "   -- Test frame_acc_partial_dx = ND(frame_acc) : " + str(test_partial_dx) + bcolors.ENDC)
-# # print("analytic : \n", a_partial_dx)
-# # print("numdiff = \n", linear_acc_ND)
+def linear_acc(model, data, frameId, x, a, ref):
+    pin.forwardKinematics(model,data,x[:nq],x[nq:nq+nv],a)
+    pin.updateFramePlacements(model,data)
+    a = pin.getFrameAcceleration(model,data,frameId,ref).vector
+    return a
 
+def classical_acc(model, data, frameId, x, a, ref):
+    pin.forwardKinematics(model,data,x[:nq],x[nq:nq+nv],a)
+    pin.updateFramePlacements(model,data)
+    a = pin.getFrameClassicalAcceleration(model,data,frameId,ref).linear
+    return a
 
-# print("\n")
-
-
-
-
-
-
-
-# # Check relation between jointVelDerivatives LWA and WORLD  NOT
-pin.forwardKinematics(model,data, q0, v0, np.zeros(nq))
+# Check that a_partial_dx matches the derivative of the acceleration 
+# not the case in LWA, but OK in LOCAL --> see inside pinocchio : could explain why contactCalcDiff2 fails in LWA !
+# fix is to use contactCalcDiff2bis, which uses LOCAL computations to derive LWA quantities (ugly but it works) 
+aq0 = np.random.rand(nq) # data.ddq
+pin.forwardKinematics(model,data, q0, v0, aq0)
 pin.updateFramePlacements(model,data)
-pin.computeForwardKinematicsDerivatives(model,data, q0, v0, np.zeros(nq))
+pin.computeForwardKinematicsDerivatives(model,data, q0, v0, aq0)
+linear_acc_ND = numdiff(lambda x_:linear_acc(model, data, frameId, x_, aq0, pin.WORLD), x0)
+a_partial_dx  = a_partial_dx(model, data, frameId, x0, pin.WORLD) #[:3,:]
+test_partial_dx    = np.allclose(linear_acc_ND, a_partial_dx, RTOL, ATOL)
+print(testcolormap[test_partial_dx] + "   -- Test frame_acc_partial_dx = ND(frame_acc) : " + str(test_partial_dx) + bcolors.ENDC)
+# print("analytic d(spatial a) / dx: \n", a_partial_dx)
+# print("numdiff(spatial a)= \n", linear_acc_ND)
 
-# pin.computeAllTerms(model, data, q0, v0)
-# pin.updateFramePlacements(model, data)
+
+print("\n")
+
+
+
+
+'''
+Since acceleration derivatives in LWA from pinocchio do not match FD of the acceleration in LWA
+we derive expressions of acceleration derivatives  in LWA in terms of LOCAL WORLD derivatives
+We then choose the most convenient / cheapest one to implement (e.g. lowest number of operations)
+    1. Express LWA derivatives in terms of LOCAL
+    2. "    "   "   "   "   "   "   "   "  WORLD
+    3. "    "   "   "   "   "   "   "   "  LWA 
+'''
+
+
+# Check relation between jointVelDerivatives LWA and WORLD 
+'''
+Checking formula : 
+    LWA_{ d(nu) / dx } =  X * W_{ d(nu) / dx }
+'''
+aq0 = np.zeros(nq)
+pin.forwardKinematics(model,data, q0, v0, aq0)
+pin.updateFramePlacements(model,data)
+pin.computeForwardKinematicsDerivatives(model,data, q0, v0, aq0)
 parentJointId = model.frames[contactFrameId].parent
 assert(parentJointId == 6)
 # lwav_partial_dq, lwav_partial_dv = pin.getJointVelocityDerivatives(model, data, parentJointId, pin.LOCAL_WORLD_ALIGNED) 
@@ -351,23 +364,164 @@ p = data.oMf[frameId].translation
 X = np.block([ [np.eye(3),-pin.skew(p)],[np.zeros((3,3)), np.eye(3)] ]) 
 lwav_partial_dx = np.hstack([lwav_partial_dq, lwav_partial_dv])
 wv_partial_dx = np.hstack([wv_partial_dq, wv_partial_dv])
-print("lwa = \n", lwav_partial_dx)
-print("X*w = \n", X @ wv_partial_dx)
-print()
+# print("LWA{ d(spatial v) / dx } = \n", lwav_partial_dx)
+# print("X * W{ d(spatial v) / dx } = \n", X @ wv_partial_dx)
 assert(np.linalg.norm(lwav_partial_dx - X.dot(wv_partial_dx)) < 1e-3)
 
-# print(X)
-# wv = pin.getFrameVelocity(model, data, frameId, pin.WORLD) 
-# lwav = pin.getFrameVelocity(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
-# print("lwa = \n", lwav.vector)
-# print("X*w = \n", X @ wv.vector)
+
+# Check relation between acc derivatives LWA and WORLD
+'''
+Checking formula : 
+    LWA_{ d(alpha) / dx } =  X * W_{ d(alpha) / dx }
+'''
+aq0 = np.zeros(nq)
+pin.forwardKinematics(model,data, q0, v0, np.zeros(nq))
+pin.updateFramePlacements(model,data)
+pin.computeForwardKinematicsDerivatives(model,data, q0, v0, np.zeros(nq))
+parentJointId = model.frames[contactFrameId].parent
+assert(parentJointId == 6)
+_, lwaa_partial_dq, lwaa_partial_dv, _ = pin.getFrameAccelerationDerivatives(model, data, contactFrameId, pin.LOCAL_WORLD_ALIGNED) 
+_, wa_partial_dq, wa_partial_dv, _ = pin.getFrameAccelerationDerivatives(model, data, contactFrameId, pin.WORLD)
+p = data.oMf[frameId].translation
+X = np.block([ [np.eye(3),-pin.skew(p)],[np.zeros((3,3)), np.eye(3)] ]) 
+lwaa_partial_dx = np.hstack([lwaa_partial_dq, lwaa_partial_dv])
+wa_partial_dx = np.hstack([wa_partial_dq, wa_partial_dv])
+# print("LWA{ d(spatial a) / dx } = \n", lwaa_partial_dx)
+# print("X * W{ d(spatial a) / dx } = \n", X @ wa_partial_dx)
+assert(np.linalg.norm(lwaa_partial_dx - X.dot(wa_partial_dx)) < 1e-3)
 
 
 
-# ### CHECKING that LWA and W derivatives are nicely connected for frame derivatives
-# assert( norm(transonly(data.oMf[cid]).action@dwnul_dq - d0nul_dq)<1e-3)
-# assert( norm(transonly(data.oMf[cid]).action@dwal_dq - d0al_dq)<1e-3)
-# assert( norm(transonly(data.oMf[cid]).action@dwal_dv - d0al_dv)<1e-3)
+# # Check relation in LWA acc deriv NOT OK
+# '''
+# Checking formulas :
+#     LWA_{ d(a) / dx }   =  FD[ LWA_a ]                                      
+
+# where a is the linear CLASSICAL acceleration , i.e. a = alpha[:3] + nu[3:] x nu[:3]
+# Fails
+# '''
+# aq0 = np.zeros(nq)
+# ref = pin.LOCAL_WORLD_ALIGNED
+# pin.forwardKinematics(model,data, q0, v0, np.zeros(nq))
+# pin.updateFramePlacements(model,data)
+# pin.computeForwardKinematicsDerivatives(model,data, q0, v0, np.zeros(nq))
+# lwav_partial_dq, lwaa_partial_dq, lwaa_partial_dv, lwaa_partial_da = pin.getFrameAccelerationDerivatives(model, data, frameId, ref) 
+# lwav = pin.getFrameVelocity(model, data, frameId, ref)
+# fJf = pin.getFrameJacobian(model, data, frameId, ref)
+# vv = lwav.linear ; vw = lwav.angular
+# R = data.oMf[frameId].rotation
+# da0_dx = np.zeros((nc,nx))
+# assert(np.linalg.norm(lwaa_partial_da - fJf) <= 1e-6 )
+# assert(np.linalg.norm(da0_dx) <= 1e-6 )
+# da0_dx[:,:nv] = lwaa_partial_dq[:3,:]
+# da0_dx[:,:nv] += pin.skew(vw) @ lwav_partial_dq[:3,:]
+# da0_dx[:,:nv] -= pin.skew(vv) @ lwav_partial_dq[3:,:]
+# da0_dx[:,nv:] = lwaa_partial_dv[:3,:]
+# da0_dx[:,nv:] += pin.skew(vw) @ fJf[:3,:] 
+# da0_dx[:,nv:] -= pin.skew(vv) @ fJf[3:,:]
+# # check 
+# lwa_classical_acc_ND = numdiff(lambda x_:classical_acc(model, data, frameId, x_, aq0, ref), x0)
+# assert(np.linalg.norm(da0_dx - lwa_classical_acc_ND) < 1e-3)
+
+
+
+
+# Check relation between acceleration in LWA and LOCAL 
+'''
+Checking formulas :
+    L_{ d(a) / dx }   =  FD[ L_a ]                                               (sanity check) 
+    LWA_{ d(a) / dx } =  R * L_{ d(a) / dx } - pin.skew( LWA_a0 )x O_J[3:]       (main check)
+
+where a is the linear CLASSICAL acceleration , i.e. a = alpha[:3] + nu[3:] x nu[:3]
+'''
+aq0 = np.zeros(nq)
+pin.forwardKinematics(model,data, q0, v0, np.zeros(nq))
+pin.updateFramePlacements(model,data)
+pin.computeForwardKinematicsDerivatives(model,data, q0, v0, np.zeros(nq))
+lv_partial_dq, la_partial_dq, la_partial_dv, la_partial_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL) 
+lv = pin.getFrameVelocity(model, data, frameId, pin.LOCAL)
+fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
+vv = lv.linear ; vw = lv.angular
+lwa_a = classical_acc(model, data, frameId, x0, aq0, pin.LOCAL_WORLD_ALIGNED)
+R = data.oMf[frameId].rotation
+da0_dx = np.zeros((nc,nx))
+assert(np.linalg.norm(la_partial_da - fJf) <= 1e-6 )
+assert(np.linalg.norm(da0_dx) <= 1e-6 )
+da0_dx[:,:nv] = la_partial_dq[:3,:]
+da0_dx[:,:nv] += pin.skew(vw) @ lv_partial_dq[:3,:]
+da0_dx[:,:nv] -= pin.skew(vv) @ lv_partial_dq[3:,:]
+da0_dx[:,nv:] = la_partial_dv[:3,:]
+da0_dx[:,nv:] += pin.skew(vw) @ fJf[:3,:] 
+da0_dx[:,nv:] -= pin.skew(vv) @ fJf[3:,:]
+    # sanity check of LOCAL derivatives of classical acceleration (linear)
+l_classical_acc_ND = numdiff(lambda x_:classical_acc(model, data, frameId, x_, aq0, pin.LOCAL), x0)
+assert(np.linalg.norm(l_classical_acc_ND - da0_dx) < 1e-3)
+    # Then express in LWA classical acc (linear) and check against FD 
+da0_dx_temp = da0_dx.copy()     
+da0_dx = R @ da0_dx_temp
+Jw = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)[3:,:]
+da0_dx[:,:nq] -= pin.skew(lwa_a)@Jw
+lwa_classical_acc_ND = numdiff(lambda x_:classical_acc(model, data, frameId, x_, aq0, pin.LOCAL_WORLD_ALIGNED), x0)
+assert(np.linalg.norm(da0_dx - lwa_classical_acc_ND) < 1e-3)
+
+
+
+
+# Check relation between acceleration in LWA and LWA pinocchio output + WORLD stuff 
+'''
+Checking formula : 
+    MISTAKE IN THE FORMULA ?
+'''
+def lwa_classical_acc_from_world(model, data, frameId, x, a):
+    pin.forwardKinematics(model,data,x[:nq],x[nq:nq+nv],a)
+    pin.updateFramePlacements(model,data)
+    ov = pin.getFrameVelocity(model,data,frameId,pin.WORLD)
+    oa = pin.getFrameAcceleration(model,data,frameId,pin.WORLD)
+    p = data.oMf[frameId].translation
+    lwa_classical_acc = oa.linear - pin.skew(p) @ oa.angular + pin.skew(ov.angular) @ (ov.linear - pin.skew(p) @ ov.angular)
+    return lwa_classical_acc
+
+aq0 = np.random.rand(nq)
+pin.forwardKinematics(model,data, q0, v0, aq0)
+pin.updateFramePlacements(model,data)
+pin.computeForwardKinematicsDerivatives(model,data, q0, v0, aq0)
+# LWA stuff
+lwa_alpha = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
+lwa_nu = pin.getFrameVelocity(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
+lwa_a = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
+assert(np.linalg.norm(lwa_alpha.linear + np.cross(lwa_nu.angular, lwa_nu.linear) - lwa_a.linear) <1e-6)
+assert(np.linalg.norm(lwa_classical_acc_from_world(model, data, frameId, x0, aq0) - lwa_a.linear) < 1e-6)
+assert(np.linalg.norm(lwa_classical_acc_from_world(model, data, frameId, x0, aq0) - classical_acc(model, data, frameId, x0, aq0, pin.LOCAL_WORLD_ALIGNED)) < 1e-6)
+_, lwa_alpha_partial_dq, lwa_alpha_partial_dv, _ = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
+lwa_alpha_partial_dx = np.hstack([lwa_alpha_partial_dq, lwa_alpha_partial_dv])
+lwa_nu_partial_dq, lwa_nu_partial_dv = pin.getFrameVelocityDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
+lwa_nu_partial_dx = np.hstack([lwa_nu_partial_dq, lwa_nu_partial_dv])
+# WORLD stuff
+o_alpha = pin.getFrameAcceleration(model, data, frameId, pin.WORLD) 
+o_nu = pin.getFrameVelocity(model, data, frameId, pin.WORLD)
+o_nu_partial_dq, o_nu_partial_dv = pin.getFrameVelocityDerivatives(model, data, frameId, pin.WORLD)
+o_nu_partial_dx = np.hstack([o_nu_partial_dq, o_nu_partial_dv])
+fJf = pin.getFrameJacobian(model, data, frameId, pin.WORLD)
+# R = data.oMf[frameId].rotation
+# sanity check : relation between vel, acc + Derivatives in LWA and WORLD 
+assert(np.linalg.norm(lwa_nu.linear - (o_nu.linear - pin.skew(p) @ o_nu.angular)) < 1e-6)
+assert(np.linalg.norm(lwa_alpha.linear - (o_alpha.linear - pin.skew(p) @ o_alpha.angular)) < 1e-6)
+assert(np.linalg.norm(lwa_nu_partial_dx[3:,:] - o_nu_partial_dx[3:,:]) < 1e-6)
+assert(np.linalg.norm(lwa_nu_partial_dx[:3,:] - (o_nu_partial_dx[:3,:] - pin.skew(p) @ o_nu_partial_dx[3:,:])) < 1e-6)
+da0_dx = np.zeros((nc,nq))
+da0_dx = lwa_alpha_partial_dx[:3,:]
+da0_dx += pin.skew(o_nu.angular) @ lwa_nu_partial_dx[:3,:] - pin.skew(lwa_nu.linear) @ o_nu_partial_dx[3:,:] 
+da0_dx[:,:nq] += pin.skew(o_alpha.angular) @ fJf[:3,:]
+da0_dx[:,:nq] = pin.skew(o_nu.angular) @ (pin.skew(o_nu.angular) @ fJf[:3,:])
+lwa_classical_acc_ND = numdiff(lambda x_:lwa_classical_acc_from_world(model, data, frameId, x_, aq0), x0)
+print(da0_dx)
+print(lwa_classical_acc_ND)
+assert(np.linalg.norm(da0_dx - lwa_classical_acc_ND) <1e-3)
+
+
+
+
+
 
 
 

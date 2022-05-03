@@ -138,7 +138,7 @@ def contactCalc2bis(model, data, frameId, x, aq, ref):
         wJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
         assert(np.linalg.norm(R @ fJf[:3,:] - wJf[:3,:]) <= 1e-6 ) 
         a0 = R @ a0_tmp
-    return a0
+    return a0[MASK]
 
 # Contact calcDiff : acceleration derivatives
 def contactCalcDiff2Bis(model, data, frameId, x, ref):
