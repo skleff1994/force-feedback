@@ -279,7 +279,7 @@ test_da0_dx_2bis = np.allclose(da0_dx_2bis, da0_dx_ND_2bis, RTOL, ATOL)
 # if(not test_da0_dx_2):
 #     print("analytic 2 = \n", da0_dx_2)
 #     print("numdiff \n", da0_dx_ND_2)
-print(testcolormap[test_da0_dx_2bis] + "   -- Test da0_dx ND : " + str(test_da0_dx_2bis) + bcolors.ENDC)
+print(testcolormap[test_da0_dx_2bis] + "   -- Test da0_dx ND with drift (aq=0) : " + str(test_da0_dx_2bis) + bcolors.ENDC)
 # if(not test_da0_dx_2bis):
     # print("analytic 2bis = \n", da0_dx_2bis)
     # print("numdiff \n", da0_dx_ND_2bis)
@@ -571,21 +571,10 @@ pin.computeForwardKinematicsDerivatives(model, data, q0, v0, data.ddq)
 pin.computeRNEADerivatives(model,data, q0, v0, data.ddq, fext)
     # Check constraint acc = 0
 assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear) <= 1e-6 )
-# da0_dx_ND_2 = numdiff(lambda x_:contactCalc2(model, data, contactFrameId, x_, data.ddq, PIN_REFERENCE_FRAME), x0)
-# da0_dx_2    = contactCalcDiff2(model, data, contactFrameId, x0, PIN_REFERENCE_FRAME)
-da0_dx_2bis = contactCalcDiff2Bis(model, data, contactFrameId, x0, PIN_REFERENCE_FRAME)
-# test_da0_dx_2    = np.allclose(da0_dx_2, da0_dx_ND_2, RTOL, ATOL)
-# test_da0_dx_2bis = np.allclose(da0_dx_2bis, da0_dx_ND_2, RTOL, ATOL)
-# test_da0_dx_2crossed = np.allclose(da0_dx_2, da0_dx_2bis, RTOL, ATOL)
-# print(testcolormap[test_da0_dx_2] + "   -- Test da0_dx numdiff (2) with constraint: " + str(test_da0_dx_2) + bcolors.ENDC)
-# if(not test_da0_dx_2):
-#     print("analytic 2 = \n", da0_dx_2)
-#     print("numdiff \n", da0_dx_ND_2)
-print(testcolormap[test_da0_dx_2bis] + "   -- Test da0_dx ND with acc. constraint : " + str(test_da0_dx_2bis) + bcolors.ENDC)
-# if(not test_da0_dx_2bis):
-#     print("analytic 2bis = \n", da0_dx_2bis)
-#     print("numdiff \n", da0_dx_ND_2)
-# print(testcolormap[test_da0_dx_2crossed] + "   -- Test da0_dx crossed (2 and 2bis) constraint : " + str(test_da0_dx_2crossed) + bcolors.ENDC)
+da0_dx_ND = numdiff(lambda x_:contactCalc2bis(model, data, contactFrameId, x_, data.ddq, PIN_REFERENCE_FRAME), x0)
+da0_dx = contactCalcDiff2Bis(model, data, contactFrameId, x0, PIN_REFERENCE_FRAME)
+test_da0_dx    = np.allclose(da0_dx, da0_dx_ND, RTOL, ATOL)
+print(testcolormap[test_da0_dx] + "   -- Test da0_dx ND with constraint : " + str(test_da0_dx) + bcolors.ENDC)
 
 
 
