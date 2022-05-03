@@ -481,10 +481,15 @@ def lwa_classical_acc_from_world(model, data, frameId, x, a):
     lwa_classical_acc = oa.linear - pin.skew(p) @ oa.angular + pin.skew(ov.angular) @ (ov.linear - pin.skew(p) @ ov.angular)
     return lwa_classical_acc
 
+
+
 aq0 = np.random.rand(nq)
+pin.computeAllTerms(model, data, q0, v0)
 pin.forwardKinematics(model,data, q0, v0, aq0)
 pin.updateFramePlacements(model,data)
 pin.computeForwardKinematicsDerivatives(model,data, q0, v0, aq0)
+p = data.oMf[frameId].translation
+# R = data.oMf[frameId].rotation
 # LWA stuff
 lwa_alpha = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
 lwa_nu = pin.getFrameVelocity(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
@@ -492,32 +497,42 @@ lwa_a = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_
 assert(np.linalg.norm(lwa_alpha.linear + np.cross(lwa_nu.angular, lwa_nu.linear) - lwa_a.linear) <1e-6)
 assert(np.linalg.norm(lwa_classical_acc_from_world(model, data, frameId, x0, aq0) - lwa_a.linear) < 1e-6)
 assert(np.linalg.norm(lwa_classical_acc_from_world(model, data, frameId, x0, aq0) - classical_acc(model, data, frameId, x0, aq0, pin.LOCAL_WORLD_ALIGNED)) < 1e-6)
-_, lwa_alpha_partial_dq, lwa_alpha_partial_dv, _ = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
+_, lwa_alpha_partial_dq, lwa_alpha_partial_dv, lwa_alpha_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
 lwa_alpha_partial_dx = np.hstack([lwa_alpha_partial_dq, lwa_alpha_partial_dv])
 lwa_nu_partial_dq, lwa_nu_partial_dv = pin.getFrameVelocityDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
 lwa_nu_partial_dx = np.hstack([lwa_nu_partial_dq, lwa_nu_partial_dv])
+lwaJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
+assert(np.linalg.norm(lwaJf - lwa_alpha_da) <1e-6) 
 # WORLD stuff
 o_alpha = pin.getFrameAcceleration(model, data, frameId, pin.WORLD) 
 o_nu = pin.getFrameVelocity(model, data, frameId, pin.WORLD)
 o_nu_partial_dq, o_nu_partial_dv = pin.getFrameVelocityDerivatives(model, data, frameId, pin.WORLD)
 o_nu_partial_dx = np.hstack([o_nu_partial_dq, o_nu_partial_dv])
-fJf = pin.getFrameJacobian(model, data, frameId, pin.WORLD)
-# R = data.oMf[frameId].rotation
-# sanity check : relation between vel, acc + Derivatives in LWA and WORLD 
+_, o_alpha_partial_dq, o_alpha_partial_dv, o_alpha_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.WORLD) 
+o_alpha_partial_dx = np.hstack([o_alpha_partial_dq, o_alpha_partial_dv])
+oJf = pin.getFrameJacobian(model, data, frameId, pin.WORLD)
+assert(np.linalg.norm(oJf - o_alpha_da) <1e-6) 
+    # sanity check : relation between vel, acc + Derivatives in LWA and WORLD 
 assert(np.linalg.norm(lwa_nu.linear - (o_nu.linear - pin.skew(p) @ o_nu.angular)) < 1e-6)
 assert(np.linalg.norm(lwa_alpha.linear - (o_alpha.linear - pin.skew(p) @ o_alpha.angular)) < 1e-6)
 assert(np.linalg.norm(lwa_nu_partial_dx[3:,:] - o_nu_partial_dx[3:,:]) < 1e-6)
 assert(np.linalg.norm(lwa_nu_partial_dx[:3,:] - (o_nu_partial_dx[:3,:] - pin.skew(p) @ o_nu_partial_dx[3:,:])) < 1e-6)
+assert(np.linalg.norm(lwa_alpha_partial_dx[:3,:] - (o_alpha_partial_dx[:3,:] - pin.skew(p) @ o_alpha_partial_dx[3:,:])) < 1e-6)
+
 da0_dx = np.zeros((nc,nq))
 da0_dx = lwa_alpha_partial_dx[:3,:]
 da0_dx += pin.skew(o_nu.angular) @ lwa_nu_partial_dx[:3,:] - pin.skew(lwa_nu.linear) @ o_nu_partial_dx[3:,:] 
-da0_dx[:,:nq] += pin.skew(o_alpha.angular) @ fJf[:3,:]
-da0_dx[:,:nq] = pin.skew(o_nu.angular) @ (pin.skew(o_nu.angular) @ fJf[:3,:])
+da0_dx[:,:nq] += pin.skew(o_alpha.angular) @ lwaJf[:3,:]
+da0_dx[:,:nq] += pin.skew(o_nu.angular) @ (pin.skew(o_nu.angular) @ lwaJf[:3,:])
 lwa_classical_acc_ND = numdiff(lambda x_:lwa_classical_acc_from_world(model, data, frameId, x_, aq0), x0)
-print(da0_dx)
-print(lwa_classical_acc_ND)
+# print(da0_dx)
+# print(lwa_classical_acc_ND)
+# print(np.isclose(da0_dx, lwa_classical_acc_ND, RTOL, ATOL))
 assert(np.linalg.norm(da0_dx - lwa_classical_acc_ND) <1e-3)
 
+
+# print("world jac : \n", oJf)
+# print("lwa jac : \n", lwaJf)
 
 
 
