@@ -243,12 +243,15 @@ def contactCalcDiff2Bis(model, data, frameId, x, ref):
         da0_dx[:,nv:] += GAINS[1] * fJf[:3,:]
     # Then express in WORLD
     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-        a0 = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED).linear
+        # not optimal, need to keep a0 in memory 
+        a0 = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear
+        a0 += GAINS[0] * R.T @ (data.oMf[frameId].translation - CT_REF)
+        a0 += GAINS[1] * v.linear
         # print("contactCalcDiff2Bis.a0 = ", a0)
         da0_dx_temp = da0_dx.copy()     
         da0_dx = R @ da0_dx_temp
         Jw = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)[3:,:]
-        da0_dx[:,:nq] -= pin.skew(a0)@Jw
+        da0_dx[:,:nq] -= pin.skew(R @ a0)@Jw
     return da0_dx
 
 
@@ -518,7 +521,7 @@ assert(np.linalg.norm(lwa_alpha.linear - (o_alpha.linear - pin.skew(p) @ o_alpha
 assert(np.linalg.norm(lwa_nu_partial_dx[3:,:] - o_nu_partial_dx[3:,:]) < 1e-6)
 assert(np.linalg.norm(lwa_nu_partial_dx[:3,:] - (o_nu_partial_dx[:3,:] - pin.skew(p) @ o_nu_partial_dx[3:,:])) < 1e-6)
 assert(np.linalg.norm(lwa_alpha_partial_dx[:3,:] - (o_alpha_partial_dx[:3,:] - pin.skew(p) @ o_alpha_partial_dx[3:,:])) < 1e-6)
-
+# Compute LWA derivatives as function of world and LWA quantities
 da0_dx = np.zeros((nc,nq))
 da0_dx = lwa_alpha_partial_dx[:3,:]
 da0_dx += pin.skew(o_nu.angular) @ lwa_nu_partial_dx[:3,:] - pin.skew(lwa_nu.linear) @ o_nu_partial_dx[3:,:] 
