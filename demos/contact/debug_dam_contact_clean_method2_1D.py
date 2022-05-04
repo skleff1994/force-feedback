@@ -199,46 +199,46 @@ print("\n")
 # print(testcolormap[test_da0_dx_2bis] + "   -- Test da0_dx ND with drift (aq=0): " + str(test_da0_dx_2bis) + bcolors.ENDC)
 
 
-# If we want to get the same results as in dam2.py, need to compute joint acc and force with forwardDynamics(Jc,a0)
-# and then update RNEA derivatives using joint acc, f_ext . It should be ckecked that in this case the classical acc is 0 
-# since the constraint is resolved 
-frameId = contactFrameId
-model = robot.model
-data = robot.model.createData()
-pin.computeAllTerms(model, data, q0, v0)
-R = data.oMf[frameId].rotation
-# Compute forward dynamics with drift obtained from contact model 
-    # Drift 
-a0 = contactCalc2bis(model, data, frameId, x0, np.zeros(nq), PIN_REFERENCE_FRAME)
-if(PIN_REFERENCE_FRAME == pin.LOCAL):
-    fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
-else:
-    fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-pin.forwardDynamics(model, data, tau, fJf[2:3,:], np.array([a0]))
-if(PIN_REFERENCE_FRAME == pin.LOCAL):
-    lf3d = np.array([0.,0.,data.lambda_c[0]])
-else:
-    lf3d = (R.T)[:,2] * data.lambda_c[0]
-# get force at joint level
-fext = [pin.Force.Zero() for _ in range(model.njoints)]
-jMf = model.frames[frameId].placement
-fext[model.frames[frameId].parent] = jMf.act(pin.Force( lf3d, np.zeros(3) ))
-    # Get derivatives
-pin.computeForwardKinematicsDerivatives(model, data, q0, v0, data.ddq) 
-pin.computeRNEADerivatives(model,data, q0, v0, data.ddq, fext)
-    # Check constraint acc = 0
-if(PIN_REFERENCE_FRAME == pin.LOCAL):
-    assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear[MASK]) <= 1e-6 )
-else:
-    assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED).linear[MASK]) <= 1e-6 )
-da0_dx_ND = numdiff(lambda x_:contactCalc2bis(model, data, contactFrameId, x_, data.ddq, PIN_REFERENCE_FRAME), x0)
-da0_dx = contactCalcDiff2Bis(model, data, contactFrameId, x0, PIN_REFERENCE_FRAME)
-test_da0_dx    = np.allclose(da0_dx, da0_dx_ND, RTOL, ATOL)
-print(testcolormap[test_da0_dx] + "   -- Test da0_dx ND with constraint : " + str(test_da0_dx) + bcolors.ENDC)
-print("da0_dx OLD : \n", da0_dx)
+# # If we want to get the same results as in dam2.py, need to compute joint acc and force with forwardDynamics(Jc,a0)
+# # and then update RNEA derivatives using joint acc, f_ext . It should be ckecked that in this case the classical acc is 0 
+# # since the constraint is resolved 
+# frameId = contactFrameId
+# model = robot.model
+# data = robot.model.createData()
+# pin.computeAllTerms(model, data, q0, v0)
+# R = data.oMf[frameId].rotation
+# # Compute forward dynamics with drift obtained from contact model 
+#     # Drift 
+# a0 = contactCalc2bis(model, data, frameId, x0, np.zeros(nq), PIN_REFERENCE_FRAME)
+# if(PIN_REFERENCE_FRAME == pin.LOCAL):
+#     fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
+# else:
+#     fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
+# pin.forwardDynamics(model, data, tau, fJf[2:3,:], np.array([a0]))
+# if(PIN_REFERENCE_FRAME == pin.LOCAL):
+#     lf3d = np.array([0.,0.,data.lambda_c[0]])
+# else:
+#     lf3d = (R.T)[:,2] * data.lambda_c[0]
+# # get force at joint level
+# fext = [pin.Force.Zero() for _ in range(model.njoints)]
+# jMf = model.frames[frameId].placement
+# fext[model.frames[frameId].parent] = jMf.act(pin.Force( lf3d, np.zeros(3) ))
+#     # Get derivatives
+# pin.computeForwardKinematicsDerivatives(model, data, q0, v0, data.ddq) 
+# pin.computeRNEADerivatives(model,data, q0, v0, data.ddq, fext)
+#     # Check constraint acc = 0
+# if(PIN_REFERENCE_FRAME == pin.LOCAL):
+#     assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear[MASK]) <= 1e-6 )
+# else:
+#     assert(np.linalg.norm(pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED).linear[MASK]) <= 1e-6 )
+# da0_dx_ND = numdiff(lambda x_:contactCalc2bis(model, data, contactFrameId, x_, data.ddq, PIN_REFERENCE_FRAME), x0)
+# da0_dx = contactCalcDiff2Bis(model, data, contactFrameId, x0, PIN_REFERENCE_FRAME)
+# test_da0_dx    = np.allclose(da0_dx, da0_dx_ND, RTOL, ATOL)
+# print(testcolormap[test_da0_dx] + "   -- Test da0_dx ND with constraint : " + str(test_da0_dx) + bcolors.ENDC)
+# print("da0_dx OLD : \n", da0_dx)
 
 
-# Forward dynamics in LOCAL or WORLD, inverting KKT : ground truth in LOCAL and LWA
+# Forward dynamics in LOCAL or LWA by inverting KKT "manually" : ground truth in LOCAL and LWA
 def fdyn(model, data, frameId, x, tau, ref):
     '''
     fwdyn(x,u) = forward contact dynamics(q,v,tau) 
@@ -274,15 +274,16 @@ def fdyn2bis(model, data, frameId, x, tau, ref):
     # Compute drift + jacobian in ref
     a0 = contactCalc2bis(model, data, frameId, x, np.zeros(nq), ref)
     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-        J = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)[:3,:]
-        assert(np.linalg.norm(a0 - pin.getFrameClassicalAcceleration(model,data,frameId,pin.LOCAL_WORLD_ALIGNED).linear)<1e-6)
-        assert(np.linalg.norm(J - data.oMf[frameId].rotation @ pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[:3,:])<1e-6)
+        R = data.oMf[frameId].rotation 
+        J = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)[2:3,:]
+        assert(np.linalg.norm(a0 - pin.getFrameClassicalAcceleration(model,data,frameId,pin.LOCAL_WORLD_ALIGNED).linear[2])<1e-6)
+        assert(np.linalg.norm(J - (R @ pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[:3,:])[2:3])<1e-6)
     else:
-        J = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[:3,:]
-        assert(np.linalg.norm(a0 - pin.getFrameClassicalAcceleration(model,data,frameId,pin.LOCAL).linear)<1e-6)
-    # print("fdyn2bis.a0 = ", a0)
+        J = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[2:3,:]
+        assert(np.linalg.norm(a0 - pin.getFrameClassicalAcceleration(model,data,frameId,pin.LOCAL).linear[2])<1e-6)
     # Call forward dynamics to get joint acc and force ( in local or lwa frame ) ok     identical to ground truth
-    pin.forwardDynamics(model, data, tau, J, a0)
+    pin.forwardDynamics(model, data, tau, J, np.array([a0]))
+    # print(data.ddq)
     return np.hstack([data.ddq, -data.lambda_c]) 
 
 
@@ -300,53 +301,27 @@ def fdyn_diff2bis(model, data, frameId, x, tau, ref):
     # Compute RNEA derivatives and KKT inverse using force and joint acc computed in fwdDyn
         # here we need LOCAL
     if(ref == pin.LOCAL):
-        f = data.lambda_c
+        lf3d = np.array([0.,0.,data.lambda_c[0]])
         J = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[2:3,:]  
     else:
-        f = R.T @ data.lambda_c
-        J = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)[2:3,:]  
+        lf3d = (R.T)[:,2] * data.lambda_c[0] 
+        J = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)[2:3,:] 
+    jMf = model.frames[frameId].placement
     fext = [pin.Force.Zero() for _ in range(model.njoints)]
-    fext[model.frames[frameId].parent].linear = model.frames[frameId].placement.rotation[:,2] * f[0]
+    fext[model.frames[frameId].parent] = jMf.act(pin.Force( lf3d, np.zeros(3) ))    
     pin.computeRNEADerivatives(model, data, q, v, data.ddq, fext) 
     drnea_dx = np.hstack([data.dtau_dq, data.dtau_dv])
     Kinv = pin.getKKTContactDynamicMatrixInverse(model, data, J)  
     # Contact derivatives 
     pin.computeForwardKinematicsDerivatives(model, data, q0, v0, data.ddq) 
     da0_dx = contactCalcDiff2Bis(model, data, frameId, x, ref)
-    # print(da0_dx)
     # Check KKT inverse 
     K = np.block([ [data.M,J.T],[J,np.zeros([1,1])] ])
     assert(np.linalg.norm(np.linalg.inv(K) - Kinv) < 1e-6)
-
     # correct rnea derivatives
     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
         lJ = pin.getFrameJacobian(model, data, frameId, pin.LOCAL) 
-        # print("skew term = \n", lJ[:3,:].T @ pin.skew(R.T @ data.lambda_c) @ oJ[3:,:])
-        drnea_dx[:,:nv] -= lJ[2:3,:].T @ pin.skew(R.T @ data.lambda_c) @ lJ[3:,:]
-
-    # # Check rnea' and a'
-    # dy_dx = numdiff(lambda x_:fdyn(model, data, frameId, x_, tau, PIN_REFERENCE_FRAME), x)
-    # a0 = pin.getFrameClassicalAcceleration(model,data,frameId, PIN_REFERENCE_FRAME).linear
-    # print(a0)
-    # k = np.concatenate([ tau - data.nle, -a0 ])
-    # dk_dx = np.vstack([drnea_dx, da0_dx])
-    # y = -np.linalg.inv(K) @ k
-    #     # check a'
-    # print(np.isclose(-K@dy_dx, np.vstack([drnea_dx, da0_dx]), RTOL, ATOL))
-    # da0_dx_truth = (-K @ dy_dx)[-nc:,:]
-    # print("truth = \n", da0_dx_truth)
-    # print(da0_dx)
-    # print(np.isclose(da0_dx_truth, da0_dx, RTOL, ATOL))
-    # assert(np.linalg.norm(da0_dx_truth -  da0_dx) < 1e-4) 
-    #     #  Check rnea'
-    # drnea_dx_truth = (-K @ dy_dx)[:nv,:]
-    # print('after = \n', drnea_dx)
-    # print('truth = \n', drnea_dx_truth)
-    # print(np.isclose(drnea_dx_truth, drnea_dx, RTOL, ATOL))
-    # print(np.isclose(da0_dx_truth, da0_dx, RTOL, ATOL))
-    # # assert(np.linalg.norm(drnea_dx -  drnea_dx_before) < 1e-3) 
-    # # assert(np.linalg.norm(drnea_dx_truth -  drnea_dx) < 1e-3)
-
+        drnea_dx[:,:nv] -= lJ[:3,:].T @ pin.skew(lf3d) @ lJ[3:,:]
 
     # Fillout partials of DAM 
     a_partial_dtau = Kinv[:nv, :nv]
@@ -354,41 +329,46 @@ def fdyn_diff2bis(model, data, frameId, x, tau, ref):
     f_partial_dtau = Kinv[-nc:, :nv]
     f_partial_da   = Kinv[-nc:, -nc:]
 
-    
     Fx = -a_partial_dtau @ drnea_dx 
     # Fx[:,:nv] = -a_partial_dtau @ data.dtau_dq
     # Fx[:,nv:] = -a_partial_dtau @ data.dtau_dv
-    Fx -= a_partial_da @ da0_dx[:nc] 
+    Fx -= a_partial_da @ np.array([da0_dx])  
     Fx += a_partial_dtau @ np.zeros((nq,nx))
     # Fu = a_partial_dtau @ np.eye(nq)
     df_dx[:nc,:] = f_partial_dtau @ drnea_dx
     # df_dx[:nc, :nv]  = f_partial_dtau @ data.dtau_dq
     # df_dx[:nc, -nv:] = f_partial_dtau @ data.dtau_dv
-    df_dx[:nc, :]   += f_partial_da @ da0_dx[:nc] 
+    df_dx[:nc, :]   += f_partial_da @ np.array([da0_dx])  
     df_dx[:nc, :]   -= f_partial_dtau @ np.zeros((nq,nx))
     # df_du[:nc, :]  = -f_partial_dtau @ np.eye(nq)
+    # print(da0_dx)
+    # print(data.ddq)
     return np.vstack([Fx, -df_dx])
 
 
 
-# # If we want to get the same results as in dam2.py, need to compute joint acc and force with forwardDynamics(Jc,a0)
-# # and then update RNEA derivatives using joint acc, f_ext . It should be ckecked that in this case the classical acc is 0 
-# # since the constraint is resolved 
-# frameId = contactFrameId
-# model = robot.model
-# data = robot.model.createData()
-# # Compare fdyn ground truth and fdyn2bis
-# af = fdyn(model, data, frameId, x0, tau, PIN_REFERENCE_FRAME)
-# af2bis = fdyn2bis(model, data, frameId, x0, tau, PIN_REFERENCE_FRAME)
-# assert(np.linalg.norm(af - af2bis)<1e-6)
-# np.hstack([data.ddq, -data.lambda_c]) 
-# daf_dx_ND_0 = numdiff(lambda x_:fdyn(model, data, frameId, x_, tau, PIN_REFERENCE_FRAME), x0)
-# daf_dx_ND_2bis = numdiff(lambda x_:fdyn2bis(model, data, frameId, x_, tau, PIN_REFERENCE_FRAME), x0)
-# daf_dx_2bis    = fdyn_diff2bis(model, data, frameId, x0, tau, PIN_REFERENCE_FRAME)
-# test_daf_dx_0    = np.allclose(daf_dx_ND_0, daf_dx_ND_2bis, RTOL, ATOL)
-# print(testcolormap[test_daf_dx_0] + "   -- Test fdyn_ND vs fdyn2bis_ND : " + str(test_daf_dx_0) + bcolors.ENDC)
-# test_daf_dx_2bis    = np.allclose(daf_dx_2bis, daf_dx_ND_2bis, RTOL, ATOL)
-# print(testcolormap[test_daf_dx_2bis] + "   -- Test fdyn_diff2bis vs fdyn2bis_ND : " + str(test_daf_dx_2bis) + bcolors.ENDC)
+# If we want to get the same results as in dam2.py, need to compute joint acc and force with forwardDynamics(Jc,a0)
+# and then update RNEA derivatives using joint acc, f_ext . It should be ckecked that in this case the classical acc is 0 
+# since the constraint is resolved 
+frameId = contactFrameId
+model = robot.model
+data = robot.model.createData()
+# Compare fdyn ground truth and fdyn2bis
+af = fdyn(model, data, frameId, x0, tau, PIN_REFERENCE_FRAME)
+af2bis = fdyn2bis(model, data, frameId, x0, tau, PIN_REFERENCE_FRAME)
+assert(np.linalg.norm(af - af2bis)<1e-6)
+# af = np.hstack([data.ddq, -data.lambda_c]) 
+daf_dx_ND_0 = numdiff(lambda x_:fdyn(model, data, frameId, x_, tau, PIN_REFERENCE_FRAME), x0)
+daf_dx_ND_2bis = numdiff(lambda x_:fdyn2bis(model, data, frameId, x_, tau, PIN_REFERENCE_FRAME), x0)
+daf_dx_2bis    = fdyn_diff2bis(model, data, frameId, x0, tau, PIN_REFERENCE_FRAME)
+test_daf_dx_0    = np.allclose(daf_dx_ND_0, daf_dx_ND_2bis, RTOL, ATOL)
+print(testcolormap[test_daf_dx_0] + "   -- Test fdyn_ND vs fdyn2bis_ND : " + str(test_daf_dx_0) + bcolors.ENDC)
+print(np.isclose(daf_dx_2bis, daf_dx_ND_2bis, RTOL, ATOL))
+test_daf_dx_2bis    = np.allclose(daf_dx_2bis, daf_dx_ND_2bis, RTOL, ATOL)
+# print(daf_dx_ND_0[-1:])
+# print(daf_dx_2bis[-1:])
+# print(daf_dx_ND_2bis[-1:])
+print(testcolormap[test_daf_dx_2bis] + "   -- Test fdyn_diff2bis vs fdyn2bis_ND : " + str(test_daf_dx_2bis) + bcolors.ENDC)
 
 
 
@@ -399,29 +379,6 @@ def fdyn_diff2bis(model, data, frameId, x, tau, ref):
 frameId = contactFrameId
 model = robot.model
 ldata = robot.model.createData()
-        # # Why not same joint acceleration is obtained through forward dynamics ????
-        # # either jacobian or drift (or both) are wrong. Yet they were checked to be R@local 
-        # In fact only 1D constraint so it depend on the frame 
-        # la02 = pin.getFrameClassicalAcceleration(model, ldata, frameId, pin.LOCAL).linear[2:3]
-        # wa02 = pin.getFrameClassicalAcceleration(model, ldata, frameId, pin.LOCAL_WORLD_ALIGNED).linear[2:3]
-        # # assert(np.linalg.norm(R@la02- wa02) < 1e-4)
-        # # assert(np.linalg.norm((R@la02)[2]- wa02[2]) < 1e-4)
-        # lJ2 = pin.getFrameJacobian(model, ldata, frameId, pin.LOCAL)[2:3,:]
-        # wJ2 = pin.getFrameJacobian(model, ldata, frameId, pin.LOCAL_WORLD_ALIGNED)[2:3,:]
-        # # assert(np.linalg.norm(R@lJ2- wJ2) < 1e-4)
-        # # assert(np.linalg.norm((R@lJ2)[2]- wJ2[2]) < 1e-4)
-        # print(fdyn(model, ldata, frameId, x0, tau, pin.LOCAL_WORLD_ALIGNED))
-        # print(fdyn(model, ldata, frameId, x0, tau, pin.LOCAL))
-        # b2 = ldata.nle
-        # lK2 = np.block([ [ldata.M,lJ2.T],[lJ2,np.zeros([nc,nc])] ])
-        # wK2 = np.block([ [ldata.M,wJ2.T],[wJ2,np.zeros([nc,nc])] ])
-        # lk2 = np.concatenate([ tau-ldata.nle, -la02 ])
-        # wk2 = np.concatenate([ tau-ldata.nle, -wa02 ])
-        # print(np.isclose(lK2, wK2, RTOL, ATOL))
-        # # print(a0)
-        # laf2 = np.linalg.inv(lK2)@lk2
-        # waf2 = np.linalg.inv(wK2)@wk2
-        # print(np.isclose(laf2, waf2, RTOL, ATOL))
 # forward dynamics in LOCAL 
 pin.computeAllTerms(model, ldata, q0, v0)
 pin.forwardKinematics(model, ldata, q0, v0, np.zeros(nq))
@@ -464,7 +421,9 @@ assert(np.linalg.norm(lda0_dx - contactCalcDiff2Bis(model, ldata, frameId, x0, p
 assert(np.linalg.norm(ldk_dx[-nc:] - lda0_dx) <1e-4)
 assert(np.linalg.norm(ldk_dx[:nv] - ldrnea_dx) <1e-4)
 assert(np.linalg.norm(ldaf_dx_ND + lKinv @ np.vstack([ldrnea_dx, lda0_dx])) <1e-3)
-
+# print(ldata.ddq)
+# print(laf)
+# print(ldaf_dx_ND[-1:])
 
 
 

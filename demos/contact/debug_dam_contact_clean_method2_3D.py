@@ -696,7 +696,6 @@ def fdyn_diff2bis(model, data, frameId, x, tau, ref):
     f_partial_dtau = Kinv[-nc:, :nv]
     f_partial_da   = Kinv[-nc:, -nc:]
 
-    
     Fx = -a_partial_dtau @ drnea_dx 
     # Fx[:,:nv] = -a_partial_dtau @ data.dtau_dq
     # Fx[:,nv:] = -a_partial_dtau @ data.dtau_dv
