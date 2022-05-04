@@ -823,6 +823,7 @@ pin.computeForwardKinematicsDerivatives(model, data, q0, v0, data.ddq) # very im
 wa = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED).linear
 assert(np.linalg.norm(wa) <1e-6)
 # wda0_dx[:,:nq] -= pin.skew(wa)@Jw # no skew term after because acc = 0
+# print("wkew term = ",  pin.skew(wa)@Jw)
 assert(np.linalg.norm(wda0_dx - contactCalcDiff2Bis(model, data, frameId, x0, pin.LOCAL_WORLD_ALIGNED) ) <1e-6 )
 assert(np.linalg.norm(wdk_dx[-nc:] - wda0_dx) <1e-4)
     # rnea derivatives
