@@ -24,16 +24,10 @@ log_rate: 500                   # Display sim status once very 'log_rate' sim cy
 WHICH_PLOTS: ['all']
 
 
-# # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
-#   R =
-#    -0.918754     0.389418    0.0651533
-#     0.388443     0.921061   -0.0275464
-#   -0.0707372 -2.41653e-08    -0.997495
-#   p = 0.3   0 0.7
-# # Starting config for IK (to avoid self-collision solution)
-# q_init =  [-0.2263,  0.    , -0.174 , -1.6865,  0.0358,  1.5   , -0.3946]
-# # Solution of IK_placement(q_init, M)
-# q0 = [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]
+# Definition of the contact surface in the simulator
+# It is aligned with the LOCAL contact frame by default
+# User-defined offset expressed in the LOCAL contact frame :
+contact_plane_offset: [0., 0., 0.03348]
 
 
 # General

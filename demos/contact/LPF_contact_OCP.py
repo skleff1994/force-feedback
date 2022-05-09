@@ -56,20 +56,18 @@ def main(robot_name, PLOT, DISPLAY):
     # # # # # # # # # 
     ### OCP SETUP ###
     # # # # # # # # # 
-    N_h = config['N_h']
-    dt = config['dt']
-    LPF_TYPE = 1
     # Warm start and reg
+
+    # Define initial state
     f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
     u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
-    # ug = pin_utils.get_u_grav(q0, robot.model)
-    # Define initial state
     y0 = np.concatenate([x0, u0])
     # Setup Croco OCP and create solver
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, w_reg_ref=np.zeros(nq)) 
-    # Solve and extract solution trajectories
-    xs_init = [y0 for i in range(N_h+1)]
-    us_init = [u0 for i in range(N_h)]
+    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True) 
+    # Warmstart and solve
+    # ug = pin_utils.get_u_grav(q0, robot.model)
+    xs_init = [y0 for i in range(config['N_h']+1)]
+    us_init = [u0 for i in range(config['N_h'])]
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
@@ -259,7 +257,7 @@ def main(robot_name, PLOT, DISPLAY):
 
     if(PLOT):
         #  Plot
-        ddp_data = data_utils.extract_ddp_data_LPF(ddp, frame_of_interest=config['frame_of_interest'])
+        ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=config['frame_of_interest'], ct_frame_name=config['frame_of_interest'])
         fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], 
                                                             colors=['r'], 
                                                             markers=['.'], 

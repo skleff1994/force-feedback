@@ -242,8 +242,12 @@ def display_ball(p_des, robot_base_pose=pin.SE3.Identity(), RADIUS=.05, COLOR=[1
 def display_contact_surface(M, robotId=1, radius=.25, length=0.0, with_collision=False, TILT=[0., 0., 0.]):
     '''
     Creates contact surface object in PyBullet as a flat cylinder 
-      M       : contact placement (with z_LOCAL coinciding with cylinder axis)
-      robotId : id of the robot 
+      M              : contact placement expressed in simulator WORLD frame
+      robotId        : id of the robot in simulator
+      radius         : radius of cylinder
+      length         : length of cylinder
+      with_collision : robot can collide with surface if True, cannot otherwise
+      TILT           : RPY tilt of the surface
     '''
     logger.info("Creating PyBullet contact surface...")
     # Tilt contact surface (default 0)
@@ -265,17 +269,20 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, with_collision
                                                 collisionFramePosition=quat[:3],
                                                 collisionFrameOrientation=quat[3:])
       contactId = p.createMultiBody(baseMass=0.,
-                                        baseInertialFramePosition=[0.,0.,0.],
-                                        baseCollisionShapeIndex=collisionShapeId,
-                                        baseVisualShapeIndex=visualShapeId,
-                                        basePosition=[0.,0.,0.],
-                                        useMaximalCoordinates=True)
+                                    baseInertialFramePosition=[0.,0.,0.],
+                                    baseCollisionShapeIndex=collisionShapeId,
+                                    baseVisualShapeIndex=visualShapeId,
+                                    basePosition=[0.,0.,0.],
+                                    useMaximalCoordinates=True)
                     
       # Desactivate collisions for all links except end-effector of robot
       # TODO: do not hard-code the PyBullet EE id
       for i in range(p.getNumJoints(robotId)):
-        p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
-      p.setCollisionFilterPair(contactId, robotId, -1, 8, 1)
+            # ji = p.getJointInfo(robotId, i)
+            # print(ji)
+            p.setCollisionFilterPair(contactId, robotId, -1, i, 1)
+            # p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
+    #   p.setCollisionFilterPair(contactId, robotId, -1,  8, 1)
 
       return contactId
     # Without collisions

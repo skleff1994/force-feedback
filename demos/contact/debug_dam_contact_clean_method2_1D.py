@@ -10,7 +10,7 @@ FOR contact 1D
 
 from lib2to3.pgen2.token import AT
 import numpy as np
-np.set_printoptions(precision=3, linewidth=180, suppress=True)
+np.set_printoptions(precision=6, linewidth=180, suppress=True)
 
 import example_robot_data 
 import pinocchio as pin
@@ -322,7 +322,7 @@ def fdyn_diff2bis(model, data, frameId, x, tau, ref):
     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
         lJ = pin.getFrameJacobian(model, data, frameId, pin.LOCAL) 
         drnea_dx[:,:nv] -= lJ[:3,:].T @ pin.skew(lf3d) @ lJ[3:,:]
-
+        # print(lJ[:3,:].T @ pin.skew(lf3d) @ lJ[3:,:])
     # Fillout partials of DAM 
     a_partial_dtau = Kinv[:nv, :nv]
     a_partial_da   = Kinv[:nv, -nc:]     
@@ -443,6 +443,20 @@ wJf = pin.getFrameJacobian(model, wdata, frameId, pin.LOCAL_WORLD_ALIGNED)[2:3,:
 pin.forwardDynamics(model, wdata, tau, wJf, wa0)
 wK = np.block([ [wdata.M, wJf.T],[wJf, np.zeros([1,1])] ])
 waf = np.linalg.inv(wK) @ np.concatenate([tau - wdata.nle, -wa0])
+print("WORLD aq = \n", waf[:nv])
+print("WORLD ddx = \n", wdata.ddq)
+print("WORLD force 1D = \n", waf[-nc:])
+print("WORLD Jc 1D = \n", wJf)
+Kinv = np.linalg.inv(wK)
+a_partial_dtau = Kinv[:nv, :nv]
+a_partial_da   = Kinv[:nv, -nc:]     
+f_partial_dtau = Kinv[-nc:, :nv]
+f_partial_da   = Kinv[-nc:, -nc:]
+# print("WORLD Kinv = \n", np.linalg.inv(wK))
+# print("WORLD a_partial_dtau = \n", a_partial_dtau)
+# print("WORLD a_partial_da = \n", a_partial_da)
+# print("WORLD f_partial_dtau = \n", f_partial_dtau)
+# print("WORLD f_partial_da = \n", f_partial_da)
 assert(np.linalg.norm(waf[:nv] - wdata.ddq) <1e-6)
 assert(np.linalg.norm(fdyn(model, wdata, frameId, x0, tau, pin.LOCAL_WORLD_ALIGNED) - waf) < 1e-6)
 # assert(np.linalg.norm(waf[:nv] - laf[:nv] ) < 1e-6) # no longer true in 1D !!!!!
@@ -452,14 +466,17 @@ fext = [pin.Force.Zero() for _ in range(model.njoints)]
 # wf3d = np.zeros(3) ; wf3d[2] = wdata.lambda_c[0] ; lf3d = R.T @ wf3d 
 # above line is the same as : 
 lf3d = (R.T)[:,2] * wdata.lambda_c[0] 
+print("WORLD data.lambda_c = \n", wdata.lambda_c)
 jMf = model.frames[frameId].placement
 fext[model.frames[frameId].parent] = jMf.act(pin.Force( lf3d, np.zeros(3) ))
+print("fext = \n", fext)
 pin.computeRNEADerivatives(model, wdata, q0, v0, wdata.ddq, fext) 
 wdrnea_dx = np.hstack([wdata.dtau_dq, wdata.dtau_dv])
 # assert(np.linalg.norm(wdrnea_dx -ldrnea_dx) <1e-4) # no longer true in 1D !!!!!
     # additional term  
 lJ = pin.getFrameJacobian(model, wdata, frameId, pin.LOCAL)
 wdrnea_dx[:,:nv] -= lJ[:3].T @ pin.skew(lf3d) @ lJ[3:] 
+print("skew term = \n", -lJ[:3].T @ pin.skew(lf3d) @ lJ[3:] )
 wKinv = pin.getKKTContactDynamicMatrixInverse(model, wdata, wJf)  
 assert(np.linalg.norm(wKinv - np.linalg.inv(wK))<1e-6)
 assert(np.linalg.norm(fdyn(model, wdata, frameId, x0, tau, pin.LOCAL_WORLD_ALIGNED) - waf) < 1e-6)
@@ -492,7 +509,7 @@ assert(np.linalg.norm(w_da0_dx_ND - wdk_dx[-nc:]) < 1e-4)
 assert(np.linalg.norm(wda0_dx_3d[2] - wdk_dx[-nc:]) < 1e-4)
 # print("numdiff  : \n", w_da0_dx_ND)    # numdiff
 # print("analytic : \n", wdk_dx[-nc:])      # analytical 
-# print("formula  : \n", wda0_dx_3d[2])     # formula 3D projected into 1D
+print("formula  : \n", wda0_dx_3d[2])     # formula 3D projected into 1D
 # rnea derivatives
 wdaf_dx = -wKinv @ np.vstack([wdrnea_dx, wda0_dx_3d[2]])
 assert(np.linalg.norm(wdaf_dx_ND - wdaf_dx) <1e-3)

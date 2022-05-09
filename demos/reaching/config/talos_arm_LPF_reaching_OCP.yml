@@ -19,7 +19,7 @@ WHICH_PLOTS: ['all']                   # which plots to generate
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
 # WHICH_COSTS: ['translation', 'velocity', 'ctrlRegGrav', 'stateReg'] #, 'stateLim'] 
-WHICH_COSTS: ['translation', 'stateLim', 'stateReg']
+WHICH_COSTS: ['translation', 'stateReg', 'ctrlRegGrav']
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
@@ -35,8 +35,8 @@ ctrlRegWeightTerminal: 0.01
 ctrlRegRef: 'DEFAULT'  # DEFAULT = g(q) | NOT used for 'ctrlRegGrav' cost
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.001
-wRegRef: 'tau0' # in ['zero', 'tau0' , 'gravity']
+wRegWeight: 0.00001
+wRegRef: 'zero' # in ['zero', 'tau0' , 'gravity']
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 1000.

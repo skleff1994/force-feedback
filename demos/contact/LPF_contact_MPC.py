@@ -94,7 +94,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
   # # # # # # # # # # #
-  sim_data = data_utils.init_sim_data_LPF(config, robot, y0, frame_of_interest=config['frame_of_interest'])
+  sim_data = data_utils.init_sim_data_LPF(config, robot, y0, ee_frame_name=config['frame_of_interest'])
     # Get frequencies
   freq_PLAN = sim_data['plan_freq']
   freq_CTRL = sim_data['ctrl_freq']
@@ -136,7 +136,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
           sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
           sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
-          sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
+          sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector for i in range(config['N_h'])])
           # Extract relevant predictions for interpolations
           y_curr = sim_data['state_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
           y_pred = sim_data['state_pred'][nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 

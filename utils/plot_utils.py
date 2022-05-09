@@ -2135,7 +2135,7 @@ def plot_ddp_results(DDP_DATA, which_plots='all', labels=None, markers=None, col
             if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('xs' in data.keys()):
                     fig_ee_lin, ax_ee_lin = plot_ddp_endeff_linear(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-                    # fig_ee_ang, ax_ee_ang = plot_ddp_endeff_angular(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                    fig_ee_ang, ax_ee_ang = plot_ddp_endeff_angular(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
             if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                 if('fs' in data.keys()):
                     fig_f, ax_f = plot_ddp_force(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)

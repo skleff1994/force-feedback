@@ -9,7 +9,7 @@ Debugging calc and calcDiff of DAMContactFwdDyn
 
 from lib2to3.pgen2.token import AT
 import numpy as np
-np.set_printoptions(precision=3, linewidth=180, suppress=True)
+np.set_printoptions(precision=6, linewidth=180, suppress=True)
 
 import example_robot_data 
 import pinocchio as pin
@@ -31,7 +31,7 @@ RANDOM_SEED     = 1
 np.random.seed(RANDOM_SEED)
 
 # Test parameters 
-PIN_REFERENCE_FRAME         = pin.WORLD     
+PIN_REFERENCE_FRAME         = pin.LOCAL_WORLD_ALIGNED     
 ALIGN_LOCAL_WITH_WORLD      = False
 TORQUE_SUCH_THAT_ZERO_FORCE = False
 ZERO_JOINT_VELOCITY         = False
@@ -104,86 +104,6 @@ def numdiff(f,x0,h=1e-6):
     return np.array(Fx).T
 
 
-# # contact calc : acceleration drift + Jacobian
-# def contactCalc2(model, data, frameId, x, a, ref):
-#     '''
-#     approach 1 : everything in REF
-#     '''
-#     pin.computeAllTerms(model, data, x[:nq], x[nq:])
-#     pin.forwardKinematics(model, data, x[:nq], x[nq:], a)
-#     pin.updateFramePlacement(model, data, frameId)
-#     if(ref == pin.LOCAL):
-#         v = pin.getFrameVelocity(model, data, frameId, pin.LOCAL)
-#         a = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL)
-#         a0 = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear
-#         assert(np.linalg.norm(a.linear + np.cross(v.angular, v.linear) - a0) <= 1e-6 )
-#         # Baumgarte term
-#         if(GAINS[0] != 0.):
-#             R = data.oMf[frameId].rotation
-#             a0 += GAINS[0] * R.T @ (data.oMf[frameId].translation - CT_REF)
-#         if(GAINS[1] != 0.):
-#             a0 += GAINS[1] * v.linear
-#     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-#         v = pin.getFrameVelocity(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-#         a = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-#         a0 = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED).linear
-#         assert(np.linalg.norm(a.linear + np.cross(v.angular, v.linear) - a0) <= 1e-6 )
-#         #
-#         #
-#         #
-#         # TODO: implement explicit BG terms in WORLD ALIGNED
-#         #
-#         #
-#         #
-    
-#     return a0
-
-# # Contact calcDiff : acceleration derivatives
-# def contactCalcDiff2(model, data, frameId, x, ref):
-#     if(ref == pin.LOCAL):
-#         fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
-#         a = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL)
-#         v_partial_dq, a_partial_dq, a_partial_dv, a_partial_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL) 
-#         v = pin.getFrameVelocity(model, data, frameId, pin.LOCAL)
-#     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
-#         fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-#         a = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-#         v_partial_dq, a_partial_dq, a_partial_dv, a_partial_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
-#         v = pin.getFrameVelocity(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-#     vv = v.linear ; vw = v.angular
-#     da0_dx = np.zeros((nc,nx))
-#     assert(np.linalg.norm(a_partial_da - fJf) <= 1e-6 )
-#     assert(np.linalg.norm(da0_dx) <= 1e-6 )
-#     da0_dx[:,:nv] = a_partial_dq[:3,:]
-#     da0_dx[:,:nv] += pin.skew(vw) @ v_partial_dq[:3,:]
-#     da0_dx[:,:nv] -= pin.skew(vv) @ v_partial_dq[3:,:]
-#     da0_dx[:,nv:] = a_partial_dv[:3,:]
-#     da0_dx[:,nv:] += pin.skew(vw) @ fJf[:3,:] 
-#     da0_dx[:,nv:] -= pin.skew(vv) @ fJf[3:,:]
-#     R = data.oMf[frameId].rotation
-#     if(ref == pin.LOCAL):
-#         if (GAINS[0] != 0.):
-#             tmp_skew = pin.skew( R.T @ (data.oMf[frameId].translation - CT_REF) )
-#             da0_dx[:,:nv] += GAINS[0] * ( tmp_skew @ fJf[3:,:] + fJf[:3,:] )
-#         if (GAINS[1] != 0.):
-#             da0_dx[:,:nv] += GAINS[1] * v_partial_dq[:3,:]
-#             da0_dx[:,nv:] += GAINS[1] * fJf[:3,:]
-#     else:
-#         pass
-#         #
-#         #
-#         #
-#         # TODO: implement explicit BG terms in WORLD ALIGNED
-#         #
-#         #
-#         #
-#     return da0_dx
-
-
-
-
-
-
 
 # contact calc : acceleration drift + Jacobian
 def contactCalc2bis(model, data, frameId, x, aq, ref):
@@ -216,12 +136,20 @@ def contactCalc2bis(model, data, frameId, x, aq, ref):
         wJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
         assert(np.linalg.norm(R @ fJf[:3,:] - wJf[:3,:]) <= 1e-6 ) 
         a0 = R @ a0_tmp
+    # print("contact.calc.a0 = \n", a0)
     return a0
 
 # Contact calcDiff : acceleration derivatives
 def contactCalcDiff2Bis(model, data, frameId, x, ref):
     fJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
     v_partial_dq, a_partial_dq, a_partial_dv, a_partial_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL) 
+    # check relation between joint and frame acc derivatives (through fXj)
+    jv_partial_dq, ja_partial_dq, ja_partial_dv, ja_partial_da = pin.getJointAccelerationDerivatives(model, data, model.frames[frameId].parent, pin.LOCAL)
+    fXj = model.frames[frameId].placement.actionInverse
+    assert(np.linalg.norm(fXj @ jv_partial_dq - v_partial_dq) <= 1e-4 )
+    assert(np.linalg.norm(fXj @ ja_partial_dq - a_partial_dq) <= 1e-4 )
+    assert(np.linalg.norm(fXj @ ja_partial_dv - a_partial_dv) <= 1e-4 )
+    # assert(np.linalg.norm(fXj*ja_partial_da - a_partial_da) <= 1e-6 )
     v = pin.getFrameVelocity(model, data, frameId, pin.LOCAL)
     vv = v.linear ; vw = v.angular
     da0_dx = np.zeros((nc,nx))
@@ -659,13 +587,19 @@ def fdyn_diff2bis(model, data, frameId, x, tau, ref):
     # Check KKT inverse 
     K = np.block([ [data.M,J.T],[J,np.zeros([3,3])] ])
     assert(np.linalg.norm(np.linalg.inv(K) - Kinv) < 1e-6)
-
+    # print("dtau_dq before= \n", drnea_dx[:,:nv] )
     # correct rnea derivatives
     if(ref == pin.WORLD or ref == pin.LOCAL_WORLD_ALIGNED):
         lJ = pin.getFrameJacobian(model, data, frameId, pin.LOCAL) 
         # print("skew term = \n", lJ[:3,:].T @ pin.skew(R.T @ data.lambda_c) @ oJ[3:,:])
         drnea_dx[:,:nv] -= lJ[:3,:].T @ pin.skew(R.T @ data.lambda_c) @ lJ[3:,:]
-
+    # print("ddq = \n", data.ddq)
+    # print("fext = \n", fext)
+    # print("dtau_dq = \n", drnea_dx[:,:nv] )
+    # # print("oRf @ lambda_c = \n", R @ data.lambda_c)
+    # print("skew term = \n", -lJ[:3,:].T @ pin.skew(R.T @ data.lambda_c) @ lJ[3:,:])
+    
+    
     # # Check rnea' and a'
     # dy_dx = numdiff(lambda x_:fdyn(model, data, frameId, x_, tau, PIN_REFERENCE_FRAME), x)
     # a0 = pin.getFrameClassicalAcceleration(model,data,frameId, PIN_REFERENCE_FRAME).linear
@@ -695,6 +629,11 @@ def fdyn_diff2bis(model, data, frameId, x, tau, ref):
     a_partial_da   = Kinv[:nv, -nc:]     
     f_partial_dtau = Kinv[-nc:, :nv]
     f_partial_da   = Kinv[-nc:, -nc:]
+    
+    # print("a_partial_dtau = \n", a_partial_dtau)
+    # print("a_partial_da = \n", a_partial_da)
+    # print("f_partial_dtau = \n", f_partial_dtau)
+    # print("f_partial_da = \n", f_partial_da)
 
     Fx = -a_partial_dtau @ drnea_dx 
     # Fx[:,:nv] = -a_partial_dtau @ data.dtau_dq
@@ -708,6 +647,8 @@ def fdyn_diff2bis(model, data, frameId, x, tau, ref):
     df_dx[:nc, :]   += f_partial_da @ da0_dx[:nc] 
     df_dx[:nc, :]   -= f_partial_dtau @ np.zeros((nq,nx))
     # df_du[:nc, :]  = -f_partial_dtau @ np.eye(nq)
+
+    # print("Fx = \n", np.vstack([Fx, -df_dx]))
     return np.vstack([Fx, -df_dx])
 
 
@@ -755,6 +696,8 @@ pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
 pin.updateFramePlacements(model, data)
 la0 = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL).linear
 lJ = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
+print("LOCAL a0 = \n", la0)
+print("LOCAL Jc = \n", lJ[:3])
 pin.forwardDynamics(model, data, tau, lJ[:3,:], la0)
 lK = np.block([ [data.M, lJ[:3,:].T],[lJ[:3,:], np.zeros([3,3])] ])
 laf = np.linalg.inv(lK) @ np.concatenate([tau - data.nle, -la0])
@@ -765,6 +708,7 @@ fext = [pin.Force.Zero() for _ in range(model.njoints)]
 fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(data.lambda_c, np.zeros(3)))
 pin.computeRNEADerivatives(model, data, q0, v0, data.ddq, fext) 
 ldrnea_dx = np.hstack([data.dtau_dq, data.dtau_dv])
+print("LOCAL data.dtau_dq = \n", data.dtau_dq)
 # print("local rnea 1 :  \n", ldrnea_dx)
 lKinv = pin.getKKTContactDynamicMatrixInverse(model, data, lJ[:3,:])  
 assert(np.linalg.norm(lKinv - np.linalg.inv(lK)) <1e-6)
@@ -787,6 +731,8 @@ assert(np.linalg.norm(ldk_dx[-nc:] - lda0_dx) <1e-4)
 assert(np.linalg.norm(ldk_dx[:nv] - ldrnea_dx) <1e-4)
 assert(np.linalg.norm(ldaf_dx_ND + lKinv @ np.concatenate([ldrnea_dx, lda0_dx])) <1e-3)
 
+
+
 # forward dynamics in WORLD
 pin.computeAllTerms(model, data, q0, v0)
 pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
@@ -794,9 +740,23 @@ pin.updateFramePlacements(model, data)
 R = data.oMf[frameId].rotation
 wa0 = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALIGNED).linear
 wJf = pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)[:3,:]
+# print("WORLD a0 = \n", wa0)
+# print("WORLD Jc = \n", wJf)
 pin.forwardDynamics(model, data, tau, wJf, wa0)
 wK = np.block([ [data.M, wJf.T],[wJf, np.zeros([3,3])] ])
 waf = np.linalg.inv(wK) @ np.concatenate([tau - data.nle, -wa0])
+print("WORLD aq = \n", waf[:nv])
+print("WORLD force = \n", waf[-nc:])
+Kinv = np.linalg.inv(wK)
+a_partial_dtau = Kinv[:nv, :nv]
+a_partial_da   = Kinv[:nv, -nc:]     
+f_partial_dtau = Kinv[-nc:, :nv]
+f_partial_da   = Kinv[-nc:, -nc:]
+# print("WORLD Kinv = \n", np.linalg.inv(wK))
+print("WORLD a_partial_dtau = \n", a_partial_dtau)
+print("WORLD a_partial_da = \n", a_partial_da)
+print("WORLD f_partial_dtau = \n", f_partial_dtau)
+print("WORLD f_partial_da = \n", f_partial_da)
 assert(np.linalg.norm(waf[:nv] - data.ddq) <1e-6)
 assert(np.linalg.norm(waf[:nv] - laf[:nv] ) < 1e-6)
 assert(np.linalg.norm(waf[-nc:] + data.lambda_c) <1e-6)
@@ -804,11 +764,14 @@ assert(np.linalg.norm(waf[-nc:] + data.lambda_c) <1e-6)
 fext = [pin.Force.Zero() for _ in range(model.njoints)]
 fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(R.T @ data.lambda_c, np.zeros(3)))
 pin.computeRNEADerivatives(model, data, q0, v0, data.ddq, fext) 
+print(q0, v0, data.ddq, fext)
 wdrnea_dx = np.hstack([data.dtau_dq, data.dtau_dv])
+# print("WORLD data.dtau_dq before = \n", data.dtau_dq)
 assert(np.linalg.norm(wdrnea_dx -ldrnea_dx) <1e-4)
     # additional term  
 lJ = pin.getFrameJacobian(model, data, frameId, pin.LOCAL) 
 wdrnea_dx[:,:nv] -= lJ[:3].T @ pin.skew(R.T @ data.lambda_c) @ lJ[3:]
+# print("WORLD data.dtau_dq after = \n", wdrnea_dx[:,:nv])
 wKinv = pin.getKKTContactDynamicMatrixInverse(model, data, wJf)  
 assert(np.linalg.norm(wKinv - np.linalg.inv(wK))<1e-6)
 assert(np.linalg.norm(fdyn(model, data, frameId, x0, tau, pin.LOCAL_WORLD_ALIGNED) - waf) < 1e-6)
@@ -823,6 +786,7 @@ wa = pin.getFrameClassicalAcceleration(model, data, frameId, pin.LOCAL_WORLD_ALI
 assert(np.linalg.norm(wa) <1e-6)
 # wda0_dx[:,:nq] -= pin.skew(wa)@Jw # no skew term after because acc = 0
 # print("wkew term = ",  pin.skew(wa)@Jw)
+print("WORLD da0_dx = \n", wda0_dx)
 assert(np.linalg.norm(wda0_dx - contactCalcDiff2Bis(model, data, frameId, x0, pin.LOCAL_WORLD_ALIGNED) ) <1e-6 )
 assert(np.linalg.norm(wdk_dx[-nc:] - wda0_dx) <1e-4)
     # rnea derivatives
@@ -830,4 +794,6 @@ assert(np.linalg.norm(wdk_dx[:nv] - wdrnea_dx)<1e-4)
     # all
 wdaf_dx = -wKinv @ np.vstack([wdrnea_dx, wda0_dx])
 assert(np.linalg.norm(wdaf_dx_ND - wdaf_dx) <1e-3)
+
+# print(wdrnea_dx)
 

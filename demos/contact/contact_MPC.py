@@ -64,14 +64,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ee_frame_placement = robot.data.oMf[robot.model.getFrameId(config['frame_of_interest'])]
   # Placement of contact frame w.r.t. LOCAL frame
   contact_placement = ee_frame_placement.copy()
-  # contact_placement.rotation =
+  # contact_placement.rotation 
   M_ct = robot.data.oMf[id_endeff].copy()
-  offset = 0.03348 #0.036 #0.0335
-  
-  contact_placement.translation = base_placement.act(contact_placement.act(np.array([0., 0., offset])))
-  contact_placement.rotation    = base_placement.rotation @ contact_placement.rotation
+  contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
+  contact_placement.rotation    =  contact_placement.rotation
+  # contact_placement.translation = base_placement.act( contact_placement.act( np.asarray(config['contact_plane_offset']) ) )
+  # contact_placement.rotation    = base_placement.rotation @ contact_placement.rotation
+  # TODO: fix collisions with robot
   simulator_utils.display_contact_surface(contact_placement, with_collision=True)
-  # simulator_utils.display_table(contact_placement, with_collision=False)
 
   import time
   time.sleep(1)
@@ -88,9 +88,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   us_init = [u0 for i in range(config['N_h'])]
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   # Plot
-  PLOT_INIT = False
   if(PLOT_INIT):
-    ddp_data = data_utils.extract_ddp_data(ddp)
+    ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=config['frame_of_interest'], ct_frame_name=config['frame_of_interest'])
     fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 
@@ -143,7 +142,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
           sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
           sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
-          sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
+          sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector for i in range(config['N_h'])])
           # Extract relevant predictions for interpolations
           x_curr = sim_data['state_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
           x_pred = sim_data['state_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
