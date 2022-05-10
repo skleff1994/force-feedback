@@ -142,6 +142,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
           sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
           sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
+          X = robot.data.oMf[id_endeff].action
+          # print("Current force (Crocoddyl) : \n")
+          # print(X.dot(ddp.problem.runningDatas[0].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector))
           sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector for i in range(config['N_h'])])
           # Extract relevant predictions for interpolations
           x_curr = sim_data['state_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
@@ -149,6 +152,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # u0* = optimal control   
           f_curr = sim_data['force_pred'][nb_plan, 0, :]
           f_pred = sim_data['force_pred'][nb_plan, 1, :]
+          print(X @ f_curr)
           # Record cost references
           data_utils.record_cost_references(ddp, sim_data, nb_plan)
           # Record solver data (optional)
@@ -200,6 +204,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
       tau_mea_SIMU = actuation.step(i, u_ref_SIMU, sim_data['ctrl_des_SIMU'])  
+
+      # RICCATI GAINS TO INTERPOLATE
+      if(config['RICCATI']):
+        tau_mea_SIMU += ddp.K[0].dot(ddp.problem.x0 - sim_data['state_mea_SIMU'][i,:])
+
       #  Send output of actuation torque to the RBD simulator 
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()
@@ -208,8 +217,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
       f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff)
+      # print(f_mea_SIMU)
       if(i%50==0): 
-        print(f_mea_SIMU)
+        logger.info("f_LOCAL = "+str(f_mea_SIMU))
+        # X = robot.data.oMf[id_endeff].actionInverse
+        # logger.info("f_WORLD = "+str( X.dot(f_mea_SIMU)))
       # Record data (unnoised)
       x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
       sim_data['state_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU

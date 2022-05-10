@@ -7,6 +7,8 @@ import pinocchio as pin
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
+
+
 # Save data (dict) into compressed npz
 def save_data(sim_data, save_name=None, save_dir=None):
     '''
@@ -584,13 +586,13 @@ def extract_plot_data_from_sim_data_LPF(sim_data):
 
 
 #### Classical OCP
-def extract_ddp_data(ddp, ee_frame_name='contact', ct_frame_name='contact'): 
+def extract_ddp_data(ddp, ee_frame_name, ct_frame_name, ref=pin.LOCAL): 
     '''
     Record relevant data from ddp solver in order to plot 
-    ee_frame_name = name of frame for which ee plots will be generated
-                        by default 'contact' as in KUKA urdf model (Tennis ball)
-    ct_frame_name = name of frame for which force plots will be generated
-                        by default 'contact' as in KUKA urdf model (Tennis ball)
+      ddp           : DDP solver object
+      ee_frame_name : name of frame for which ee plots will be generated
+      ct_frame_name : name of frame for which force plots will be generated
+      REF           : name of the reference frame for contact models (TODO: deduce it from solver parsing)
     '''
     logger.info("Extracting DDP data...")
     # Store data
@@ -610,7 +612,7 @@ def extract_ddp_data(ddp, ee_frame_name='contact', ct_frame_name='contact'):
     ddp_data['xs'] = ddp.xs
     ddp_data['us'] = ddp.us
     ddp_data['CONTACT_TYPE'] = None
-    # Extract force at EE frame and contact info 
+    # Extract force at EE frame and contact info
     if(hasattr(ddp.problem.runningModels[0].differential, 'contacts')):
       # Get refs for contact model
       contactModelRef0 = ddp.problem.runningModels[0].differential.contacts.contacts[ct_frame_name].contact.reference
@@ -621,23 +623,38 @@ def extract_ddp_data(ddp, ee_frame_name='contact', ct_frame_name='contact'):
         ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference.translation for i in range(ddp.problem.T)]
         ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference.translation)
         ddp_data['CONTACT_TYPE'] = '6D'
+        PIN_REF_FRAME = pin.LOCAL
       # Case 3D contact (x,y,z)
       elif(np.size(contactModelRef0)==3):
-        # Get ref translation for 3D 
-        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference for i in range(ddp.problem.T)]
-        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference)
-        ddp_data['CONTACT_TYPE'] = '3D'
-      # Case 1D contact (z)
-      elif(np.size(contactModelRef0)==1):
-        ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference for i in range(ddp.problem.T)]
-        ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference)
-        ddp_data['CONTACT_TYPE'] = '1D'
+        if(ddp.problem.runningModels[0].differential.contacts.contacts[ct_frame_name].contact.nc == 3):
+          # Get ref translation for 3D 
+          ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference for i in range(ddp.problem.T)]
+          ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference)
+          ddp_data['CONTACT_TYPE'] = '3D'
+        elif(ddp.problem.runningModels[0].differential.contacts.contacts[ct_frame_name].contact.nc == 1):
+          # Case 1D contact
+          ddp_data['contact_translation'] = [ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference for i in range(ddp.problem.T)]
+          ddp_data['contact_translation'].append(ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference)
+          ddp_data['CONTACT_TYPE'] = '1D'
+        else: 
+          print(ddp.problem.runningModels[0].differential.contacts.contacts[ct_frame_name].contact.nc == 3)
+          logger.error("Contact must be 1D or 3D !")
+        # Check which reference frame is used 
+        if(ddp.problem.runningModels[0].differential.contacts.contacts[ct_frame_name].contact.type == pin.pinocchio_pywrap.ReferenceFrame.LOCAL):
+          PIN_REF_FRAME = pin.LOCAL
+        else:
+          PIN_REF_FRAME = pin.LOCAL_WORLD_ALIGNED
       # Get contact force
       datas = [ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[ct_frame_name] for i in range(ddp.problem.T)]
       # data.f = force exerted at parent joint expressed in WORLD frame (oMi)
       # express it in LOCAL contact frame using jMf 
       ee_forces = [data.jMf.actInv(data.f).vector for data in datas] 
       ddp_data['fs'] = [ee_forces[i] for i in range(ddp.problem.T)]
+      # Express in WORLD aligned frame otherwise
+      if(PIN_REF_FRAME == pin.LOCAL_WORLD_ALIGNED or PIN_REF_FRAME == pin.WORLD):
+        ct_frame_id = ddp_data['pin_model'].getFrameId(ct_frame_name)
+        Ms = [pin_utils.get_SE3_(ddp.xs[i][:ddp_data['nq']], ddp_data['pin_model'], ct_frame_id) for i in range(ddp.problem.T)]
+        ddp_data['fs'] = [Ms[i].action @ ee_forces[i] for i in range(ddp.problem.T)]
     # Extract refs for active costs 
     # TODO : active costs may change along horizon : how to deal with that when plotting? 
     ddp_data['active_costs'] = ddp.problem.runningModels[0].differential.costs.active.tolist()
@@ -708,44 +725,3 @@ def extract_plot_data_from_npz(file, LPF=False):
     plot_data = extract_plot_data_from_sim_data_LPF(sim_data)
   return plot_data
 
-
-
-
-
-
-
-
-
-
-
-# # Extract MPC simu-specific plotting data from sim data (LPF)
-# def extract_plot_data_from_sim_data_LPF(sim_data):
-#     '''
-#     Extract plot data from simu data (for torque feedback MPC based on LPF)
-#     '''
-#     # Extract like regular OCP
-#     logger.info('Extracting plot data from MPC simulation data (LPF)...')
-#     plot_data = extract_plot_data_from_sim_data(sim_data)
-#     nu = plot_data['nu'] ; ny = plot_data['ny']
-#     # OVerwrite control with unfitlered torques (control)
-#     plot_data['w_pred'] = sim_data['ctrl_pred']
-#     plot_data['w_des_PLAN'] = sim_data['ctrl_des_PLAN']
-#     plot_data['w_des_CTRL'] = sim_data['ctrl_des_CTRL']
-#     plot_data['w_des_SIMU'] = sim_data['ctrl_des_SIMU']
-#     # Add filtered torques (state)
-#     plot_data['tau_pred'] = sim_data['state_pred'][:,:,-nu:]
-#     plot_data['tau_des_PLAN'] = sim_data['state_des_PLAN'][:,-nu:]
-#     plot_data['tau_des_CTRL'] = sim_data['state_des_CTRL'][:,-nu:]
-#     plot_data['tau_des_SIMU'] = sim_data['state_des_SIMU'][:,-nu:] 
-#     plot_data['tau_mea'] = sim_data['state_mea_SIMU'][:,-nu:]
-#     plot_data['tau_mea_no_noise'] = sim_data['state_mea_no_noise_SIMU'][:,-nu:]
-#     # Solver data (change size o)
-#     if(sim_data['RECORD_SOLVER_DATA']):
-#       # Get diagonal and eigenvals of Vxx + record in sim data
-#       plot_data['Vxx_diag'] = np.zeros((sim_data['N_plan'],sim_data['N_h']+1, ny))
-#       plot_data['Vxx_eig'] = np.zeros((sim_data['N_plan'], sim_data['N_h']+1, ny))
-#       for i in range(sim_data['N_plan']):
-#         for j in range(sim_data['N_h']+1):
-#           plot_data['Vxx_diag'][i, j, :] = sim_data['Vxx'][i, j, :, :].diagonal()
-#           plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(sim_data['Vxx'][i, j, :, :]))[::-1]
-#     return plot_data

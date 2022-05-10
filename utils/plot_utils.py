@@ -1641,8 +1641,8 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
     # Set ylim if any
     TOL = 1e-3
     if(AUTOSCALE):
-        ax_ylim = 1.1*max( np.max(np.abs(plot_data['f_ee_mea'])), TOL )
-        ax_ylim = 1.1*max( np.max(np.abs(plot_data['f_ee_mea'])), TOL )
+        ax_ylim = 1.1*max( np.nanmax(np.abs(plot_data['f_ee_mea'])), TOL )
+        ax_ylim = 1.1*max( np.nanmax(np.abs(plot_data['f_ee_mea'])), TOL )
         for i in range(3):
             ax[i,0].set_ylim(-ax_ylim, ax_ylim) 
             # ax[i,0].set_ylim(-30, 10) 
@@ -1651,7 +1651,7 @@ def plot_mpc_force(plot_data, PLOT_PREDICTIONS=False,
     handles_p, labels_p = ax[0,0].get_legend_handles_labels()
     fig.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
     # Titles
-    fig.suptitle('End-effector forces', size=18)
+    fig.suptitle('End-effector forces (LOCAL)', size=18)
     # Save figs
     if(SAVE):
         figs = {'f': fig}

@@ -68,7 +68,39 @@ def rotate(se3_placement, rpy=[0., 0., 0.]):
     se3_placement_rotated.rotation = se3_placement_rotated.rotation.copy().dot(R)
     return se3_placement_rotated
 
+
+# Get frame position
+def get_SE3(q, pin_robot, id_endeff):
+    '''
+    Returns frame placement given q trajectory 
+        q         : joint positions
+        robot     : pinocchio wrapper
+        id_endeff : id of EE frame
+    '''
+    return get_p_(q, pin_robot.model, id_endeff)
+
+def get_SE3_(q, model, id_endeff):
+    '''
+    Returns frame placement given q trajectory 
+        q         : joint positions
+        model     : pinocchio model
+        id_endeff : id of EE frame
+    '''
     
+    data = model.createData()
+    if(type(q)==np.ndarray and len(q.shape)==1):
+        pin.forwardKinematics(model, data, q)
+        pin.updateFramePlacements(model, data)
+        p = data.oMf[id_endeff]
+    else:
+        N = np.shape(q)[0]
+        p = []
+        for i in range(N):
+            pin.forwardKinematics(model, data, q[i])
+            pin.updateFramePlacements(model, data)
+            p.append(data.oMf[id_endeff])
+    return p
+
 
 # Get frame position
 def get_p(q, pin_robot, id_endeff):

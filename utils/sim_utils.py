@@ -190,9 +190,10 @@ def get_contact_wrench(pybullet_simulator, id_endeff):
         # wrench LOCAL(p)-->WORLD
         wrench_WORLD = M_ct.act(pin.Force(wrench_LOCAL))
         # wrench WORLD-->LOCAL(EE)
-        wrench_croco = -pybullet_simulator.pin_robot.data.oMf[id_endeff].actInv(wrench_WORLD)
-        force =+ wrench_croco.vector
-        return force
+        wrench_LOCAL = -pybullet_simulator.pin_robot.data.oMf[id_endeff].actInv(wrench_WORLD)
+        # logger.debug(wrench_LOCAL)
+        force += wrench_LOCAL.vector
+    return force
 
 
 # Get joint torques from robot simulator
@@ -239,7 +240,7 @@ def display_ball(p_des, robot_base_pose=pin.SE3.Identity(), RADIUS=.05, COLOR=[1
 
 
 # Load contact surface in PyBullet for contact experiments
-def display_contact_surface(M, robotId=1, radius=.25, length=0.0, with_collision=False, TILT=[0., 0., 0.]):
+def display_contact_surface(M, robotId=1, radius=.22, length=0.0, with_collision=False, TILT=[0., 0., 0.]):
     '''
     Creates contact surface object in PyBullet as a flat cylinder 
       M              : contact placement expressed in simulator WORLD frame
@@ -282,7 +283,7 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, with_collision
             # print(ji)
             p.setCollisionFilterPair(contactId, robotId, -1, i, 1)
             # p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
-    #   p.setCollisionFilterPair(contactId, robotId, -1,  8, 1)
+    #   p.setCollisionFilterPair(contactId, robotId, -1, 8, 1)
 
       return contactId
     # Without collisions

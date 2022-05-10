@@ -67,8 +67,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   id_endeff = robot.model.getFrameId(config['frame_of_interest'])
   contact_placement = robot.data.oMf[id_endeff].copy()
   M_ct = robot.data.oMf[id_endeff].copy()
-  offset = 0.03348 #0.036 #0.0335
-  contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
+  contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
+  contact_placement.rotation    =  contact_placement.rotation
+  # contact_placement.translation = base_placement.act( contact_placement.act( np.asarray(config['contact_plane_offset']) ) )
+  # contact_placement.rotation    = base_placement.rotation @ contact_placement.rotation
+  # TODO: fix collisions with robot
   simulator_utils.display_contact_surface(contact_placement, with_collision=True)
 
 
@@ -87,7 +90,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Plot initial solution
   PLOT_INIT = False
   if(PLOT_INIT):
-    ddp_data = data_utils.extract_ddp_data_LPF(ddp)
+    ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=config['frame_of_interest'], ct_frame_name=config['frame_of_interest'])
     fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
 
 
@@ -197,6 +200,17 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       tau_ref_SIMU =  y_ref_SIMU[-nu:] 
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
       tau_mea_SIMU = actuation.step(i, tau_ref_SIMU, sim_data['state_mea_SIMU'][:,-nu:])   
+
+      # RICCATI GAINS TO INTERPOLATE
+      if(config['RICCATI']):
+        K = ddp.K[0]
+        alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
+        Ktilde  = (1-alpha)*OCP_TO_PLAN_RATIO*K
+        Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
+        tau_mea_SIMU += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data['state_mea_SIMU'][i,:nq+nv]) #position vel
+        tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data['state_mea_SIMU'][i,:-nq])           # torques
+
+
       #  Send output of actuation torque to the RBD simulator 
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()
