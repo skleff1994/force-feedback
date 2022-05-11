@@ -27,12 +27,8 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
@@ -44,6 +40,8 @@ from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_
 
 import time 
 
+
+import pinocchio as pin
 
 
 WARM_START_IK = True
@@ -75,21 +73,29 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Get dimensions 
   nq, nv = robot.model.nq, robot.model.nv; nu = nq
   # Initial placement
-  id_endeff = robot.model.getFrameId(config['frame_of_interest'])
+  frame_name = config['contacts'][0]['contactModelFrameName']
+  id_endeff = robot.model.getFrameId(frame_name)
   ee_frame_placement = robot.data.oMf[id_endeff].copy()
   contact_placement = robot.data.oMf[id_endeff].copy()
-  M_ct = robot.data.oMf[id_endeff].copy()
-  offset = 0.03348 #0.036 #0.0335
-  contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
+  contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   # Optionally tilt the contact surface
   TILT_RPY = np.zeros(3)
   if(config['TILT_SURFACE']):
     TILT_RPY = [0., config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0.]
     contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
   # Create the contact surface in PyBullet simulator 
-  contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
+  contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement.copy(), bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Set lateral friction coefficient of the contact surface
   simulator_utils.set_friction_coef(contact_surface_bulletId, 0.5)
+
+
+  # Extract pin ref frame (dirty) 
+  CONTACT_CONFIG = config['contacts'][0]
+  if(CONTACT_CONFIG['contactModelType'] == '6D' or CONTACT_CONFIG['pinocchioReferenceFrame'] == 'LOCAL'):
+    PIN_REF_FRAME = pin.LOCAL
+  else:
+    PIN_REF_FRAME = pin.LOCAL_WORLD_ALIGNED
+  logger.warning("Contact force will be expressed in the "+str(PIN_REF_FRAME)+" convention")
 
 
   # # # # # # # # # 
@@ -235,7 +241,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
           sim_data['state_pred'][nb_plan, :, :]  = np.array(ddp.xs)
           sim_data['ctrl_pred'][nb_plan, :, :]   = np.array(ddp.us)
-          sim_data['force_pred'][nb_plan, :, :]  = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
+          # sim_data['force_pred'][nb_plan, :, :]  = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
+          # Record forces in the right frame
+          if(PIN_REF_FRAME == pin.LOCAL):
+            sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[frame_name].f.vector for i in range(config['N_h'])])
+          else:
+            sim_data ['force_pred'][nb_plan, :, :] = np.array([robot.data.oMf[id_endeff].action @ ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[frame_name].f.vector for i in range(config['N_h'])])
+          
           # logger.info("RICCATI TORQUE GAIN = ", ddp.K[0][:,:nq])
           # Extract relevant predictions for interpolations
           y_curr = sim_data['state_pred'][nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
@@ -315,21 +327,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
       # Measure contact wrench from bullet simulator
-      f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff)
-      if(i%100==0): 
+      f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, PIN_REF_FRAME)
+      if(i%50==0): 
         print(f_mea_SIMU)
-      # # Estimate measured torques from measured contact wrench
-      # f_ext = pin_utils.get_external_joint_torques(robot.data.oMf[id_endeff].copy(), f_mea_SIMU, robot)
-      # if(i==0):
-      #   a_mea_SIMU = np.zeros(nv)
-      # else:
-      #   a_mea_SIMU = (v_mea_SIMU - sim_data['state_mea_SIMU'][i, nq:nq+nv])/dt_simu
-      # tau_mea_SIMU = pin_utils.get_tau(q_mea_SIMU, v_mea_SIMU, a_mea_SIMU, f_ext, robot.model)
-      # if(i%10==0): 
-      #   # logger.info("force MEA = "+str(f_mea_SIMU))
-      #   logger.info("tau   REF = "+str(tau_ref_SIMU))
-      #   logger.info("tau   MEA = "+str(tau_mea_SIMU))
-      #  Record data (unnoised)
       y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
       sim_data['state_mea_no_noise_SIMU'][i+1, :] = y_mea_SIMU
       # Sensor model (optional noise + filtering)

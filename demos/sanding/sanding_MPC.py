@@ -238,7 +238,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # u0* = optimal control   
           f_curr = sim_data['force_pred'][nb_plan, 0, :]
           f_pred = sim_data['force_pred'][nb_plan, 1, :]
-          logger.info(f_curr)
+          # logger.info(f_curr)
           # Record cost references
           data_utils.record_cost_references(ddp, sim_data, nb_plan)
           # Record solver data (optional)
@@ -303,11 +303,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
-      f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff)
-      if(PIN_REF_FRAME == pin.LOCAL):
-        pass
-      else:
-        f_mea_SIMU = robot.data.oMf[id_endeff].action @ f_mea_SIMU.copy()
+      f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, PIN_REF_FRAME)
       # print(f_mea_SIMU)
       if(i%50==0): 
         logger.info("f_mea = "+str(f_mea_SIMU))

@@ -58,7 +58,7 @@ contacts:
   - {
       contactModelFrameName: 'arm_right_7_link',       # frame name in pinocchio model
       pinocchioReferenceFrame: 'LOCAL',       #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
-      contactModelType: '3D',                 # 1Dx, 1Dy, 1Dz, 3D, 6D
+      contactModelType: '1Dz',                 # 1Dx, 1Dy, 1Dz, 3D, 6D
       contactModelTranslationRef: '',         # 3d vector
       contactModelRotationRef: '',            # 3d matrix
       contactModelGains: [0, 50.],             # Baumgarte stabilization gains
@@ -73,7 +73,7 @@ WHICH_COSTS: ['force', 'stateReg', 'translation', 'ctrlRegGrav']
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeights:  [1., 1., 1., 0., 0., 0.]
+frameForceWeights:  [0., 0., 1., 0., 0., 0.]
 frameForceWeight: 100.
 frameForceRef: [0., 0., 20, 0., 0., 0.]    
 frameForceFrameName: 'arm_right_7_link'
