@@ -123,7 +123,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref #[2]
       
   # Warm start state = IK of circle trajectory
-  WARM_START_IK = True
+  # WARM_START_IK = True
   if(WARM_START_IK):
       logger.info("Computing warm-start using Inverse Kinematics...")
       xs_init = [] 
@@ -179,7 +179,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   logger.info("OCP  --> PLAN ratio = "+str(OCP_TO_PLAN_RATIO))
   logger.info("OCP  --> SIMU ratio = "+str(OCP_TO_SIMU_RATIO))
   logger.info("PLAN --> SIMU ratio = "+str(PLAN_TO_SIMU_RATIO))
-  time.sleep(2)
+  # time.sleep(2)
   if(1./PLAN_TO_SIMU_RATIO%1 != 0):
     logger.warning("SIMU->MPC ratio not an integer ! (1./PLAN_TO_SIMU_RATIO = "+str(1./PLAN_TO_SIMU_RATIO)+")")
   if(1./OCP_TO_SIMU_RATIO%1 != 0):
@@ -228,7 +228,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
               p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement.copy(), 
                                                           radius=RADIUS,
                                                           omega=OMEGA)
-              # Cost translation
+              #  Cost translation
               m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
               # Contact model
               m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref #[2] 

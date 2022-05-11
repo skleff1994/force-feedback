@@ -4,8 +4,8 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 500       # Control frequency
-plan_freq: 500          # Planning frequency
+ctrl_freq: 1000       # Control frequency
+plan_freq: 1000         # Planning frequency
 T_tot: 5.             # Simu duration (s)
 # Simulation options
 DELAY_SIM: False              # Add delay in reference torques (low-level)
@@ -27,16 +27,6 @@ TILT_SURFACE: False           # Tilt contact surface
 TILT_PITCH_LOCAL_DEG: -10.
 RICCATI: False 
 
-# # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
-#   R =
-#    -0.918754     0.389418    0.0651533
-#     0.388443     0.921061   -0.0275464
-#   -0.0707372 -2.41653e-08    -0.997495
-#   p = 0.3   0 0.7
-# # Starting config for IK (to avoid self-collision solution)
-# q_init =  [-0.2263,  0.    , -0.174 , -1.6865,  0.0358,  1.5   , -0.3946]
-# # Solution of IK_placement(q_init, M)
-# q0 = [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]
 
 
 # General 
@@ -80,12 +70,12 @@ contacts:
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement', 'rotation'
-WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg', 'stateLim'] # 'ctrlRegGrav']  
+WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg'] # 'stateLim'] # 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [0., 0., 1., 0., 0., 0.]
-frameForceWeight: 10.
+frameForceWeight: 1.
 # frameForceWeightTerminal: 0.
 frameForceRef: [0., 0., 20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
@@ -98,18 +88,18 @@ frictionConeFrameName: 'contact'
 # Cost function weights and activations
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1 ,0.1, 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.001
-stateRegWeightTerminal: 0.001
+stateRegWeight: 0.01
+stateRegWeightTerminal: 0.01
 stateRegRef: 'DEFAULT' # TRACKING ?
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.01
+ctrlRegWeight: 0.00001
 ctrlRegWeightTerminal: 0.01 
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.0001
+wRegWeight: 0.001
 wRegRef: 'zero'
 
 # 'wLim' : unfiltered torque limit
@@ -117,8 +107,8 @@ wLimWeight: 100
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 0.]
-frameTranslationWeight: 10.
-frameTranslationWeightTerminal: 10.
+frameTranslationWeight: 50.
+frameTranslationWeightTerminal: 50.
 frameTranslationRef: 'DEFAULT' 
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
