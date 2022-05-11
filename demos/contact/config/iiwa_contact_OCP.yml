@@ -16,7 +16,7 @@ contacts:
   - {
       contactModelFrameName: 'contact',               # frame name in pinocchio model
       pinocchioReferenceFrame: 'LOCAL_WORLD_ALIGNED', #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
-      contactModelType: '1Dy',                        # 1Dx, 1Dy, 1Dz, 3D, 6D
+      contactModelType: '1Dz',                        # 1Dx, 1Dy, 1Dz, 3D, 6D
       contactModelTranslationRef: '',                 # 3d vector
       contactModelRotationRef: '',                    # 3d matrix
       contactModelGains: [2, 5],                     # Baumgarte stabilization gains

@@ -101,7 +101,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
   u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
   y0 = np.concatenate([x0, u0])
-  ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False, w_reg_ref=np.zeros(nq) ) 
+  ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False) # w_reg_ref=np.zeros(nq) ) 
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   RADIUS = config['frameCircleTrajectoryRadius'] 
   OMEGA  = config['frameCircleTrajectoryVelocity']
@@ -114,7 +114,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Cost translation
       m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
       # Contact model 1D update z ref (WORLD frame)
-      m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
+      m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref #[2]
       
   # Warm start state = IK of circle trajectory
   WARM_START_IK = True
@@ -154,7 +154,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
   # # # # # # # # # # #
-  sim_data = data_utils.init_sim_data_LPF(config, robot, y0, frame_of_interest=config['frame_of_interest'])
+  sim_data = data_utils.init_sim_data_LPF(config, robot, y0, ee_frame_name=config['frame_of_interest'])
     # Get frequencies
   freq_PLAN = sim_data['plan_freq']
   freq_CTRL = sim_data['ctrl_freq']
@@ -225,7 +225,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
               # Cost translation
               m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
               # Contact model
-              m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2] 
+              m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref #[2] 
           # Reset x0 to measured state + warm-start solution
           ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
           xs_init        = list(ddp.xs[1:]) + [ddp.xs[-1]]

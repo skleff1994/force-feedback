@@ -508,6 +508,7 @@ def init_DDP(robot, config, x0, callbacks=False):
           # Default reference = initial state
           if(config['stateRegRef']=='DEFAULT'):
             stateRegRef = np.concatenate([np.asarray(config['q0']), np.asarray(config['dq0'])]) #np.zeros(nq+nv) 
+            # logger.debug("stateRegRef = "+str(stateRegRef))
           else:
             stateRegRef = np.asarray(config['stateRegRef'])
           stateRegWeights = np.asarray(config['stateRegWeights'])

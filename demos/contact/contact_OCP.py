@@ -73,9 +73,10 @@ def main(robot_name, PLOT, DISPLAY):
 
 
     # Display solution in Gepetto Viewer
-    import crocoddyl
-    display = crocoddyl.GepettoDisplay(robot, frameNames=[frame_name])
-    display.displayFromSolver(ddp, factor=0.1)
+    if(DISPLAY):
+        import crocoddyl
+        display = crocoddyl.GepettoDisplay(robot, frameNames=[frame_name])
+        display.displayFromSolver(ddp, factor=0.1)
 
 
 if __name__=='__main__':

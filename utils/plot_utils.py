@@ -2367,12 +2367,7 @@ def plot_ddp_endeff_linear(ddp_data, fig=None, ax=None, label=None, marker=None,
                 handles.pop(labels.index('Baumgarte stab. ref.'))
                 ax[i,0].lines.pop(labels.index('Baumgarte stab. ref.'))
                 labels.remove('Baumgarte stab. ref.')
-            # Exception for 1D contact: plot only along z-axis 
-            if(ddp_data['CONTACT_TYPE']=='1D'):
-                if(i==2):
-                    ax[i,0].plot(tspan, lin_pos_ee_contact, linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
-            else:
-                ax[i,0].plot(tspan, lin_pos_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
+            ax[i,0].plot(tspan, lin_pos_ee_contact[:,i], linestyle=':', color='r', marker=None, label='Baumgarte stab. ref.', alpha=0.3)
         # Labels, tick labels, grid
         ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
         ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))

@@ -240,7 +240,7 @@ def display_ball(p_des, robot_base_pose=pin.SE3.Identity(), RADIUS=.05, COLOR=[1
 
 
 # Load contact surface in PyBullet for contact experiments
-def display_contact_surface(M, robotId=1, radius=.22, length=0.0, with_collision=False, TILT=[0., 0., 0.]):
+def display_contact_surface(M, robotId=1, radius=.25, length=0.0, bullet_endeff_ids=[], TILT=[0., 0., 0.]):
     '''
     Creates contact surface object in PyBullet as a flat cylinder 
       M              : contact placement expressed in simulator WORLD frame
@@ -263,7 +263,7 @@ def display_contact_surface(M, robotId=1, radius=.22, length=0.0, with_collision
                                         visualFramePosition=quat[:3],
                                         visualFrameOrientation=quat[3:])
     # With collision
-    if(with_collision):
+    if(len(bullet_endeff_ids)!=0):
       collisionShapeId = p.createCollisionShape(shapeType=p.GEOM_CYLINDER,
                                                 radius=radius,
                                                 height=length,
@@ -276,14 +276,13 @@ def display_contact_surface(M, robotId=1, radius=.22, length=0.0, with_collision
                                     basePosition=[0.,0.,0.],
                                     useMaximalCoordinates=True)
                     
-      # Desactivate collisions for all links except end-effector of robot
-      # TODO: do not hard-code the PyBullet EE id
+      # Desactivate collisions for all links
       for i in range(p.getNumJoints(robotId)):
-            # ji = p.getJointInfo(robotId, i)
-            # print(ji)
-            p.setCollisionFilterPair(contactId, robotId, -1, i, 1)
+            p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
             # p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
-    #   p.setCollisionFilterPair(contactId, robotId, -1, 8, 1)
+      # activate collisions only for EE ids
+      for ee_id in bullet_endeff_ids:
+        p.setCollisionFilterPair(contactId, robotId, -1, ee_id, 1)
 
       return contactId
     # Without collisions

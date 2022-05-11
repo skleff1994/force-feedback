@@ -120,7 +120,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     #  Plot
     if(PLOT):
         ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name='contact', ct_frame_name=frame_name)
-        fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=['f'], markers=['.'], SHOW=True)
+        fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=config['WHICH_PLOTS'], markers=['.'], SHOW=True)
 
 
     force_axis = 'z'

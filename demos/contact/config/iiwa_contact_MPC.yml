@@ -3,9 +3,9 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 1000        # Control frequency
-plan_freq: 1000        # Planning frequency
-T_tot: 5.             # Simu duration (s)
+ctrl_freq: 250        # Control frequency
+plan_freq: 250        # Planning frequency
+T_tot: 1.             # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -21,13 +21,13 @@ INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 500                   # Display sim status once very 'log_rate' sim cycles
-WHICH_PLOTS: ['all']
-RICCATI: False
+WHICH_PLOTS: ['f']
+RICCATI: True
 
 # Definition of the contact surface in the simulator
 # It is aligned with the LOCAL contact frame by default
 # User-defined offset expressed in the LOCAL contact frame :
-contact_plane_offset: [0., 0., 0.0335]
+contact_plane_offset: [0., 0., 0.034]
 
 
 # General
@@ -54,20 +54,20 @@ contacts:
       contactModelType: '1Dz',               # 1Dx, 1Dy, 1Dz, 3D, 6D
       contactModelTranslationRef: '',       # 3d vector
       contactModelRotationRef: '',          # 3d matrix
-      contactModelGains: [0, 10],           # Baumgarte stabilization gains
+      contactModelGains: [0, 50],           # Baumgarte stabilization gains
       active: True                          # Initially active? 
     }
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['force', 'stateReg', 'ctrlReg', 'stateLim'] 
+WHICH_COSTS: ['stateReg', 'force', 'translation' , 'ctrlReg'] #, 'stateLim'] 
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [0., 0., 1., 0, 0, 0.]
-frameForceWeight: 10
-frameForceRef: [0., 0., -20, 0., 0., 0.]    
+frameForceWeight: 50
+frameForceRef: [0., 0., 50, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
 
@@ -79,19 +79,19 @@ frameForceFrameName: 'contact'
 
  # 'stateReg' : state regularization  
 stateRegWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
-stateRegWeight: .01
-stateRegWeightTerminal: .01
+stateRegWeight: .1
+stateRegWeightTerminal: .1
 stateRegRef: 'DEFAULT'
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.0001
+ctrlRegWeight: 0.001
 ctrlRegRef: 'DEFAULT' # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 0.]
-frameTranslationWeight: 100
-frameTranslationWeightTerminal: 100
+frameTranslationWeight: 1
+frameTranslationWeightTerminal: 1
 frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
 

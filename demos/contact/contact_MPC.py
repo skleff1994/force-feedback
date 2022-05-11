@@ -31,6 +31,7 @@ np.set_printoptions(precision=4, linewidth=180)
 
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils, mpc_utils
 
+import pinocchio as pin
 
 
 def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
@@ -72,7 +73,15 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # contact_placement.rotation    = base_placement.rotation @ contact_placement.rotation
   # TODO: fix collisions with robot
   simulator_utils.display_contact_surface(contact_placement, with_collision=True)
-
+  
+  # Extract pin ref frame (dirty) 
+  CONTACT_CONFIG = config['contacts'][0]
+  if(CONTACT_CONFIG['contactModelType'] == '6D' or CONTACT_CONFIG['pinocchioReferenceFrame'] == 'LOCAL'):
+    PIN_REF_FRAME = pin.LOCAL
+  else:
+    PIN_REF_FRAME = pin.LOCAL_WORLD_ALIGNED
+  logger.warning("Contact force will be expressed in the "+str(PIN_REF_FRAME)+" convention")
+  
   import time
   time.sleep(1)
 
@@ -89,14 +98,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   # Plot
   if(PLOT_INIT):
-    ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=config['frame_of_interest'], ct_frame_name=config['frame_of_interest'])
+    ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=config['frame_of_interest'], 
+                                                ct_frame_name=config['frame_of_interest'])
     fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
-
 
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
   # # # # # # # # # # #
-  sim_data = data_utils.init_sim_data(config, robot, x0, ee_frame_name=config['frame_of_interest'])
+  sim_data = data_utils.init_sim_data(config, robot, x0)
     # Get frequencies
   freq_PLAN = sim_data['plan_freq']
   freq_CTRL = sim_data['ctrl_freq']
@@ -120,7 +129,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### SIMULATION LOOP ###
   # # # # # # # # # # # #
 
-
   # SIMULATE
   for i in range(sim_data['N_simu']): 
 
@@ -142,17 +150,17 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
           sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
           sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
-          X = robot.data.oMf[id_endeff].action
-          # print("Current force (Crocoddyl) : \n")
-          # print(X.dot(ddp.problem.runningDatas[0].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector))
-          sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector for i in range(config['N_h'])])
+          # Record forces in the right frame
+          if(PIN_REF_FRAME == pin.LOCAL):
+            sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector for i in range(config['N_h'])])
+          else:
+            sim_data ['force_pred'][nb_plan, :, :] = np.array([robot.data.oMf[id_endeff].action @ ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector for i in range(config['N_h'])])
           # Extract relevant predictions for interpolations
           x_curr = sim_data['state_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
           x_pred = sim_data['state_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
           u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # u0* = optimal control   
           f_curr = sim_data['force_pred'][nb_plan, 0, :]
           f_pred = sim_data['force_pred'][nb_plan, 1, :]
-          print(X @ f_curr)
           # Record cost references
           data_utils.record_cost_references(ddp, sim_data, nb_plan)
           # Record solver data (optional)
@@ -217,11 +225,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
       f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff)
+      if(PIN_REF_FRAME == pin.LOCAL):
+        pass
+      else:
+        f_mea_SIMU = robot.data.oMf[id_endeff].action @ f_mea_SIMU.copy()
       # print(f_mea_SIMU)
       if(i%50==0): 
-        logger.info("f_LOCAL = "+str(f_mea_SIMU))
-        # X = robot.data.oMf[id_endeff].actionInverse
-        # logger.info("f_WORLD = "+str( X.dot(f_mea_SIMU)))
+        logger.info("f_mea = "+str(f_mea_SIMU))
       # Record data (unnoised)
       x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
       sim_data['state_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU

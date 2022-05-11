@@ -42,9 +42,10 @@ def load_data(npz_file):
 
 #### Classical MPC
 # Initialize simulation data for MPC simulation
-def init_sim_data(config, robot, x0, ee_frame_name='contact'):
+def init_sim_data(config, robot, x0):
     '''
     Initialize simulation data from config file
+     
     '''
     sim_data = {}
     # Costs
@@ -69,7 +70,7 @@ def init_sim_data(config, robot, x0, ee_frame_name='contact'):
     sim_data['nv'] = sim_data['pin_model'].nv
     sim_data['nu'] = sim_data['pin_model'].nq
     sim_data['nx'] = sim_data['nq'] + sim_data['nv']
-    sim_data['id_endeff'] = sim_data['pin_model'].getFrameId(ee_frame_name) # hard-coded contact frame here !!!
+    sim_data['id_endeff'] = sim_data['pin_model'].getFrameId(config['frame_of_interest']) # hard-coded frame here
     # Cost references 
     sim_data['ctrl_ref'] = np.zeros((sim_data['N_plan'], sim_data['nu']))
     sim_data['state_ref'] = np.zeros((sim_data['N_plan'], sim_data['nx']))

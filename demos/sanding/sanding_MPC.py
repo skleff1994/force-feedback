@@ -27,12 +27,8 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
@@ -42,8 +38,7 @@ RANDOM_SEED = 1
 
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
 
-import time 
-
+import pinocchio as pin
 
 
 WARM_START_IK = True
@@ -87,10 +82,18 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     TILT_RPY = [0., config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0.]
     contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
   # Create the contact surface in PyBullet simulator 
-  contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
+  contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement.copy(), bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Set lateral friction coefficient of the contact surface
   simulator_utils.set_friction_coef(contact_surface_bulletId, 0.5)
 
+
+  # Extract pin ref frame (dirty) 
+  CONTACT_CONFIG = config['contacts'][0]
+  if(CONTACT_CONFIG['contactModelType'] == '6D' or CONTACT_CONFIG['pinocchioReferenceFrame'] == 'LOCAL'):
+    PIN_REF_FRAME = pin.LOCAL
+  else:
+    PIN_REF_FRAME = pin.LOCAL_WORLD_ALIGNED
+  logger.warning("Contact force will be expressed in the "+str(PIN_REF_FRAME)+" convention")
 
   # # # # # # # # # 
   ### OCP SETUP ###
@@ -107,11 +110,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
                                                 radius=RADIUS,
                                                 omega=OMEGA)
-      # Cost translation
+      #  Cost translation
       m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
-      # Contact model 1D update z ref (WORLD frame)
-      m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
-      # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
+      #  Contact model 1D update z ref (WORLD frame)
+      m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
       
   # Warm start state = IK of circle trajectory
   WARM_START_IK = True
@@ -139,9 +141,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
 
   # Plot initial solution
-  PLOT_INIT = False
   if(PLOT_INIT):
-    ddp_data = data_utils.extract_ddp_data(ddp)
+    ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=config['frame_of_interest'],
+                                                ct_frame_name=config['frame_of_interest'])
     fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 
@@ -211,7 +213,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
               # Cost translation
               m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
               # Contact model
-              m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
+              m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref 
 
           # Reset x0 to measured state + warm-start solution
           ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
@@ -222,7 +224,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
           sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
           sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
-          sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
+          # sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
+          # Record forces in the right frame
+          if(PIN_REF_FRAME == pin.LOCAL):
+            sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector for i in range(config['N_h'])])
+          else:
+            sim_data ['force_pred'][nb_plan, :, :] = np.array([robot.data.oMf[id_endeff].action @ ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector for i in range(config['N_h'])])
           # Extract relevant predictions for interpolations
           x_curr = sim_data['state_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
           x_pred = sim_data['state_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
@@ -294,8 +301,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
       f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff)
-      if(i%100==0): 
-        print(f_mea_SIMU)
+      if(PIN_REF_FRAME == pin.LOCAL):
+        pass
+      else:
+        f_mea_SIMU = robot.data.oMf[id_endeff].action @ f_mea_SIMU.copy()
+      # print(f_mea_SIMU)
+      if(i%50==0): 
+        logger.info("f_mea = "+str(f_mea_SIMU))
       # Record data (unnoised)
       x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
       sim_data['state_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU
