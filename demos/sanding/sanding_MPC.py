@@ -70,12 +70,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Get dimensions 
   nq, nv = robot.model.nq, robot.model.nv; nu = nq
   # Initial placement
-  id_endeff = robot.model.getFrameId(config['frame_of_interest'])
+  frame_name = config['contacts'][0]['contactModelFrameName']
+  id_endeff = robot.model.getFrameId(frame_name)
   ee_frame_placement = robot.data.oMf[id_endeff].copy()
   contact_placement = robot.data.oMf[id_endeff].copy()
-  M_ct = robot.data.oMf[id_endeff].copy()
-  offset = 0.03348 #0.036 #0.0335
-  contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
+  contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   # Optionally tilt the contact surface
   TILT_RPY = np.zeros(3)
   if(config['TILT_SURFACE']):
@@ -109,11 +108,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       t = min(k*config['dt'], config['numberOfRounds']*2*np.pi/OMEGA)
       p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
                                                 radius=RADIUS,
-                                                omega=OMEGA)
+                                                omega=OMEGA,
+                                                LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
       #  Cost translation
       m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
       #  Contact model 1D update z ref (WORLD frame)
-      m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
+      m.differential.contacts.contacts[frame_name].contact.reference = p_ee_ref
       
   # Warm start state = IK of circle trajectory
   WARM_START_IK = True
@@ -142,8 +142,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # Plot initial solution
   if(PLOT_INIT):
-    ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=config['frame_of_interest'],
-                                                ct_frame_name=config['frame_of_interest'])
+    ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=frame_name,
+                                                ct_frame_name=frame_name)
     fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 
@@ -183,7 +183,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   for i in range(nb_points):
     t = (i/nb_points)*2*np.pi/OMEGA
     pl = pin_utils.rotate(ee_frame_placement, rpy=TILT_RPY)
-    pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA)
+    pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
 
   draw_rate = 200
@@ -209,11 +209,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
               t = min(t_simu + k*dt_ocp, config['numberOfRounds']*2*np.pi/OMEGA)
               p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement.copy(), 
                                                         radius=RADIUS,
-                                                        omega=OMEGA)
+                                                        omega=OMEGA,
+                                                        LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
               # Cost translation
               m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
               # Contact model
-              m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref 
+              m.differential.contacts.contacts[frame_name].contact.reference = p_ee_ref 
 
           # Reset x0 to measured state + warm-start solution
           ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
@@ -227,15 +228,17 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           # sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
           # Record forces in the right frame
           if(PIN_REF_FRAME == pin.LOCAL):
-            sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector for i in range(config['N_h'])])
+            sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[frame_name].f.vector for i in range(config['N_h'])])
           else:
-            sim_data ['force_pred'][nb_plan, :, :] = np.array([robot.data.oMf[id_endeff].action @ ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[config['frame_of_interest']].f.vector for i in range(config['N_h'])])
+            sim_data ['force_pred'][nb_plan, :, :] = np.array([robot.data.oMf[id_endeff].action @ ddp.problem.runningDatas[i].differential.multibody.contacts.contacts[frame_name].f.vector for i in range(config['N_h'])])
+          
           # Extract relevant predictions for interpolations
           x_curr = sim_data['state_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
           x_pred = sim_data['state_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
           u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # u0* = optimal control   
           f_curr = sim_data['force_pred'][nb_plan, 0, :]
           f_pred = sim_data['force_pred'][nb_plan, 1, :]
+          logger.info(f_curr)
           # Record cost references
           data_utils.record_cost_references(ddp, sim_data, nb_plan)
           # Record solver data (optional)

@@ -67,7 +67,7 @@ ctrlRegWeight: 0.0001
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
-frameTranslationWeights:  [1., 1., 1.] # z-force 
+frameTranslationWeights:  [1., 1., 0.] # z-force 
 frameTranslationWeight: 10
 frameTranslationWeightTerminal: 10.
 frameTranslationRef: 'DEFAULT' 

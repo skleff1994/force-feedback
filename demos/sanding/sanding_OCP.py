@@ -44,7 +44,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     # Get pin wrapper
     robot = pin_utils.load_robot_wrapper(robot_name)
     # Get initial frame placement + dimensions of joint space
-    frame_name = config['contacts'][0]['contactModelFrameName'] #['frame_of_interest']
+    frame_name = config['contacts'][0]['contactModelFrameName']
     id_endeff = robot.model.getFrameId(frame_name)
     nq, nv = robot.model.nq, robot.model.nv
     nx = nq+nv; nu = nq
@@ -102,24 +102,13 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
         us_init = [u0 for i in range(config['N_h'])]
 
     # Solve initial
-    # ddp.problem.reg_max = 0
-    # ddp.problem.reg_min = 0
-    # ddp.problem.reg_decFactor = 0
-    # ddp.problem.reg_incFactor = 0
-    # ddp.problem.regFactor = 0
-    # ddp.problem.regMin = 0
-    # ddp.problem.regMax = 0
-    # ddp.problem.x_reg = 0
-    # ddp.problem.u_reg = 0
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False) #, regInit = 0.)
 
-    for m in ddp.problem.runningDatas[:10]:
-        print("JOINT LEVEL : ", m.differential.multibody.contacts.contacts['contact'].f.vector)
-        print("FRAME LEVEL : ", m.differential.multibody.contacts.contacts['contact'].pinocchio.lambda_c)
 
     #  Plot
     if(PLOT):
-        ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name='contact', ct_frame_name=frame_name)
+        ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=frame_name, 
+                                                    ct_frame_name=frame_name)
         fig, ax = plot_utils.plot_ddp_results( ddp_data, which_plots=config['WHICH_PLOTS'], markers=['.'], SHOW=True)
 
 

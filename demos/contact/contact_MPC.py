@@ -60,6 +60,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     logger.error('Please choose a simulator from ["bullet", "raisim"] !')
   # Get dimensions 
   nq, nv = robot.model.nq, robot.model.nv; nu = nq
+  full = pin_utils.load_robot_wrapper('talos_full')
   # Placement of LOCAL end-effector frame w.r.t. WORLD frame
   id_endeff = robot.model.getFrameId(config['frame_of_interest'])
   ee_frame_placement = robot.data.oMf[robot.model.getFrameId(config['frame_of_interest'])]
@@ -68,11 +69,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # contact_placement.rotation 
   M_ct = robot.data.oMf[id_endeff].copy()
   contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
-  contact_placement.rotation    =  contact_placement.rotation
-  # contact_placement.translation = base_placement.act( contact_placement.act( np.asarray(config['contact_plane_offset']) ) )
-  # contact_placement.rotation    = base_placement.rotation @ contact_placement.rotation
-  # TODO: fix collisions with robot
-  simulator_utils.display_contact_surface(contact_placement, with_collision=True)
+  simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   
   # Extract pin ref frame (dirty) 
   CONTACT_CONFIG = config['contacts'][0]
@@ -161,6 +158,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # u0* = optimal control   
           f_curr = sim_data['force_pred'][nb_plan, 0, :]
           f_pred = sim_data['force_pred'][nb_plan, 1, :]
+          # logger.debug(f_curr)
           # Record cost references
           data_utils.record_cost_references(ddp, sim_data, nb_plan)
           # Record solver data (optional)
@@ -224,14 +222,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
-      f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff)
-      if(PIN_REF_FRAME == pin.LOCAL):
-        pass
-      else:
-        f_mea_SIMU = robot.data.oMf[id_endeff].action @ f_mea_SIMU.copy()
-      # print(f_mea_SIMU)
+      f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, PIN_REF_FRAME)
+      # ct, f = robot_simulator.get_force() #(robot_simulator, id_endeff, PIN_REF_FRAME)
       if(i%50==0): 
         logger.info("f_mea = "+str(f_mea_SIMU))
+        # if(len(ct)!=0):
+        #   lwaMf = robot.data.oMf[id_endeff].copy()
+        #   lwaMf.translation = np.zeros(3)
+        #   logger.info("f_mea_force = "+str(lwaMf.actInv(pin.Force(f[0]))))
       # Record data (unnoised)
       x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
       sim_data['state_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU

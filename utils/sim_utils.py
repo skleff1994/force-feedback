@@ -53,7 +53,7 @@ IIWA_DEFAULT_BASE_RPY = [0, 0, 0]
 TALOS_ARM_DEFAULT_BASE_POS = [0, 0, 0]
 TALOS_ARM_DEFAULT_BASE_RPY = [0, 0, 0]
 
-TALOS_REDUCED_DEFAULT_BASE_POS = [0, 0, 1.03]
+TALOS_REDUCED_DEFAULT_BASE_POS = [0, 0, 1.02]
 TALOS_REDUCED_DEFAULT_BASE_RPY = [0, 0, 0]
 
 
@@ -161,40 +161,68 @@ def init_talos_reduced_bullet(dt=1e3, x0=None, pos=TALOS_REDUCED_DEFAULT_BASE_PO
         dq0 = x0[robot_simulator.pin_robot.model.nv:]
     robot_simulator.reset_state(q0, dq0)
     robot_simulator.forward_robot(q0, dq0)
+    # To allow collisions with all parts of the robot if there is a contact surface (for contact & sanding tasks)
+    # for i in range(p.getNumJoints(robot_simulator.robotId)):
+    #     robot_simulator.bullet_endeff_ids.append(i)
+    # robot_simulator.endeff_names = [] 
     return env, robot_simulator, base_placement
 
 
 
 
 # Get contact wrench from robot simulator
-def get_contact_wrench(pybullet_simulator, id_endeff):
+def get_contact_wrench(pybullet_simulator, id_endeff, ref=pin.LOCAL):
     '''
-    Get contact wrench in LOCAL contact frame
+    Get contact wrench in ref contact frame
+     pybullet_simulator : pinbullet wrapper object
+     id_endeff          : frame of interest 
+     ref                : pin ref frame in which wrench is expressed
+    This function works like PinBulletWrapper.get_force() but also accounts for torques
+    The linear force returned by this function should match the one returned by get_force()
+    (get_force() must be transformed into LOCAL by lwaMf.actInv if ref=pin.LOCAL
+     no transform otherwise) 
     '''
     contact_points = p.getContactPoints()
-    force = np.zeros(6)
+    total_wrench = pin.Force.Zero() #np.zeros(6)
+    oMf = pybullet_simulator.pin_robot.data.oMf[id_endeff]
+    p_endeff = oMf.translation
+    active_contacts_frame_ids = []
     for ci in reversed(contact_points):
+        # remove contact points that are not from 
         p_ct = np.array(ci[6])
-        contact_normal = ci[7]
+        contact_normal = np.array(ci[7])
         normal_force = ci[9]
-        lateral_friction_direction_1 = ci[11]
+        lateral_friction_direction_1 = np.array(ci[11])
         lateral_friction_force_1 = ci[10]
-        lateral_friction_direction_2 = ci[13]
+        lateral_friction_direction_2 = np.array(ci[13])
         lateral_friction_force_2 = ci[12]
-        # Wrench in LOCAL contact frame
-        linear_LOCAL = np.array([normal_force, lateral_friction_force_1, lateral_friction_force_2])
-        wrench_LOCAL = np.concatenate([linear_LOCAL, np.zeros(3)])
-        # LOCAL contact placement
-        R_ct = np.vstack([np.array(contact_normal), np.array(lateral_friction_direction_1), np.array(lateral_friction_direction_2)]).T
-        M_ct = pin.SE3(R_ct, p_ct) 
-        # wrench LOCAL(p)-->WORLD
-        wrench_WORLD = M_ct.act(pin.Force(wrench_LOCAL))
-        # wrench WORLD-->LOCAL(EE)
-        wrench_LOCAL = -pybullet_simulator.pin_robot.data.oMf[id_endeff].actInv(wrench_WORLD)
-        # logger.debug(wrench_LOCAL)
-        force += wrench_LOCAL.vector
-    return force
-
+        # keep contact point only if it concerns one of the reduced model's endeffectors
+        if ci[3] in pybullet_simulator.bullet_endeff_ids:
+            i = np.where(np.array(pybullet_simulator.bullet_endeff_ids) == ci[3])[0][0]
+        elif ci[4] in pybullet_simulator.bullet_endeff_ids:
+            i = np.where(np.array(pybullet_simulator.bullet_endeff_ids) == ci[4])[0][0]
+        else:
+            continue
+        if pybullet_simulator.pinocchio_endeff_ids[i] in active_contacts_frame_ids:
+            continue
+        active_contacts_frame_ids.append(pybullet_simulator.pinocchio_endeff_ids[i])
+        # Wrench at the detected contact point in simulator WORLD
+        o_linear = normal_force * contact_normal + \
+                   lateral_friction_force_1 * lateral_friction_direction_1 + \
+                   lateral_friction_force_2 * lateral_friction_direction_2
+        l_linear  = oMf.rotation.T @ o_linear
+            # compute torque w.r.t. frame of interest
+        l_angular = np.cross(oMf.rotation.T @ (p_ct - p_endeff), l_linear)
+        l_wrench = np.concatenate([l_linear, l_angular]) 
+        total_wrench += pin.Force(l_wrench)
+    # if local nothing to do
+    if(ref==pin.LOCAL):
+        return -total_wrench.vector
+    # otherwise transform into LWA
+    else:
+        lwaMf = oMf.copy()
+        lwaMf.translation = np.zeros(3)
+        return -lwaMf.act(total_wrench).vector
 
 # Get joint torques from robot simulator
 def get_contact_joint_torques(pybullet_simulator, id_endeff):
@@ -221,7 +249,7 @@ def display_ball(p_des, robot_base_pose=pin.SE3.Identity(), RADIUS=.05, COLOR=[1
         RADIUS          : radius of the ball
         COLOR           : color of the ball
     '''
-    logger.debug("Creating PyBullet sphere visual...")
+    # logger.debug&("Creating PyBullet sphere visual...")
     # pose of the sphere in bullet WORLD
     M = pin.SE3(np.eye(3), p_des)  # ok for talos reduced since pin.W = bullet.W but careful with talos_arm if base is moved
     quat = pin.SE3ToXYZQUAT(M)     
@@ -282,7 +310,7 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, bullet_endeff_
             # p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
       # activate collisions only for EE ids
       for ee_id in bullet_endeff_ids:
-        p.setCollisionFilterPair(contactId, robotId, -1, ee_id, 1)
+            p.setCollisionFilterPair(contactId, robotId, -1, ee_id, 1)
 
       return contactId
     # Without collisions
