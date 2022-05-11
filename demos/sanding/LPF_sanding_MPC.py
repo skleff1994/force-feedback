@@ -120,7 +120,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Cost translation
       m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
       # Contact model 1D update z ref (WORLD frame)
-      m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref #[2]
+      m.differential.contacts.contacts[frame_name].contact.reference = p_ee_ref #[2]
       
   # Warm start state = IK of circle trajectory
   # WARM_START_IK = True
@@ -231,7 +231,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
               #  Cost translation
               m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
               # Contact model
-              m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref #[2] 
+              m.differential.contacts.contacts[frame_name].contact.reference = p_ee_ref #[2] 
           # Reset x0 to measured state + warm-start solution
           ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
           xs_init        = list(ddp.xs[1:]) + [ddp.xs[-1]]
