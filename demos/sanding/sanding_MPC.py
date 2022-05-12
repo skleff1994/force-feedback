@@ -176,7 +176,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Additional simulation blocks 
   communication = mpc_utils.CommunicationModel(config)
   actuation     = mpc_utils.ActuationModel(config, nu, SEED=RANDOM_SEED)
-  sensing       = mpc_utils.SensorModel(config, SEED=RANDOM_SEED)
+  sensing       = mpc_utils.SensorModel(config, nq=nq, nv=nv, ntau=0, SEED=RANDOM_SEED)
 
   # Display target circle  trajectory (reference)
   nb_points = 20 
