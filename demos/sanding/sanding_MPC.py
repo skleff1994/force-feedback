@@ -235,10 +235,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           # Extract relevant predictions for interpolations
           x_curr = sim_data['state_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
           x_pred = sim_data['state_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
-          u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # u0* = optimal control   
+          u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]     # u0* = optimal control   
           f_curr = sim_data['force_pred'][nb_plan, 0, :]
           f_pred = sim_data['force_pred'][nb_plan, 1, :]
-          # logger.info(f_curr)
           # Record cost references
           data_utils.record_cost_references(ddp, sim_data, nb_plan)
           # Record solver data (optional)
@@ -294,7 +293,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # RICCATI GAINS TO INTERPOLATE
       if(config['RICCATI']):
         K = ddp.K[0]
-        tau_mea_SIMU += K.dot(ddp.problem.x0 - sim_data['state_mea_SIMU'][i,:])
+        # tau_mea_SIMU += K.dot(ddp.problem.x0 - sim_data['state_mea_SIMU'][i,:])
+        tau_mea_SIMU += K.dot(x_ref_SIMU - sim_data['state_mea_SIMU'][i,:])
 
       #  Send output of actuation torque to the RBD simulator 
       robot_simulator.send_joint_command(tau_mea_SIMU)

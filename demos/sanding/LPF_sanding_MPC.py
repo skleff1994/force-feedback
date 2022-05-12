@@ -318,8 +318,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
         alpha = np.exp(-2*np.pi*config['f_c']*dt)
         Ktilde  = (1-alpha)*OCP_TO_PLAN_RATIO*K
         Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
-        tau_mea_SIMU += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data['state_mea_SIMU'][i,:nq+nv]) #position vel
-        tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data['state_mea_SIMU'][i,:-nq])           # torques
+        # tau_mea_SIMU += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data['state_mea_SIMU'][i,:nq+nv]) #position vel
+        # tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data['state_mea_SIMU'][i,:-nq])           # torques
+        tau_mea_SIMU += Ktilde[:,:nq+nv].dot(y_ref_SIMU[:nq+nv] - sim_data['state_mea_SIMU'][i,:nq+nv]) #position vel
+        tau_mea_SIMU += Ktilde[:,:-nq].dot(y_ref_SIMU[:-nq] - sim_data['state_mea_SIMU'][i,:-nq])           # torques
 
       # Send output of actuation torque to the RBD simulator 
       robot_simulator.send_joint_command(tau_mea_SIMU)
