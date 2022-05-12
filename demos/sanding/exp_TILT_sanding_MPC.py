@@ -67,8 +67,6 @@ def main(robot_name, simulator, PLOT_INIT):
   # # # # # # # # # # # # # # # # # # # 
   # Read config file
   config, config_name = path_utils.load_config_file('sanding_MPC', robot_name)
-#   config_name = robot_name+'_'+TASK+'_MPC'
-#   config      = path_utils.load_config_file(config_name)
   # Create a simulation environment & simu-pin wrapper 
   dt_simu = 1./float(config['simu_freq'])  
   q0 = np.asarray(config['q0'])
@@ -106,15 +104,14 @@ def main(robot_name, simulator, PLOT_INIT):
       t = min(k*config['dt'], config['numberOfRounds']*2*np.pi/OMEGA)
       p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
                                                 radius=RADIUS,
-                                                omega=OMEGA)
+                                                omega=OMEGA,
+                                                LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
       # Cost translation
       m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
       # Contact model 1D update z ref (WORLD frame)
-      m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
-      # m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
+      m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
       
   # Warm start state = IK of circle trajectory
-  WARM_START_IK = True
   if(WARM_START_IK):
       logger.info("Computing warm-start using Inverse Kinematics...")
       xs_init = [] 
@@ -156,7 +153,7 @@ def main(robot_name, simulator, PLOT_INIT):
         # Optionally tilt the contact surface
         contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY[n_exp])
         # Create the contact surface in PyBullet simulator 
-        contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement.copy(), with_collision=True)
+        contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement.copy(), bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
         # Set lateral friction coefficient of the contact surface
         simulator_utils.set_friction_coef(contact_surface_bulletId, 0.5)
         # Display target circle  trajectory (reference)
@@ -165,7 +162,7 @@ def main(robot_name, simulator, PLOT_INIT):
         for i in range(nb_points):
             t = (i/nb_points)*2*np.pi/OMEGA
             pl = ee_frame_placement.copy() #pin_utils.rotate(ee_frame_placement, rpy=TILT_RPY[n_exp])
-            pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA)
+            pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
             ballsIdTarget[i] = simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
         draw_rate = 200
         ballsIdReal = []
@@ -225,11 +222,12 @@ def main(robot_name, simulator, PLOT_INIT):
                     t = min(t_simu + k*dt_ocp, config['numberOfRounds']*2*np.pi/OMEGA)
                     p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement.copy(), 
                                                                 radius=RADIUS,
-                                                                omega=OMEGA)
+                                                                omega=OMEGA,
+                                                                LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
                     # Cost translation
                     m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
                     # Contact model
-                    m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
+                    m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
                 # Reset x0 to measured state + warm-start solution
                 ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
                 xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]

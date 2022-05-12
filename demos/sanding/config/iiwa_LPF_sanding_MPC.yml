@@ -1,51 +1,48 @@
 # MPC parameters for EE reaching task LPF
-# + PyBullet or Raisim simulation
+# + PyBullet or Raisim simulation
 
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 1000       # Control frequency
-plan_freq: 1000         # Planning frequency
-T_tot: 5.             # Simu duration (s)
-# Simulation options
-DELAY_SIM: False              # Add delay in reference torques (low-level)
-DELAY_OCP: False              # Add delay in OCP solution (i.e. ~1ms resolution time)
-SCALE_TORQUES: False          # Affine scaling of reference torque
-NOISE_TORQUES: False          # Add Gaussian noise on reference torques
+ctrl_freq: 500       # Control frequency
+plan_freq: 250          # Planning frequency
+T_tot: 1.             # Simu duration (s)
+# Simulation options
+DELAY_SIM: True              # Add delay in reference torques (low-level)
+DELAY_OCP: True              # Add delay in OCP solution (i.e. ~1ms resolution time)
+SCALE_TORQUES: True          # Affine scaling of reference torque
+NOISE_TORQUES: True          # Add Gaussian noise on reference torques
 FILTER_TORQUES: False         # Moving average smoothing of reference torques
-NOISE_STATE: False            # Add Gaussian noise on the measured state 
+NOISE_STATE: True            # Add Gaussian noise on the measured state 
 TORQUE_TRACKING: False
 FILTER_STATE: False           # Moving average smoothing of reference torques
-SAVE_DATA: True               # Save plot_data to npz
+SAVE_DATA: True               # Save plot_data to npz
 RECORD_SOLVER_DATA: False     # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
 INIT_LOG: True                # Initial logs summarizing parameters
 init_log_display_time: 1      # How long (s) to display the initial logs ?
 LOG: True                     # Logs during simulation
 log_rate: 500                 # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['all']
-TILT_SURFACE: False           # Tilt contact surface 
-TILT_PITCH_LOCAL_DEG: -10.
-RICCATI: False 
-
+TILT_SURFACE: False           # Tilt contact surface 
+TILT_PITCH_LOCAL_DEG: -20.
+RICCATI: True 
 
 
 # General 
 LPF_TYPE: 0
-f_c: 5                                                               # Low-pass filter cut-off frequency
+f_c: 5                                                               # Low-pass filter cut-off frequency
 tau_plus_integration: False
-dt: 0.01                                                             # OCP integration step 
-N_h: 100                                                             # Horizon length in nodes
+dt: 0.02                                                             # OCP integration step 
+N_h: 50                                                             # Horizon length in nodes
 maxiter: 10                                                        # Max number of iterations in DDP
 q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
-tau0: [  0., -16.4279,  -0.,  14.4554, -0.6963, 0.027, 0.]           # Initial robot joint torque
-
-
+tau0: [  0., -16.4279,  -0.,  14.4554, -0.6963, 0.027, 0.]           # Initial robot joint torque
 
 # Definition of the contact surface in the simulator
 # It is aligned with the LOCAL contact frame by default
 # User-defined offset expressed in the LOCAL contact frame :
-contact_plane_offset: [0., 0., 0.034]
+contact_plane_offset: [0., 0., 0.03348]
 
 
 
@@ -70,36 +67,32 @@ contacts:
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement', 'rotation'
-WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg'] # 'stateLim'] # 'ctrlRegGrav']  
+WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg', 'stateLim'] # 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeights:  [0., 0., 1., 0., 0., 0.]
-frameForceWeight: 1.
+frameForceWeights:  [0, 0., 1., 0., 0., 0.]
+frameForceWeight: 50.
 # frameForceWeightTerminal: 0.
 frameForceRef: [0., 0., 20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
- # 'friction' : end-effector frame friction cone 
-mu:  0.5
-frictionConeWeight: 1
-frictionConeFrameName: 'contact'
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1 ,0.1, 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.01
-stateRegWeightTerminal: 0.01
+stateRegWeight: 0.001
+stateRegWeightTerminal: 0.001
 stateRegRef: 'DEFAULT' # TRACKING ?
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.00001
+ctrlRegWeight: 0.01
 ctrlRegWeightTerminal: 0.01 
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.001
+wRegWeight: 0.0001
 wRegRef: 'zero'
 
 # 'wLim' : unfiltered torque limit
@@ -114,10 +107,14 @@ frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
 frameCircleTrajectoryVelocity: 1.5 # in rad/s
 numberOfRounds: 1
+# CIRCLE_LOCAL_PLANE: 'YZ'             # LOCAL plane in which the circle lies # x-force
+# CIRCLE_LOCAL_PLANE: 'XZ'             # LOCAL plane in which the circle lies # y-force
+CIRCLE_LOCAL_PLANE: 'XY'             # LOCAL plane in which the circle lies # z-force
+
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: 0.
+frameVelocityWeight: 10.
 frameVelocityWeightTerminal: 100
 frameVelocityRef: 'DEFAULT'    
 frameVelocityFrameName: 'contact'
@@ -125,8 +122,8 @@ frameVelocityFrameName: 'contact'
 
  # 'rotation' : end-effector frame orientation
 frameRotationWeights:  [1., 1., 1.]
-frameRotationWeight: 1.
-frameRotationWeightTerminal: 1.
+frameRotationWeight: 0.1
+frameRotationWeightTerminal: 0.1
 frameRotationRef: 'DEFAULT'
 frameRotationFrameName: 'contact'
 

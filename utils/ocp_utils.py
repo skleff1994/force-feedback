@@ -485,13 +485,13 @@ def init_DDP(robot, config, x0, callbacks=False):
           for ct in cts:
             contactModels.append(create_contact_model(ct, robot, state, actuation))
 
-            # Create DAMContactDyn                    
-            dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
-                                                                      actuation, 
-                                                                      crocoddyl.ContactModelMultiple(state, actuation.nu), 
-                                                                      crocoddyl.CostModelSum(state, nu=actuation.nu), 
-                                                                      inv_damping=0., 
-                                                                      enable_force=True)
+          # Create DAMContactDyn                    
+          dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+                                                                    actuation, 
+                                                                    crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                                    crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                                    inv_damping=0., 
+                                                                    enable_force=True)
         # Otherwise just create DAM
         else:
           # Create DAMFreeDyn
@@ -998,17 +998,17 @@ def init_DDP_LPF(robot, config, y0, callbacks=False):
       # Create DAM (Contact or FreeFwd)
         # Initialize contact model if necessary and create appropriate DAM
         if(CONTACT):
-            contactModels = []
-            for ct in cts:
-              contactModels.append(create_contact_model(ct, robot, state, actuation))
+          contactModels = []
+          for ct in cts:
+            contactModels.append(create_contact_model(ct, robot, state, actuation))
 
-            # Create DAMContactDyn                    
-            dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
-                                                                      actuation, 
-                                                                      crocoddyl.ContactModelMultiple(state, actuation.nu), 
-                                                                      crocoddyl.CostModelSum(state, nu=actuation.nu), 
-                                                                      inv_damping=0., 
-                                                                      enable_force=True)
+          # Create DAMContactDyn                    
+          dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+                                                                    actuation, 
+                                                                    crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                                    crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                                    inv_damping=0., 
+                                                                    enable_force=True)
         # Otherwise just create DAM
         else:
           # Create DAMFreeDyn

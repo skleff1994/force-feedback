@@ -116,14 +116,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       t = min(k*config['dt'], config['numberOfRounds']*2*np.pi/OMEGA)
       p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
                                                  radius=RADIUS,
-                                                 omega=OMEGA)
+                                                 omega=OMEGA,
+                                                 LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
       # Cost translation
       m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
       # Contact model 1D update z ref (WORLD frame)
-      m.differential.contacts.contacts[frame_name].contact.reference = p_ee_ref #[2]
+      m.differential.contacts.contacts[frame_name].contact.reference = p_ee_ref 
       
   # Warm start state = IK of circle trajectory
-  # WARM_START_IK = True
   if(WARM_START_IK):
       logger.info("Computing warm-start using Inverse Kinematics...")
       xs_init = [] 
@@ -151,7 +151,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # solve
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   # Plot initial solution
-  PLOT_INIT = PLOT_INIT
   if(PLOT_INIT):
     ddp_data = data_utils.extract_ddp_data_LPF(ddp)
     fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
@@ -169,7 +168,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   nb_plan = 0
   nb_ctrl = 0
   # Sim options
-  WHICH_PLOTS = config['WHICH_PLOTS']                                  # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
+  WHICH_PLOTS = config['WHICH_PLOTS']                    # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
   FILTER_STATE = config['FILTER_STATE']                  # Moving average smoothing of reference torques
   dt_ocp = config['dt']                                  # OCP sampling rate 
   dt_mpc = float(1./sim_data['plan_freq'])               # planning rate
@@ -199,7 +198,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   for i in range(nb_points):
     t = (i/nb_points)*2*np.pi/OMEGA
     pl = pin_utils.rotate(ee_frame_placement, rpy=TILT_RPY)
-    pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA)
+    pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
   
   draw_rate = 200
@@ -227,11 +226,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
               t = min(t_simu + k*dt_ocp, config['numberOfRounds']*2*np.pi/OMEGA)
               p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement.copy(), 
                                                           radius=RADIUS,
-                                                          omega=OMEGA)
+                                                          omega=OMEGA,
+                                                          LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
               #  Cost translation
               m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
               # Contact model
-              m.differential.contacts.contacts[frame_name].contact.reference = p_ee_ref #[2] 
+              m.differential.contacts.contacts[frame_name].contact.reference = p_ee_ref  
           # Reset x0 to measured state + warm-start solution
           ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
           xs_init        = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -313,6 +313,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # RICCATI GAINS TO INTERPOLATE
       if(config['RICCATI']):
         K = ddp.K[0]
+        # if(i%50==0): 
+        #   logger.warning("riccati gain : \n"+str(K))
         alpha = np.exp(-2*np.pi*config['f_c']*dt)
         Ktilde  = (1-alpha)*OCP_TO_PLAN_RATIO*K
         Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
