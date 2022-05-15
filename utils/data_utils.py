@@ -203,12 +203,13 @@ class MPCDataHandlerAbstract:
     '''
     Handy function to record solver related data during MPC simulation
     '''
-    self.K[nb_plan, :, :, :]   = np.array(ddp.K)         # Ricatti gains
-    self.Vxx[nb_plan, :, :, :] = np.array(ddp.Vxx)       # Hessians of V.F. 
-    self.Quu[nb_plan, :, :, :] = np.array(ddp.Quu)       # Hessians of Q 
-    self.xreg[nb_plan]         = ddp.x_reg               # Reg solver on x
-    self.ureg[nb_plan]         = ddp.u_reg               # Reg solver on u
-    self.J_rank[nb_plan]       = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
+    if(self.RECORD_SOLVER_DATA):
+      self.K[nb_plan, :, :, :]   = np.array(ddp.K)         # Ricatti gains
+      self.Vxx[nb_plan, :, :, :] = np.array(ddp.Vxx)       # Hessians of V.F. 
+      self.Quu[nb_plan, :, :, :] = np.array(ddp.Quu)       # Hessians of Q 
+      self.xreg[nb_plan]         = ddp.x_reg               # Reg solver on x
+      self.ureg[nb_plan]         = ddp.u_reg               # Reg solver on u
+      self.J_rank[nb_plan]       = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
 
   def record_cost_references(self, ddp, nb_plan):
     '''
@@ -217,7 +218,7 @@ class MPCDataHandlerAbstract:
      # careful, ref is hard-coded only for the first node
     '''
     # Get nodes
-    m = self.ddp.problem.runningModels[0]
+    m = ddp.problem.runningModels[0]
     # Extract references and record
     if('ctrlReg' in self.WHICH_COSTS):
       self.ctrl_ref[nb_plan, :] = m.differential.costs.costs['ctrlReg'].cost.residual.reference

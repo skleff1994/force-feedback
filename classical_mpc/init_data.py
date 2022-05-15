@@ -20,7 +20,6 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 #### Classical OCP
-
 class DDPDataParserClassical:
   def __init__(self, ddp):
 
@@ -130,20 +129,14 @@ class DDPDataParserClassical:
         ddp_data['force_ref'] = [self.ddp.problem.runningModels[i].differential.costs.costs['force'].cost.residual.reference.vector for i in range(self.ddp.problem.T)]
     return ddp_data
 
+
+
+
+
 class MPCDataHandlerClassical(MPCDataHandlerAbstract):
 
   def __init__(self, config, robot):
-
-    self.__dict__ = config
-
-    self.rmodel = robot.model
-    self.rdata = robot.data
-
-    self.nq = robot.model.nq
-    self.nv = robot.model.nv
-    self.nu = self.nq
-    self.nx = self.nq + self.nv
-
+    super().__init__(config, robot)
 
   def init_predictions(self):
     '''
@@ -177,7 +170,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     '''
     Allocate and initialize MPC simulation data
     '''
-    sim_data = {}
+    # sim_data = {}
     # MPC & simulation parameters
     self.N_plan = int(self.T_tot*self.plan_freq)         # Total number of planning steps in the simulation
     self.N_ctrl = int(self.T_tot*self.ctrl_freq)         # Total number of control steps in the simulation 
@@ -202,24 +195,23 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     if(self.INIT_LOG):
       self.print_sim_params(self.init_log_display_time)
 
-    return sim_data
+    # return sim_data
 
 
   # Extract MPC simu-specific plotting data from sim data
-  def extract_plot_data_from_sim_data(self):
+  def extract_plot_data_from_sim_data(self, frame_of_interest):
     '''
     Extract plot data from simu data
     '''
     logger.info('Extracting plot data from simulation data...')
     
-    plot_data = {}
+    plot_data = self.__dict__.copy()
     # Get costs
     plot_data['WHICH_COSTS'] = self.WHICH_COSTS
     # Robot model & params
     plot_data['pin_model'] = self.rmodel
+    self.id_endeff = self.rmodel.getFrameId(frame_of_interest)
     nq = self.nq ; nv = self.nv ; nx = self.nx ; nu = self.nu
-    # MPC params
-    plot_data = self.__dict__.copy()
     # Control predictions
     plot_data['u_pred'] = self.ctrl_pred
     plot_data['u_des_PLAN'] = self.ctrl_des_PLAN
@@ -241,6 +233,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     plot_data['v_mea_no_noise'] = self.state_mea_no_noise_SIMU[:,nq:nq+nv]
     # Extract gravity torques
     plot_data['grav'] = np.zeros((self.N_simu+1, nq))
+    print(plot_data['pin_model'])
     for i in range(plot_data['N_simu']+1):
       plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'], self.armature)
     # EE predictions (at PLAN freq)
