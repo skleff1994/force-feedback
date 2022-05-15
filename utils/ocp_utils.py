@@ -16,6 +16,404 @@ from utils import pin_utils
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
+class OptimalControlProblemAbstract:
+  '''
+  Abstract class for Optimal Control Problem (OCP) with Crocoddyl
+  '''
+  def __init__(self, robot, config):
+
+    self.__dict__ = config
+    
+    self.rmodel = robot.model
+    self.rdata = robot.data
+
+    self.nq = robot.model.nq
+    self.nv = robot.model.nv
+    self.nx = self.nq + self.nv 
+    
+  def check_attribute(self, attribute):
+    '''
+    Check whether attribute exists and is well defined
+    '''
+    assert(type(attribute)==str), "Attribute to be checked must be a string"
+    if(not hasattr(self, attribute)):
+      logger.error("The config parameter : "+str(attribute)+ " has not been defined ! Please correct the yaml config file.")
+
+  def check_config(self):
+    self.check_attribute('dt')
+    self.check_attribute('N_h')
+    self.check_attribute('maxiter')
+    self.check_attribute('q0')
+    self.check_attribute('dq0')
+    self.check_attribute('WHICH_COSTS')
+    self.check_attribute('armature')
+
+  def create_contact_model(self, contact_config, state, actuation):
+    '''
+    Initialize crocoddyl contact model from contact YAML Config
+    '''
+    # Check that contact config is complete
+    self.check_attribute('contacts')
+    desired_keys = ['contactModelFrameName',
+                    'pinocchioReferenceFrame', 
+                    'contactModelType',
+                    'contactModelTranslationRef',
+                    'contactModelRotationRef',
+                    'contactModelGains']
+    for key in desired_keys:
+      if(key not in contact_config.keys()):
+        logger.error("No "+key+" found in contact config !")
+    # Parse arguments
+    contactModelGains = np.asarray(contact_config['contactModelGains'])
+    contactModelFrameName = contact_config['contactModelFrameName']
+    contactModelFrameId = self.rmodel.getFrameId(contactModelFrameName)
+    contactModelTranslationRef = contact_config['contactModelTranslationRef']
+    contactModelRotationRef = contact_config['contactModelRotationRef']
+    contactModelType = contact_config['contactModelType']
+
+    # Default reference of contact model if not specified in config
+    if(contactModelTranslationRef == ''): 
+      contactModelTranslationRef =  self.rdata.oMf[contactModelFrameId].translation.copy()  
+    if(contactModelRotationRef == ''):
+      contactModelRotationRef = self.rdata.oMf[contactModelFrameId].rotation.copy()
+    
+    # Detect pinocchio reference frame
+    if(contact_config['pinocchioReferenceFrame'] == 'LOCAL'):
+      pinocchioReferenceFrame = pin.LOCAL
+    elif(contact_config['pinocchioReferenceFrame'] == 'WORLD'):
+      pinocchioReferenceFrame = pin.WORLD
+    elif(contact_config['pinocchioReferenceFrame'] == 'LOCAL_WORLD_ALIGNED'):
+      pinocchioReferenceFrame = pin.LOCAL_WORLD_ALIGNED
+    else: 
+      logger.error('Unknown pinocchio reference frame. Please select0 in {LOCAL, WORLD, LOCAL_WORLD_ALIGNED} !')
+    # logger.debug("found pin ref frame = "+str(pinocchioReferenceFrame))
+    
+    # Detect contact model type and create Crocoddyl contact model 
+    if('1D' in contactModelType):
+      if('x' in contactModelType):
+        constrainedAxis = crocoddyl.x
+      elif('y' in contactModelType):
+        constrainedAxis = crocoddyl.y
+      elif('z' in contactModelType):
+        constrainedAxis = crocoddyl.z
+      else: logger.error('Unknown 1D contact model. Please select 1D contactModelType in {1Dx, 1Dy, 1Dz} !')
+      contactModel = crocoddyl.ContactModel1D(state, 
+                                              contactModelFrameId, 
+                                              contactModelTranslationRef, #[constrainedAxis], 
+                                              actuation.nu,
+                                              contactModelGains,
+                                              constrainedAxis,
+                                              pinocchioReferenceFrame)  
+    # 3D contact model = constraint in (LOCAL) x,y,z translations (fixed position)
+    elif(contactModelType == '3D'):
+      contactModel = crocoddyl.ContactModel3D(state, 
+                                              contactModelFrameId, 
+                                              contactModelTranslationRef, 
+                                              contactModelGains,
+                                              pinocchioReferenceFrame)  
+    # 6D contact model = constraint in (LOCAL) x,y,z translations **and** rotations (fixed placement)
+    elif(contactModelType == '6D'):
+      contactModelPlacementRef = pin.SE3(contactModelRotationRef, contactModelTranslationRef)
+      contactModel = crocoddyl.ContactModel6D(state, 
+                                              contactModelFrameId, 
+                                              contactModelPlacementRef, 
+                                              contactModelGains)     
+                                              
+    else: logger.error("Unknown contactModelType. Please select in {1Dx, 1Dy, 1Dz, 3D, 6D}")
+
+    return contactModel
+
+  def create_state_reg_cost(self, state, actuation):
+    '''
+    Create state regularization cost model residual 
+    '''
+    # Check attributes 
+    self.check_attribute('stateRegRef')
+    self.check_attribute('stateRegWeights')
+    self.check_attribute('stateRegWeight')
+    # Default reference = initial state
+    if(self.stateRegRef == 'DEFAULT' or self.stateRegRef == ''):
+      stateRegRef = np.concatenate([np.asarray(self.q0), np.asarray(self.dq0)]) 
+    else:
+      stateRegRef = np.asarray(self.stateRegRef)
+    stateRegWeights = np.asarray(self.stateRegWeights)
+    xRegCost = crocoddyl.CostModelResidual(state, 
+                                          crocoddyl.ActivationModelWeightedQuad(stateRegWeights**2), 
+                                          crocoddyl.ResidualModelState(state, stateRegRef, actuation.nu))
+    return xRegCost
+
+  def create_ctrl_reg_cost(self, state):
+    '''
+    Create state regularization cost model residual 
+    '''
+    # Check attributes 
+    self.check_attribute('ctrlRegRef')
+    self.check_attribute('ctrlRegWeights')
+    self.check_attribute('ctrlRegWeight')
+    # Default reference 
+    if(self.ctrlRegRef=='DEFAULT' or self.ctrlRegRef == ''):
+      u_reg_ref = np.zeros(self.nq)
+    else:
+      u_reg_ref = np.asarray(self.ctrlRegRef)
+    residual = crocoddyl.ResidualModelControl(state, u_reg_ref)
+    ctrlRegWeights = np.asarray(self.ctrlRegWeights)
+    uRegCost = crocoddyl.CostModelResidual(state, 
+                                          crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
+                                          residual)
+    return uRegCost
+
+  def create_ctrl_reg_grav_cost(self, state):
+    '''
+    Create control gravity torque regularization cost model
+    '''
+    self.check_attribute('ctrlRegWeights')
+    self.check_attribute('ctrlRegWeight')
+    if(self.nb_contacts > 0):
+      residual = crocoddyl.ResidualModelContactControlGrav(state)
+    else:
+      residual = crocoddyl.ResidualModelControlGrav(state)
+    ctrlRegWeights = np.asarray(self.ctrlRegWeights)
+    uRegGravCost = crocoddyl.CostModelResidual(state, 
+                                          crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
+                                          residual)
+    return uRegGravCost
+  
+  def create_state_limit_cost(self, state, actuation):
+    '''
+    Create state limit penalization cost model
+    '''
+    self.check_attribute('coef_xlim')
+    self.check_attribute('stateLimWeights')
+    self.check_attribute('stateLimWeight')
+    stateLimRef = np.zeros(self.nq+self.nv)
+    x_max = self.coef_xlim*state.ub 
+    x_min = self.coef_xlim*state.lb
+    stateLimWeights = np.asarray(self.stateLimWeights)
+    xLimitCost = crocoddyl.CostModelResidual(state, 
+                                          crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(x_min, x_max), stateLimWeights), 
+                                          crocoddyl.ResidualModelState(state, stateLimRef, actuation.nu))
+    return xLimitCost
+
+  def create_ctrl_limit_cost(self, state):
+    '''
+    Create control limit penalization cost model 
+    '''
+    self.check_attribute('coef_ulim')
+    self.check_attribute('ctrlLimWeights')
+    self.check_attribute('ctrlLimWeight')
+    ctrlLimRef = np.zeros(self.nq)
+    u_min = -self.coef_ulim*state.pinocchio.effortLimit 
+    u_max = +self.coef_ulim*state.pinocchio.effortLimit 
+    ctrlLimWeights = np.asarray(self.ctrlLimWeights)
+    uLimitCost = crocoddyl.CostModelResidual(state, 
+                                            crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max), ctrlLimWeights), 
+                                            crocoddyl.ResidualModelControl(state, ctrlLimRef))
+    return uLimitCost
+
+  def create_frame_placement_cost(self, state, actuation):
+    '''
+    Create frame placement (SE3) cost model 
+    '''
+    self.check_attribute('framePlacementFrameName')
+    self.check_attribute('framePlacementTranslationRef')
+    self.check_attribute('framePlacementRotationRef')
+    self.check_attribute('framePlacementWeights')
+    self.check_attribute('framePlacementWeight')
+    framePlacementFrameId = self.rmodel.getFrameId(self.framePlacementFrameName)
+    # Default translation reference = initial translation
+    if(self.framePlacementTranslationRef=='DEFAULT' or self.framePlacementTranslationRef==''):
+      framePlacementTranslationRef = self.rdata.oMf[framePlacementFrameId].translation.copy()
+    else:
+      framePlacementTranslationRef = np.asarray(self.framePlacementTranslationRef)
+    # Default rotation reference = initial rotation
+    if(self.framePlacementRotationRef=='DEFAULT' or self.framePlacementRotationRef==''):
+      framePlacementRotationRef = self.rdata.oMf[framePlacementFrameId].rotation.copy()
+    else:
+      framePlacementRotationRef = np.asarray(self.framePlacementRotationRef)
+    framePlacementRef = pin.SE3(framePlacementRotationRef, framePlacementTranslationRef)
+    framePlacementWeights = np.asarray(self.framePlacementWeights)
+    framePlacementCost = crocoddyl.CostModelResidual(state, 
+                                                    crocoddyl.ActivationModelWeightedQuad(framePlacementWeights**2), 
+                                                    crocoddyl.ResidualModelFramePlacement(state, 
+                                                                                          framePlacementFrameId, 
+                                                                                          framePlacementRef, 
+                                                                                          actuation.nu)) 
+    return framePlacementCost
+
+  def create_frame_velocity_cost(self, state, actuation):
+    '''
+    Create frame velocity (tangent SE3) cost model
+    '''
+    self.check_attribute('frameVelocityFrameName')
+    self.check_attribute('frameVelocityWeights')
+    self.check_attribute('frameVelocityRef')
+    self.check_attribute('frameVelocityWeight')
+    frameVelocityFrameId = self.rmodel.getFrameId(self.frameVelocityFrameName)
+    # Default reference = zero velocity
+    if(self.frameVelocityRef=='DEFAULT' or self.frameVelocityRef==''):
+      frameVelocityRef = pin.Motion( np.zeros(6) )
+    else:
+      frameVelocityRef = pin.Motion( np.asarray( self.frameVelocityRef ) )
+    frameVelocityWeights = np.asarray(self.frameVelocityWeights)
+    frameVelocityCost = crocoddyl.CostModelResidual(state, 
+                                                    crocoddyl.ActivationModelWeightedQuad(frameVelocityWeights**2), 
+                                                    crocoddyl.ResidualModelFrameVelocity(state, 
+                                                                                        frameVelocityFrameId, 
+                                                                                        frameVelocityRef, 
+                                                                                        pin.LOCAL, 
+                                                                                        actuation.nu)) 
+    return frameVelocityCost
+
+  def create_frame_translation_cost(self, state, actuation):
+    '''
+    Create frame translation (R^3) cost model
+    '''
+    self.check_attribute('frameTranslationFrameName')
+    self.check_attribute('frameTranslationRef')
+    self.check_attribute('frameTranslationWeight')
+    frameTranslationFrameId = self.rmodel.getFrameId(self.frameTranslationFrameName)
+    if(self.frameTranslationRef=='DEFAULT' or self.frameTranslationRef==''):
+      frameTranslationRef = self.rdata.oMf[frameTranslationFrameId].translation.copy()
+    else:
+      frameTranslationRef = np.asarray(self.frameTranslationRef)
+    if(hasattr(self, 'frameTranslationWeights')): 
+      frameTranslationWeights = np.asarray(self.frameTranslationWeights)
+      frameTranslationActivation = crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2)
+    elif(hasattr(self, 'alpha_quadflatlog')): 
+      alpha_quadflatlog = self.alpha_quadflatlog
+      frameTranslationActivation = crocoddyl.ActivationModelQuadFlatLog(3, alpha_quadflatlog)
+    else:
+      logger.error("Please specify either 'alpha_quadflatlog' or 'frameTranslationWeights' in config file")
+    frameTranslationCost = crocoddyl.CostModelResidual(state, 
+                                                    frameTranslationActivation, 
+                                                    crocoddyl.ResidualModelFrameTranslation(state, 
+                                                                                            frameTranslationFrameId, 
+                                                                                            frameTranslationRef, 
+                                                                                            actuation.nu)) 
+    return frameTranslationCost
+
+  def create_frame_rotation_cost(self, state, actuation):
+    '''
+    Create frame rotation cost model
+    '''    
+    self.check_attribute('frameRotationFrameName')
+    self.check_attribute('frameRotationRef')
+    self.check_attribute('frameRotationWeights')
+    self.check_attribute('frameRotationWeight')
+    frameRotationFrameId = self.rmodel.getFrameId(self.frameRotationFrameName)
+    # Default rotation reference = initial rotation
+    if(self.frameRotationRef=='DEFAULT' or self.frameRotationRef==''):
+      frameRotationRef = self.rdata.oMf[frameRotationFrameId].rotation.copy()
+    else:
+      frameRotationRef   = np.asarray(self.frameRotationRef)
+    frameRotationWeights = np.asarray(self.frameRotationWeights)
+    frameRotationCost    = crocoddyl.CostModelResidual(state, 
+                                                        crocoddyl.ActivationModelWeightedQuad(frameRotationWeights**2), 
+                                                        crocoddyl.ResidualModelFrameRotation(state, 
+                                                                                            frameRotationFrameId, 
+                                                                                            frameRotationRef, 
+                                                                                            actuation.nu)) 
+    return frameRotationCost
+
+  def create_frame_force_cost(self, state, actuation):
+    '''
+    Create frame contact force cost model 
+    '''
+    self.check_attribute('frameForceFrameName')
+    self.check_attribute('contacts')
+    self.check_attribute('frameForceRef')
+    self.check_attribute('frameForceWeights')
+    self.check_attribute('frameForceWeight')
+    frameForceFrameId = self.rmodel.getFrameId(self.frameForceFrameName) 
+    found_ct_force_frame = False
+    for ct in self.contacts:
+      if(self.frameForceFrameName==ct['contactModelFrameName']):
+        found_ct_force_frame = True
+        ct_force_frame_type  = ct['contactModelType']
+    if(not found_ct_force_frame):
+      logger.error("Could not find force cost frame name in contact frame names. Make sure that the frame name of the force cost matches one of the contact frame names.")
+    # 6D contact case : wrench = linear in (x,y,z) + angular in (Ox,Oy,Oz)
+    if(ct_force_frame_type=='6D'):
+      # Default force reference = zero force
+      frameForceRef = pin.Force( np.asarray(self.frameForceRef) )
+      frameForceWeights = np.asarray(self.frameForceWeights) 
+      frameForceCost = crocoddyl.CostModelResidual(state, 
+                                                  crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+                                                  crocoddyl.ResidualModelContactForce(state, 
+                                                                                      frameForceFrameId, 
+                                                                                      frameForceRef, 
+                                                                                      6, 
+                                                                                      actuation.nu))
+    # 3D contact case : linear force in (x,y,z) (LOCAL)
+    if(ct_force_frame_type=='3D'):
+      # Default force reference = zero force
+      frameForceRef = pin.Force( np.asarray(self.frameForceRef) )
+      frameForceWeights = np.asarray(self.frameForceWeights)[:3]
+      frameForceCost = crocoddyl.CostModelResidual(state, 
+                                                  crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+                                                  crocoddyl.ResidualModelContactForce(state, 
+                                                                                      frameForceFrameId, 
+                                                                                      frameForceRef, 
+                                                                                      3, 
+                                                                                      actuation.nu))
+    # 1D contact case : linear force along z (LOCAL)
+    if('1D' in ct_force_frame_type):
+      if('x' in ct_force_frame_type): constrainedAxis = crocoddyl.x
+      if('y' in ct_force_frame_type): constrainedAxis = crocoddyl.y
+      if('z' in ct_force_frame_type): constrainedAxis = crocoddyl.z
+      # Default force reference = zero force
+      frameForceRef = pin.Force( np.asarray(self.frameForceRef) )
+      frameForceWeights = np.asarray(self.frameForceWeights)[constrainedAxis:constrainedAxis+1]
+      frameForceCost = crocoddyl.CostModelResidual(state, 
+                                                  crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
+                                                  crocoddyl.ResidualModelContactForce(state, 
+                                                                                      frameForceFrameId, 
+                                                                                      frameForceRef, 
+                                                                                      1, 
+                                                                                      actuation.nu))
+    return frameForceCost
+
+  def create_friction_force_cost(self, state, actuation):
+    '''
+    Create friction force cost model
+    '''
+    self.check_attribute('contacts')
+    self.check_attribute('frictionConeFrameName')
+    self.check_attribute('mu')
+    self.check_attribute('frictionConeWeight')
+    # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
+    mu = self.mu
+    frictionConeFrameId = self.rmodel.getFrameId(self.frictionConeFrameName)  
+    # axis_
+    cone_placement = self.rdata.oMf[frictionConeFrameId].copy()
+    # Rotate 180° around x+ to make z become -z
+    normal = cone_placement.rotation.T.dot(np.array([0.,0.,1.]))
+    # cone_rotation = cone_placement.rotation.dot(pin.utils.rpyToMatrix(+np.pi, 0., 0.))
+    # cone_rotation = self.rdata.oMf[frictionConeFrameId].rotation.copy() #contactModelPlacementRef.rotation
+    frictionCone = crocoddyl.FrictionCone(normal, mu, 4, False) #, 0, 1000)
+    frictionConeCost = crocoddyl.CostModelResidual(state,
+                                                  crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
+                                                  crocoddyl.ResidualModelContactFrictionCone(state, frictionConeFrameId, frictionCone, actuation.nu))
+    return frictionConeCost
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Cost weights profiles, useful for reaching tasks/cost design
 def cost_weight_tanh(i, N, max_weight=1., alpha=1., alpha_cut=0.25):
@@ -1086,8 +1484,8 @@ def init_DDP_LPF(robot, config, y0, callbacks=False):
         if('ctrlLim' in config['WHICH_COSTS']):
           # Default reference = zero torque
           ctrlLimRef = np.zeros(nq)
-          u_min = -config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
-          u_max = +config['coef_ulim']*state.pinocchio.effortLimit #np.asarray(config['ctrlBounds']) 
+          u_min = -config['coef_ulim']*state.pinocchio.effortLimit
+          u_max = +config['coef_ulim']*state.pinocchio.effortLimit 
           ctrlLimWeights = np.asarray(config['ctrlLimWeights'])
           uLimitCost = crocoddyl.CostModelResidual(state, 
                                                   crocoddyl.ActivationModelWeightedQuadraticBarrier(crocoddyl.ActivationBounds(u_min, u_max), ctrlLimWeights), 

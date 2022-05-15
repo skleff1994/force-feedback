@@ -26,6 +26,7 @@ np.set_printoptions(precision=4, linewidth=180)
 
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
 
+from lpf_mpc.init_ocp import OptimalControlProblemLPF
 
 def main(robot_name, PLOT, DISPLAY):
 
@@ -59,7 +60,8 @@ def main(robot_name, PLOT, DISPLAY):
     dt = config['dt']
     ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
     y0 = np.concatenate([x0, ug])
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True)
+    ddp = OptimalControlProblemLPF(robot, config).initialize(y0, callbacks=True)
+    # ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True)
     # Solve and extract solution trajectories
     xs_init = [y0 for i in range(N_h+1)]
     us_init = [ug for i in range(N_h)]
