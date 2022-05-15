@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file croco_helper.py
+@file ocp_utils.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -11,7 +11,6 @@
 import crocoddyl
 import numpy as np
 import pinocchio as pin
-from utils import pin_utils
 
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger

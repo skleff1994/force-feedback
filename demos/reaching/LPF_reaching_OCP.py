@@ -24,10 +24,10 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
+from utils import path_utils, pin_utils, plot_utils, misc_utils
 
-from lpf_mpc.init_ocp import OptimalControlProblemLPF
-from lpf_mpc.init_data import DDPDataParserLPF
+from lpf_mpc.ocp import OptimalControlProblemLPF
+from lpf_mpc.data import DDPDataParserLPF
 
 def main(robot_name, PLOT, DISPLAY):
 
@@ -62,7 +62,6 @@ def main(robot_name, PLOT, DISPLAY):
     ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
     y0 = np.concatenate([x0, ug])
     ddp = OptimalControlProblemLPF(robot, config).initialize(y0, callbacks=True)
-    # ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True)
     # Solve and extract solution trajectories
     xs_init = [y0 for i in range(N_h+1)]
     us_init = [ug for i in range(N_h)]
@@ -72,7 +71,6 @@ def main(robot_name, PLOT, DISPLAY):
     if(PLOT):
         #  Plot
         ddp_data = DDPDataParserLPF(ddp).extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
-        # ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=frame_name)
         fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                             colors=['r'], 
                                                             markers=['.'], 

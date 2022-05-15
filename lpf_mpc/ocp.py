@@ -92,7 +92,7 @@ class OptimalControlProblemLPF(ocp_utils.OptimalControlProblemAbstract):
     elif(self.wRegRef == 'gravity'):
       # If no reference is provided, assume default reg w.r.t. gravity torque
       w_gravity_reg = True
-      w_reg_ref = np.zeros(self.self.nq) # dummy reference not used
+      w_reg_ref = np.zeros(self.nq) # dummy reference not used
       log_msg_w_reg = 'gravity torque'
     else:
       # Otherwise, take the user-provided constant torque reference for w_reg

@@ -9,7 +9,6 @@
 @brief Initialize / extract data for MPC simulation
 """
 
-import time
 import numpy as np
 from utils import pin_utils
 import pinocchio as pin
@@ -58,7 +57,7 @@ class DDPDataParserClassical:
         ddp_data['contact_translation'] = [self.ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference.translation for i in range(self.ddp.problem.T)]
         ddp_data['contact_translation'].append(self.ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference.translation)
         ddp_data['CONTACT_TYPE'] = '6D'
-        PIN_REF_FRAME = pin.LOCAL
+        PIN_REF_FRAME =   LOCAL
       # Case 3D contact (x,y,z)
       elif(np.size(contactModelRef0)==3):
         if(self.ddp.problem.runningModels[0].differential.contacts.contacts[ct_frame_name].contact.nc == 3):
@@ -195,8 +194,6 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     if(self.INIT_LOG):
       self.print_sim_params(self.init_log_display_time)
 
-    # return sim_data
-
 
   # Extract MPC simu-specific plotting data from sim data
   def extract_plot_data_from_sim_data(self, frame_of_interest):
@@ -211,7 +208,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     # Robot model & params
     plot_data['pin_model'] = self.rmodel
     self.id_endeff = self.rmodel.getFrameId(frame_of_interest)
-    nq = self.nq ; nv = self.nv ; nx = self.nx ; nu = self.nu
+    nq = self.nq ; nv = self.nv ; 
     # Control predictions
     plot_data['u_pred'] = self.ctrl_pred
     plot_data['u_des_PLAN'] = self.ctrl_des_PLAN
@@ -281,37 +278,42 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     plot_data['f_ee_des_CTRL'] = self.force_des_CTRL
     plot_data['f_ee_des_SIMU'] = self.force_des_SIMU
 
-    # # Solver data (optional)
-    # if(self.RECORD_SOLVER_DATA']):
-    #   # Get SVD & diagonal of Ricatti + record in sim data
-    #   plot_data['K_svd'] = np.zeros((self.N_plan'], self.N_h'], nq))
-    #   plot_data['Kp_diag'] = np.zeros((self.N_plan'], self.N_h'], nq))
-    #   plot_data['Kv_diag'] = np.zeros((self.N_plan'], self.N_h'], nv))
-    #   plot_data['Ktau_diag'] = np.zeros((self.N_plan'], self.N_h'], nu))
-    #   for i in range(self.N_plan']):
-    #     for j in range(self.N_h']):
-    #       plot_data['Kp_diag'][i, j, :] = self.K'][i, j, :, :nq].diagonal()
-    #       plot_data['Kv_diag'][i, j, :] = self.K'][i, j, :, nq:nq+nv].diagonal()
-    #       plot_data['Ktau_diag'][i, j, :] = self.K'][i, j, :, -nu:].diagonal()
-    #       _, sv, _ = np.linalg.svd(self.K'][i, j, :, :])
-    #       plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
-    #   # Get diagonal and eigenvals of Vxx + record in sim data
-    #   plot_data['Vxx_diag'] = np.zeros((self.N_plan'],self.N_h']+1, nx))
-    #   plot_data['Vxx_eig'] = np.zeros((self.N_plan'], self.N_h']+1, nx))
-    #   for i in range(self.N_plan']):
-    #     for j in range(self.N_h']+1):
-    #       plot_data['Vxx_diag'][i, j, :] = self.Vxx'][i, j, :, :].diagonal()
-    #       plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Vxx'][i, j, :, :]))[::-1]
-    #   # Get diagonal and eigenvals of Quu + record in sim data
-    #   plot_data['Quu_diag'] = np.zeros((self.N_plan'],self.N_h'], nu))
-    #   plot_data['Quu_eig'] = np.zeros((self.N_plan'], self.N_h'], nu))
-    #   for i in range(self.N_plan']):
-    #     for j in range(self.N_h']):
-    #       plot_data['Quu_diag'][i, j, :] = self.Quu'][i, j, :, :].diagonal()
-    #       plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Quu'][i, j, :, :]))[::-1]
-    #   # Get Jacobian
-    #   plot_data['J_rank'] = self.J_rank']
-    #   # Get solve regs
-    #   plot_data['xreg'] = self.xreg']
-    #   plot_data['ureg'] = self.ureg']
+    # Solver data (optional)
+    if(self.RECORD_SOLVER_DATA):
+      self.extract_solver_data(plot_data)
+    
     return plot_data
+    
+  def extract_solver_data(self, plot_data):
+    nq = self.nq ; nv = self.nv ; nu = nq ; nx = nq + nv
+    # Get SVD & diagonal of Ricatti + record in sim data
+    plot_data['K_svd'] = np.zeros((self.N_plan, self.N_h, nq))
+    plot_data['Kp_diag'] = np.zeros((self.N_plan, self.N_h, nq))
+    plot_data['Kv_diag'] = np.zeros((self.N_plan, self.N_h, nv))
+    plot_data['Ktau_diag'] = np.zeros((self.N_plan, self.N_h, nu))
+    for i in range(self.N_plan):
+      for j in range(self.N_h):
+        plot_data['Kp_diag'][i, j, :] = self.K[i, j, :, :nq].diagonal()
+        plot_data['Kv_diag'][i, j, :] = self.K[i, j, :, nq:nq+nv].diagonal()
+        plot_data['Ktau_diag'][i, j, :] = self.K[i, j, :, -nu:].diagonal()
+        _, sv, _ = np.linalg.svd(self.K[i, j, :, :])
+        plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
+    # Get diagonal and eigenvals of Vxx + record in sim data
+    plot_data['Vxx_diag'] = np.zeros((self.N_plan,self.N_h+1, nx))
+    plot_data['Vxx_eig'] = np.zeros((self.N_plan, self.N_h+1, nx))
+    for i in range(self.N_plan):
+      for j in range(self.N_h+1):
+        plot_data['Vxx_diag'][i, j, :] = self.Vxx[i, j, :, :].diagonal()
+        plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Vxx[i, j, :, :]))[::-1]
+    # Get diagonal and eigenvals of Quu + record in sim data
+    plot_data['Quu_diag'] = np.zeros((self.N_plan,self.N_h, nu))
+    plot_data['Quu_eig'] = np.zeros((self.N_plan, self.N_h, nu))
+    for i in range(self.N_plan):
+      for j in range(self.N_h):
+        plot_data['Quu_diag'][i, j, :] = self.Quu[i, j, :, :].diagonal()
+        plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Quu[i, j, :, :]))[::-1]
+    # Get Jacobian
+    plot_data['J_rank'] = self.J_rank
+    # Get solve regs
+    plot_data['xreg'] = self.xreg
+    plot_data['ureg'] = self.ureg

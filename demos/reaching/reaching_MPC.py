@@ -29,10 +29,10 @@ np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
+from utils import path_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
 
-from classical_mpc.init_data import MPCDataHandlerClassical, DDPDataParserClassical
-from classical_mpc.init_ocp import OptimalControlProblemClassical
+from classical_mpc.data import MPCDataHandlerClassical, DDPDataParserClassical
+from classical_mpc.ocp import OptimalControlProblemClassical
 
 
 def main(robot_name, simulator, PLOT_INIT):
@@ -66,7 +66,6 @@ def main(robot_name, simulator, PLOT_INIT):
   ### OCP SETUP ###
   # # # # # # # # # 
   ddp = OptimalControlProblemClassical(robot, config).initialize(x0, callbacks=False)
-  # ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False) 
   # Warm start and solve
   ug  = pin_utils.get_u_grav(q0, robot.model, config['armature'])
   xs_init = [x0 for i in range(config['N_h']+1)]
@@ -77,7 +76,7 @@ def main(robot_name, simulator, PLOT_INIT):
   # Plot initial solution
   if(PLOT_INIT):
     ddp_data = DDPDataParserClassical(ddp).extract_data(ee_frame_name=frame_of_interest)
-    fig, ax = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+    _, _ = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 
 
@@ -86,7 +85,6 @@ def main(robot_name, simulator, PLOT_INIT):
   # # # # # # # # # # #
   sim_data = MPCDataHandlerClassical(config, robot)
   sim_data.init_sim_data(x0)
-  # sim_data = data_utils.init_sim_data(config, robot, x0, ee_frame_name=config['frameTranslationFrameName'])
     # Get frequencies
   freq_PLAN = sim_data.plan_freq
   freq_CTRL = sim_data.ctrl_freq
@@ -95,9 +93,9 @@ def main(robot_name, simulator, PLOT_INIT):
   nb_plan = 0
   nb_ctrl = 0
     # Sim options
-  dt_ocp            = config['dt']                            # OCP sampling rate 
+  dt_ocp            = config['dt']                         # OCP sampling rate 
   dt_mpc            = float(1./sim_data.plan_freq)         # planning rate
-  OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                         # ratio
+  OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                      # ratio
   # Additional simulation blocks 
   communication = mpc_utils.CommunicationModel(config)
   actuation     = mpc_utils.ActuationModel(config, nu=nu)
