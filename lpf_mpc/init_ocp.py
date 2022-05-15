@@ -10,7 +10,6 @@
 
 import crocoddyl
 import numpy as np
-import pinocchio as pin
 from utils import pin_utils, ocp_utils
 
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT

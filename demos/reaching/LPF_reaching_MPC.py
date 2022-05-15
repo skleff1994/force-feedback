@@ -40,7 +40,8 @@ np.set_printoptions(precision=4, linewidth=180)
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
 
 
-
+# from lpf_mpc.init_data import DDPDataParserLPF
+# from lpf_mpc.init_ocp import OptimalControlProblemLPF
 
 def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 

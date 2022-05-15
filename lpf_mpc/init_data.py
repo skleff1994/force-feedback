@@ -9,28 +9,30 @@
 @brief Initialize / extract data for MPC simulation
 """
 
-import time
 import numpy as np
 from utils import pin_utils
-from classical_mpc.init_data import extract_ddp_data, record_cost_references, record_solver_data
+from classical_mpc.init_data import DDPDataParserClassical
 import pinocchio as pin
 
 from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
-#### Low Pass Filter OCP
-def extract_ddp_data_LPF(ddp, ee_frame_name='contact', ct_frame_name='contact'):
+
+class DDPDataParserLPF(DDPDataParserClassical):
+  def __init__(self, ddp):
+    super().__init__(ddp)
+
+  def extract_data(self, ee_frame_name, ct_frame_name):
     '''
-    Record relevant data from ddp solver in order to plot 
+    extract data to plot
     '''
-    logger.info("Extracting DDP data (LPF)...")
-    ddp_data = extract_ddp_data(ddp, ee_frame_name=ee_frame_name, ct_frame_name=ct_frame_name)
+    ddp_data = super().extract_data(ee_frame_name, ct_frame_name)
     # Add terminal regularization references on filtered torques
     if('ctrlReg' in ddp_data['active_costs']):
-        ddp_data['ctrlReg_ref'].append(ddp.problem.terminalModel.differential.costs.costs['ctrlReg'].cost.residual.reference)
+        ddp_data['ctrlReg_ref'].append(self.ddp.problem.terminalModel.differential.costs.costs['ctrlReg'].cost.residual.reference)
     if('ctrlRegGrav' in ddp_data['active_costs']):
-        ddp_data['ctrlRegGrav_ref'].append(pin_utils.get_u_grav(ddp.xs[-1][:ddp_data['nq']], ddp_data['pin_model'], ddp_data['armature']))
+        ddp_data['ctrlRegGrav_ref'].append(pin_utils.get_u_grav(self.ddp.xs[-1][:ddp_data['nq']], ddp_data['pin_model'], ddp_data['armature']))
     return ddp_data
 
 

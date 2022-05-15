@@ -24,9 +24,10 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
+from utils import path_utils, ocp_utils, pin_utils, plot_utils, misc_utils
 
 from classical_mpc.init_ocp import OptimalControlProblemClassical
+from classical_mpc.init_data import DDPDataParserClassical
 
 def main(robot_name, PLOT, DISPLAY):
 
@@ -66,7 +67,8 @@ def main(robot_name, PLOT, DISPLAY):
 
     #  Plot
     if(PLOT):
-        ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=frame_name, ct_frame_name=frame_name)
+        ddp_data = DDPDataParserClassical(ddp).extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
+        # ddp_data = data_utils.extract_ddp_data(ddp, ee_frame_name=frame_name, ct_frame_name=frame_name)
         _, _ = plot_utils.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], markers=['.'], colors=['b'], SHOW=True)
 
 

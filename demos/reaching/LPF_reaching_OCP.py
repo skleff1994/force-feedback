@@ -27,6 +27,7 @@ np.set_printoptions(precision=4, linewidth=180)
 from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
 
 from lpf_mpc.init_ocp import OptimalControlProblemLPF
+from lpf_mpc.init_data import DDPDataParserLPF
 
 def main(robot_name, PLOT, DISPLAY):
 
@@ -68,6 +69,15 @@ def main(robot_name, PLOT, DISPLAY):
 
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False) 
     
+    if(PLOT):
+        #  Plot
+        ddp_data = DDPDataParserLPF(ddp).extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
+        # ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=frame_name)
+        fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=config['WHICH_PLOTS'], 
+                                                            colors=['r'], 
+                                                            markers=['.'], 
+                                                            SHOW=True)
+
 
     if(DISPLAY):
 
@@ -146,13 +156,6 @@ def main(robot_name, PLOT, DISPLAY):
             time.sleep(pause)
 
 
-    if(PLOT):
-        #  Plot
-        ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=frame_name)
-        fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=config['WHICH_PLOTS'], 
-                                                            colors=['r'], 
-                                                            markers=['.'], 
-                                                            SHOW=True)
 
 if __name__=='__main__':
     args = misc_utils.parse_OCP_script(sys.argv[1:])
