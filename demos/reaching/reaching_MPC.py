@@ -98,9 +98,9 @@ def main(robot_name, simulator, PLOT_INIT):
   dt_mpc            = float(1./sim_data.plan_freq)         # planning rate
   OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                      # ratio
   # Additional simulation blocks 
-  communication = mpc_utils.CommunicationModel(config)
-  actuation     = mpc_utils.ActuationModel(config, nu=nu)
-  sensing       = mpc_utils.SensorModel(config)
+  communicationModel = mpc_utils.CommunicationModel(config)
+  actuationModel     = mpc_utils.ActuationModel(config, nu=nu)
+  sensingModel       = mpc_utils.SensorModel(config)
   # Display target
   if(hasattr(simulator_utils, 'display_ball')):
     p_ball = np.asarray(config['frameTranslationRef'])
@@ -120,65 +120,49 @@ def main(robot_name, simulator, PLOT_INIT):
         logger.info("SIMU step "+str(i)+"/"+str(sim_data.N_simu))
         print('')
 
+
     # Solve OCP if we are in a planning cycle (MPC/planning frequency)
       if(i%int(freq_SIMU/freq_PLAN) == 0):
+          
           # Reset x0 to measured state + warm-start solution
           ddp.problem.x0 = sim_data.state_mea_SIMU[i, :]
           xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
           xs_init[0] = sim_data.state_mea_SIMU[i, :]
           us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
-          # Solve OCP & record MPC predictions
+          
+          # Solve OCP 
           ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-          sim_data.state_pred[nb_plan, :, :] = np.array(ddp.xs)
-          sim_data.ctrl_pred[nb_plan, :, :] = np.array(ddp.us)
-          # Extract relevant predictions for interpolations
-          x_curr = sim_data.state_pred[nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
-          x_pred = sim_data.state_pred[nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
-          u_curr = sim_data.ctrl_pred[nb_plan, 0, :]     # u0* = optimal control   
-          # Record cost references
+          
+          # Record MPC predictions, cost references and solver data 
+          sim_data.record_predictions(nb_plan, ddp)
           sim_data.record_cost_references(ddp, nb_plan)
-          # Record solver data 
           sim_data.record_solver_data(ddp, nb_plan) 
-          # Model communication between computer --> robot
-          x_pred, u_curr = communication.step(x_pred, u_curr)
-          # Select reference control and state for the current PLAN cycle
-          x_ref_PLAN  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-          u_ref_PLAN  = u_curr 
-          if(nb_plan==0):
-            sim_data.state_des_PLAN[nb_plan, :] = x_curr  
-          sim_data.ctrl_des_PLAN[nb_plan, :]   = u_ref_PLAN   
-          sim_data.state_des_PLAN[nb_plan+1, :] = x_ref_PLAN    
+
+          # Model communication delay between computer & robot (buffered OCP solution)
+          communicationModel.step(sim_data.x_pred, sim_data.u_curr)
+
+          # Record interpolated desired state, control and force at MPC frequency
+          sim_data.record_plan_cycle_desired(nb_plan)
 
           # Increment planning counter
           nb_plan += 1
 
+
     # If we are in a control cycle select reference torque to send to the actuator (motor driver input frequency)
-      if(i%int(freq_SIMU/freq_CTRL) == 0):        
-          # Select reference control and state for the current CTRL cycle
-          COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
-          x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-          u_ref_CTRL = u_curr 
-          # First prediction = measurement = initialization of MPC
-          if(nb_ctrl==0):
-            sim_data.state_des_CTRL[nb_ctrl, :] = x_curr  
-          sim_data.ctrl_des_CTRL[nb_ctrl, :]   = u_ref_CTRL  
-          sim_data.state_des_CTRL[nb_ctrl+1, :] = x_ref_CTRL   
+      if(i%int(freq_SIMU/freq_CTRL) == 0):   
+          
+          # Record interpolated desired state, control and force at CTRL frequency
+          sim_data.record_ctrl_cycle_desired(nb_ctrl)     
+          
           # Increment control counter
           nb_ctrl += 1
           
     # Simulate actuation/sensing and step simulator (physics simulation frequency)
+      # Record interpolated desired state, control and force at SIM frequency
+      sim_data.record_simu_cycle_desired(i)
 
-      # Select reference control and state for the current SIMU cycle
-      COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
-      x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-      u_ref_SIMU  = u_curr 
-      # First prediction = measurement = initialization of MPC
-      if(i==0):
-        sim_data.state_des_SIMU[i, :] = x_curr  
-      sim_data.ctrl_des_SIMU[i, :]   = u_ref_SIMU  
-      sim_data.state_des_SIMU[i+1, :] = x_ref_SIMU 
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
-      tau_mea_SIMU = actuation.step(i, u_ref_SIMU, sim_data.ctrl_des_SIMU) 
+      tau_mea_SIMU = actuationModel.step(i, sim_data.u_ref_SIMU, sim_data.ctrl_des_SIMU) 
 
       # RICCATI GAINS TO INTERPOLATE
       if(config['RICCATI']):
@@ -191,11 +175,13 @@ def main(robot_name, simulator, PLOT_INIT):
       q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
+      
+      
       # Record data (unnoised)
       x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
       sim_data.state_mea_no_noise_SIMU[i+1, :] = x_mea_SIMU
-      # Sensor model (optional noise + filtering)
-      sim_data.state_mea_SIMU[i+1, :] = sensing.step(i, x_mea_SIMU, sim_data.state_mea_SIMU)
+      # Sensor model ( simulation state ==> noised / filtered state )
+      sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, x_mea_SIMU, sim_data.state_mea_SIMU)
 
   print('--------------------------------')
   print('Simulation exited successfully !')

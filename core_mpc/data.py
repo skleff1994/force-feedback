@@ -477,6 +477,20 @@ class MPCDataHandlerAbstract:
     self.nu = self.nq
     self.nx = self.nq + self.nv
 
+    self.check_config()
+
+    # Check 1st contact name & reference frame in config file
+    if(hasattr(self, 'contacts')):
+        self.is_contact = True
+        if(self.contacts[0]['contactModelType'] == '6D' or self.contacts[0]['pinocchioReferenceFrame'] == 'LOCAL'):
+            self.PIN_REF_FRAME = pin.LOCAL
+            self.contactFrameName = self.contacts[0]['contactModelFrameName']
+        else:
+            self.PIN_REF_FRAME = pin.LOCAL_WORLD_ALIGNED
+        logger.warning("Contact force will be expressed in the "+str(self.PIN_REF_FRAME)+" convention")
+    else:
+        self.is_contact = False
+
   def check_attribute(self, attribute): 
     '''
     Check whether attribute exists and is well defined
@@ -644,7 +658,17 @@ class MPCDataHandlerAbstract:
   def init_sim_data(self):
     raise NotImplementedError()
 
-  # Data recording helpers (base)
+
+  # Data recording helpers 
+  def record_plan_cycle_step_data(self):
+    raise NotImplementedError()
+
+  def record_ctrl_cycle_step_data(self):
+    raise NotImplementedError()
+
+  def record_simu_cycle_step_data(self):
+    raise NotImplementedError()
+
   def record_solver_data(self, ddp, nb_plan):
     '''
     Handy function to record solver related data during MPC simulation

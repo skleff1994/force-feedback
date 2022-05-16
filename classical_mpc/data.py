@@ -277,7 +277,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     self.force_mea_SIMU                = np.zeros((self.N_simu, 6)) 
     self.state_mea_SIMU[0, :]          = x0
     self.state_mea_no_noise_SIMU[0, :] = x0
-
+    
   def init_sim_data(self, x0):
     '''
     Allocate and initialize MPC simulation data
@@ -290,6 +290,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     self.dt_ctrl = float(1./self.ctrl_freq)              # Duration of 1 control cycle (s)
     self.dt_plan = float(1./self.plan_freq)              # Duration of 1 planning cycle (s)
     self.dt_simu = float(1./self.simu_freq)              # Duration of 1 simulation cycle (s)
+    self.OCP_TO_PLAN_RATIO = self.dt_plan / self.dt
     # Cost references 
     self.init_cost_references()
     # Predictions
@@ -305,6 +306,72 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
 
     if(self.INIT_LOG):
       self.print_sim_params(self.init_log_display_time)
+
+
+  def record_predictions(self, nb_plan, ddpSolver):
+    '''
+    - Records the MPC prediction of at the current step (state, control and forces if contact is specified)
+    '''
+    self.state_pred[nb_plan, :, :] = np.array(ddpSolver.xs)
+    self.ctrl_pred[nb_plan, :, :] = np.array(ddpSolver.us)
+    # Extract relevant predictions for interpolations to MPC frequency
+    self.x_curr = self.state_pred[nb_plan, 0, :]    # x0* = measured state    (q^,  v^ )
+    self.x_pred = self.state_pred[nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*) 
+    self.u_curr = self.ctrl_pred[nb_plan, 0, :]     # u0* = optimal control   
+    # Record forces in the right frame
+    if(self.is_contact):
+        id_endeff = self.rmodel.getFrameId(self.contactFrameName)
+        if(self.PIN_REF_FRAME == pin.LOCAL):
+            self.force_pred[nb_plan, :, :] = \
+                np.array([ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
+        elif(self.PIN_REF_FRAME == pin.LOCAL_WORLD_ALIGNED or self.PIN_REF_FRAME == pin.WORLD):
+            self.force_pred[nb_plan, :, :] = \
+                np.array([self.rdata.oMf[id_endeff].action @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
+        else:
+            logger.error("The Pinocchio reference frame must be in ['LOCAL', LOCAL_WORLD_ALIGNED', 'WORLD']")
+        self.f_curr = self.force_pred[nb_plan, 0, :]
+        self.f_pred = self.force_pred[nb_plan, 1, :]
+
+  
+  def record_plan_cycle_desired(self, nb_plan):
+    '''
+    - Records the planning cycle data (state, control, force)
+    If an interpolation to planning frequency is needed, here is the place where to implement it
+    '''
+    if(nb_plan==0):
+        self.state_des_PLAN[nb_plan, :] = self.x_curr  
+    self.ctrl_des_PLAN[nb_plan, :]      = self.u_curr   
+    self.state_des_PLAN[nb_plan+1, :]   = self.x_curr + self.OCP_TO_PLAN_RATIO * (self.x_pred - self.x_curr)    
+    if(self.is_contact):
+        self.force_des_PLAN[nb_plan, :] = self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)    
+
+  def record_ctrl_cycle_desired(self, nb_ctrl):
+    '''
+    - Records the control cycle data (state, control, force)
+    If an interpolation to control frequency is needed, here is the place where to implement it
+    '''
+    # Record stuff
+    if(nb_ctrl==0):
+        self.state_des_CTRL[nb_ctrl, :]   = self.x_curr  
+    self.ctrl_des_CTRL[nb_ctrl, :]    = self.u_curr   
+    self.state_des_CTRL[nb_ctrl+1, :] = self.x_curr + self.OCP_TO_PLAN_RATIO * (self.x_pred - self.x_curr)   
+    if(self.is_contact):
+        self.force_des_CTRL[nb_ctrl, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)   
+
+
+  def record_simu_cycle_desired(self, nb_simu):
+    '''
+    - Records the control cycle data (state, control, force)
+    If an interpolation to control frequency is needed, here is the place where to implement it
+    '''
+    self.u_ref_SIMU  = self.u_curr    
+    if(nb_simu==0):
+        self.state_des_SIMU[nb_simu, :] = self.x_curr  
+    self.ctrl_des_SIMU[nb_simu, :]   = self.u_ref_SIMU
+    self.state_des_SIMU[nb_simu+1, :] = self.x_curr + self.OCP_TO_PLAN_RATIO * (self.x_pred - self.x_curr) 
+    if(self.is_contact):
+        self.force_des_SIMU[nb_simu, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)  
+    return 
 
 
   # Extract MPC simu-specific plotting data from sim data

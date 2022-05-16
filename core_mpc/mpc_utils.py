@@ -162,3 +162,5 @@ class SensorModel:
             measured_state += memory[i-k-1, :]
           measured_state = measured_state / (n_sum + 1)
         return measured_state
+
+

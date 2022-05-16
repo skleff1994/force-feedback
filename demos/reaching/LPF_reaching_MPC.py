@@ -29,7 +29,7 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
@@ -37,10 +37,10 @@ np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
+from core_mpc import ocp, path_utils, pin_utils, mpc_utils, misc_utils
 
 
-from lpf_mpc.data import DDPDataParserLPF, MPCDataHandlerLPF
+from lpf_mpc.data import DDPDataHandlerLPF, MPCDataHandlerLPF
 from lpf_mpc.ocp import OptimalControlProblemLPF
 
 def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
@@ -56,11 +56,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   v0 = np.asarray(config['dq0'])
   x0 = np.concatenate([q0, v0])   
   if(simulator == 'bullet'):
-    from utils import sim_utils as simulator_utils
+    from core_mpc import sim_utils as simulator_utils
     env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
-    from utils import raisim_utils as simulator_utils
+    from core_mpc import raisim_utils as simulator_utils
     env, robot_simulator, _ = simulator_utils.init_raisim_simulation(robot_name, dt=dt_simu, x0=x0)  
     robot = robot_simulator
   else:
@@ -77,7 +77,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ug = pin_utils.get_u_grav(q0, robot.model, config['armature'])
   y0 = np.concatenate([x0, ug])
   ddp = OptimalControlProblemLPF(robot, config).initialize(y0, callbacks=False)
-  # ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False) 
   # Warm start and solve 
   xs_init = [y0 for i in range(config['N_h']+1)]
   us_init = [ug for i in range(config['N_h'])]
@@ -85,9 +84,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Plot initial solution
   frame_name = config['frameTranslationFrameName']
   if(PLOT_INIT):
-    ddp_data = DDPDataParserLPF(ddp).extract_data(ee_frame_name=frame_name)
-    # ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=frame_name)
-    fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
+    ddp_handler = DDPDataHandlerLPF(ddp)
+    ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name)
+    _, _ = ddp_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 
 
@@ -136,7 +135,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
     # Solve OCP if we are in a planning cycle (MPC/planning frequency)
       if(i%int(freq_SIMU/freq_PLAN) == 0):
-          # print("PLAN ("+str(nb_plan)+"/"+str(sim_data.N_plan'])+")")
           # Reset x0 to measured state + warm-start solution
           ddp.problem.x0 = sim_data.state_mea_SIMU[i, :]
           xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -154,7 +152,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           # Record cost references
           sim_data.record_cost_references(ddp, nb_plan)
           # Record solver data (optional)
-          # if(config['RECORD_SOLVER_DATA']):
           sim_data.record_solver_data(ddp, nb_plan) 
           # Model communication between computer --> robot
           y_pred, w_curr = communication.step(y_pred, w_curr)
@@ -171,9 +168,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
     # If we are in a control cycle select reference torque to send to the actuator (motor driver input frequency)
       if(i%int(freq_SIMU/freq_CTRL) == 0):        
-          # print("  CTRL ("+str(nb_ctrl)+"/"+str(sim_data.N_ctrl'])+")")
           # Select reference control and state for the current CTRL cycle
-          COEF       = float(i%int(freq_CTRL/freq_PLAN)) / float(freq_CTRL/freq_PLAN)
           y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
           w_ref_CTRL = w_curr 
           # First prediction = measurement = initialization of MPC
@@ -185,9 +180,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           nb_ctrl += 1
           
     # Simulate actuation/sensing and step simulator (physics simulation frequency)
-
       # Select reference control and state for the current SIMU cycle
-      COEF        = float(i%int(freq_SIMU/freq_PLAN)) / float(freq_SIMU/freq_PLAN)
       y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
       w_ref_SIMU  = w_curr 
 
@@ -238,10 +231,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                           '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
                           '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
   #  Extract plot data from sim data
-  plot_data = sim_data.extract_plot_data_from_sim_data(frame_of_interest=frame_name)
-  # plot_data = data_utils.extract_plot_data_from_sim_data_LPF(sim_data)
+  plot_data = sim_data.extract_data(frame_of_interest=frame_name)
   #  Plot results
-  plot_utils.plot_mpc_results_LPF(plot_data, which_plots=WHICH_PLOTS,
+  sim_data.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
                                   PLOT_PREDICTIONS=True, 
                                   pred_plot_sampling=int(freq_PLAN/10),
                                   SAVE=True,
@@ -250,7 +242,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                                   AUTOSCALE=True)
   # Save optionally
   if(config['SAVE_DATA']):
-    data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)
+    sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)
 
 
 
