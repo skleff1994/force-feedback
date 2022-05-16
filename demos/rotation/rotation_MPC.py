@@ -151,7 +151,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
           for k,m in enumerate(models):
               # Ref
-              t = min(t_simu + k*dt_ocp, 2*np.pi/OMEGA)
+              t = min(t_simu + k*sim_data.dt, 2*np.pi/OMEGA)
               # Desired RPY in WORLD frame
               R_ee_ref_WORLD = ocp.rotation_orientation_WORLD(t, M_ee.copy(), 
                                                                         omega=OMEGA, 

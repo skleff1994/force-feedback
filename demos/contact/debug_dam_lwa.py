@@ -18,7 +18,7 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
@@ -49,7 +49,7 @@ CONTACT_FRAME   = pin.LOCAL
 # from example_robot_data import loadTalosArm 
 # robot = loadTalosArm()
 # robot = pin_utils.load_robot_wrapper('talos_arm')
-from utils import pin_utils
+from core_mpc import pin_utils
 robot = pin_utils.load_robot_wrapper('talos_arm')
 nq = robot.model.nq; nv = robot.model.nv; nu = nq; nx = nq+nv
 q0 = np.random.rand(nq) 

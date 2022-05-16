@@ -4,10 +4,10 @@ import matplotlib
 import numpy as np
 import sys
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, log_level_name=GLOBAL_LOG_LEVEL, USE_LONG_FORMAT=GLOBAL_LOG_FORMAT).logger
 
-from utils import data_utils, analysis_utils
+from core_mpc import data_utils, analysis_utils
 
 PREFIX = '/home/skleff/force-feedback/data/'
 data_file_name = 'iiwa_contact_circle_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.5_Fc=0.5_Fs1.0' 

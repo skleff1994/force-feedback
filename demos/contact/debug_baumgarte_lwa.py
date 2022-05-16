@@ -18,14 +18,14 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
+from core_mpc import ocp, path_utils, pin_utils, plot_utils, data_utils, misc_utils
 
 
 
@@ -58,7 +58,7 @@ def main():
     ### OCP SETUP ###
     # # # # # # # # # 
     # Setup Croco OCP and create solver
-    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True) 
+    ddp = ocp.init_DDP(robot, config, x0, callbacks=True) 
     # Warmstart and solve
     f_ext = pin_utils.get_external_joint_torques(M_ct, config['frameForceRef'], robot)
     u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
