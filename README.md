@@ -7,7 +7,7 @@ The first approach (submitted to IROS22) consists in modeling the actuation as a
 
 # Dependencies
 - [robot_properties_kuka](https://github.com/machines-in-motion/robot_properties_kuka)
-- [Crocoddyl](https://github.com/skleff1994/crocoddyl/tree/lpf_contact1d) ("lpf_contact1d" branch)
+- [Crocoddyl](https://github.com/skleff1994/crocoddyl/tree/devel) ("devel" branch)
 - [Pinocchio](https://github.com/stack-of-tasks/pinocchio)
 - [scipy](https://scipy.org/)
 - [example_robot_data](https://github.com/Gepetto/example-robot-data) 
@@ -15,8 +15,8 @@ The first approach (submitted to IROS22) consists in modeling the actuation as a
 
 You also need either one of these in order to run MPC simulations :
 <!-- - [RaiSim](https://raisim.com/index.html) (only for RaiSim simulations) -->
-- [PyBullet](https://pybullet.org/wordpress/)  (only for PyBullet simulations)
-- [bullet_utils](https://github.com/machines-in-motion/bullet_utils) (only for PyBullet simulations)
+- [PyBullet](https://pybullet.org/wordpress/)  
+- [bullet_utils](https://github.com/machines-in-motion/bullet_utils) 
 
 If you don't have PyYaml and six installed : `pip3 install PyYaml && pip3 install six`
 
@@ -25,6 +25,7 @@ The core and utilities for each type of MPC are available in
 - classical_mpc : classical MPC based on position-velocity state feedback and torque control
 - lpf_mpc : "LPF" MPC based on augmented state (position, velocity, torques) feedback 
 - soft_mpc : "soft" MPC based on visco-elastic contact model to allow cartesian force feedback 
+
 Each of these directories has an `ocp.py` and `data.py` modules that implement the OCP setup and OCP-specific data handlers. These classes derive from abstract classes implemented in `utils/ocp_utils.py` and `utils/data_utils.py`
 
 In `demos` you'll find python scripts sorted by tasks:
@@ -46,7 +47,7 @@ python demos/static_raching_task/reaching_OCP.py --robot_name=iiwa --PLOT --VISU
 ```
 This script reads the corresponding YAML configuration file `demos/config/iiwa_reaching_OCP.yml` and sets up the OCP defined in `utils/ocp_utils` and solves it. The results are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_ddp"). Now if we want instead to solve an OCP for TALOS left arm, using the LPF approach, animate the results but not plot 
 ```
-python demos/static_raching_task/LPF_reaching_OCP.py --robot_name=talos --VISUALIZE
+python demos/reaching/LPF_reaching_OCP.py --robot_name=talos --VISUALIZE
 ```
 
 ## Simulate MPC 
@@ -54,7 +55,7 @@ python demos/static_raching_task/LPF_reaching_OCP.py --robot_name=talos --VISUAL
 <!-- We also need to specify the simulator.  -->
 Similar syntax as previously, replacing "OCP" by "MPC". For instance
 ```
-python demos/static_reaching_task/reaching_MPC.py  --robot_name=iiwa --PLOT_INIT
+python demos/reaching/reaching_MPC.py  --robot_name=iiwa --PLOT_INIT
 ```
 This script reads the corresponding YAML configuration file in `demos/config/iiwa_reaching_MPC.yml` and sets up an OCP defined in `utils/ocp_utils` , plots the initial solution and then simulates the MPC in PyBullet. The results are of the simulations are plotted using custom plotting scripts implemented in `utils/plot_utils` (functions names starting with "plot_mpc"). The simulation data can be optionally saved as .npz for offline analysis. 
 
