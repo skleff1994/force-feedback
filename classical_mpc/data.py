@@ -291,6 +291,8 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     self.dt_plan = float(1./self.plan_freq)              # Duration of 1 planning cycle (s)
     self.dt_simu = float(1./self.simu_freq)              # Duration of 1 simulation cycle (s)
     self.OCP_TO_PLAN_RATIO = self.dt_plan / self.dt
+    
+    self.init_actuation_model()
     # Cost references 
     self.init_cost_references()
     # Predictions

@@ -49,10 +49,6 @@ def main(robot_name, PLOT, DISPLAY):
     id_endeff = robot.model.getFrameId(frame_name)
     M_ee = robot.data.oMf[id_endeff]
     nq = robot.model.nq; nv = robot.model.nv; nx = nq+nv; nu = nq
-    # print("ID ENDEFF = ", id_endeff)
-
-    # for elt in robot.model.frames:
-    #     print('frame name = '+str(elt.name) + ' | id = ', robot.model.getFrameId(elt.name))
 
     #################
     ### OCP SETUP ###

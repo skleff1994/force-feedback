@@ -34,12 +34,10 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc import ocp, path_utils, pin_utils, misc_utils, mpc_utils, ocp
+from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 
 from lpf_mpc.data import DDPDataHandlerLPF, MPCDataHandlerLPF
 from lpf_mpc.ocp import OptimalControlProblemLPF
-
-
 
 def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
@@ -71,9 +69,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   M_ct = robot.data.oMf[id_endeff].copy()
   contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   contact_placement.rotation    =  contact_placement.rotation
-  # contact_placement.translation = base_placement.act( contact_placement.act( np.asarray(config['contact_plane_offset']) ) )
-  # contact_placement.rotation    = base_placement.rotation @ contact_placement.rotation
-  # TODO: fix collisions with robot
   simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
 
   # # # # # # # # # 

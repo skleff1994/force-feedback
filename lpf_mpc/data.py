@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 
+import pinocchio as pin
+
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
@@ -311,6 +313,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     self.dt_ctrl = float(1./self.ctrl_freq)              # Duration of 1 control cycle (s)
     self.dt_plan = float(1./self.plan_freq)              # Duration of 1 planning cycle (s)
     self.dt_simu = float(1./self.simu_freq)              # Duration of 1 simulation cycle (s)
+    self.OCP_TO_PLAN_RATIO = self.dt_plan / self.dt
     # Cost references 
     self.init_cost_references()
     # Predictions
@@ -326,6 +329,74 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
     if(self.INIT_LOG):
       self.print_sim_params(self.init_log_display_time)
+
+
+  def record_predictions(self, nb_plan, ddpSolver):
+    '''
+    - Records the MPC prediction of at the current step (state, control and forces if contact is specified)
+    '''
+    # logger.debug(str(np.shape(self.state_pred)))
+    self.state_pred[nb_plan, :, :] = np.array(ddpSolver.xs)
+    self.ctrl_pred[nb_plan, :, :] = np.array(ddpSolver.us)
+    # Extract relevant predictions for interpolations to MPC frequency
+    self.y_curr = self.state_pred[nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
+    self.y_pred = self.state_pred[nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
+    self.w_curr = self.ctrl_pred[nb_plan, 0, :]     # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
+    # Record forces in the right frame
+    if(self.is_contact):
+        id_endeff = self.rmodel.getFrameId(self.contactFrameName)
+        if(self.PIN_REF_FRAME == pin.LOCAL):
+            self.force_pred[nb_plan, :, :] = \
+                np.array([ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
+        elif(self.PIN_REF_FRAME == pin.LOCAL_WORLD_ALIGNED or self.PIN_REF_FRAME == pin.WORLD):
+            self.force_pred[nb_plan, :, :] = \
+                np.array([self.rdata.oMf[id_endeff].action @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
+        else:
+            logger.error("The Pinocchio reference frame must be in ['LOCAL', LOCAL_WORLD_ALIGNED', 'WORLD']")
+        self.f_curr = self.force_pred[nb_plan, 0, :]
+        self.f_pred = self.force_pred[nb_plan, 1, :]
+
+  
+  def record_plan_cycle_desired(self, nb_plan):
+    '''
+    - Records the planning cycle data (state, control, force)
+    If an interpolation to planning frequency is needed, here is the place where to implement it
+    '''
+    if(nb_plan==0):
+        self.state_des_PLAN[nb_plan, :] = self.y_curr  
+    self.ctrl_des_PLAN[nb_plan, :]      = self.w_curr   
+    self.state_des_PLAN[nb_plan+1, :]   = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)    
+    if(self.is_contact):
+        self.force_des_PLAN[nb_plan, :] = self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)    
+
+  def record_ctrl_cycle_desired(self, nb_ctrl):
+    '''
+    - Records the control cycle data (state, control, force)
+    If an interpolation to control frequency is needed, here is the place where to implement it
+    '''
+    # Record stuff
+    if(nb_ctrl==0):
+        self.state_des_CTRL[nb_ctrl, :]   = self.y_curr  
+    self.ctrl_des_CTRL[nb_ctrl, :]    = self.w_curr   
+    self.state_des_CTRL[nb_ctrl+1, :] = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)   
+    if(self.is_contact):
+        self.force_des_CTRL[nb_ctrl, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)   
+
+
+  def record_simu_cycle_desired(self, nb_simu):
+    '''
+    - Records the control cycle data (state, control, force)
+    If an interpolation to control frequency is needed, here is the place where to implement it
+    '''
+    self.y_ref_SIMU  = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)
+    self.w_ref_SIMU  = self.w_curr 
+    if(nb_simu==0):
+        self.state_des_SIMU[nb_simu, :] = self.y_curr  
+    self.ctrl_des_SIMU[nb_simu, :]   = self.w_ref_SIMU 
+    self.state_des_SIMU[nb_simu+1, :] = self.y_ref_SIMU 
+    if(self.is_contact):
+        self.force_des_SIMU[nb_simu, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)  
+    return 
 
 
   # Extract MPC simu-specific plotting data from sim data
@@ -370,7 +441,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     plot_data['tau_mea_no_noise'] = self.state_mea_no_noise_SIMU[:,-nu:]
     # Extract gravity torques
     plot_data['grav'] = np.zeros((self.N_simu+1, nq))
-    print(plot_data['pin_model'])
+    # print(plot_data['pin_model'])
     for i in range(plot_data['N_simu']+1):
       plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'], self.armature)
     # EE predictions (at PLAN freq)
@@ -592,12 +663,12 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
               for j in range(0, N_plan, pred_plot_sampling):
                   # Receding horizon = [j,j+N_h]
                   t0_horizon = j*dt_plan
-                  tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+                  tspan_y_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
                   tspan_u_pred = np.linspace(t0_horizon, t0_horizon + T_h - dt_plan, N_h)
                   # Set up lists of (x,y) points for predicted positions and velocities
-                  points_q = np.array([tspan_x_pred, q_pred_i[j,:]]).transpose().reshape(-1,1,2)
-                  points_v = np.array([tspan_x_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
-                  points_tau = np.array([tspan_x_pred, tau_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                  points_q = np.array([tspan_y_pred, q_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                  points_v = np.array([tspan_y_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                  points_tau = np.array([tspan_y_pred, tau_pred_i[j,:]]).transpose().reshape(-1,1,2)
                   # Set up lists of segments
                   segs_q = np.concatenate([points_q[:-1], points_q[1:]], axis=1)
                   segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
@@ -607,9 +678,9 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
                   lc_q = LineCollection(segs_q, cmap=cm, zorder=-1)
                   lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
                   lc_tau = LineCollection(segs_tau, cmap=cm, zorder=-1)
-                  lc_q.set_array(tspan_x_pred)
-                  lc_v.set_array(tspan_x_pred) 
-                  lc_tau.set_array(tspan_x_pred)
+                  lc_q.set_array(tspan_y_pred)
+                  lc_v.set_array(tspan_y_pred) 
+                  lc_tau.set_array(tspan_y_pred)
                   # Customize
                   lc_q.set_linestyle('-')
                   lc_v.set_linestyle('-')
@@ -624,9 +695,9 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
                   # Scatter to highlight points
                   colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
                   my_colors = cm(colors)
-                  ax[i,0].scatter(tspan_x_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
-                  ax[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
-                  ax[i,2].scatter(tspan_x_pred, tau_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
+                  ax[i,0].scatter(tspan_y_pred, q_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
+                  ax[i,1].scatter(tspan_y_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
+                  ax[i,2].scatter(tspan_y_pred, tau_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
 
           # Joint position
           ax[i,0].plot(t_span_plan, plot_data['q_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)

@@ -484,9 +484,9 @@ class MPCDataHandlerAbstract:
         self.is_contact = True
         if(self.contacts[0]['contactModelType'] == '6D' or self.contacts[0]['pinocchioReferenceFrame'] == 'LOCAL'):
             self.PIN_REF_FRAME = pin.LOCAL
-            self.contactFrameName = self.contacts[0]['contactModelFrameName']
         else:
             self.PIN_REF_FRAME = pin.LOCAL_WORLD_ALIGNED
+        self.contactFrameName = self.contacts[0]['contactModelFrameName']
         logger.warning("Contact force will be expressed in the "+str(self.PIN_REF_FRAME)+" convention")
     else:
         self.is_contact = False
@@ -561,10 +561,8 @@ class MPCDataHandlerAbstract:
       self.check_attribute('alpha_max')
       self.check_attribute('beta_min')
       self.check_attribute('beta_max')
-      alpha = np.random.uniform(low=self.alpha_min, high=self.alpha_max, size=(self.nq,))
-      beta = np.random.uniform(low=self.beta_min, high=self.beta_max, size=(self.nq,))
-      self.alpha = alpha
-      self.beta  = beta
+      self.alpha = np.random.uniform(low=self.alpha_min, high=self.alpha_max, size=(self.nq,))
+      self.beta  = np.random.uniform(low=self.beta_min, high=self.beta_max, size=(self.nq,))
     if(self.NOISE_STATE):
       self.check_attribute('var_q')
       self.check_attribute('var_v')
@@ -660,35 +658,39 @@ class MPCDataHandlerAbstract:
 
 
   # Data recording helpers 
-  def record_plan_cycle_step_data(self):
+  def record_predictions(self):
     raise NotImplementedError()
 
-  def record_ctrl_cycle_step_data(self):
+  def record_plan_cycle_desired(self):
     raise NotImplementedError()
 
-  def record_simu_cycle_step_data(self):
+  def record_ctrl_cycle_desired(self):
     raise NotImplementedError()
 
-  def record_solver_data(self, ddp, nb_plan):
+  def record_simu_cycle_desired(self):
+    raise NotImplementedError()
+
+
+  def record_solver_data(self, nb_plan, ddpSolver):
     '''
     Handy function to record solver related data during MPC simulation
     '''
     if(self.RECORD_SOLVER_DATA):
-      self.K[nb_plan, :, :, :]   = np.array(ddp.K)         # Ricatti gains
-      self.Vxx[nb_plan, :, :, :] = np.array(ddp.Vxx)       # Hessians of V.F. 
-      self.Quu[nb_plan, :, :, :] = np.array(ddp.Quu)       # Hessians of Q 
-      self.xreg[nb_plan]         = ddp.x_reg               # Reg solver on x
-      self.ureg[nb_plan]         = ddp.u_reg               # Reg solver on u
-      self.J_rank[nb_plan]       = np.linalg.matrix_rank(ddp.problem.runningDatas[0].differential.pinocchio.J)
+      self.K[nb_plan, :, :, :]   = np.array(ddpSolver.K)         # Ricatti gains
+      self.Vxx[nb_plan, :, :, :] = np.array(ddpSolver.Vxx)       # Hessians of V.F. 
+      self.Quu[nb_plan, :, :, :] = np.array(ddpSolver.Quu)       # Hessians of Q 
+      self.xreg[nb_plan]         = ddpSolver.x_reg               # Reg solver on x
+      self.ureg[nb_plan]         = ddpSolver.u_reg               # Reg solver on u
+      self.J_rank[nb_plan]       = np.linalg.matrix_rank(ddpSolver.problem.runningDatas[0].differential.pinocchio.J)
 
-  def record_cost_references(self, ddp, nb_plan):
+  def record_cost_references(self, nb_plan, ddpSolver):
     '''
     Handy function for MPC + clean plots
     Extract and record cost references of DAM into sim_data at i^th simulation step
      # careful, ref is hard-coded only for the first node
     '''
     # Get nodes
-    m = ddp.problem.runningModels[0]
+    m = ddpSolver.problem.runningModels[0]
     # Extract references and record
     if('ctrlReg' in self.WHICH_COSTS):
       self.ctrl_ref[nb_plan, :] = m.differential.costs.costs['ctrlReg'].cost.residual.reference

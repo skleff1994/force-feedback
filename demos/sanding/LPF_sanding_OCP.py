@@ -26,8 +26,10 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
+from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 
+from lpf_mpc.data import DDPDataHandlerLPF
+from lpf_mpc.ocp import OptimalControlProblemLPF
 
 WARM_START_IK = True
 

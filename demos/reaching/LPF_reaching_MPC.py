@@ -96,20 +96,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   sim_data = MPCDataHandlerLPF(config, robot)
   sim_data.init_sim_data(y0)
-  # sim_data = data_utils.init_sim_data_LPF(config, robot, y0, ee_frame_name=frame_name)
-    # Get frequencies
-  freq_PLAN = sim_data.plan_freq
-  freq_CTRL = sim_data.ctrl_freq
-  freq_SIMU = sim_data.simu_freq
     # Replan & control counters
   nb_plan = 0
   nb_ctrl = 0
-    # Sim options
-  WHICH_PLOTS       = config['WHICH_PLOTS']             # Which plots to generate ? ('y':state, 'w':control, 'p':end-eff, etc.)
-  dt_ocp            = config['dt']                      # OCP sampling rate 
-  dt_mpc            = float(1./sim_data.plan_freq)   # planning rate
-  OCP_TO_PLAN_RATIO = dt_mpc / dt_ocp                   # ratio
-
   # Additional simulation blocks 
   communication = mpc_utils.CommunicationModel(config)
   actuation     = mpc_utils.ActuationModel(config, nu)
@@ -134,7 +123,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
         print('')
 
     # Solve OCP if we are in a planning cycle (MPC/planning frequency)
-      if(i%int(freq_SIMU/freq_PLAN) == 0):
+      if(i%int(sim_data.simu_freq/sim_data.plan_freq) == 0):
           # Reset x0 to measured state + warm-start solution
           ddp.problem.x0 = sim_data.state_mea_SIMU[i, :]
           xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
@@ -142,68 +131,39 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
           # Solve OCP & record MPC predictions
           ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-          sim_data.state_pred[nb_plan, :, :] = np.array(ddp.xs)
-          sim_data.ctrl_pred[nb_plan, :, :] = np.array(ddp.us)
-          # Extract relevant predictions for interpolations
-          y_curr = sim_data.state_pred[nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
-          y_pred = sim_data.state_pred[nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
-          w_curr = sim_data.ctrl_pred[nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
-          # w_pred = sim_data.ctrl_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
+          # Record MPC predictions, cost refs and solver data
+          sim_data.record_predictions(nb_plan, ddp)
           # Record cost references
-          sim_data.record_cost_references(ddp, nb_plan)
+          sim_data.record_cost_references(nb_plan, ddp)
           # Record solver data (optional)
-          sim_data.record_solver_data(ddp, nb_plan) 
+          sim_data.record_solver_data(nb_plan, ddp) 
           # Model communication between computer --> robot
-          y_pred, w_curr = communication.step(y_pred, w_curr)
+          communication.step(sim_data.y_pred, sim_data.w_curr)
           # Select reference control and state for the current PLAN cycle
-          y_ref_PLAN  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-          w_ref_PLAN  = w_curr
-          if(nb_plan==0):
-            sim_data.state_des_PLAN[nb_plan, :] = y_curr  
-          sim_data.ctrl_des_PLAN[nb_plan, :]   = w_ref_PLAN   
-          sim_data.state_des_PLAN[nb_plan+1, :] = y_ref_PLAN    
-
+          sim_data.record_plan_cycle_desired(nb_plan)
           # Increment planning counter
           nb_plan += 1
 
     # If we are in a control cycle select reference torque to send to the actuator (motor driver input frequency)
-      if(i%int(freq_SIMU/freq_CTRL) == 0):        
-          # Select reference control and state for the current CTRL cycle
-          y_ref_CTRL = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-          w_ref_CTRL = w_curr 
-          # First prediction = measurement = initialization of MPC
-          if(nb_ctrl==0):
-            sim_data.state_des_CTRL[nb_ctrl, :] = y_curr  
-          sim_data.ctrl_des_CTRL[nb_ctrl, :]   = w_ref_CTRL  
-          sim_data.state_des_CTRL[nb_ctrl+1, :] = y_ref_CTRL   
-          # Increment control counter
+      if(i%int(sim_data.simu_freq/sim_data.ctrl_freq) == 0):        
+          sim_data.record_ctrl_cycle_desired(nb_ctrl)
           nb_ctrl += 1
           
     # Simulate actuation/sensing and step simulator (physics simulation frequency)
       # Select reference control and state for the current SIMU cycle
-      y_ref_SIMU  = y_curr + OCP_TO_PLAN_RATIO * (y_pred - y_curr)
-      w_ref_SIMU  = w_curr 
-
-      # First prediction = measurement = initialization of MPC
-      if(i==0):
-        sim_data.state_des_SIMU[i, :] = y_curr  
-      sim_data.ctrl_des_SIMU[i, :]   = w_ref_SIMU  
-      sim_data.state_des_SIMU[i+1, :] = y_ref_SIMU 
-
+      sim_data.record_simu_cycle_desired(i)
       # Torque applied by motor on actuator : interpolate current torque and predicted torque 
-      tau_ref_SIMU =  y_ref_SIMU[-nu:] 
+      tau_ref_SIMU =  sim_data.y_ref_SIMU[-nu:] 
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
       tau_mea_SIMU = actuation.step(i, tau_ref_SIMU, sim_data.state_mea_SIMU[:,-nu:])   
-
       # RICCATI GAINS TO INTERPOLATE
       if(config['RICCATI']):
         K = ddp.K[0]
         alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
-        Ktilde  = (1-alpha)*OCP_TO_PLAN_RATIO*K
-        Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
+        Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*K
+        Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
         tau_mea_SIMU += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:nq+nv]) #position vel
-        tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])           # torques
-
+        tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])       # torques
       # Send output of actuation torque to the RBD simulator 
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()
@@ -229,13 +189,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                           '_BIAS='+str(config['SCALE_TORQUES'])+\
                           '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
                           '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
-                          '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
+                          '_Fp='+str(sim_data.plan_freq/1000)+'_Fc='+str(sim_data.ctrl_freq/1000)+'_Fs'+str(sim_data.simu_freq/1000)
   #  Extract plot data from sim data
   plot_data = sim_data.extract_data(frame_of_interest=frame_name)
   #  Plot results
-  sim_data.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
+  sim_data.plot_mpc_results(plot_data, which_plots=config['WHICH_PLOTS'],
                                   PLOT_PREDICTIONS=True, 
-                                  pred_plot_sampling=int(freq_PLAN/10),
+                                  pred_plot_sampling=int(sim_data.plan_freq/10),
                                   SAVE=True,
                                   SAVE_DIR=save_dir,
                                   SAVE_NAME=save_name,
