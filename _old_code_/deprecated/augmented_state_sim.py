@@ -16,7 +16,7 @@ from models.dyn_models import PointMassContact
 from models.cost_models import *
 from models.croco_IAMs import ActionModel
 
-from utils import animatePointMass, plotPointMass
+from core_mpc import animatePointMass, plotPointMass
 
 #########
 # MODEL #

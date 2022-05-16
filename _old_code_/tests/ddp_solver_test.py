@@ -48,6 +48,6 @@ us = ddp.us
 xs = ddp.xs
 # X, U = model.rollout(x_0, us)
 # model.plot_traj(X,U)
-from utils import animatePointMass, plotPointMass
+from core_mpc import animatePointMass, plotPointMass
 # animatePointMass(xs, sleep=10)
 plotPointMass(xs, us)

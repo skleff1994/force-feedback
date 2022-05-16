@@ -16,7 +16,7 @@ from models.dyn_models import PointMassPartialObs
 from models.cost_models import *
 
 from models.croco_IAMs import ActionModel
-from utils import animatePointMass, plotPointMass, plotFiltered
+from core_mpc import animatePointMass, plotPointMass, plotFiltered
 from core.kalman_filter import KalmanFilter
 
 # Create dynamics model

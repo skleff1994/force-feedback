@@ -17,14 +17,14 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
+from core_mpc import ocp, path_utils, pin_utils, plot_utils, data_utils, misc_utils
 
 
 WARM_START_IK = True
@@ -60,7 +60,7 @@ def main(robot_name='iiwa', PLOT=True, DISPLAY=True):
     # Setup Croco OCP and create solver
     ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
     y0 = np.concatenate([x0, ug])
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True)
+    ddp = ocp.init_DDP_LPF(robot, config, y0, callbacks=True)
     # Setup tracking problem with circle ref EE trajectory
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -68,7 +68,7 @@ def main(robot_name='iiwa', PLOT=True, DISPLAY=True):
     for k,m in enumerate(models):
         # Ref
         t = min(k*config['dt'], 2*np.pi/OMEGA)
-        p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee.copy(), 
+        p_ee_ref = ocp.circle_point_WORLD(t, M_ee.copy(), 
                                                    radius=RADIUS,
                                                    omega=OMEGA,
                                                    LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])

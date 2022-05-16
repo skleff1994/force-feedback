@@ -13,7 +13,7 @@ Inverse kinematics sampling test
 '''
 
 import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
+from core_mpc import ocp, path_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
 import time
 import matplotlib.pyplot as plt

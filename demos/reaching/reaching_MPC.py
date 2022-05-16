@@ -21,7 +21,7 @@ The goal of this script is to simulate closed-loop MPC on a simple reaching task
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
@@ -29,9 +29,9 @@ np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
 
-from utils import path_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
+from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 
-from classical_mpc.data import MPCDataHandlerClassical, DDPDataParserClassical
+from classical_mpc.data import MPCDataHandlerClassical, DDPDataHanlderClassical
 from classical_mpc.ocp import OptimalControlProblemClassical
 
 
@@ -48,11 +48,11 @@ def main(robot_name, simulator, PLOT_INIT):
   v0 = np.asarray(config['dq0'])
   x0 = np.concatenate([q0, v0])   
   if(simulator == 'bullet'):
-    from utils import sim_utils as simulator_utils
+    from core_mpc import sim_utils as simulator_utils
     env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
-    from utils import raisim_utils as simulator_utils
+    from core_mpc import raisim_utils as simulator_utils
     env, robot_simulator, _ = simulator_utils.init_raisim_simulation(robot_name, dt=dt_simu, x0=x0)  
     robot = robot_simulator
   else:
@@ -75,8 +75,9 @@ def main(robot_name, simulator, PLOT_INIT):
   frame_of_interest = config['frameTranslationFrameName']
   # Plot initial solution
   if(PLOT_INIT):
-    ddp_data = DDPDataParserClassical(ddp).extract_data(ee_frame_name=frame_of_interest)
-    _, _ = plot_utils.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+    ddp_handler = DDPDataHanlderClassical(ddp)
+    ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest)
+    _, _ = ddp_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 
 
@@ -214,18 +215,18 @@ def main(robot_name, simulator, PLOT_INIT):
                           '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
 
   # Extract plot data from sim data
-  plot_data = sim_data.extract_plot_data_from_sim_data(frame_of_interest='contact')
+  plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
   # Plot results
-  plot_utils.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
-                                  PLOT_PREDICTIONS=True, 
-                                  pred_plot_sampling=int(freq_PLAN/10),
-                                  SAVE=True,
-                                  SAVE_DIR=save_dir,
-                                  SAVE_NAME=save_name,
-                                  AUTOSCALE=True)
+  sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
+                                      PLOT_PREDICTIONS=True, 
+                                      pred_plot_sampling=int(freq_PLAN/10),
+                                      SAVE=True,
+                                      SAVE_DIR=save_dir,
+                                      SAVE_NAME=save_name,
+                                      AUTOSCALE=True)
   # Save optionally
   if(config['SAVE_DATA']):
-    data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)
+    sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)
 
 
 

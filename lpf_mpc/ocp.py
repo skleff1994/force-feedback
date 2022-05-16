@@ -10,14 +10,14 @@
 
 import crocoddyl
 import numpy as np
-from utils import pin_utils, ocp_utils
+from core_mpc import ocp, pin_utils
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 
-class OptimalControlProblemLPF(ocp_utils.OptimalControlProblemAbstract):
+class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
   '''
   Helper class for Low-Pass Filter (LPF) OCP setup with Crocoddyl
    to allow joint torque feedback in the MPC 

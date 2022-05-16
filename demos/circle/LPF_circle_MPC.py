@@ -20,15 +20,16 @@ The goal of this script is to simulate closed-loop MPC on a simple reaching task
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils, mpc_utils
-
+from core_mpc import path_utils, pin_utils, misc_utils, mpc_utils, ocp
+from lpf_mpc.ocp import OptimalControlProblemLPF
+from lpf_mpc.data import DDPDataHandlerLPF, MPCDataHandlerLPF
 
 
 WARM_START_IK = True
@@ -48,11 +49,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])   
     if(simulator == 'bullet'):
-        from utils import sim_utils as simulator_utils
+        from core_mpc import sim_utils as simulator_utils
         env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
         robot = robot_simulator.pin_robot
     elif(simulator == 'raisim'):
-        from utils import raisim_utils as simulator_utils
+        from core_mpc import raisim_utils as simulator_utils
         env, robot_simulator = simulator_utils.init_raisim_simulation(robot_name, dt=dt_simu, x0=x0)  
         robot = robot_simulator
     else:
@@ -72,7 +73,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     # Setup Croco OCP and create solver
     ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
     y0 = np.concatenate([x0, ug])
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False) 
+    ddp = OptimalControlProblemLPF(robot, config).initialize(y0, callbacks=False) 
+    # ddp = ocp.init_DDP_LPF(robot, config, y0, callbacks=False) 
     # Setup tracking problem with circle ref EE trajectory
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -80,7 +82,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     for k,m in enumerate(models):
         # Ref
         t = min(k*config['dt'], 2*np.pi/OMEGA)
-        p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee.copy(), 
+        p_ee_ref = ocp.circle_point_WORLD(t, M_ee.copy(), 
                                                     radius=RADIUS,
                                                     omega=OMEGA,
                                                     LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
@@ -114,16 +116,21 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     
 
     # Plot initial solution
+    frame_of_interest = config['frameTranslationFrameName']
     if(PLOT_INIT):
-        ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=config['frameTranslationFrameName'])
-        fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, markers=['.'], SHOW=True)
+        ddp_handler = DDPDataHandlerLPF(ddp)
+        ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest)
+        # ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=config['frameTranslationFrameName'])
+        _, _ = ddp_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
     
     
 
     # # # # # # # # # # #
     ### INIT MPC SIMU ###
     # # # # # # # # # # #
-    sim_data = data_utils.init_sim_data_LPF(config, robot, y0, ee_frame_name=config['frameTranslationFrameName'])
+    sim_data = MPCDataHandlerLPF(config, robot)
+    sim_data.init_sim_data(y0)
+    # sim_data = data_utils.init_sim_data_LPF(config, robot, y0, ee_frame_name=config['frameTranslationFrameName'])
         # Get frequencies
     freq_PLAN = sim_data['plan_freq']
     freq_CTRL = sim_data['ctrl_freq']
@@ -157,7 +164,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     for i in range(nb_points):
         t = (i/nb_points)*2*np.pi/OMEGA
         # if(i%20==0):
-        pos = ocp_utils.circle_point_WORLD(t, M_ee, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
+        pos = ocp.circle_point_WORLD(t, M_ee, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
         simulator_utils.display_ball(pos, RADIUS=0.02)
 
     draw_rate = 200
@@ -167,11 +174,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # # #
 
     # SIMULATE
-    for i in range(sim_data['N_simu']): 
+    for i in range(sim_data.N_simu): 
 
         if(i%config['log_rate']==0 and config['LOG']): 
             print('')
-            logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
+            logger.info("SIMU step "+str(i)+"/"+str(sim_data.N_simu))
             print('')
 
     # If the current simulation cycle matches an OCP node, update tracking problem
@@ -183,7 +190,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
             for k,m in enumerate(models):
                 # Ref
                 t = min(t_simu + k*dt_ocp, 2*np.pi/OMEGA)
-                p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee.copy(), 
+                p_ee_ref = ocp.circle_point_WORLD(t, M_ee.copy(), 
                                                         radius=RADIUS,
                                                         omega=OMEGA,
                                                         LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
@@ -207,10 +214,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
             w_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
             # w_pred = sim_data['ctrl_pred'][nb_plan, 1, :]  # w1* = predicted optimal control   (w1*) !! UNFILTERED TORQUE !!
             # Record cost references
-            data_utils.record_cost_references_LPF(ddp, sim_data, nb_plan)
+            sim_data.record_cost_references(ddp, sim_data, nb_plan)
             # Record solver data (optional)
-            if(config['RECORD_SOLVER_DATA']):
-                data_utils.record_solver_data(ddp, sim_data, nb_plan) 
+            # if(config['RECORD_SOLVER_DATA']):
+            sim_data.record_solver_data(ddp, sim_data, nb_plan) 
             # Model communication between computer --> robot
             y_pred, w_curr = communication.step(y_pred, w_curr)
             # Select reference control and state for the current PLAN cycle

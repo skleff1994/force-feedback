@@ -30,7 +30,7 @@ X2, U2 = model2.rollout(x_0, us)
 X3, U3 = model3.rollout(x_0, us)
 
 # # # model.plot_traj(X,U)
-from utils import animatePointMass, plotPointMass
+from core_mpc import animatePointMass, plotPointMass
 # animatePointMass(xs, sleep=10)
 plotPointMass(X1, U1)
 plotPointMass(X2, U2)

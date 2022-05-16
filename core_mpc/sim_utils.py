@@ -1,9 +1,7 @@
 import numpy as np
 import pinocchio as pin
-from pinocchio.robot_wrapper import RobotWrapper
-from utils import pin_utils
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 # Check installed pkg

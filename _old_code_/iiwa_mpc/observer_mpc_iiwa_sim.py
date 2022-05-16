@@ -15,7 +15,7 @@ import crocoddyl
 from bullet_utils.env import BulletEnvWithGround
 from robot_properties_kuka.iiwaWrapper import IiwaRobot, IiwaConfig
 from core.kalman_filter import ExtendedKalmanFilter
-import utils
+import core_mpc
 
 import pybullet as p
 import time 
@@ -52,7 +52,7 @@ print(M_ct)
 # Measure distance EE to contact surface using p.getContactPoints() 
 # in order to avoid PyB repulsion due to penetration 
 # Result = 0.03 + 0.003499998807875214. Problem : smaller than ball radius (changed urdf?) . 
-contactId = utils.display_contact_surface(M_ct, robot.robotId, with_collision=True)
+contactId = core_mpc.display_contact_surface(M_ct, robot.robotId, with_collision=True)
 print("[PyBullet] Created contact plane (id = "+str(contactId)+")")
 print("[PyBullet]   >> Detect contact points : ")
 p.stepSimulation()
@@ -315,8 +315,8 @@ K_gain = np.zeros((N_h+1, nx, nx)) # optimal Kalman gains
 Y_err = np.zeros((N_h+1, ny))      
 X_real = np.reshape(xs, X_hat.shape) # Ground truth state trajectory
 # print(X_real)
-p_real = utils.get_p(X_real[:,:nq], robot.pin_robot, id_endeff)
-v_real = utils.get_v(X_real[:,:nq], X_real[:,:nv], robot.pin_robot, id_endeff)
+p_real = core_mpc.get_p(X_real[:,:nq], robot.pin_robot, id_endeff)
+v_real = core_mpc.get_v(X_real[:,:nq], X_real[:,:nv], robot.pin_robot, id_endeff)
 # Measurement noise model
 mean = np.zeros(2)
 std_p = .05 #np.array([0.005, N_h])

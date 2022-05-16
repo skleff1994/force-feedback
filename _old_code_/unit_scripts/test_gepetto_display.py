@@ -15,7 +15,7 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
 
 import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
+from core_mpc import ocp, path_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
 
 np.set_printoptions(precision=4, linewidth=180)
@@ -74,7 +74,7 @@ print("u0 = ", u0)
 print("ug = ", ug)
 
 # solver
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True,
+ddp = ocp.init_DDP(robot, config, x0, callbacks=True,
                                             WHICH_COSTS=config['WHICH_COSTS'],
                                             CONTACT=True,
                                             contact_placement=M_ct,
@@ -94,7 +94,7 @@ ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 GEPETTO_DISPLAY = True
 if(GEPETTO_DISPLAY):
-    from utils import gepetto_utils
+    from core_mpc import gepetto_utils
     display = gepetto_utils.GepettoDisplay(robot, 4, 4, frameNames=['contact'])
     fs = display.getForceTrajectoryFromSolver(ddp)
     ps = display.getFrameTrajectoryFromSolver(ddp)

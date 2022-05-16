@@ -11,7 +11,7 @@ found_robot_properties_talos_pkg = importlib.util.find_spec("robot_properties_ta
 # found_example_robot_data_pkg = importlib.util.find_spec("example_robot_data") is not None
 
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 

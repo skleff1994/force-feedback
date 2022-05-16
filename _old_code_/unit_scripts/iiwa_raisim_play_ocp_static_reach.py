@@ -16,7 +16,7 @@ Using simulator as a player of the OCP trajectory (sending torques)
 
 import numpy as np
 import time
-from utils import raisim_utils, path_utils, ocp_utils, pin_utils, plot_utils, data_utils
+from core_mpc import ocp, raisim_utils, path_utils, pin_utils, plot_utils, data_utils
 np.set_printoptions(precision=4, linewidth=180)
 
 # # # # # # # # # # # #
@@ -57,7 +57,7 @@ print(M_ee)
 N_h = config['N_h']
 dt = config['dt']
 
-ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, WHICH_COSTS=config['WHICH_COSTS']) 
+ddp = ocp.init_DDP(robot, config, x0, callbacks=True, WHICH_COSTS=config['WHICH_COSTS']) 
 ug = pin_utils.get_u_grav(q0, robot)
 
 # Solve and extract solution trajectories

@@ -15,7 +15,7 @@ Just to test out the Pinocchio-Rai wrapper for Iiwa robot in raisim simulator
 
 import numpy as np
 import time
-from utils import raisim_utils
+from core_mpc import raisim_utils
 
 # Load Kuka config from URDF
 urdf_path = "/home/skleff/robot_properties_kuka_RAISIM/iiwa_test.urdf"

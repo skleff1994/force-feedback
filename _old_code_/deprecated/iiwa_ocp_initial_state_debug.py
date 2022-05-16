@@ -17,7 +17,7 @@ predefined initial states, plot results and animate in gepetto-viewer
 
 import crocoddyl
 import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils
+from core_mpc import ocp, path_utils, pin_utils, plot_utils
 from robot_properties_kuka.config import IiwaConfig
 
 np.set_printoptions(precision=4, linewidth=180)
@@ -56,7 +56,7 @@ for x0 in INIT_STATES:
     print(M_ee)
 
     # Create solver with custom horizon
-    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
+    ddp = ocp.init_DDP(robot, config, x0, callbacks=True, 
                                             which_costs=['translation', 'ctrlReg', 'stateReg', 'velocity' ],
                                             dt = None, N_h=None) 
     # Warm-start

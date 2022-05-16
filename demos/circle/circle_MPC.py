@@ -19,11 +19,10 @@ The goal of this script is to simulate closed-loop MPC on a simple reaching task
 
 
 
-from errno import EEXIST
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
@@ -31,7 +30,7 @@ np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
+from core_mpc import ocp, path_utils, pin_utils, plot_utils, data_utils, mpc_utils, misc_utils
 
 
 
@@ -52,11 +51,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   v0 = np.asarray(config['dq0'])
   x0 = np.concatenate([q0, v0])   
   if(simulator == 'bullet'):
-    from utils import sim_utils as simulator_utils
+    from core_mpc import sim_utils as simulator_utils
     env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
-    from utils import raisim_utils as simulator_utils
+    from core_mpc import raisim_utils as simulator_utils
     env, robot_simulator = simulator_utils.init_raisim_simulation(robot_name, dt=dt_simu, x0=x0)  
     robot = robot_simulator
   else:
@@ -72,7 +71,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### OCP SETUP ###
   # # # # # # # # # 
   # Init shooting problem and solver
-  ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False) 
+  ddp = ocp.init_DDP(robot, config, x0, callbacks=False) 
   # Setup tracking problem with circle ref EE trajectory
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -80,7 +79,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   for k,m in enumerate(models):
       # Ref
       t = min(k*config['dt'], 2*np.pi/OMEGA)
-      p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
+      p_ee_ref = ocp.circle_point_WORLD(t, M_ee, 
                                                  radius=RADIUS,
                                                  omega=OMEGA, 
                                                  LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
@@ -149,7 +148,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   for i in range(nb_points):
     t = (i/nb_points)*2*np.pi/OMEGA
     # if(i%20==0):
-    pos = ocp_utils.circle_point_WORLD(t, M_ee, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
+    pos = ocp.circle_point_WORLD(t, M_ee, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.02)
 
 
@@ -174,7 +173,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           for k,m in enumerate(models):
               # Ref
               t = min(t_simu + k*dt_ocp, 2*np.pi/OMEGA)
-              p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
+              p_ee_ref = ocp.circle_point_WORLD(t, M_ee, 
                                                          radius=RADIUS,
                                                          omega=OMEGA,
                                                          LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
