@@ -12,7 +12,7 @@
 import numpy as np
 from core_mpc import pin_utils
 import pinocchio as pin
-from core_mpc.data import DDPDataHanlderAbstract, MPCDataHandlerAbstract
+from core_mpc.data import DDPDataHanlderAbstract, MPCDataHandlerAbstract, load_data
 
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
@@ -291,7 +291,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     self.dt_plan = float(1./self.plan_freq)              # Duration of 1 planning cycle (s)
     self.dt_simu = float(1./self.simu_freq)              # Duration of 1 simulation cycle (s)
     self.OCP_TO_PLAN_RATIO = self.dt_plan / self.dt
-    
+    # Init actuation model
     self.init_actuation_model()
     # Cost references 
     self.init_cost_references()
@@ -308,6 +308,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
 
     if(self.INIT_LOG):
       self.print_sim_params(self.init_log_display_time)
+
 
 
   def record_predictions(self, nb_plan, ddpSolver):
@@ -497,7 +498,6 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     # Get solve regs
     plot_data['xreg'] = self.xreg
     plot_data['ureg'] = self.ureg
-
   
   # Plot data - classical OCP specific plotting functions
   def plot_mpc_results(self, plot_data, which_plots=None, PLOT_PREDICTIONS=False, 

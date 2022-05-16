@@ -100,9 +100,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   nb_plan = 0
   nb_ctrl = 0
   # Additional simulation blocks 
-  communication = mpc_utils.CommunicationModel(config)
-  actuation     = mpc_utils.ActuationModel(config, nu)
-  sensing       = mpc_utils.SensorModel(config, ntau=nu)
+  communicationModel = mpc_utils.CommunicationModel(config)
+  actuationModel     = mpc_utils.ActuationModel(config, nu)
+  sensingModel       = mpc_utils.SensorModel(config, ntau=nu)
 
   # Display target
   if(hasattr(simulator_utils, 'display_ball')):
@@ -138,7 +138,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           # Record solver data (optional)
           sim_data.record_solver_data(nb_plan, ddp) 
           # Model communication between computer --> robot
-          communication.step(sim_data.y_pred, sim_data.w_curr)
+          communicationModel.step(sim_data.y_pred, sim_data.w_curr)
           # Select reference control and state for the current PLAN cycle
           sim_data.record_plan_cycle_desired(nb_plan)
           # Increment planning counter
@@ -155,7 +155,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Torque applied by motor on actuator : interpolate current torque and predicted torque 
       tau_ref_SIMU =  sim_data.y_ref_SIMU[-nu:] 
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
-      tau_mea_SIMU = actuation.step(i, tau_ref_SIMU, sim_data.state_mea_SIMU[:,-nu:])   
+      tau_mea_SIMU = actuationModel.step(i, tau_ref_SIMU, sim_data.state_mea_SIMU[:,-nu:])   
       # RICCATI GAINS TO INTERPOLATE
       if(config['RICCATI']):
         K = ddp.K[0]
@@ -175,7 +175,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
       sim_data.state_mea_no_noise_SIMU[i+1, :] = y_mea_SIMU
       # Sensor model (optional noise + filtering)
-      sim_data.state_mea_SIMU[i+1, :] = sensing.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)
+      sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)
 
 
 

@@ -26,7 +26,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
+from core_mpc import path_utils, pin_utils, misc_utils, ocp
 
 from lpf_mpc.data import DDPDataHandlerLPF
 from lpf_mpc.ocp import OptimalControlProblemLPF
@@ -68,7 +68,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     f_ext = pin_utils.get_external_joint_torques(M_ee, config['frameForceRef'], robot)
     u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
     y0 = np.concatenate([x0, u0])
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True, w_reg_ref='gravity' )
+    ddp = OptimalControlProblemLPF(robot, config).initialize(y0, callbacks=True)
     # Setup tracking problem with circle ref EE trajectory
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -76,7 +76,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     for k,m in enumerate(models):
         # Ref
         t = min(k*config['dt'], 2*np.pi/OMEGA)
-        p_ee_ref = ocp_utils.circle_point_WORLD(t, M_ee, 
+        p_ee_ref = ocp.circle_point_WORLD(t, M_ee, 
                                                 radius=RADIUS,
                                                 omega=OMEGA,
                                                 LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
@@ -116,10 +116,15 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
-        #  Plot
+    
     if(PLOT):
-            ddp_data = data_utils.extract_ddp_data_LPF(ddp)
-            fig, ax = plot_utils.plot_ddp_results_LPF( ddp_data, which_plots=['all'], markers=['.'], SHOW=True)
+        #  Plot
+        ddp_handler = DDPDataHandlerLPF(ddp)
+        ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
+        _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
+                                                            colors=['r'], 
+                                                            markers=['.'], 
+                                                            SHOW=True)
 
     pause = 0.01 # in s
     if(DISPLAY):

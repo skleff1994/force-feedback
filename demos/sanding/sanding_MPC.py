@@ -88,14 +88,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   simulator_utils.set_friction_coef(contact_surface_bulletId, 0.5)
 
 
-  # # Extract pin ref frame (dirty) 
-  # CONTACT_CONFIG = config['contacts'][0]
-  # if(CONTACT_CONFIG['contactModelType'] == '6D' or CONTACT_CONFIG['pinocchioReferenceFrame'] == 'LOCAL'):
-  #   PIN_REF_FRAME = pin.LOCAL
-  # else:
-  #   PIN_REF_FRAME = pin.LOCAL_WORLD_ALIGNED
-  # logger.warning("Contact force will be expressed in the "+str(PIN_REF_FRAME)+" convention")
-
   # # # # # # # # # 
   ### OCP SETUP ###
   # # # # # # # # # 

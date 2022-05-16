@@ -17,19 +17,17 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-import logging
-FORMAT_LONG   = '[%(levelname)s] %(name)s:%(lineno)s -> %(funcName)s() : %(message)s'
-FORMAT_SHORT  = '[%(levelname)s] %(name)s : %(message)s'
-logging.basicConfig(format=FORMAT_SHORT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
+from core_mpc import path_utils, pin_utils, misc_utils, ocp
 
+from classical_mpc.ocp import OptimalControlProblemClassical
+from classical_mpc.data import DDPDataHanlderClassical
 
 
 def main(robot_name, PLOT, VISUALIZE):
@@ -62,8 +60,7 @@ def main(robot_name, PLOT, VISUALIZE):
     N_h = config['N_h']
     dt = config['dt']
     # Setup Croco OCP and create solver
-    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=True, 
-                                                WHICH_COSTS=config['WHICH_COSTS']) 
+    ddp = OptimalControlProblemClassical(robot, config).initialize(x0, callbacks=True)
     # Setup tracking problem with oritantation ref for EE trajectory
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     OMEGA  = config['frameRotationTrajectoryVelocity']
@@ -71,7 +68,7 @@ def main(robot_name, PLOT, VISUALIZE):
         # Ref
         t = min(k*config['dt'], 2*np.pi/OMEGA)
         # Desired RPY in WORLD frame
-        R_ee_ref_WORLD = ocp_utils.rotation_orientation_WORLD(t, M_ee.copy(), 
+        R_ee_ref_WORLD = ocp.rotation_orientation_WORLD(t, M_ee.copy(), 
                                                                  omega=OMEGA, 
                                                                  LOCAL_AXIS=config['ROTATION_LOCAL_AXIS'])
         # Cost translation
@@ -103,8 +100,11 @@ def main(robot_name, PLOT, VISUALIZE):
 
     #  Plot
     if(PLOT):
-        ddp_data = data_utils.extract_ddp_data(ddp, frame_of_interest=config['frame_of_interest'])
-        fig, ax = plot_utils.plot_ddp_results(ddp_data, which_plots=['all'], markers=['.'], colors=['b'], SHOW=True)
+        ddp_handler = DDPDataHanlderClassical(ddp)
+        ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
+        _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], markers=['.'], colors=['b'], SHOW=True)
+
+
 
 
     pause = 0.02 # in s

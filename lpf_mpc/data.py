@@ -314,6 +314,8 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     self.dt_plan = float(1./self.plan_freq)              # Duration of 1 planning cycle (s)
     self.dt_simu = float(1./self.simu_freq)              # Duration of 1 simulation cycle (s)
     self.OCP_TO_PLAN_RATIO = self.dt_plan / self.dt
+    # Init actuation model
+    self.init_actuation_model()
     # Cost references 
     self.init_cost_references()
     # Predictions
@@ -355,7 +357,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
             logger.error("The Pinocchio reference frame must be in ['LOCAL', LOCAL_WORLD_ALIGNED', 'WORLD']")
         self.f_curr = self.force_pred[nb_plan, 0, :]
         self.f_pred = self.force_pred[nb_plan, 1, :]
-
   
   def record_plan_cycle_desired(self, nb_plan):
     '''
@@ -381,7 +382,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     self.state_des_CTRL[nb_ctrl+1, :] = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)   
     if(self.is_contact):
         self.force_des_CTRL[nb_ctrl, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)   
-
 
   def record_simu_cycle_desired(self, nb_simu):
     '''
@@ -731,7 +731,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
           # ax[i,2].plot(t_span_simu, plot_data['tau_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
           ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
           ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
-          if('ctrlReg' or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
+          if('ctrlReg' in plot_data['WHICH_COSTS'] or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
               ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='Reference', alpha=0.9)
           # ax[i,2].plot(t_span_simu, plot_data['grav'][:,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
           ax[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)

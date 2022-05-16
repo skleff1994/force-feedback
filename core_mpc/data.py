@@ -719,6 +719,14 @@ class MPCDataHandlerAbstract:
   def extract_solver_data(self):
     raise NotImplementedError()
 
+
+  # Extract directly plot data from npz file 
+  def extract_plot_data_from_npz(self, file, frame_of_interest):
+    d = load_data(file)
+    plot_data = self.extract_data(d, frame_of_interest)
+    return plot_data
+
+
   # Virtual plotting functions (pure virtual)
   def plot_mpc_results(self):
     raise NotImplementedError()
@@ -1369,16 +1377,4 @@ class MPCDataHandlerAbstract:
       return fig_J
 
 
-
-
-
-
-# # Extract directly plot data 
-# def extract_plot_data_from_npz(file, LPF=False):
-#   sim_data = load_data(file)
-#   if(not LPF):
-#     plot_data = extract_plot_data_from_sim_data(sim_data)
-#   else:
-#     plot_data = extract_plot_data_from_sim_data_LPF(sim_data)
-#   return plot_data
 
