@@ -11,37 +11,26 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelFreeFwdDynamics):
     '''
     Computes the forward dynamics under visco-elastic (spring damper) force
     '''
-    def __init__(self, stateMultibody, actuationModel, costModelSum, frameId, Kp=10, Kv=1, pinRefFrame=pin.LOCAL):
+    def __init__(self, stateMultibody, actuationModel, costModelSum, frameId, Kp=10, Kv=10, pinRefFrame=pin.LOCAL):
         '''
             If f_c is undefined or NaN, it is assumed to be infinite, unfiltered case
         '''
         crocoddyl.DifferentialActionModelFreeFwdDynamics.__init__(self, stateMultibody, actuationModel, costModelSum)
-        self.state = stateMultibody
-        self.actuation = actuationModel
-        self.costs = costModelSum
+
         self.Kp = Kp 
         self.Kv = Kv
         self.pinRef = pinRefFrame
         self.frameId = frameId
-        # self.model = self.state.pinocchio
-        # self.data = self.state.createData()
-        # hard coded costs on force ?
-        # self.set_w_reg_lim_costs(1e-2, 
-        #                             np.zeros(self.differential.nu), 
-        #                             1e-1,
-        #                             np.zeros(self.differential.nu))
+        self.with_armature = False
+        self.oPc = np.zeros(3)
+        # self.lPc = np.zeros(3)
 
-    # def set_w_reg_lim_costs(self, w_reg_weight, w_reg_ref, w_lim_weight, w_lim_ref):
+    # def set_armature(self, armature):
     #     '''
-    #     Set cost on unfiltered input
+    #     Add armature
     #     '''
-    #     self.w_reg_weight = w_reg_weight
-    #     self.w_reg_ref = w_reg_ref
-    #     self.w_lim_weight = w_lim_weight
-    #     self.w_lim_ref = w_lim_ref
-    #     self.activation = crocoddyl.ActivationModelQuadraticBarrier(
-    #                 crocoddyl.ActivationBounds(-self.differential.state.pinocchio.effortLimit, 
-    #                                             self.differential.state.pinocchio.effortLimit) )
+    #     self.armature = armature
+    #     self.with_armature = True
 
     def createData(self):
         '''
@@ -57,150 +46,113 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelFreeFwdDynamics):
         '''
         q = x[:self.state.nq]
         v = x[self.state.nq:]
-        # pin.computeAllTerms(model, data, q, v)
-        # pin.forwardKinematics(model, data, q, v, np.zeros(nq))
-        # pin.updateFramePlacements(model, data)
-        # Compute visco-elastic contact force 
 
-        oRf = data.oMf[self.frameId].rotation
-        lJ = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
-        pdot = lJ[:3] @ v
-        lv = pin.getFrameVelocity(model, data, frameId, pin.LOCAL).linear
-        assert(np.linalg.norm(lv - pdot) < 1e-4)
-        force = -Kp * oRf.T @ ( data.oMf[frameId].translation - lP ) - Kv*lv
+        pin.computeAllTerms(self.pinocchio, data.pinocchio, q, v)
+        pin.forwardKinematics(self.pinocchio, data.pinocchio, q, v, np.zeros(self.state.nq))
+        pin.updateFramePlacements(self.pinocchio, data.pinocchio)
+
+        oRf = data.pinocchio.oMf[self.frameId].rotation
         
-        force2 = force_local(model, data, frameId, x, Kp, Kv, lP)
-        assert(np.linalg.norm(force2 - force) < 1e-4)
+        # Actuation calc
+        self.actuation.calc(data.multibody.actuation, x, u)
+
+        # Compute spring damper force + express at joint level 
+        lv = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear
+        # if(self.pinRef == pin.LOCAL):
+        data.f = -self.Kp * oRf.T @ ( data.pinocchio.oMf[self.frameId].translation - self.oPc ) - self.Kv*lv
+        data.fext[self.pinocchio.frames[self.frameId].parent] = self.pinocchio.frames[self.frameId].placement.act(pin.Force(data.f, np.zeros(3)))
+        # Copy for later
+        data.f_copy = data.f.copy()
+        data.fext_copy = data.fext.copy()
+        # rotate if not local
+        if(self.pinRef != pin.LOCAL):
+            data.f = -self.Kp * ( data.pinocchio.oMf[self.frameId].translation - self.oPc ) - self.Kv * oRf @ lv
+            assert(np.linalg.norm(data.f - oRf @ data.f_copy) < 1e-4)
+            assert(np.linalg.norm(oRf.T @ data.f - data.f_copy) < 1e-4)
+            data.fext[self.pinocchio.frames[self.frameId].parent] = self.pinocchio.frames[self.frameId].placement.act(pin.Force(oRf.T @ data.f, np.zeros(3)))
         
-        fext = [pin.Force.Zero() for _ in range(model.njoints)]
-        fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(force, np.zeros(3)))
-        aq = pin.aba(model, data, q, v, tau, fext)
-        # print("acc = \n")
-        # print(aq)
-        # what if w is none?
-        x = y[:self.differential.state.nx]
-        # filtering the torque with the previous state : get tau_q+ from w 
-        data.tau_plus[:] = self.alpha * y[-self.differential.nu:] + (1 - self.alpha) * w
-        # print("Data.tau_plus = ", data.tau_plus[0])
-        # dynamics : get a_q = DAM(q, vq, tau_q+)
-        self.differential.calc(data.differential, x, data.tau_plus)
-        if self.withCostResiduals:
-            data.r = data.differential.r
-        # Euler integration step of dt : get v_q+, q+
-        if self.enable_integration_:
-            data.cost = self.dt * data.differential.cost
-            # adding the cost on the unfiltered torque
-            self.activation.calc(data.activation, w - self.w_lim_ref)
-            data.cost += self.dt * self.w_lim_weight * data.activation.a_value + self.dt * (w - self.w_reg_ref) @ ( w - self.w_reg_ref ) / 2 * self.w_reg_weight
-            data.dx = np.concatenate([x[self.differential.state.nq:] * self.dt + data.differential.xout * self.dt**2, data.differential.xout * self.dt])
-            data.xnext[:self.nx] = self.differential.state.integrate(x, data.dx)
-            data.xnext[self.nx:] = data.tau_plus
-        else:
-            data.dx = np.zeros(len(y))
-            data.xnext[:] = y
-            data.cost = data.differential.cost
-            # adding the cost on the unfiltered torque
-            self.activation.calc(data.activation, w - self.w_lim_ref)
-            data.cost += self.w_lim_weight * data.activation.a_value + (w - self.w_reg_ref) @ ( w - self.w_reg_ref ) / 2 * self.w_reg_weight
+        # Computing the dynamics using ABA or manually if armature
+        # if(self.with_armature):
+        #     data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, u, data.fext)
+        # else:
+        data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, u, data.fext)
 
-        return data.xnext, data.cost
+        # Cost calc 
+        self.costs.calc(data.costs, x, u)
+        data.cost = data.costs.cost
 
-    def calcDiff(self, data, y, w=None):
+        return data.xout #, data.cost
+
+
+    def calcDiff(self, data, x, u):
         '''
         Compute derivatives 
         '''
         # First call calc
-        self.calc(data, y, w)
-        x = y[:-self.differential.nu]
-        # Get derivatives of DAM under LP-Filtered input 
-        self.differential.calcDiff(data.differential, x, data.tau_plus)
-        # Get d(IAM)/dx =  [d(q+)/dx, d(v_q+)/dx] 
-        dxnext_dx, dxnext_ddx = self.differential.state.Jintegrate(x, data.dx)
-        # Get d(DAM)/dx , d(DAM)/du (why resize?)
-        da_dx, da_du = data.differential.Fx, np.resize(data.differential.Fu, (self.differential.state.nv, self.differential.nu))
-        ddx_dx = np.vstack([da_dx * self.dt, da_dx])
-        # ??? ugly way of coding identity matrix ?
-        ddx_dx[range(self.differential.state.nv), range(self.differential.state.nv, 2 * self.differential.state.nv)] += 1
-        ddx_du = np.vstack([da_du * self.dt, da_du])
+        # self.calc(data, x, u)
+        q = x[:self.state.nq]
+        v = x[self.state.nq:]
+        oRf = data.pinocchio.oMf[self.frameId].rotation
 
-        # In this scope the data.* are in the augmented state coordinates
-        # while all the differential dd are in the canonical x coordinates
-        # we must set correctly the quantities where needed
-        Fx = dxnext_dx + self.dt * np.dot(dxnext_ddx, ddx_dx)
-        Fu = self.dt * np.dot(dxnext_ddx, ddx_du) # wrong according to NUM DIFF, no timestep
+        # Actuation calcDiff
+        self.actuation.calcDiff(data.multibody.actuation, x, u)
 
-        # TODO why is this not multiplied by timestep?
-        data.Fx[:self.nx, :self.nx] = Fx
-        data.Fx[:self.nx, self.nx:self.ny] = self.alpha * Fu
-        data.Fx[self.nx:, self.nx:] = self.alpha * np.eye(self.nu)
-        # print('Fy : ', data.Fx)
-        # TODO CHECKING WITH NUMDIFF, NO TIMESTEP HERE
-        if self.nu == 1:
-            data.Fu.flat[:self.nx] = (1 - self.alpha) * Fu
-            data.Fu.flat[self.nx:] = (1 - self.alpha) * np.eye(self.nu)
-        else:
-            data.Fu[:self.nx, :self.nu] = (1 - self.alpha) * Fu
-            data.Fu[self.nx:, :self.nu] = (1 - self.alpha) * np.eye(self.nu)
+        # Compute spring damper force derivatives in LOCAL
+        lJ = pin.getFrameJacobian(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL)
+        lv_partial_dq, lv_partial_dv = pin.getFrameVelocityDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL) 
+        # if(self.pinRef == pin.LOCAL):
+        data.df_dx[:,:self.state.nq] = \
+            - self.Kp * (lJ[:3] + pin.skew(oRf.T @ (data.pinocchio.oMf[self.frameId].translation - self.oPc)) @ lJ[3:]) \
+            - self.Kv*lv_partial_dq[:3]
+        data.df_dx[:,self.state.nq:] = \
+            - self.Kv*lv_partial_dv[:3]
+        # copy for later
+        data.df_dx_copy = data.df_dx.copy()
+        # rotate if not LOCAL 
+        if(self.pinRef != pin.LOCAL):
+            oJ = pin.getFrameJacobian(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED)
+            data.df_dx[:,:self.state.nq] = oRf @ data.df_dx_copy[:,:self.state.nq] - pin.skew(data.f) @ oJ[3:]
+            data.df_dx[:,self.state.nq:] = oRf @ data.df_dx_copy[:,self.state.nq:]
 
-        if self.enable_integration_:
+        # Computing the dynamics using ABA or manually if armature
+        aba_dq, ada_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, u, data.fext_copy)
+        data.Fx[:,:self.state.nq] = aba_dq + data.pinocchio.Minv @ lJ[:3].T @ data.df_dx_copy[:,:self.state.nq]
+        data.Fx[:,self.state.nq:] = ada_dv + data.pinocchio.Minv @ lJ[:3].T @ data.df_dx_copy[:,self.state.nq:]
+        data.Fu = aba_dtau
+        if(self.pinRef != pin.LOCAL):
+            aba_dq, ada_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, u, data.fext)
+            data.Fx[:,:self.state.nq] = aba_dq + data.pinocchio.Minv @ oJ[:3].T @ data.df_dx[:,:self.state.nq]
+            data.Fx[:,self.state.nq:] = ada_dv + data.pinocchio.Minv @ oJ[:3].T @ data.df_dx[:,self.state.nq:]
+            data.Fu = aba_dtau
+        
+        self.costs.calcDiff(data.costs, x, u)
 
-            data.Lx[:self.nx] = self.dt * data.differential.Lx
-            data.Lx[self.nx:] = self.dt * self.alpha * data.differential.Lu
-
-            data.Lu[:] = self.dt * (1 - self.alpha) * data.differential.Lu
-
-            data.Lxx[:self.nx,:self.nx] = self.dt * data.differential.Lxx
-            # TODO reshape is not the best, see better how to cast this
-            data.Lxx[:self.nx,self.nx:] = self.dt * self.alpha * np.reshape(data.differential.Lxu, (self.nx, self.nu))
-            data.Lxx[self.nx:,:self.nx] = self.dt * self.alpha * np.reshape(data.differential.Lxu, (self.nu, self.nx))
-            data.Lxx[self.nx:,self.nx:] = self.dt * self.alpha**2 * data.differential.Luu
-
-            data.Lxu[:self.nx] = self.dt * (1 - self.alpha) * data.differential.Lxu
-            data.Lxu[self.nx:] = self.dt * (1 - self.alpha) * self.alpha * data.differential.Luu
-
-            data.Luu[:, :] = self.dt * (1 - self.alpha)**2 * data.differential.Luu
-
-            # adding the unfiltered torque cost
-            self.activation.calcDiff(data.activation, w - self.w_lim_ref)
-            data.Lu[:] += self.dt * self.w_lim_weight * data.activation.Ar + (w - self.w_reg_ref) * self.dt * self.w_reg_weight
-            data.Luu[:, :] += self.dt * self.w_lim_weight * data.activation.Arr + np.diag(np.ones(self.nu)) * self.dt * self.w_reg_weight
-
-        else:
-
-            data.Lx[:self.nx] = data.differential.Lx
-            data.Lx[self.nx:] = self.alpha * data.differential.Lu
-
-            data.Lu[:] = (1 - self.alpha) * data.differential.Lu
-
-            data.Lxx[:self.nx,:self.nx] = data.differential.Lxx
-            data.Lxx[:self.nx,self.nx:] = self.alpha * np.reshape(data.differential.Lxu, (self.nx, self.nu))
-            data.Lxx[self.nx:,:self.nx] = self.alpha * np.reshape(data.differential.Lxu, (self.nu, self.nx))
-            data.Lxx[self.nx:,self.nx:] = self.alpha**2 * data.differential.Luu
-
-            data.Lxu[:self.nx] = (1 - self.alpha) * data.differential.Lxu
-            data.Lxu[self.nx:] = (1 - self.alpha) * self.alpha * data.differential.Luu
-
-            data.Luu[:, :] = (1 - self.alpha)**2 * data.differential.Luu
-
-            # adding the unfiltered torque cost
-            self.activation.calcDiff(data.activation, w - self.w_lim_ref)
-            data.Lu[:] += self.w_lim_weight * data.activation.Ar + (w - self.w_reg_ref) * self.w_reg_weight
-            data.Luu[:, :] += self.w_lim_weight * data.activation.Arr + np.diag(np.ones(self.nu)) * self.w_reg_weight
+        # if(self.with_armature):
+        #     data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, u, fext)
+        # else:
+        #     data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, u, fext)
 
 
-class DADSoftContactDynamics(crocoddyl.ActionDataAbstract):
+class DADSoftContactDynamics(crocoddyl.DifferentialActionDataFreeFwdDynamics):
     '''
     Creates a data class with differential and augmented matrices from IAM (initialized with stateVector)
     '''
     def __init__(self, am):
-        crocoddyl.ActionDataAbstract.__init__(self, am)
-        self.differential = am.differential.createData()
-        self.activation = am.activation.createData()
-        self.tau_plus = np.zeros(am.nu)
-        self.Fx = np.zeros((am.ny, am.ny))
-        self.Fu = np.zeros((am.ny, am.nu))
-        self.Lx = np.zeros(am.ny)
-        self.Lu = np.zeros(am.nu)
-        self.Lxx = np.zeros((am.ny, am.ny))
-        self.Lxu = np.zeros((am.ny, am.nu))
-        self.Luu = np.zeros((am.nu,am.nu))
+        crocoddyl.DifferentialActionDataFreeFwdDynamics.__init__(self, am)
+        # self.differential = am.differential.createData()
+        # self.activation = am.activation.createData()
+        # self.tau_plus = np.zeros(am.nu)
+        self.Fx = np.zeros((am.state.nq, am.state.nx))
+        self.Fu = np.zeros((am.state.nq, am.nu))
+        self.Lx = np.zeros(am.state.nx)
+        self.Lu = np.zeros(am.actuation.nu)
+        self.Lxx = np.zeros((am.state.nx, am.state.nx))
+        self.Lxu = np.zeros((am.state.nx, am.actuation.nu))
+        self.Luu = np.zeros((am.actuation.nu, am.actuation.nu))
+
+        self.df_dx = np.zeros((3, am.state.nx))   
+        self.df_dx_copy = np.zeros((3, am.state.nx))   
+        self.f = np.zeros(3)    
+        self.f_copy = np.zeros(3)   
+        self.fext = [pin.Force.Zero() for _ in range(am.pinocchio.njoints)]
+        self.fext_copy = [pin.Force.Zero() for _ in range(am.pinocchio.njoints)]
