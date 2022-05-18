@@ -31,10 +31,11 @@ frameId = model.getFrameId('contact')
 # initial ee position and contact anchor point
 oPf = data.oMf[frameId].translation
 oRf = data.oMf[frameId].rotation
-oPc = oPf + np.array([0.,0.,0.1]) # + cm in z world
+oPc = oPf + np.array([0.,.05,0.01]) # + cm in z world np.random.rand(3)
+print("anchor point = \n", oPc)
 ov = pin.getFrameVelocity(model, data, frameId, pin.LOCAL).linear
 # contact gains
-Kp = 1000 
+Kp = 0
 Kv = 2*np.sqrt(Kp)
 # initial force at LOCAL + at joint level
 of0 = -Kp*(oPf - oPc) - Kv*ov
@@ -56,7 +57,7 @@ terminalCostModel = crocoddyl.CostModelSum(state)
 # Create cost terms 
 dt = 1e-2
   # Control regularization cost
-uref = pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq))
+uref = np.zeros(nq) #pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq))
 uResidual = crocoddyl.ResidualModelControl(state, uref)
 uRegCost = crocoddyl.CostModelResidual(state, uResidual)
   # State regularization cost
@@ -68,12 +69,18 @@ endeff_frame_id = model.getFrameId("contact")
 endeff_translation = oPc #np.array([-0.4, 0.3, 0.7]) # move endeff +10 cm along x in WORLD frame
 frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
 frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
+
+frameVelocityResidual = crocoddyl.ResidualModelFrameVelocity(state, endeff_frame_id, pin.Motion.Zero(), pin.WORLD)
+frameVelocityCost = crocoddyl.CostModelResidual(state, frameVelocityResidual)
+
+
 # Add costs
-runningCostModel.addCost("stateReg", xRegCost, 1e-4)
-runningCostModel.addCost("ctrlReg", uRegCost, 1e-6)
-# runningCostModel.addCost("translation", frameTranslationCost, 10)
-terminalCostModel.addCost("stateReg", xRegCost, dt*1e-4)
-# terminalCostModel.addCost("translation", frameTranslationCost, 10)
+runningCostModel.addCost("stateReg", xRegCost, 1e-2)
+runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
+runningCostModel.addCost("translation", frameTranslationCost, 1)
+terminalCostModel.addCost("stateReg", xRegCost, dt*1e-2)
+terminalCostModel.addCost("translation", frameTranslationCost, 1)
+terminalCostModel.addCost("velocity", frameVelocityCost, 10)
 
 
 
@@ -90,7 +97,7 @@ terminalModel = crocoddyl.IntegratedActionModelEuler(dam_t, 0.)
 # terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
 
 # Create the shooting problem
-T = 50
+T = 250
 problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
 
 # Create solver + callbacks
@@ -99,10 +106,11 @@ ddp.setCallbacks([crocoddyl.CallbackLogger(),
                 crocoddyl.CallbackVerbose()])
 # Warm start : initial state + gravity compensation
 xs_init = [x0 for i in range(T+1)]
-us_init = ddp.problem.quasiStatic(xs_init[:-1])
+us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq)) for i in range(T)] #ddp.problem.quasiStatic(xs_init[:-1])
 
 # Solve
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+# ddp.solve([], [], maxiter=100, isFeasible=False)
 
 data_handler = DDPDataHanlderClassical(ddp)
 ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
