@@ -21,6 +21,7 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
         self.pinRef = pinRefFrame
         self.frameId = frameId
         self.with_armature = False
+        self.armature = np.zeros(self.state.nq)
         self.oPc = oPc
         # To complete DAMAbstract into sth like DAMFwdDyn
         self.actuation = actuationModel
@@ -74,12 +75,11 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
         # else:
         # print("CHECK POINT") 
         # print(data.xout)
-        data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, u, data.fext)
-
+        data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, u, data.fext) # or use data.multibody.actuation.tau ? 
         # Cost calc 
-        self.costs.calc(data.costs, x, u)
+        self.costs.calc(data.costs, x, u) #same ?
         data.cost = data.costs.cost
-
+        print("cost = ", data.cost)
         return data.xout, data.cost
 
 
@@ -143,8 +143,9 @@ class DADSoftContactDynamics(crocoddyl.DifferentialActionDataAbstract):
         self.fext_copy = [pin.Force.Zero() for _ in range(am.pinocchio.njoints)]
 
         self.pinocchio  = am.pinocchio.createData()
-        self.multibody = crocoddyl.DataCollectorActMultibody(self.pinocchio, am.actuation.createData())
-        self.costs = am.costs.createData(crocoddyl.DataCollectorAbstract())
+        self.actuation_data = am.actuation.createData()
+        self.multibody = crocoddyl.DataCollectorActMultibody(self.pinocchio, self.actuation_data)
+        self.costs = am.costs.createData(crocoddyl.DataCollectorMultibody(self.pinocchio))
 
 
 

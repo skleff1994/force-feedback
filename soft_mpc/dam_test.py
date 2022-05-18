@@ -20,30 +20,29 @@ robot = load_robot_wrapper('iiwa')
 model = robot.model ; data = model.createData()
 nq = model.nq; nv = model.nv; nu = nq; nx = nq+nv
 q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
-v0 = np.zeros(nv)
+v0 = np.random.rand(nv)
 x0 = np.concatenate([q0, v0])
-robot.framesForwardKinematics(q0)
-# pin.computeAllTerms(robot.model, robot.data, q0, v0)
-# pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
-# pin.updateFramePlacements(model, data)
-# robot.computeJointJacobians(q0)
+pin.computeAllTerms(robot.model, robot.data, q0, v0)
+pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
+pin.updateFramePlacements(model, data)
+robot.computeJointJacobians(q0)
 frameId = model.getFrameId('contact')
 
 # initial ee position and contact anchor point
 oPf = data.oMf[frameId].translation
-# oRf = data.oMf[frameId].rotation
-oPc = np.random.rand(3) #oPf + np.array([0.,0.,0.02]) # + cm in z world
-# ov = pin.getFrameVelocity(model, data, frameId, pin.LOCAL).linear
+oRf = data.oMf[frameId].rotation
+oPc = oPf + np.array([0.,0.,0.1]) # + cm in z world
+ov = pin.getFrameVelocity(model, data, frameId, pin.LOCAL).linear
 # contact gains
 Kp = 1000 
-Kv = 60
-# # initial force at LOCAL + at joint level
-# of0 = -Kp*(oPf - oPc) - Kv*ov
-# fext0 = [pin.Force.Zero() for _ in range(model.njoints)]
-# fext0[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(oRf.T @ of0, np.zeros(3)))
+Kv = 2*np.sqrt(Kp)
+# initial force at LOCAL + at joint level
+of0 = -Kp*(oPf - oPc) - Kv*ov
+fext0 = [pin.Force.Zero() for _ in range(model.njoints)]
+fext0[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(oRf.T @ of0, np.zeros(3)))
 
-# print("initial force (WORLD) = \n", of0)
-# print("initial force (LOCAL) = \n", oRf.T @ of0)
+print("initial force (WORLD) = \n", of0)
+print("initial force (LOCAL) = \n", oRf.T @ of0)
 
 # State and actuation model
 state = crocoddyl.StateMultibody(model)
@@ -54,102 +53,73 @@ runningCostModel = crocoddyl.CostModelSum(state)
 terminalCostModel = crocoddyl.CostModelSum(state)
 
 
-# # Create cost terms 
-# dt = 1e-2
-#   # Control regularization cost
-# uref = np.zeros(nq) # pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq))
-# uResidual = crocoddyl.ResidualModelControl(state, uref)
-# uRegCost = crocoddyl.CostModelResidual(state, uResidual)
-#   # State regularization cost
-# xResidual = crocoddyl.ResidualModelState(state, x0)
-# xRegCost = crocoddyl.CostModelResidual(state, xResidual)
-#   # endeff frame translation cost
-# endeff_frame_id = model.getFrameId("contact")
-# # endeff_translation = robot.data.oMf[endeff_frame_id].translation.copy()
-# endeff_translation = oPc #np.array([-0.4, 0.3, 0.7]) # move endeff +10 cm along x in WORLD frame
-# frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
-# frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
-# # Add costs
-# runningCostModel.addCost("stateReg", xRegCost, 1e-4)
-# runningCostModel.addCost("ctrlReg", uRegCost, 1e-6)
-# runningCostModel.addCost("translation", frameTranslationCost, 0)
-# terminalCostModel.addCost("stateReg", xRegCost, dt*1e-4)
-# terminalCostModel.addCost("translation", frameTranslationCost, 0)
+# Create cost terms 
+dt = 1e-2
+  # Control regularization cost
+uref = pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq))
+uResidual = crocoddyl.ResidualModelControl(state, uref)
+uRegCost = crocoddyl.CostModelResidual(state, uResidual)
+  # State regularization cost
+xResidual = crocoddyl.ResidualModelState(state, x0)
+xRegCost = crocoddyl.CostModelResidual(state, xResidual)
+  # endeff frame translation cost
+endeff_frame_id = model.getFrameId("contact")
+# endeff_translation = robot.data.oMf[endeff_frame_id].translation.copy()
+endeff_translation = oPc #np.array([-0.4, 0.3, 0.7]) # move endeff +10 cm along x in WORLD frame
+frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
+frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
+# Add costs
+runningCostModel.addCost("stateReg", xRegCost, 1e-4)
+runningCostModel.addCost("ctrlReg", uRegCost, 1e-6)
+# runningCostModel.addCost("translation", frameTranslationCost, 10)
+terminalCostModel.addCost("stateReg", xRegCost, dt*1e-4)
+# terminalCostModel.addCost("translation", frameTranslationCost, 10)
 
 
 
 # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
+dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
+dam_t = DAMSoftContactDynamics(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
 
+# Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
+runningModel = crocoddyl.IntegratedActionModelEuler(dam, dt)
+terminalModel = crocoddyl.IntegratedActionModelEuler(dam_t, 0.)
 
-dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
-dad = dam.createData()
+# # Optionally add armature to take into account actuator's inertia
+# runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
+# terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
 
-# Numdiff version 
-RTOL            = 1e-3 
-ATOL            = 1e-4 
-tau = np.random.rand(nq)
-dam_nd = crocoddyl.DifferentialActionModelNumDiff(dam, False)
-dam_nd.disturbance = 1e-6
-dad_nd = dam_nd.createData()
-dam.calc(dad, x0, tau)
-dam_nd.calc(dad_nd, x0, tau)
-print(dad.xout)
-print(dad_nd.xout)
-assert(np.linalg.norm(dad.xout - dad_nd.xout) < 1e-4)
-assert(np.linalg.norm(dad.cost - dad_nd.cost) < 1e-4)
-dam.calcDiff(dad, x0, tau)
-dam_nd.calcDiff(dad_nd, x0, tau)
-print("analytic vs croco nd : \n", np.isclose(dad.Fx, dad_nd.Fx, RTOL, ATOL))
-# def calc(model, data, x, tau):
-#     xout, _ = model.calc(data, x, tau)
-#     return xout
-# fx_nd = numdiff(lambda x_:calc(dam, dad, x_, tau), x0)
-# # fx_nd = numdiff(lambda x_:dam.calc(dad, x_, tau), x0)
-# print("analytic vs custom nd : \n", np.isclose(dad.Fx, fx_nd, RTOL, ATOL))
-# #  Curiously doesn't work, except when there is pin.computeAllTerms + update inside calc (but then fails croco nd)
+# Create the shooting problem
+T = 50
+problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
 
-# dam_t = DAMSoftContactDynamics(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
+# Create solver + callbacks
+ddp = crocoddyl.SolverFDDP(problem)
+ddp.setCallbacks([crocoddyl.CallbackLogger(),
+                crocoddyl.CallbackVerbose()])
+# Warm start : initial state + gravity compensation
+xs_init = [x0 for i in range(T+1)]
+us_init = ddp.problem.quasiStatic(xs_init[:-1])
 
-# # Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
+# Solve
+ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
-# runningModel = crocoddyl.IntegratedActionModelEuler(dam, dt)
-# terminalModel = crocoddyl.IntegratedActionModelEuler(dam_t, 0.)
-
-# # # Optionally add armature to take into account actuator's inertia
-# # runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
-# # terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
-
-# # Create the shooting problem
-# T = 500
-# problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
-
-# # Create solver + callbacks
-# ddp = crocoddyl.SolverFDDP(problem)
-# ddp.setCallbacks([crocoddyl.CallbackLogger(),
-#                 crocoddyl.CallbackVerbose()])
-# # Warm start : initial state + gravity compensation
-# xs_init = [x0 for i in range(T+1)]
-# us_init = ddp.problem.quasiStatic(xs_init[:-1])
-
-# # Solve
-# ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-
-# data_handler = DDPDataHanlderClassical(ddp)
-# ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
+data_handler = DDPDataHanlderClassical(ddp)
+ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
 
 
 
-# xs = np.array(ddp_data['xs'])
-# ps = pin_utils.get_p_(xs[:,:nq], model, frameId)
-# vs = pin_utils.get_v_(xs[:,:nq], xs[:,nv:], model, frameId)
+xs = np.array(ddp_data['xs'])
+ps = pin_utils.get_p_(xs[:,:nq], model, frameId)
+vs = pin_utils.get_v_(xs[:,:nq], xs[:,nv:], model, frameId)
 
-# # Force in WORLD aligned frame
-# fs_lin = np.array([-Kp*(ps[i,:] - oPc) - Kv*vs[i,:] for i in range(T)])
-# fs_ang = np.zeros((T, 3))
-# ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
+# Force in WORLD aligned frame
+fs_lin = np.array([-Kp*(ps[i,:] - oPc) - Kv*vs[i,:] for i in range(T)])
+fs_ang = np.zeros((T, 3))
+ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
 
 
-# data_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+data_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 
 # # print(ddp_data['fs'].shape)
