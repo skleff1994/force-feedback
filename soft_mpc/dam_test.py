@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('.')
 
 import numpy as np
@@ -7,19 +8,42 @@ np.random.seed(1)
 import crocoddyl
 import pinocchio as pin
 
-from dam import DAMSoftContactDynamics, DADSoftContactDynamics
+from dam import DAMSoftContactDynamics
 from core_mpc.pin_utils import load_robot_wrapper
+from classical_mpc.data import DDPDataHanlderClassical
+from core_mpc import pin_utils
+
+
+
 
 robot = load_robot_wrapper('iiwa')
-model = robot.model
+model = robot.model ; data = model.createData()
 nq = model.nq; nv = model.nv; nu = nq; nx = nq+nv
 q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
-v0 = np.random.rand(nv)
-tau = np.random.rand(nq)
+v0 = np.zeros(nv)
 x0 = np.concatenate([q0, v0])
 robot.framesForwardKinematics(q0)
-robot.computeJointJacobians(q0)
+# pin.computeAllTerms(robot.model, robot.data, q0, v0)
+# pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
+# pin.updateFramePlacements(model, data)
+# robot.computeJointJacobians(q0)
 frameId = model.getFrameId('contact')
+
+# initial ee position and contact anchor point
+oPf = data.oMf[frameId].translation
+# oRf = data.oMf[frameId].rotation
+oPc = np.random.rand(3) #oPf + np.array([0.,0.,0.02]) # + cm in z world
+# ov = pin.getFrameVelocity(model, data, frameId, pin.LOCAL).linear
+# contact gains
+Kp = 1000 
+Kv = 60
+# # initial force at LOCAL + at joint level
+# of0 = -Kp*(oPf - oPc) - Kv*ov
+# fext0 = [pin.Force.Zero() for _ in range(model.njoints)]
+# fext0[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(oRf.T @ of0, np.zeros(3)))
+
+# print("initial force (WORLD) = \n", of0)
+# print("initial force (LOCAL) = \n", oRf.T @ of0)
 
 # State and actuation model
 state = crocoddyl.StateMultibody(model)
@@ -27,93 +51,76 @@ actuation = crocoddyl.ActuationModelFull(state)
 
 # Running and terminal cost models
 runningCostModel = crocoddyl.CostModelSum(state)
-# terminalCostModel = crocoddyl.CostModelSum(state)
+terminalCostModel = crocoddyl.CostModelSum(state)
 
 
-# Create cost terms 
-  # Control regularization cost
-uResidual = crocoddyl.ResidualModelControlGrav(state)
-uRegCost = crocoddyl.CostModelResidual(state, uResidual)
-  # State regularization cost
-xResidual = crocoddyl.ResidualModelState(state, x0)
-xRegCost = crocoddyl.CostModelResidual(state, xResidual)
-  # endeff frame translation cost
-endeff_frame_id = model.getFrameId("contact")
-# endeff_translation = robot.data.oMf[endeff_frame_id].translation.copy()
-endeff_translation = np.array([-0.4, 0.3, 0.7]) # move endeff +10 cm along x in WORLD frame
-frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
-frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
+# # Create cost terms 
+# dt = 1e-2
+#   # Control regularization cost
+# uref = np.zeros(nq) # pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq))
+# uResidual = crocoddyl.ResidualModelControl(state, uref)
+# uRegCost = crocoddyl.CostModelResidual(state, uResidual)
+#   # State regularization cost
+# xResidual = crocoddyl.ResidualModelState(state, x0)
+# xRegCost = crocoddyl.CostModelResidual(state, xResidual)
+#   # endeff frame translation cost
+# endeff_frame_id = model.getFrameId("contact")
+# # endeff_translation = robot.data.oMf[endeff_frame_id].translation.copy()
+# endeff_translation = oPc #np.array([-0.4, 0.3, 0.7]) # move endeff +10 cm along x in WORLD frame
+# frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
+# frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
+# # Add costs
+# runningCostModel.addCost("stateReg", xRegCost, 1e-4)
+# runningCostModel.addCost("ctrlReg", uRegCost, 1e-6)
+# runningCostModel.addCost("translation", frameTranslationCost, 0)
+# terminalCostModel.addCost("stateReg", xRegCost, dt*1e-4)
+# terminalCostModel.addCost("translation", frameTranslationCost, 0)
 
 
-# Add costs
-runningCostModel.addCost("stateReg", xRegCost, 1e-1)
-runningCostModel.addCost("ctrlRegGrav", uRegCost, 1e-4)
-runningCostModel.addCost("translation", frameTranslationCost, 10)
-# terminalCostModel.addCost("stateReg", xRegCost, 1e-1)
-# terminalCostModel.addCost("translation", frameTranslationCost, 10)
 
 # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
-running_DAM = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, pinRefFrame=pin.WORLD)
-running_DAD = running_DAM.createData()
-
-# Numdiff verson
-running_DAM_ND = crocoddyl.DifferentialActionModelNumDiff(running_DAM, False)
-running_DAM_ND.disturbance = 1e-6
-running_DAD_ND = running_DAM_ND.createData()
 
 
-running_DAM_ND.calc(running_DAD_ND, x0, tau)
-running_DAM.calc(running_DAD, x0, tau)
-# print(running_DAD.xout)
-# print(running_DAD_ND.xout)
-# print(running_DAD.cost)
-# print(running_DAD_ND.cost)
+dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
+dad = dam.createData()
 
+# Numdiff version 
+RTOL            = 1e-3 
+ATOL            = 1e-4 
+tau = np.random.rand(nq)
+dam_nd = crocoddyl.DifferentialActionModelNumDiff(dam, False)
+dam_nd.disturbance = 1e-6
+dad_nd = dam_nd.createData()
+dam.calc(dad, x0, tau)
+dam_nd.calc(dad_nd, x0, tau)
+print(dad.xout)
+print(dad_nd.xout)
+assert(np.linalg.norm(dad.xout - dad_nd.xout) < 1e-4)
+assert(np.linalg.norm(dad.cost - dad_nd.cost) < 1e-4)
+dam.calcDiff(dad, x0, tau)
+dam_nd.calcDiff(dad_nd, x0, tau)
+print("analytic vs croco nd : \n", np.isclose(dad.Fx, dad_nd.Fx, RTOL, ATOL))
+# def calc(model, data, x, tau):
+#     xout, _ = model.calc(data, x, tau)
+#     return xout
+# fx_nd = numdiff(lambda x_:calc(dam, dad, x_, tau), x0)
+# # fx_nd = numdiff(lambda x_:dam.calc(dad, x_, tau), x0)
+# print("analytic vs custom nd : \n", np.isclose(dad.Fx, fx_nd, RTOL, ATOL))
+# #  Curiously doesn't work, except when there is pin.computeAllTerms + update inside calc (but then fails croco nd)
 
-# Numerical difference function
-def numdiff(f,x0,h=1e-6):
-    f0 = f(x0).copy()
-    x = x0.copy()
-    Fx = []
-    for ix in range(len(x)):
-        x[ix] += h
-        Fx.append((f(x)-f0)/h)
-        x[ix] = x0[ix]
-    return np.array(Fx).T
-
-
-# croco nd
-running_DAM_ND.calcDiff(running_DAD_ND, x0, tau)
-# analytic
-running_DAM.calcDiff(running_DAD, x0, tau)
-# print(running_DAD_ND.Fx)
-# custom nd
-d = running_DAM.createData()
-fx_nd = numdiff(lambda x_:running_DAM.calc(d, x_, tau), x0)
-
-RTOL            = 1e-3 #1e-3
-ATOL            = 1e-4 #1e-5
-# print(running_DAD.Fx)
-print("analytic vs custom nd : \n", np.isclose(running_DAD.Fx, fx_nd, RTOL, ATOL))
-print("custom nd vs croco nd : \n", np.isclose(running_DAD_ND.Fx, fx_nd, RTOL, ATOL))
-print("analytic vs croco nd : \n", np.isclose(running_DAD_ND.Fx, running_DAD.Fx, RTOL, ATOL))
-# print(np.isclose(running_DAD.Fx, running_DAD_ND.Fx, RTOL, ATOL))
-# print(np.isclose(running_DAD.Fu, running_DAD_ND.Fu, RTOL, ATOL))
-# assert(np.linalg.norm(running_DAD.Fx - running_DAD_ND.Fx) < 1e-2)
-
-# terminal_DAM = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, actuation, terminalCostModel)
+# dam_t = DAMSoftContactDynamics(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
 
 # # Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
-# dt = 1e-2
-# runningModel = crocoddyl.IntegratedActionModelEuler(running_DAM, dt)
-# terminalModel = crocoddyl.IntegratedActionModelEuler(terminal_DAM, 0.)
 
-# # Optionally add armature to take into account actuator's inertia
-# runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
-# terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
+# runningModel = crocoddyl.IntegratedActionModelEuler(dam, dt)
+# terminalModel = crocoddyl.IntegratedActionModelEuler(dam_t, 0.)
+
+# # # Optionally add armature to take into account actuator's inertia
+# # runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
+# # terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
 
 # # Create the shooting problem
-# T = 250
+# T = 500
 # problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
 
 # # Create solver + callbacks
@@ -126,3 +133,90 @@ print("analytic vs croco nd : \n", np.isclose(running_DAD_ND.Fx, running_DAD.Fx,
 
 # # Solve
 # ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+
+# data_handler = DDPDataHanlderClassical(ddp)
+# ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
+
+
+
+# xs = np.array(ddp_data['xs'])
+# ps = pin_utils.get_p_(xs[:,:nq], model, frameId)
+# vs = pin_utils.get_v_(xs[:,:nq], xs[:,nv:], model, frameId)
+
+# # Force in WORLD aligned frame
+# fs_lin = np.array([-Kp*(ps[i,:] - oPc) - Kv*vs[i,:] for i in range(T)])
+# fs_ang = np.zeros((T, 3))
+# ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
+
+
+# data_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+
+
+# # print(ddp_data['fs'].shape)
+# # data_handler.plot_ddp_force(ddp_data)
+# # ddp_data['force'] =  
+
+
+# DISPLAY = True
+# # Visualize motion in Gepetto-viewer
+# if(DISPLAY):
+#     import time
+#     import pinocchio as pin
+#     N_h = T
+#     # Init viewer
+#     viz = pin.visualize.GepettoVisualizer(robot.model, robot.collision_model, robot.visual_model)
+#     viz.initViewer()
+#     viz.loadViewerModel()
+#     viz.display(q0)
+#     gui = viz.viewer.gui
+#     draw_rate = int(N_h/50)
+#     log_rate  = int(N_h/10)    
+#     ref_color  = [1., 0., 0., 1.]
+#     real_color = [0., 0., 1., 0.3]
+#     ref_size    = 0.02
+#     real_size   = 0.02
+#     pause = 0.05
+#     # cleanup
+#         # clean ref
+#     if(gui.nodeExists('world/EE_ref')):
+#         gui.deleteNode('world/EE_ref', True)
+#     for i in range(N_h):
+#         # clean DDP sol
+#         if(gui.nodeExists('world/EE_sol_'+str(i))):
+#             gui.deleteNode('world/EE_sol_'+str(i), True)
+#             gui.deleteLandmark('world/EE_sol_'+str(i))
+#     # Get initial EE placement + tf
+#     ee_frame_placement = data.oMf[frameId]
+#     tf_ee = list(pin.SE3ToXYZQUAT(ee_frame_placement))
+#     # Display sol init + landmark
+#     gui.addSphere('world/EE_sol_', real_size, real_color)
+#     gui.addLandmark('world/EE_sol_', 0.25)
+#     gui.applyConfiguration('world/EE_sol_', tf_ee)
+#     # Get anchor point = ref EE placement + tf
+#     ref_frame_placement = data.oMf[frameId].copy()
+#     ref_frame_placement.translation = oPc
+#     tf_ref = list(pin.SE3ToXYZQUAT(ref_frame_placement))
+#     # Display ref
+#     gui.addSphere('world/EE_ref', ref_size, ref_color)
+#     gui.applyConfiguration('world/EE_ref', tf_ref)
+#     # Refresh and wait
+#     gui.refresh()
+#     time.sleep(1.)
+#     # Animate
+#     for i in range(N_h):
+#         # Display robot in config q
+#         q = ddp.xs[i][:nq]
+#         viz.display(q)
+#         # Display EE traj and ref circle traj
+#         if(i%draw_rate==0):
+#             # EE trajectory
+#             robot.framesForwardKinematics(q)
+#             m_ee = robot.data.oMf[frameId].copy()
+#             tf_ee = list(pin.SE3ToXYZQUAT(m_ee))
+#             gui.addSphere('world/EE_sol_'+str(i), real_size, real_color)
+#             gui.applyConfiguration('world/EE_sol_'+str(i), tf_ee)
+#             gui.applyConfiguration('world/EE_sol_', tf_ee)
+#         gui.refresh()
+#         if(i%log_rate==0):
+#             print("Display config n°"+str(i))
+#         time.sleep(pause)
