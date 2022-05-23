@@ -54,35 +54,48 @@ runningCostModel = crocoddyl.CostModelSum(state)
 terminalCostModel = crocoddyl.CostModelSum(state)
 
 
-# Create cost terms 
-dt = 1e-2
-  # Control regularization cost
-uref = np.zeros(nq) #pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq))
+# # Create cost terms 
+# dt = 1e-2
+#   # Control regularization cost
+# uref = np.zeros(nq) #pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq))
+# uResidual = crocoddyl.ResidualModelControl(state, uref)
+# uRegCost = crocoddyl.CostModelResidual(state, uResidual)
+#   # State regularization cost
+# xResidual = crocoddyl.ResidualModelState(state, x0)
+# xRegCost = crocoddyl.CostModelResidual(state, xResidual)
+#   # endeff frame translation cost
+# endeff_frame_id = model.getFrameId("contact")
+# # endeff_translation = robot.data.oMf[endeff_frame_id].translation.copy()
+# endeff_translation = oPc #np.array([-0.4, 0.3, 0.7]) # move endeff +10 cm along x in WORLD frame
+# frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
+# frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
+
+# frameVelocityResidual = crocoddyl.ResidualModelFrameVelocity(state, endeff_frame_id, pin.Motion.Zero(), pin.WORLD)
+# frameVelocityCost = crocoddyl.CostModelResidual(state, frameVelocityResidual)
+
+
+# Control regularization cost
+uref = np.random.rand(nq) 
 uResidual = crocoddyl.ResidualModelControl(state, uref)
 uRegCost = crocoddyl.CostModelResidual(state, uResidual)
   # State regularization cost
 xResidual = crocoddyl.ResidualModelState(state, x0)
 xRegCost = crocoddyl.CostModelResidual(state, xResidual)
-  # endeff frame translation cost
-endeff_frame_id = model.getFrameId("contact")
-# endeff_translation = robot.data.oMf[endeff_frame_id].translation.copy()
-endeff_translation = oPc #np.array([-0.4, 0.3, 0.7]) # move endeff +10 cm along x in WORLD frame
-frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
-frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
-
-frameVelocityResidual = crocoddyl.ResidualModelFrameVelocity(state, endeff_frame_id, pin.Motion.Zero(), pin.WORLD)
-frameVelocityCost = crocoddyl.CostModelResidual(state, frameVelocityResidual)
-
-
-# Add costs
 runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
-runningCostModel.addCost("translation", frameTranslationCost, 1)
-terminalCostModel.addCost("stateReg", xRegCost, dt*1e-2)
-terminalCostModel.addCost("translation", frameTranslationCost, 1)
-terminalCostModel.addCost("velocity", frameVelocityCost, 10)
 
 
+
+
+# # Add costs
+# runningCostModel.addCost("stateReg", xRegCost, 1e-2)
+# runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
+# # runningCostModel.addCost("translation", frameTranslationCost, 1)
+# terminalCostModel.addCost("stateReg", xRegCost, 0.)
+# # terminalCostModel.addCost("translation", frameTranslationCost, 1)
+# # terminalCostModel.addCost("velocity", frameVelocityCost, 10)
+
+dt=1e-2
 
 # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
 dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
@@ -104,13 +117,13 @@ problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
 ddp = crocoddyl.SolverFDDP(problem)
 ddp.setCallbacks([crocoddyl.CallbackLogger(),
                 crocoddyl.CallbackVerbose()])
-# Warm start : initial state + gravity compensation
-xs_init = [x0 for i in range(T+1)]
-us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq)) for i in range(T)] #ddp.problem.quasiStatic(xs_init[:-1])
+# # Warm start : initial state + gravity compensation
+# xs_init = [x0 for i in range(T+1)]
+# us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq)) for i in range(T)] #ddp.problem.quasiStatic(xs_init[:-1])
 
 # Solve
-ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-# ddp.solve([], [], maxiter=100, isFeasible=False)
+# ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+ddp.solve([], [], maxiter=100, isFeasible=False)
 
 data_handler = DDPDataHanlderClassical(ddp)
 ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')

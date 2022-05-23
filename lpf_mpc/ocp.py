@@ -137,13 +137,12 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
                                                                 stepTime=self.dt, 
                                                                 withCostResidual=True, 
                                                                 fc=self.f_c, 
-                                                                cost_weight_w_reg=self.wRegWeight, 
-                                                                cost_ref_w_reg=w_reg_ref,
-                                                                w_gravity_reg=w_gravity_reg,
-                                                                cost_weight_w_lim=self.wLimWeight,
                                                                 tau_plus_integration=self.tau_plus_integration,
                                                                 filter=self.LPF_TYPE,
-                                                                is_terminal=False))      
+                                                                is_terminal=False))  
+        # Add cost on unfiltered control torque (reg + lim)
+        runningModels[i].set_control_reg_cost(self.wRegWeight, w_reg_ref) 
+        runningModels[i].set_control_lim_cost(self.wLimWeight) 
       
       # Create and add cost function terms to current IAM
         # State regularization 
@@ -229,10 +228,10 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
                                                         stepTime=0., 
                                                         withCostResidual=False, 
                                                         fc=self.f_c, 
-                                                        cost_weight_w_reg=self.wRegWeight, 
-                                                        cost_ref_w_reg=w_reg_ref,
-                                                        w_gravity_reg=w_gravity_reg,
-                                                        cost_weight_w_lim=self.wLimWeight,
+                                                        # cost_weight_w_reg=self.wRegWeight, 
+                                                        # cost_ref_w_reg=w_reg_ref,
+                                                        # w_gravity_reg=w_gravity_reg,
+                                                        # cost_weight_w_lim=self.wLimWeight,
                                                         tau_plus_integration=self.tau_plus_integration,
                                                         filter=self.LPF_TYPE,
                                                         is_terminal=True)   
