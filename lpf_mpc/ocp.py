@@ -9,6 +9,7 @@
 """
 
 import crocoddyl
+import sobec
 import numpy as np
 from core_mpc import ocp, pin_utils
 
@@ -37,7 +38,6 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
     self.check_attribute('LPF_TYPE')
     self.check_attribute('tau_plus_integration')
     self.check_attribute('wRegWeight')
-    # self.check_attribute('w_gravity_reg')
     self.check_attribute('wLimWeight')
    
   def initialize(self, y0, callbacks=False):
@@ -91,12 +91,10 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
       logger.error("Need to specify 'wRegRef' in YAML config. Please select in ['zero', 'tau0', 'gravity']")
     elif(self.wRegRef == 'gravity'):
       # If no reference is provided, assume default reg w.r.t. gravity torque
-      w_gravity_reg = True
       w_reg_ref = np.zeros(self.nq) # dummy reference not used
       log_msg_w_reg = 'gravity torque'
     else:
       # Otherwise, take the user-provided constant torque reference for w_reg
-      w_gravity_reg = False
       if(self.wRegRef== 'zero'):
         w_reg_ref = np.zeros(self.nq)
       elif(self.wRegRef== 'tau0'):
@@ -119,12 +117,12 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
             contactModels.append(self.create_contact_model(ct, state, actuation))
 
           # Create DAMContactDyn                    
-          dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
-                                                                    actuation, 
-                                                                    crocoddyl.ContactModelMultiple(state, actuation.nu), 
-                                                                    crocoddyl.CostModelSum(state, nu=actuation.nu), 
-                                                                    inv_damping=0., 
-                                                                    enable_force=True)
+          dam = sobec.DifferentialActionModelContactFwdDynamics(state, 
+                                                                actuation, 
+                                                                sobec.ContactModelMultiple(state, actuation.nu), 
+                                                                crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                                inv_damping=0., 
+                                                                enable_force=True)
         # Otherwise just create DAM
         else:
           # Create DAMFreeDyn
@@ -133,13 +131,13 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
                                                                  crocoddyl.CostModelSum(state, nu=actuation.nu))
       
       # Create IAMLPF from DAM
-        runningModels.append(crocoddyl.IntegratedActionModelLPF( dam, 
-                                                                stepTime=self.dt, 
-                                                                withCostResidual=True, 
-                                                                fc=self.f_c, 
-                                                                tau_plus_integration=self.tau_plus_integration,
-                                                                filter=self.LPF_TYPE,
-                                                                is_terminal=False))  
+        runningModels.append(sobec.IntegratedActionModelLPF( dam, 
+                                                             stepTime=self.dt, 
+                                                             withCostResidual=True, 
+                                                             fc=self.f_c, 
+                                                             tau_plus_integration=self.tau_plus_integration,
+                                                             filter=self.LPF_TYPE,
+                                                             is_terminal=False))  
         # Add cost on unfiltered control torque (reg + lim)
         runningModels[i].set_control_reg_cost(self.wRegWeight, w_reg_ref) 
         runningModels[i].set_control_lim_cost(self.wLimWeight) 
@@ -211,30 +209,26 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
         contactModels.append(self.create_contact_model(ct, state, actuation))
 
       # Create terminal DAMContactDyn
-      dam_t = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
-                                                                actuation, 
-                                                                crocoddyl.ContactModelMultiple(state, actuation.nu), 
-                                                                crocoddyl.CostModelSum(state, nu=actuation.nu), 
-                                                                inv_damping=0., 
-                                                                enable_force=True)
+      dam_t = sobec.DifferentialActionModelContactFwdDynamics(state, 
+                                                              actuation, 
+                                                              sobec.ContactModelMultiple(state, actuation.nu), 
+                                                              crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                              inv_damping=0., 
+                                                              enable_force=True)
     # If no contact create DAMFreeDyn
     else:
       dam_t = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
-                                                            actuation, 
-                                                            crocoddyl.CostModelSum(state, nu=actuation.nu))  
+                                                               actuation, 
+                                                               crocoddyl.CostModelSum(state, nu=actuation.nu))  
   
   # Create terminal IAM from terminal DAM
-    terminalModel = crocoddyl.IntegratedActionModelLPF( dam_t, 
-                                                        stepTime=0., 
-                                                        withCostResidual=False, 
-                                                        fc=self.f_c, 
-                                                        # cost_weight_w_reg=self.wRegWeight, 
-                                                        # cost_ref_w_reg=w_reg_ref,
-                                                        # w_gravity_reg=w_gravity_reg,
-                                                        # cost_weight_w_lim=self.wLimWeight,
-                                                        tau_plus_integration=self.tau_plus_integration,
-                                                        filter=self.LPF_TYPE,
-                                                        is_terminal=True)   
+    terminalModel = sobec.IntegratedActionModelLPF( dam_t, 
+                                                    stepTime=0., 
+                                                    withCostResidual=False, 
+                                                    fc=self.f_c, 
+                                                    tau_plus_integration=self.tau_plus_integration,
+                                                    filter=self.LPF_TYPE,
+                                                    is_terminal=True)   
 
   # Create and add terminal cost models to terminal IAM
     # State regularization

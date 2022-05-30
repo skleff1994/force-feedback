@@ -33,7 +33,7 @@ np.set_printoptions(precision=6, linewidth=180, suppress=True)
 
 import crocoddyl
 import pinocchio as pin
-
+import sobec
 
 WITH_COSTS      = False
 ND_DISTURBANCE  = 1e-6
@@ -87,14 +87,14 @@ actuation = crocoddyl.ActuationModelFull(state)
 runningCostModel = crocoddyl.CostModelSum(state)
 # terminalCostModel = crocoddyl.CostModelSum(state)
 # Contact model 
-contactModel = crocoddyl.ContactModelMultiple(state, actuation.nu)
+contactModel = sobec.ContactModelMultiple(state, actuation.nu)
     # Create 3D contact on the en-effector frame
 contact_frame_name = "gripper_left_fingertip_1_link" #'gripper_right_fingertip_1_link' #"arm_right_7_link" 
 contact_frame_id = robot.model.getFrameId(contact_frame_name)
 parent_frame_id = robot.model.frames[contact_frame_id].parent
 contact_position = robot.data.oMf[contact_frame_id].translation.copy()
 baumgarte_gains  = np.array([0., 0])
-contact3d = crocoddyl.ContactModel3D(state, contact_frame_id, contact_position, baumgarte_gains, CONTACT_FRAME) 
+contact3d = sobec.ContactModel3D(state, contact_frame_id, contact_position, baumgarte_gains, CONTACT_FRAME) 
 nc = 3
     # Populate contact model with contacts
 contactModel.addContact("contact_"+contact_frame_name, contact3d, active=True)
@@ -128,7 +128,7 @@ contactModel.addContact("contact_"+contact_frame_name, contact3d, active=True)
 
 # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
 enable_force = True
-DAM    = crocoddyl.DifferentialActionModelContactFwdDynamics(state, actuation, contactModel, runningCostModel, inv_damping=0, enable_force=enable_force)
+DAM    = sobec.DifferentialActionModelContactFwdDynamics(state, actuation, contactModel, runningCostModel, inv_damping=0, enable_force=enable_force)
 DAM_ND = crocoddyl.DifferentialActionModelNumDiff(DAM, GAUSS_APPROX)
 DAD    = DAM.createData()
 DAD_ND = DAM_ND.createData()

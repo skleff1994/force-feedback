@@ -10,6 +10,7 @@
 """
 
 import crocoddyl
+import sobec
 import numpy as np
 from core_mpc import ocp
 
@@ -37,8 +38,6 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       INPUT: 
-          robot       : pinocchio robot wrapper
-          config      : dict from YAML config file of OCP params
           x0          : initial state of shooting problem
           callbacks   : display Crocoddyl's DDP solver callbacks
       OUTPUT:
@@ -74,9 +73,9 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
             contactModels.append(self.create_contact_model(ct, state, actuation))
 
           # Create DAMContactDyn                    
-          dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+          dam = sobec.DifferentialActionModelContactFwdDynamics(state, 
                                                                     actuation, 
-                                                                    crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                                    sobec.ContactModelMultiple(state, actuation.nu), 
                                                                     crocoddyl.CostModelSum(state, nu=actuation.nu), 
                                                                     inv_damping=0., 
                                                                     enable_force=True)
@@ -156,9 +155,9 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
         contactModels.append(self.create_contact_model(ct, state, actuation))
 
       # Create terminal DAMContactDyn
-      dam_t = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+      dam_t = sobec.DifferentialActionModelContactFwdDynamics(state, 
                                                                 actuation, 
-                                                                crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                                sobec.ContactModelMultiple(state, actuation.nu), 
                                                                 crocoddyl.CostModelSum(state, nu=actuation.nu), 
                                                                 inv_damping=0., 
                                                                 enable_force=True)

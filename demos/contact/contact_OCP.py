@@ -15,7 +15,6 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 '''
 
 
-from subprocess import call
 import sys
 sys.path.append('.')
 
@@ -26,11 +25,10 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc import path_utils, pin_utils, plot_utils, misc_utils
+from core_mpc import path_utils, pin_utils, misc_utils
 
-from classical_mpc.data import DDPDataParserClassical
 from classical_mpc.ocp import OptimalControlProblemClassical
-
+from classical_mpc.data import DDPDataHanlderClassical
 
 def main(robot_name, PLOT, DISPLAY):
 
@@ -71,8 +69,9 @@ def main(robot_name, PLOT, DISPLAY):
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
     #  Plot
     if(PLOT):
-        ddp_data = DDPDataParserClassical(ddp).extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
-        _, _ = plot_utils.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], markers=['.'], colors=['b'], SHOW=True)
+        ddp_handler = DDPDataHanlderClassical(ddp)
+        ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
+        _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], markers=['.'], colors=['b'], SHOW=True)
 
 
     # Display solution in Gepetto Viewer
