@@ -91,7 +91,7 @@ runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
 # runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 # runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
 # # runningCostModel.addCost("translation", frameTranslationCost, 1)
-# terminalCostModel.addCost("stateReg", xRegCost, 0.)
+terminalCostModel.addCost("stateReg", xRegCost, 0.)
 # # terminalCostModel.addCost("translation", frameTranslationCost, 1)
 # # terminalCostModel.addCost("velocity", frameVelocityCost, 10)
 
@@ -117,13 +117,13 @@ problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
 ddp = crocoddyl.SolverFDDP(problem)
 ddp.setCallbacks([crocoddyl.CallbackLogger(),
                 crocoddyl.CallbackVerbose()])
-# # Warm start : initial state + gravity compensation
-# xs_init = [x0 for i in range(T+1)]
-# us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq)) for i in range(T)] #ddp.problem.quasiStatic(xs_init[:-1])
+# Warm start : initial state + gravity compensation
+xs_init = [x0 for i in range(T+1)]
+us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq)) for i in range(T)] #ddp.problem.quasiStatic(xs_init[:-1])
 
 # Solve
 # ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-ddp.solve([], [], maxiter=100, isFeasible=False)
+ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 data_handler = DDPDataHanlderClassical(ddp)
 ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
