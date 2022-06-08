@@ -228,7 +228,7 @@ assert(np.linalg.norm(odaq_dx - ldaq_dx) < 1e-3)
 
 
 # Check implemented class
-from dam import DAMSoftContactDynamics1, DAMSoftContactDynamics2
+from dam import DAMSoftContactDynamics
 import crocoddyl
 # State, actuation, cost models
 state = crocoddyl.StateMultibody(model)
@@ -285,7 +285,7 @@ dadf = damf.createData()
 # damc1 = DAMSoftContactDynamics1(state, actuation, runningCostModel, frameId, 0, 0., oPc=np.zeros(3), pinRefFrame=pin.LOCAL)
 # dadc1 = damc1.createData()
 # soft contact (free)
-damc2 = DAMSoftContactDynamics2(state, actuation, runningCostModel, frameId, 0, 0., oPc=np.zeros(3), pinRefFrame=pin.LOCAL)
+damc2 = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, 0, 0., oPc=np.zeros(3), pinRefFrame=pin.LOCAL)
 dadc2 = damc2.createData()
 # Check DAM
 damf.calc(dadf, x0, tau)

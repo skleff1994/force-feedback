@@ -20,7 +20,7 @@ robot = load_robot_wrapper('iiwa')
 model = robot.model ; data = model.createData()
 nq = model.nq; nv = model.nv; nu = nq; nx = nq+nv
 q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
-v0 = np.random.rand(nv)
+v0 = np.zeros(nv) #np.random.rand(nv)
 x0 = np.concatenate([q0, v0])
 pin.computeAllTerms(robot.model, robot.data, q0, v0)
 pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
@@ -31,17 +31,20 @@ frameId = model.getFrameId('contact')
 # initial ee position and contact anchor point
 oPf = data.oMf[frameId].translation
 oRf = data.oMf[frameId].rotation
-oPc = oPf + np.array([0.,.05,0.01]) # + cm in z world np.random.rand(3)
-print("anchor point = \n", oPc)
-ov = pin.getFrameVelocity(model, data, frameId, pin.LOCAL).linear
+oPc = oPf + np.array([0.,.0, 0.05]) # + cm in z world np.random.rand(3)
+print("initial EE position (WORLD) = \n", oPf)
+print("anchor point (WORLD)        = \n", oPc)
+ov = pin.getFrameVelocity(model, data, frameId, pin.LOCAL_WORLD_ALIGNED).linear
+print("initial EE velocity (WORLD) = \n", ov)
 # contact gains
-Kp = 0
+Kp = 1e3
 Kv = 2*np.sqrt(Kp)
-# initial force at LOCAL + at joint level
+print("stiffness = ", Kp)
+print("damping   = ", Kv)
+# initial force in WORLD + at joint level
 of0 = -Kp*(oPf - oPc) - Kv*ov
 fext0 = [pin.Force.Zero() for _ in range(model.njoints)]
 fext0[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(oRf.T @ of0, np.zeros(3)))
-
 print("initial force (WORLD) = \n", of0)
 print("initial force (LOCAL) = \n", oRf.T @ of0)
 
@@ -75,11 +78,11 @@ terminalCostModel = crocoddyl.CostModelSum(state)
 
 
 # Control regularization cost
-uref = np.random.rand(nq) 
+uref = pin_utils.get_tau(q0, np.zeros(nv), np.zeros(nq), fext0, model, np.zeros(nq)) #np.random.rand(nq) 
 uResidual = crocoddyl.ResidualModelControl(state, uref)
 uRegCost = crocoddyl.CostModelResidual(state, uResidual)
-  # State regularization cost
-xResidual = crocoddyl.ResidualModelState(state, x0)
+# State regularization cost
+xResidual = crocoddyl.ResidualModelState(state, np.concatenate([q0, np.zeros(nv)]))
 xRegCost = crocoddyl.CostModelResidual(state, xResidual)
 runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
@@ -91,11 +94,11 @@ runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
 # runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 # runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
 # # runningCostModel.addCost("translation", frameTranslationCost, 1)
-terminalCostModel.addCost("stateReg", xRegCost, 0.)
+terminalCostModel.addCost("stateReg", xRegCost, 1e-2)
 # # terminalCostModel.addCost("translation", frameTranslationCost, 1)
 # # terminalCostModel.addCost("velocity", frameVelocityCost, 10)
 
-dt=1e-2
+dt=1e-3
 
 # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
 dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
@@ -110,7 +113,7 @@ terminalModel = crocoddyl.IntegratedActionModelEuler(dam_t, 0.)
 # terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
 
 # Create the shooting problem
-T = 250
+T = 1000
 problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
 
 # Create solver + callbacks
@@ -129,7 +132,7 @@ data_handler = DDPDataHanlderClassical(ddp)
 ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
 
 
-
+# Extract soft force
 xs = np.array(ddp_data['xs'])
 ps = pin_utils.get_p_(xs[:,:nq], model, frameId)
 vs = pin_utils.get_v_(xs[:,:nq], xs[:,nv:], model, frameId)
