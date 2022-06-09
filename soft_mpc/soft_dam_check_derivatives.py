@@ -276,8 +276,14 @@ uRegCost = crocoddyl.CostModelResidual(state, uResidual)
   # State regularization cost
 xResidual = crocoddyl.ResidualModelState(state, x0)
 xRegCost = crocoddyl.CostModelResidual(state, xResidual)
+  # Frame translation cost
+endeff_frame_id = model.getFrameId("gripper_left_fingertip_1_link") ; endeff_translation = oPc 
+frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
+frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
+  # Cost model 
 runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
+runningCostModel.addCost("translation", frameTranslationCost, 10)
 # terminalCostModel.addCost("stateReg", xRegCost, 1.)
 
 # free model
@@ -304,7 +310,7 @@ damc2.calcDiff(dadc2, x0, tau)
 # assert(np.linalg.norm(dadf.Fx - dadc1.Fx)<1e-4)
 assert(np.linalg.norm(dadf.Fx - dadc2.Fx)<1e-4)
 # Check IAM
-dt = 0.01
+dt = 0.001
 iamf = crocoddyl.IntegratedActionModelEuler(damf, dt)
 # iamc1 = crocoddyl.IntegratedActionModelEuler(damc1, dt)
 iamc2 = crocoddyl.IntegratedActionModelEuler(damc2, dt)

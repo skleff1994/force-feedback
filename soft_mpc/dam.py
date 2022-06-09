@@ -174,7 +174,7 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
     '''
     def __init__(self, stateMultibody, actuationModel, costModelSum, frameId, Kp=1e3, Kv=60, oPc=np.zeros(3), pinRefFrame=pin.LOCAL):
         # super(DAMSoftContactDynamics, self).__init__(stateMultibody, actuationModel.nu, costModelSum.nr)
-        crocoddyl.DifferentialActionModelAbstract.__init__(self, crocoddyl.StateVector(stateMultibody.nx), actuationModel.nu, costModelSum.nr)
+        crocoddyl.DifferentialActionModelAbstract.__init__(self, stateMultibody, actuationModel.nu, costModelSum.nr)
         self.Kp = Kp 
         self.Kv = Kv
         self.pinRef = pinRefFrame
@@ -189,7 +189,8 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
         # hard coded costs 
         self.with_force_cost = False
         # return self
-        
+        # crocoddyl.DifferentialActionModelAbstract.__init__(self, crocoddyl.StateVector(stateMultibody.nx), actuationModel.nu, costModelSum.nr)
+
     def createData(self):
         '''
             The data is created with a custom data class that contains the filtered torque tau_plus and the activation
@@ -278,6 +279,11 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
         data.Fu = aba_dtau @ data.multibody.actuation.dtau_du
         assert(np.linalg.norm(aba_dtau - data.pinocchio.Minv) <1e-4)
         self.costs.calcDiff(data.costs, x, u)
+        data.Lx = data.costs.Lx
+        data.Lu = data.costs.Lu
+        data.Lxx = data.costs.Lxx
+        data.Lxu = data.costs.Lxu
+        data.Luu = data.costs.Luu
         # add hard-coded cost
         if(self.with_force_cost):
             # self.f_residual = data.f - self.f_des
@@ -291,7 +297,8 @@ class DADSoftContactDynamics(crocoddyl.DifferentialActionDataAbstract):
     Creates a data class with differential and augmented matrices from IAM (initialized with stateVector)
     '''
     def __init__(self, am):
-        super().__init__(am)
+        # super().__init__(am)
+        crocoddyl.DifferentialActionDataAbstract.__init__(self, am)
         self.Fx = np.zeros((am.state.nq, am.state.nx))
         self.Fu = np.zeros((am.state.nq, am.nu))
         self.Lx = np.zeros(am.state.nx)
@@ -311,7 +318,7 @@ class DADSoftContactDynamics(crocoddyl.DifferentialActionDataAbstract):
         self.actuation_data = am.actuation.createData()
         self.multibody = crocoddyl.DataCollectorActMultibody(self.pinocchio, self.actuation_data)
         self.costs = am.costs.createData(crocoddyl.DataCollectorMultibody(self.pinocchio))
-
+        
 
 
 
