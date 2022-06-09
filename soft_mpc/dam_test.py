@@ -14,7 +14,7 @@ from classical_mpc.data import DDPDataHanlderClassical
 from core_mpc import pin_utils
 
 
-REF_FRAME = pin.LOCAL_WORLD_ALIGNED
+REF_FRAME = pin.LOCAL
 
 robot = load_robot_wrapper('iiwa')
 model = robot.model ; data = model.createData()
@@ -31,14 +31,14 @@ frameId = model.getFrameId('contact')
 # initial ee position and contact anchor point
 oPf = data.oMf[frameId].translation
 oRf = data.oMf[frameId].rotation
-oPc = oPf + np.array([0.05,.0, 0]) # + cm in x world np.random.rand(3)
+oPc = oPf + np.array([0.0,.0, 0]) # + cm in x world np.random.rand(3)
 print("initial EE position (WORLD) = \n", oPf)
 print("anchor point (WORLD)        = \n", oPc)
 ov = pin.getFrameVelocity(model, data, frameId, REF_FRAME).linear
 print("initial EE velocity (WORLD) = \n", ov)
 # contact gains
-Kp = 0
-Kv = 0*np.sqrt(Kp)
+Kp = 1000
+Kv = 2*np.sqrt(Kp)
 print("stiffness = ", Kp)
 print("damping   = ", Kv)
 # initial force in WORLD + at joint level
@@ -74,8 +74,8 @@ endeff_translation = oPc #np.array([-0.4, 0.3, 0.7]) # move endeff +10 cm along 
 frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
 frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
 
-# frameVelocityResidual = crocoddyl.ResidualModelFrameVelocity(state, endeff_frame_id, pin.Motion.Zero(), pin.WORLD)
-# frameVelocityCost = crocoddyl.CostModelResidual(state, frameVelocityResidual)
+frameVelocityResidual = crocoddyl.ResidualModelFrameVelocity(state, endeff_frame_id, pin.Motion.Zero(), pin.WORLD)
+frameVelocityCost = crocoddyl.CostModelResidual(state, frameVelocityResidual)
 
 
 # Control regularization cost
@@ -85,25 +85,21 @@ uRegCost = crocoddyl.CostModelResidual(state, uResidual)
 # State regularization cost
 xResidual = crocoddyl.ResidualModelState(state, np.concatenate([q0, np.zeros(nv)]))
 xRegCost = crocoddyl.CostModelResidual(state, xResidual)
+
 runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
-
-
-
-
-# # Add costs
 # runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 # runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
-runningCostModel.addCost("translation", frameTranslationCost, 1e-1)
-terminalCostModel.addCost("stateReg", xRegCost, 1e-4)
-terminalCostModel.addCost("translation", frameTranslationCost, 1)
+# runningCostModel.addCost("translation", frameTranslationCost, 1e-1)
+terminalCostModel.addCost("stateReg", xRegCost, 1e-2)
+# terminalCostModel.addCost("translation", frameTranslationCost, 1e-1)
 # terminalCostModel.addCost("velocity", frameVelocityCost, 1)
 
 dt=1e-2
 
 # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
 dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
-dam.set_force_cost(np.array([-0.,0.,0.]), 0.)
+dam.set_force_cost(np.array([10.,0.,0.]), 1e-1)
 dam_t = DAMSoftContactDynamics(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
 
 # Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost

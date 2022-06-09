@@ -283,7 +283,7 @@ frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidu
   # Cost model 
 runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
-runningCostModel.addCost("translation", frameTranslationCost, 10)
+# runningCostModel.addCost("translation", frameTranslationCost, 1)
 # terminalCostModel.addCost("stateReg", xRegCost, 1.)
 
 # free model
