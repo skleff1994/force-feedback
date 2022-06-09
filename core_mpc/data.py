@@ -383,7 +383,7 @@ class DDPDataHanlderAbstract:
       f_ee_lin = f[:,:3]
       f_ee_ang = f[:,3:]
       # Get desired contact wrench (linear, angular)
-      if('force' in ddp_data['active_costs']):
+      if('force_ref' in ddp_data.keys()):
           f_ee_ref = np.array(ddp_data['force_ref'])
       else:
           f_ee_ref = np.zeros((N,6))
@@ -401,7 +401,7 @@ class DDPDataHanlderAbstract:
           ax[i,0].plot(tspan, f_ee_lin[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
 
           # Plot desired contact linear wrench (force) in LOCAL frame 
-          if('force' in ddp_data['active_costs']):
+          if('force_ref' in ddp_data.keys()):
               handles, labels = ax[i,0].get_legend_handles_labels()
               if('reference' in labels):
                   handles.pop(labels.index('reference'))
@@ -419,7 +419,7 @@ class DDPDataHanlderAbstract:
           ax[i,1].plot(tspan, f_ee_ang[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
 
           # Plot desired contact anguler wrench (torque) in LOCAL frame
-          if('force' in ddp_data['active_costs']):
+          if('force_ref' in ddp_data.keys()):
               handles, labels = ax[i,1].get_legend_handles_labels()
               if('reference' in labels):
                   handles.pop(labels.index('reference'))

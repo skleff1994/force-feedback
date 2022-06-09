@@ -186,7 +186,7 @@ lv_partial_dq, lv_partial_dv = pin.getFrameVelocityDerivatives(model, data, fram
 dlf_dx[:,:nq] = -Kp * (lJ[:3] + pin.skew(oRf.T @ (data.oMf[frameId].translation - oPc)) @ lJ[3:]) - Kv*lv_partial_dq[:3]
 dlf_dx[:,nq:] = -Kv*lv_partial_dv[:3]
 assert(np.linalg.norm(dlf_dx - dlf_dx_ND) < 1e-3)
-#         # world ### FAILS because of frameVelDerivatives in LWA ?
+#         # world ### FAILS because of frameVelDerivatives in LWA 
 # dof_dx = np.zeros((3,nx))
 # ov_partial_dq, ov_partial_dv = pin.getFrameVelocityDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
 # dof_dx[:,:nq] = -Kp * oJ[:3] - Kv*ov_partial_dq[:3]
@@ -234,6 +234,7 @@ import crocoddyl
 state = crocoddyl.StateMultibody(model)
 actuation = crocoddyl.ActuationModelFull(state)
 runningCostModel = crocoddyl.CostModelSum(state)
+# terminalCostModel = crocoddyl.CostModelSum(state)
 
 # # Custom DAM to check 
 # dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
@@ -277,6 +278,7 @@ xResidual = crocoddyl.ResidualModelState(state, x0)
 xRegCost = crocoddyl.CostModelResidual(state, xResidual)
 runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
+# terminalCostModel.addCost("stateReg", xRegCost, 1.)
 
 # free model
 damf = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, actuation, runningCostModel)
@@ -285,7 +287,7 @@ dadf = damf.createData()
 # damc1 = DAMSoftContactDynamics1(state, actuation, runningCostModel, frameId, 0, 0., oPc=np.zeros(3), pinRefFrame=pin.LOCAL)
 # dadc1 = damc1.createData()
 # soft contact (free)
-damc2 = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, 0, 0., oPc=np.zeros(3), pinRefFrame=pin.LOCAL)
+damc2 = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp=0, Kv=0., oPc=np.zeros(3), pinRefFrame=pin.LOCAL)
 dadc2 = damc2.createData()
 # Check DAM
 damf.calc(dadf, x0, tau)
@@ -331,10 +333,19 @@ tamf = crocoddyl.IntegratedActionModelEuler(damf, 0.)
 tamc2 = crocoddyl.IntegratedActionModelEuler(damc2, 0.)
 
 
-N = 5
+N = 100
 pbf = crocoddyl.ShootingProblem(x0, [iamf]*N, tamf)
 # pbc1 = crocoddyl.ShootingProblem(x0, [iamc1]*N, tamc1)
 pbc2 = crocoddyl.ShootingProblem(x0, [iamc2]*N, tamc2)
+
+# Compare calc and calcDiff
+# Warm start : initial state + gravity compensation
+lfext0 = [pin.Force.Zero() for _ in range(model.njoints)]
+from core_mpc import pin_utils
+xs_init = [x0 for i in range(N+1)]
+us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), lfext0, model, np.zeros(nq)) for i in range(N)] #ddp.problem.quasiStatic(xs_init[:-1])
+# pbf.calc(xs_init, us_init)
+
 
 ddpf = crocoddyl.SolverFDDP(pbf)
 # ddpc1 = crocoddyl.SolverFDDP(pbc1)
@@ -347,6 +358,16 @@ ddpf.setCallbacks([crocoddyl.CallbackLogger(),
 ddpc2.setCallbacks([crocoddyl.CallbackLogger(),
                 crocoddyl.CallbackVerbose()])
 # ddpc.reg_incFactor = 1.01
+
+# # Warm start : initial state + gravity compensation
+# lfext0 = [pin.Force.Zero() for _ in range(model.njoints)]
+# from core_mpc import pin_utils
+# xs_init = [x0 for i in range(N+1)]
+# us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), lfext0, model, np.zeros(nq)) for i in range(N)] #ddp.problem.quasiStatic(xs_init[:-1])
+# ddpf.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+# ddpc2.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+
+
 ddpf.solve([], [], maxiter=100, isFeasible=False)
 # ddpc1.solve([], [], maxiter=100, isFeasible=False)
 ddpc2.solve([], [], maxiter=100, isFeasible=False)
