@@ -127,7 +127,7 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
         data.Luu = data.costs.Luu
         # add hard-coded cost
         if(self.with_force_cost):
-            # self.f_residual = data.f - self.f_des
+            self.f_residual = data.f - self.f_des
             data.Lx += self.f_weight * self.f_residual.T @ data.df_dx 
             data.Lxx += self.f_weight * data.df_dx.T @ data.df_dx 
 

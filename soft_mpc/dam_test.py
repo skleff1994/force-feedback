@@ -31,10 +31,10 @@ frameId = model.getFrameId('contact')
 # initial ee position and contact anchor point
 oPf = data.oMf[frameId].translation
 oRf = data.oMf[frameId].rotation
-oPc = oPf + np.array([0.0,.0, 0]) # + cm in x world np.random.rand(3)
+oPc = oPf + np.array([0.1,.0, 0]) # + cm in x world np.random.rand(3)
 print("initial EE position (WORLD) = \n", oPf)
 print("anchor point (WORLD)        = \n", oPc)
-ov = pin.getFrameVelocity(model, data, frameId, REF_FRAME).linear
+ov = pin.getFrameVelocity(model, data, frameId, pin.WORLD).linear
 print("initial EE velocity (WORLD) = \n", ov)
 # contact gains
 Kp = 1000
@@ -99,7 +99,7 @@ dt=1e-2
 
 # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
 dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
-dam.set_force_cost(np.array([10.,0.,0.]), 1e-1)
+dam.set_force_cost(np.array([10.,0.,0.]), 0)
 dam_t = DAMSoftContactDynamics(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
 
 # Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
