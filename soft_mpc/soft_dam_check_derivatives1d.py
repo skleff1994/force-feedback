@@ -143,7 +143,7 @@ oRf = data.oMf[frameId].rotation
 # anchor point world
 oPc = np.random.rand(3) 
 # lPc = oRf.T @ oPc
-mask = 2
+mask = 0
 # mask = 1
 # mask = 2
 
@@ -197,7 +197,7 @@ dlf3d_dx[:,:nq] = -Kp * (lJ[:3] + pin.skew(oRf.T @ (data.oMf[frameId].translatio
 dlf3d_dx[:,nq:] = -Kv*lv_partial_dv[:3]
 dlf_dx = dlf3d_dx[mask,:]
 assert(np.linalg.norm(dlf_dx - dlf_dx_ND) < 1e-3)
-#         # world ### FAILS because of frameVelDerivatives in LWA 
+#         # world ### FAILS because of frameVelDerivatives in LWA : need to add some skew term to make it work
 # dof_dx = np.zeros((3,nx))
 # ov_partial_dq, ov_partial_dv = pin.getFrameVelocityDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED) 
 # dof_dx[:,:nq] = -Kp * oJ[:3] - Kv*ov_partial_dq[:3]
@@ -226,10 +226,11 @@ oaba_dq, oada_dv, oaba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau
 odaq_dx = np.zeros((nq, nx))
 odaq_du = np.zeros((nq, nu))
 odaq_dx[:,:nq] = oaba_dq + data.Minv @ np.array([oJ[mask]]).T @ np.array([dof_dx[:nq]])
-odaq_dx[:,nq:] = oaba_dq + data.Minv @ np.array([oJ[mask]]).T @ np.array([dof_dx[nq:]])
+odaq_dx[:,nq:] = oada_dv + data.Minv @ np.array([oJ[mask]]).T @ np.array([dof_dx[nq:]])
 odaq_du = oaba_dtau
     # compare numdiff
 odaq_dx_ND = numdiff(lambda x_:fdyn_world(model, data, frameId, x_, tau, Kp, Kv, oPc, mask), x0)
+assert(np.linalg.norm(odaq_dx - odaq_dx_ND) < 1e-3)
 
 
 
