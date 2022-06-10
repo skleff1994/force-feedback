@@ -70,6 +70,8 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
             ov = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED).linear
             assert(np.linalg.norm(ov - oRf @ lv ) < 1e-4)
             data.f = -self.Kp * ( data.pinocchio.oMf[self.frameId].translation - self.oPc ) - self.Kv * oRf @ lv
+            # print('local = ', oRf @ data.f_copy)
+            # print('world = ', data.f)
             assert(np.linalg.norm(data.f - oRf @ data.f_copy) < 1e-4)
             assert(np.linalg.norm(oRf.T @ data.f - data.f_copy) < 1e-4)
             data.fext[self.pinocchio.frames[self.frameId].parent] = self.pinocchio.frames[self.frameId].placement.act(pin.Force(oRf.T @ data.f, np.zeros(3)))
