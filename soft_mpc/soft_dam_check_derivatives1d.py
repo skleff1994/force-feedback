@@ -143,7 +143,7 @@ oRf = data.oMf[frameId].rotation
 # anchor point world
 oPc = np.random.rand(3) 
 # lPc = oRf.T @ oPc
-mask = 0
+mask = 2
 # mask = 1
 # mask = 2
 

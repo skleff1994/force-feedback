@@ -8,7 +8,7 @@ np.random.seed(1)
 import crocoddyl
 import pinocchio as pin
 
-from dam import DAMSoftContactDynamics
+from soft_mpc.dam3d import DAMSoftContactDynamics
 from core_mpc.pin_utils import load_robot_wrapper
 from classical_mpc.data import DDPDataHanlderClassical
 from core_mpc import pin_utils
@@ -79,9 +79,9 @@ runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
 # runningCostModel.addCost("stateReg", xRegCost, 1e-2)
 # runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
-# runningCostModel.addCost("translation", frameTranslationCost, 1e-1)
+runningCostModel.addCost("translation", frameTranslationCost, 1e-1)
 terminalCostModel.addCost("stateReg", xRegCost, 1e-2)
-# terminalCostModel.addCost("translation", frameTranslationCost, 1e-1)
+terminalCostModel.addCost("translation", frameTranslationCost, 1e-1)
 # terminalCostModel.addCost("velocity", frameVelocityCost, 1)
 
 

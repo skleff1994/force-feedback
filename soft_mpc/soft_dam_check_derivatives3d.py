@@ -1,6 +1,6 @@
 import numpy as np
 np.set_printoptions(precision=6, linewidth=180, suppress=True)
-np.random.seed(1)
+np.random.seed(10)
 
 import example_robot_data 
 import pinocchio as pin
@@ -132,7 +132,7 @@ contactFrameName = "gripper_left_fingertip_1_link"
 model = robot.model
 data = robot.model.createData()
 frameId = model.getFrameId(contactFrameName)
-Kp = 100 #need to increase tolerances of assert if high gains
+Kp = 100*np.random.rand(1) #need to increase tolerances of assert if high gains
 Kv = 2*np.sqrt(Kp)
 pin.computeAllTerms(model, data, q0, v0)
 pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
@@ -207,28 +207,29 @@ ldaq_dx[:,nq:] = lada_dv + data.Minv @ lJ[:3].T @ dlf_dx[:,nq:]
 ldaq_du = laba_dtau
     # compare numdiff
 ldaq_dx_ND = numdiff(lambda x_:fdyn_local(model, data, frameId, x_, tau, Kp, Kv, oPc), x0)
-assert(np.linalg.norm(ldaq_dx - ldaq_dx_ND) < 1e-3)
-    # world !!! needs to be the same as local since using same force (joint level)
+assert(np.linalg.norm(ldaq_dx - ldaq_dx_ND) < 1e-2)
+    # world needs to be the same as local since using same force (joint level)
 # print(ofext)
 # print(lfext)
-# oaba_dq, oada_dv, oaba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, ofext)
-# odaq_dx = np.zeros((nq, nx))
-# odaq_du = np.zeros((nq, nu))
-# odaq_dx[:,:nq] = oaba_dq + data.Minv @ lJ[:3].T @ dlf_dx[:,:nq]
-# odaq_dx[:,nq:] = oaba_dq + data.Minv @ lJ[:3].T @ dlf_dx[:,nq:]
-# odaq_du = oaba_dtau
-odaq_dx = ldaq_dx
+oaba_dq, oada_dv, oaba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, lfext)
+odaq_dx = np.zeros((nq, nx))
+odaq_du = np.zeros((nq, nu))
+odaq_dx[:,:nq] = laba_dq + data.Minv @ lJ[:3].T @ dlf_dx[:,:nq]
+odaq_dx[:,nq:] = lada_dv + data.Minv @ lJ[:3].T @ dlf_dx[:,nq:]
+odaq_du = oaba_dtau
+# odaq_dx = ldaq_dx
     # compare numdiff
 odaq_dx_ND = numdiff(lambda x_:fdyn_world(model, data, frameId, x_, tau, Kp, Kv, oPc), x0)
 # print(odaq_dx)
 # print(ldaq_dx)
+assert(np.linalg.norm(odaq_dx - odaq_dx_ND) < 1e-2)
 assert(np.linalg.norm(odaq_dx - ldaq_dx) < 1e-3)
 
 
 
 
 # Check implemented class
-from dam import DAMSoftContactDynamics
+from soft_mpc.dam3d import DAMSoftContactDynamics
 import crocoddyl
 # State, actuation, cost models
 state = crocoddyl.StateMultibody(model)
