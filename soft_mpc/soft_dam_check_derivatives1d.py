@@ -143,8 +143,8 @@ oRf = data.oMf[frameId].rotation
 # anchor point world
 oPc = np.random.rand(3) 
 # lPc = oRf.T @ oPc
-mask = 0
-# mask = 1
+# mask = 0
+mask = 2
 # mask = 2
 
 # Compute visco-elastic contact force 
@@ -212,26 +212,45 @@ dof_dx = dof3d_dx[mask,:]
 assert(np.linalg.norm(dof_dx - dof_dx_ND) < 1e-3)
 # Compute the derivative of joint acceleration
     # LOCAL 
-laba_dq, lada_dv, laba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, lfext)
+laba_dq, laba_dv, laba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, lfext)
+# print('LOCAL aba derivatives q : \n', laba_dq)
+# laba_dx = np.hstack([laba_dq.copy(), laba_dv.copy()])
+laba_dq_copy = laba_dq.copy()
+laba_dv_copy = laba_dv.copy()
+# print('LOCAL aba derivatives x : \n', laba_dx)
 ldaq_dx = np.zeros((nq, nx))
 ldaq_du = np.zeros((nq, nq))
-ldaq_dx[:,:nq] = laba_dq + data.Minv @ np.array([lJ[mask]]).T @ np.array([dlf_dx[:nq]])
-ldaq_dx[:,nq:] = lada_dv + data.Minv @ np.array([lJ[mask]]).T @ np.array([dlf_dx[nq:]])
+ldaq_dx[:,:nq] = laba_dq_copy + data.Minv @ np.array([lJ[mask]]).T @ np.array([dlf_dx[:nq]])
+ldaq_dx[:,nq:] = laba_dv_copy + data.Minv @ np.array([lJ[mask]]).T @ np.array([dlf_dx[nq:]])
 ldaq_du = laba_dtau
     # compare numdiff
 ldaq_dx_ND = numdiff(lambda x_:fdyn_local(model, data, frameId, x_, tau, Kp, Kv, oPc, mask), x0)
-assert(np.linalg.norm(ldaq_dx - ldaq_dx_ND) < 1e-3)
+assert(np.linalg.norm(ldaq_dx - ldaq_dx_ND) < 2e-3)
     # WORLD (not same as LOCAL in 1D !!!!)
-oaba_dq, oada_dv, oaba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, ofext)
+oaba_dq, oaba_dv, oaba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, ofext)
+# print('WORLD aba derivatives q : \n', oaba_dq)
+oaba_dx = np.hstack([oaba_dq, oaba_dv])
+oaba_dq_copy = oaba_dq.copy()
+oaba_dv_copy = oaba_dv.copy()
+# print('WORLD aba derivatives x : \n', oaba_dx)
+# check that numdiff aba = aba derivatives in WORLD
+def aba_world(model, data, state, torque, world_fext):
+    pos = state[:nq]
+    vel = state[nq:]
+    return pin.aba(model, data, pos, vel, torque, world_fext)
+oaba_dx_ND = numdiff(lambda x_:aba_world(model, data, x_, tau, ofext), x0)
+assert(np.linalg.norm(oaba_dx_ND - oaba_dx) < 1e-3) # OK 
+# Formula for d (aq) / dx from ABA derivatives and force derivatives
 odaq_dx = np.zeros((nq, nx))
 odaq_du = np.zeros((nq, nu))
-odaq_dx[:,:nq] = oaba_dq + data.Minv @ np.array([oJ[mask]]).T @ np.array([dof_dx[:nq]])
-odaq_dx[:,nq:] = oada_dv + data.Minv @ np.array([oJ[mask]]).T @ np.array([dof_dx[nq:]])
+odaq_dx[:,:nq] = oaba_dq_copy + data.Minv @ np.array([oJ[mask]]).T @ np.array([dof_dx[:nq]]) # error in dq, dv ok
+odaq_dx[:,nq:] = oaba_dv_copy + data.Minv @ np.array([oJ[mask]]).T @ np.array([dof_dx[nq:]])
+# odaq_dx[:,:nq] = laba_dq_copy + data.Minv @ np.array([lJ[mask]]).T @ np.array([dlf_dx[:nq]])   # not true !!!
+# odaq_dx[:,nq:] = laba_dv_copy + data.Minv @ np.array([lJ[mask]]).T @ np.array([dlf_dx[nq:]])
 odaq_du = oaba_dtau
     # compare numdiff
 odaq_dx_ND = numdiff(lambda x_:fdyn_world(model, data, frameId, x_, tau, Kp, Kv, oPc, mask), x0)
-assert(np.linalg.norm(odaq_dx - odaq_dx_ND) < 1e-3)
-
+assert(np.linalg.norm(odaq_dx - odaq_dx_ND) < 1e-3) 
 
 
 # # Check implemented class

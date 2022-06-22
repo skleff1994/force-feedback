@@ -164,6 +164,8 @@ assert(np.linalg.norm(of - oRf @ lf) < 1e-4)
 ofext = [pin.Force.Zero() for _ in range(model.njoints)]
 ofext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(oRf.T @ of, np.zeros(3)))
 oaq = pin.aba(model, data, q0, v0, tau, ofext)
+# print("joint FORCE (LOCAL) : \n", lfext) # same
+# print("joint FORCE (WORLD) : \n", ofext) # same
 assert(np.linalg.norm(oaq - fdyn_world(model, data, frameId, x0, tau, Kp, Kv, oPc)) <1e-4)
 assert(np.linalg.norm(oaq - laq) < 1e-4)
 print("joint acc (LOCAL) : \n", laq)
@@ -199,23 +201,35 @@ dof_dx[:,nq:] = oRf @ dlf_dx[:,nq:]
 assert(np.linalg.norm(dof_dx - dof_dx_ND) < 1e-3)
 # Compute the derivative of joint acceleration
     # local 
-laba_dq, lada_dv, laba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, lfext)
+laba_dq, laba_dv, laba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, lfext)
 ldaq_dx = np.zeros((nq, nx))
 ldaq_du = np.zeros((nq, nq))
 ldaq_dx[:,:nq] = laba_dq + data.Minv @ lJ[:3].T @ dlf_dx[:,:nq]
-ldaq_dx[:,nq:] = lada_dv + data.Minv @ lJ[:3].T @ dlf_dx[:,nq:]
+ldaq_dx[:,nq:] = laba_dv + data.Minv @ lJ[:3].T @ dlf_dx[:,nq:]
 ldaq_du = laba_dtau
     # compare numdiff
 ldaq_dx_ND = numdiff(lambda x_:fdyn_local(model, data, frameId, x_, tau, Kp, Kv, oPc), x0)
 assert(np.linalg.norm(ldaq_dx - ldaq_dx_ND) < 1e-2)
     # world needs to be the same as local since using same force (joint level)
-# print(ofext)
-# print(lfext)
-oaba_dq, oada_dv, oaba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, lfext)
+print("ofext = ", ofext)
+print("lfext = ", lfext)
+oaba_dq, oaba_dv, oaba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, ofext)
+oaba_dx = np.hstack([oaba_dq, oaba_dv])
+# check that numdiff aba = aba derivatives in WORLD
+def aba_world(model, data, state, torque, world_fext):
+    pos = state[:nq]
+    vel = state[nq:]
+    return pin.aba(model, data, pos, vel, torque, world_fext)
+oaba_dx_ND = numdiff(lambda x_:aba_world(model, data, x_, tau, ofext), x0)
+assert(np.linalg.norm(oaba_dx_ND - oaba_dx) < 1e-3) # OK 
+# Formula for d (aq) / dx from ABA derivatives and force derivatives
 odaq_dx = np.zeros((nq, nx))
 odaq_du = np.zeros((nq, nu))
+# d(aq)/dx = d(ABA)/dq + Minv*Jt*df/dq 
 odaq_dx[:,:nq] = laba_dq + data.Minv @ lJ[:3].T @ dlf_dx[:,:nq]
-odaq_dx[:,nq:] = lada_dv + data.Minv @ lJ[:3].T @ dlf_dx[:,nq:]
+odaq_dx[:,nq:] = laba_dv + data.Minv @ lJ[:3].T @ dlf_dx[:,nq:] # this must be true since da_dx ok ND . But coincidence?
+# odaq_dx[:,:nq] = oaba_dq + data.Minv @ oJ[:3].T @ dof_dx[:,:nq] # this is wrong !!!
+# odaq_dx[:,nq:] = oaba_dv + data.Minv @ oJ[:3].T @ dof_dx[:,nq:] 
 odaq_du = oaba_dtau
 # odaq_dx = ldaq_dx
     # compare numdiff
