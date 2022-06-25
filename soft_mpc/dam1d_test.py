@@ -95,10 +95,10 @@ dam_t = DAMSoftContactDynamics(state, actuation, terminalCostModel, frameId, Kp,
 
 # Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
 dt=1e-2
-runningModel = crocoddyl.IntegratedActionModelRK4(dam, dt)
-terminalModel = crocoddyl.IntegratedActionModelRK4(dam_t, 0.)
-# runningModel = crocoddyl.IntegratedActionModelEuler(dam, dt)
-# terminalModel = crocoddyl.IntegratedActionModelEuler(dam_t, 0.)
+# runningModel = crocoddyl.IntegratedActionModelRK4(dam, dt)
+# terminalModel = crocoddyl.IntegratedActionModelRK4(dam_t, 0.)
+runningModel = crocoddyl.IntegratedActionModelEuler(dam, dt)
+terminalModel = crocoddyl.IntegratedActionModelEuler(dam_t, 0.)
 
 
 # # Optionally add armature to take into account actuator's inertia

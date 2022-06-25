@@ -88,7 +88,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   frame_name = config['frameTranslationFrameName']
   if(PLOT_INIT):
     ddp_handler = DDPDataHandlerLPF(ddp)
-    ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name)
+    ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
     _, _ = ddp_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 

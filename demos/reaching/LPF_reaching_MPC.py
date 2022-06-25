@@ -41,7 +41,7 @@ from core_mpc import ocp, path_utils, pin_utils, mpc_utils, misc_utils
 
 
 from lpf_mpc.data import DDPDataHandlerLPF, MPCDataHandlerLPF
-from lpf_mpc.ocp import OptimalControlProblemLPF
+from lpf_mpc.ocp import OptimalControlProblemLPF, getJointAndStateIds
 
 def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
@@ -74,9 +74,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### OCP SETUP ###
   # # # # # # # # # 
   # Setup Crocoddyl OCP and create solver
-  ug = pin_utils.get_u_grav(q0, robot.model, config['armature'])
-  y0 = np.concatenate([x0, ug])
-  ddp = OptimalControlProblemLPF(robot, config).initialize(y0, callbacks=False)
+  ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
+  lpf_joint_names = [] #['A1', 'A2', 'A3', 'A4', 'A5', 'A6'] #robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #
+  _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
+  n_lpf = len(lpf_joint_names)
+  y0 = np.concatenate([x0, ug[lpfStateIds]])
+  ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=True)
   # Warm start and solve 
   xs_init = [y0 for i in range(config['N_h']+1)]
   us_init = [ug for i in range(config['N_h'])]
@@ -94,7 +97,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
   # # # # # # # # # # #
-  sim_data = MPCDataHandlerLPF(config, robot)
+  sim_data = MPCDataHandlerLPF(config, robot, n_lpf)
   sim_data.init_sim_data(y0)
     # Replan & control counters
   nb_plan = 0
@@ -161,7 +164,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
         K = ddp.K[0]
         alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
         Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*K
-        Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
+        Ktilde[:,nq+nv:nq+nv+n_lpf] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nv)[:,lpfStateIds] # only for torques
         tau_mea_SIMU += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:nq+nv]) #position vel
         tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])       # torques
       # Send output of actuation torque to the RBD simulator 
@@ -172,7 +175,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
       # Record data (unnoised)
-      y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
+      y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU[lpfStateIds]]).T 
       sim_data.state_mea_no_noise_SIMU[i+1, :] = y_mea_SIMU
       # Sensor model (optional noise + filtering)
       sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)

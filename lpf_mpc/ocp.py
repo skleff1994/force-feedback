@@ -17,18 +17,33 @@ from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMA
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
+def getJointAndStateIds(rmodel, jointNames):
+  jointIds = [] ; stateIds = []
+  for name in jointNames:
+    jid = rmodel.getJointId(name)
+    if(rmodel.joints[jid].nv ==1):
+      jointIds.append(jid)
+      if(rmodel.joints[1].nv > 1):
+        stateIds.append(rmodel.idx_vs[jid] - 6)
+      else:
+        stateIds.append(rmodel.idx_vs[jid])
+  return jointIds, stateIds
 
 class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
   '''
   Helper class for Low-Pass Filter (LPF) OCP setup with Crocoddyl
    to allow joint torque feedback in the MPC 
   '''
-  def __init__(self, robot, config):
+  def __init__(self, robot, config, lpf_joint_names):
     '''
     Override base class constructor if necessary
     '''
     super().__init__(robot, config)
-  
+
+    self.lpf_joint_names = lpf_joint_names
+    self.n_lpf = len(self.lpf_joint_names)
+    self.lpf_joint_ids, self.lpf_state_ids = getJointAndStateIds(self.rmodel, self.lpf_joint_names)
+
   def check_config(self):
     '''
     Override base class checks if necessary
@@ -131,7 +146,8 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
                                                                  crocoddyl.CostModelSum(state, nu=actuation.nu))
       
       # Create IAMLPF from DAM
-        runningModels.append(sobec.IntegratedActionModelLPF( dam, 
+        runningModels.append(sobec.IntegratedActionModelLPF( dam,
+                                                             LPFJointNames=self.lpf_joint_names, 
                                                              stepTime=self.dt, 
                                                              withCostResidual=True, 
                                                              fc=self.f_c, 
@@ -139,7 +155,7 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
                                                              filter=self.LPF_TYPE,
                                                              is_terminal=False))  
         # Add cost on unfiltered control torque (reg + lim)
-        runningModels[i].set_control_reg_cost(self.wRegWeight, w_reg_ref) 
+        runningModels[i].set_control_reg_cost(self.wRegWeight, w_reg_ref[self.lpf_state_ids]) 
         runningModels[i].set_control_lim_cost(self.wLimWeight) 
       
       # Create and add cost function terms to current IAM
@@ -223,6 +239,7 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
   
   # Create terminal IAM from terminal DAM
     terminalModel = sobec.IntegratedActionModelLPF( dam_t, 
+                                                    LPFJointNames=self.lpf_joint_names, 
                                                     stepTime=0., 
                                                     withCostResidual=False, 
                                                     fc=self.f_c, 
@@ -275,6 +292,7 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
     logger.info("Created IAMs.")  
 
   # Create the shooting problem
+    # y0LPF = np.concatenate([y0[:self.nq+self.nv], y0[-self.nv:][self.state_ids]])
     problem = crocoddyl.ShootingProblem(y0, runningModels, terminalModel)
   
   # Creating the DDP solver 

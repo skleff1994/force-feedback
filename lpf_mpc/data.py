@@ -26,8 +26,9 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 # Classical OCP data handler : extract data + generate fancy plots
 class DDPDataHandlerLPF(DDPDataHanlderAbstract):
-  def __init__(self, ddp):
+  def __init__(self, ddp, n_lpf):
     super().__init__(ddp)
+    self.n_lpf = n_lpf
 
   def extract_data(self, ee_frame_name, ct_frame_name):
     '''
@@ -134,7 +135,7 @@ class DDPDataHandlerLPF(DDPDataHanlderAbstract):
       x = np.array(ddp_data['xs'])
       q = x[:,:nq]
       v = x[:,nq:nq+nv]
-      tau = x[:,-nu:]
+      tau = x[:,-self.n_lpf:]
       # If tau reg cost, compute gravity torque
       if('ctrlReg' in ddp_data['active_costs']):
           ureg_ref  = np.array(ddp_data['ctrlReg_ref']) 
@@ -162,6 +163,7 @@ class DDPDataHandlerLPF(DDPDataHanlderAbstract):
           ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
           ax[i,0].grid(True)
+      for i in range(nv):
           # Velocities
           ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)  
           if('stateReg' in ddp_data['active_costs']):
@@ -175,6 +177,7 @@ class DDPDataHandlerLPF(DDPDataHanlderAbstract):
           ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
           ax[i,1].grid(True)  
+      for i in range(self.n_lpf):
           # Torques
           ax[i,2].plot(tspan, tau[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
           # Plot control regularization reference 
@@ -268,9 +271,9 @@ class DDPDataHandlerLPF(DDPDataHanlderAbstract):
 # LPF MPC data handler : initialize, extract data + generate fancy plots
 class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
-  def __init__(self, config, robot):
+  def __init__(self, config, robot, n_lpf):
     super().__init__(config, robot)
-    self.ny = self.nx + self.nu
+    self.ny = self.nx + self.n_lpf
 
   # Allocate data 
   def init_predictions(self):
