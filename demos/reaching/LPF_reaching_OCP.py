@@ -56,7 +56,7 @@ def main(robot_name, PLOT, DISPLAY):
     N_h = config['N_h']
     dt = config['dt']
     ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
-    lpf_joint_names = ['A1', 'A2', 'A3', 'A4'] #robot.model.names[1:]
+    lpf_joint_names = [] #['A1', 'A2', 'A3', 'A4'] # [] # ['A4'] #robot.model.names[1:]
     _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
     y0 = np.concatenate([x0, ug[lpfStateIds]])
     ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=True)

@@ -152,8 +152,7 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
                                                              withCostResidual=True, 
                                                              fc=self.f_c, 
                                                              tau_plus_integration=self.tau_plus_integration,
-                                                             filter=self.LPF_TYPE,
-                                                             is_terminal=False))  
+                                                             filter=self.LPF_TYPE))  
         # Add cost on unfiltered control torque (reg + lim)
         runningModels[i].set_control_reg_cost(self.wRegWeight, w_reg_ref[self.lpf_state_ids]) 
         runningModels[i].set_control_lim_cost(self.wLimWeight) 
@@ -244,8 +243,7 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
                                                     withCostResidual=False, 
                                                     fc=self.f_c, 
                                                     tau_plus_integration=self.tau_plus_integration,
-                                                    filter=self.LPF_TYPE,
-                                                    is_terminal=True)   
+                                                    filter=self.LPF_TYPE)   
 
   # Create and add terminal cost models to terminal IAM
     # State regularization
