@@ -14,7 +14,7 @@
 
 # General 
 LPF_TYPE: 1
-f_c: 5                                                               # Low-pass filter cut-off frequency
+f_c: 2                                                               # Low-pass filter cut-off frequency
 tau_plus_integration: False
 dt: 0.02                                                            # OCP integration step 
 N_h: 400                                                             # Horizon length in nodes
@@ -22,12 +22,18 @@ maxiter: 100                                                         # Max numbe
 q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
 tau0: [  0., -16.4279,  -0.,  14.4554, -0.6963, 0.027, 0.]           # Initial robot joint torque
+WHICH_PLOTS: ['all']
+
+# Pin model frame name of the end-effector 
+#   - Used for frame-related costs and plots generation
+#   - Overrides the frame name 'DEFAULT' values below
+frame_of_interest: 'contact'
 
 # List of contacts
 contacts:
   - {
       contactModelFrameName: 'contact',       # frame name in pinocchio model
-      pinocchioReferenceFrame: 'LOCAL',       #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
+      pinocchioReferenceFrame: 'LOCAL_WORLD_ALIGNED',       #LOCAL, WORLD, LOCAL_WORLD_ALIGNED
       contactModelType: '1Dz',                # 1Dx, 1Dy, 1Dz, 3D, 6D
       contactModelTranslationRef: '',         # 3d vector
       contactModelRotationRef: '',            # 3d matrix
@@ -76,11 +82,14 @@ ctrlRegWeight: 0.01
 ctrlRegWeightTerminal: 10 
 ctrlRegRef: 'DEFAULT'  # reference not used for 'ctrlRegGrav'
 
+
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.0001
+wRegWeight: 0.001
+wRegRef: 'tau0' # in ['zero', 'tau0' , 'gravity']
 
 # 'wLim' : unfiltered torque limit
-wLimWeight: 100
+wLimWeight: 100.
+
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
@@ -90,6 +99,9 @@ frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
 frameCircleTrajectoryVelocity: 1.5 # in rad/s
+numberOfRounds: 1
+# CIRCLE_LOCAL_PLANE: 'YZ'             # LOCAL plane in which the circle lies # x-force
+# CIRCLE_LOCAL_PLANE: 'XZ'             # LOCAL plane in which the circle lies # y-force
 CIRCLE_LOCAL_PLANE: 'XY'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)

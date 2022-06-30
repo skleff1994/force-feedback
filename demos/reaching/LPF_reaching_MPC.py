@@ -75,7 +75,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # 
   # Setup Crocoddyl OCP and create solver
   ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
-  lpf_joint_names = [] #['A1', 'A2', 'A3', 'A4', 'A5', 'A6'] #robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #
+  lpf_joint_names = ['A6'] #robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #
   _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
   n_lpf = len(lpf_joint_names)
   y0 = np.concatenate([x0, ug[lpfStateIds]])
@@ -164,9 +164,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
         K = ddp.K[0]
         alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
         Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*K
-        Ktilde[:,nq+nv:nq+nv+n_lpf] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nv)[:,lpfStateIds] # only for torques
+        # Ktilde[:,nq+nv:nq+nv+n_lpf] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nv)[:,lpfStateIds] # only for torques
         tau_mea_SIMU += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:nq+nv]) #position vel
-        tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])       # torques
+        # tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])       # torques
       # Send output of actuation torque to the RBD simulator 
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()

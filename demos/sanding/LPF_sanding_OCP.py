@@ -19,17 +19,17 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc import path_utils, pin_utils, misc_utils, ocp
+from core_mpc import ocp, path_utils, pin_utils, misc_utils
 
+from lpf_mpc.ocp import OptimalControlProblemLPF, getJointAndStateIds
 from lpf_mpc.data import DDPDataHandlerLPF
-from lpf_mpc.ocp import OptimalControlProblemLPF
 
 WARM_START_IK = True
 
@@ -67,8 +67,11 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     # Setup Croco OCP and create solver
     f_ext = pin_utils.get_external_joint_torques(M_ee, config['frameForceRef'], robot)
     u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
-    y0 = np.concatenate([x0, u0])
-    ddp = OptimalControlProblemLPF(robot, config).initialize(y0, callbacks=True)
+    lpf_joint_names = robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] # [] # ['A4'] #robot.model.names[1:]
+    _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
+    y0 = np.concatenate([x0, u0[lpfStateIds]])
+    n_lpf = len(lpf_joint_names)
+    ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=True)
     # Setup tracking problem with circle ref EE trajectory
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -83,7 +86,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
         # Cost translation
         m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
         # Contact model 1D update z ref (WORLD frame)
-        m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref[2]
+        m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
 
 
     # Warm start state = IK of circle trajectory
@@ -103,7 +106,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
             # Get joint state from IK
             q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
             tau_ws = pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
-            xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
+            xs_init.append(np.concatenate([q_ws, v_ws, tau_ws[lpfStateIds]]))
             if(k<N_h):
                 us_init.append(tau_ws)
 
@@ -119,7 +122,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     
     if(PLOT):
         #  Plot
-        ddp_handler = DDPDataHandlerLPF(ddp)
+        ddp_handler = DDPDataHandlerLPF(ddp, n_lpf=n_lpf)
         ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
         _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                             colors=['r'], 

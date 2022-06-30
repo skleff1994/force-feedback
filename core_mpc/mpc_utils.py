@@ -133,7 +133,7 @@ class SensorModel:
         # White noise on desired torque and measured state
         self.var_q = np.asarray(self.config['var_q'])
         self.var_v = np.asarray(self.config['var_v'])
-        self.var_u = 0.5*np.asarray(self.config['var_u']) 
+        self.var_u = 0.5*np.asarray(self.config['var_u'])[:ntau]
         # Sensing model options
         self.NOISE_STATE       = config['NOISE_STATE']                   # Add Gaussian noise on the measured state 
         self.FILTER_STATE      = config['FILTER_STATE']                  # Moving average smoothing of reference torques

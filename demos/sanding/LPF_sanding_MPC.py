@@ -40,7 +40,7 @@ from core_mpc import ocp, path_utils, pin_utils, mpc_utils, misc_utils
 
 
 from lpf_mpc.data import DDPDataHandlerLPF, MPCDataHandlerLPF
-from lpf_mpc.ocp import OptimalControlProblemLPF
+from lpf_mpc.ocp import OptimalControlProblemLPF, getJointAndStateIds
 
 
 WARM_START_IK = True
@@ -97,8 +97,15 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Create DDP solver + compute warm start torque
   f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
   u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
-  y0 = np.concatenate([x0, u0])
-  ddp = OptimalControlProblemLPF(robot, config).initialize(y0, callbacks=False)
+  lpf_joint_names = robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #  ['A1', 'A2', 'A3', 'A4', 'A6'] #
+  _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
+  n_lpf = len(lpf_joint_names)
+  y0 = np.concatenate([x0, u0[lpfStateIds]])
+  ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=True)
+
+  # u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
+  # y0 = np.concatenate([x0, u0])
+  # ddp = OptimalControlProblemLPF(robot, config).initialize(y0, callbacks=False)
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   RADIUS = config['frameCircleTrajectoryRadius'] 
   OMEGA  = config['frameCircleTrajectoryVelocity']
@@ -130,7 +137,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           # Get joint state from IK
           q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref.copy(), DT=1e-2, IT_MAX=100)
           tau_ws = pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
-          xs_init.append(np.concatenate([q_ws, v_ws, tau_ws]))
+          xs_init.append(np.concatenate([q_ws, v_ws, tau_ws[lpfStateIds]]))
           if(k<N_h):
               us_init.append(tau_ws)
   # Classical warm start using initial config
@@ -142,7 +149,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # solve
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   if(PLOT_INIT):
-    ddp_handler = DDPDataHandlerLPF(ddp)
+    ddp_handler = DDPDataHandlerLPF(ddp, n_lpf=n_lpf)
     ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
     _, _ = ddp_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
@@ -151,7 +158,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
   # # # # # # # # # # #
-  sim_data = MPCDataHandlerLPF(config, robot)
+  sim_data = MPCDataHandlerLPF(config, robot, n_lpf)
   sim_data.init_sim_data(y0)
     # Replan & control counters
   nb_plan = 0
@@ -159,7 +166,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Additional simulation blocks 
   communicationModel = mpc_utils.CommunicationModel(config)
   actuationModel     = mpc_utils.ActuationModel(config, nu, SEED=RANDOM_SEED)
-  sensingModel       = mpc_utils.SensorModel(config, nq=nq, nv=nv, ntau=nu, SEED=RANDOM_SEED)
+  sensingModel       = mpc_utils.SensorModel(config, nq=nq, nv=nv, ntau=n_lpf, SEED=RANDOM_SEED)
   # Display target circle  trajectory (reference)
   nb_points = 20 
   for i in range(nb_points):
@@ -237,9 +244,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
         K = ddp.K[0]
         alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
         Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*K
-        Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
+        # Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
         tau_mea_SIMU += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:nq+nv]) #position vel
-        tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])       # torques
+        # tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])       # torques
       #  Send output of actuation torque to the RBD simulator 
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()
@@ -251,7 +258,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       if(i%50==0): 
         logger.info("f_mea = "+str(f_mea_SIMU))
       # Record data (unnoised)
-      y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU]).T 
+      y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU[lpfStateIds]]).T 
       sim_data.state_mea_no_noise_SIMU[i+1, :] = y_mea_SIMU
       # Sensor model ( simulation state ==> noised / filtered state )
       sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)
