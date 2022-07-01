@@ -97,7 +97,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Create DDP solver + compute warm start torque
   f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
   u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
-  lpf_joint_names = robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #  ['A1', 'A2', 'A3', 'A4', 'A6'] #
+  lpf_joint_names = ['A2', 'A3', 'A4', 'A6']  #robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #  #
   _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
   n_lpf = len(lpf_joint_names)
   y0 = np.concatenate([x0, u0[lpfStateIds]])

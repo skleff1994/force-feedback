@@ -18,6 +18,9 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 def getJointAndStateIds(rmodel, jointNames):
+  '''
+  Determine the joint ids and state ids of the input joint names
+  '''
   jointIds = [] ; stateIds = []
   for name in jointNames:
     jid = rmodel.getJointId(name)

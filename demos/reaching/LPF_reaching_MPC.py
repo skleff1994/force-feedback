@@ -66,7 +66,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   else:
     logger.error('Please choose a simulator from ["bullet", "raisim"] !')
   # Get dimensions 
-  nq, nv = robot.model.nq, robot.model.nv; nu = nq
+  nq, nv = robot.model.nq, robot.model.nv; 
+  nu = nq 
 
 
 
@@ -75,9 +76,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # 
   # Setup Crocoddyl OCP and create solver
   ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
-  lpf_joint_names = ['A6'] #robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #
+  lpf_joint_names = robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #['A6'] #robot.model.names[1:] # #
   _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
-  n_lpf = len(lpf_joint_names)
+  n_lpf = len(lpf_joint_names) 
+  _, nonLpfStateIds = getJointAndStateIds(robot.model, list(set(robot.model.names[1:]) - set(lpf_joint_names)) )
+  logger.debug("LPF state ids ")
+  logger.debug(lpfStateIds)
+  logger.debug("Non LPF state ids ")
+  logger.debug(nonLpfStateIds)
   y0 = np.concatenate([x0, ug[lpfStateIds]])
   ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=True)
   # Warm start and solve 
@@ -105,7 +111,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Additional simulation blocks 
   communicationModel = mpc_utils.CommunicationModel(config)
   actuationModel     = mpc_utils.ActuationModel(config, nu)
-  sensingModel       = mpc_utils.SensorModel(config, ntau=nu)
+  sensingModel       = mpc_utils.SensorModel(config, ntau=n_lpf)
 
   # Display target
   if(hasattr(simulator_utils, 'display_ball')):
@@ -156,9 +162,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Select reference control and state for the current SIMU cycle
       sim_data.record_simu_cycle_desired(i)
       # Torque applied by motor on actuator : interpolate current torque and predicted torque 
-      tau_ref_SIMU =  sim_data.y_ref_SIMU[-nu:] 
+      tau_ref_SIMU =  sim_data.y_ref_SIMU[-n_lpf:] 
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
-      tau_mea_SIMU = actuationModel.step(i, tau_ref_SIMU, sim_data.state_mea_SIMU[:,-nu:])   
+        # Simulate imperfect actuation (for dimensions that are assumed perfectly actuated by the MPC)
+        #  sim_data.w_ref_SIMU, sim_data.ctrl_des_SIMU 
+      tau_mea_SIMU = sim_data.w_ref_SIMU #actuationModel.step(i, sim_data.w_ref_SIMU, sim_data.ctrl_des_SIMU) 
+        # Simulate imperfect actuation (for dimensions that are asssumed to be LPF-actuated by the MPC)
+      tau_mea_SIMU[lpfStateIds] = actuationModel.step(i, tau_ref_SIMU, sim_data.state_mea_SIMU[:,-n_lpf:])    
       # RICCATI GAINS TO INTERPOLATE
       if(config['RICCATI']):
         K = ddp.K[0]
