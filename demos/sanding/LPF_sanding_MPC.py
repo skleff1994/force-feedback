@@ -97,9 +97,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Create DDP solver + compute warm start torque
   f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
   u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
-  lpf_joint_names = ['A2', 'A3', 'A4', 'A6']  #robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #  #
+  lpf_joint_names = ['A2', 'A3', 'A4'] #robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #  #
   _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
   n_lpf = len(lpf_joint_names)
+  _, nonLpfStateIds = getJointAndStateIds(robot.model, list(set(robot.model.names[1:]) - set(lpf_joint_names)) )
+  logger.debug("LPF state ids ")
+  logger.debug(lpfStateIds)
+  logger.debug("Non LPF state ids ")
+  logger.debug(nonLpfStateIds)
   y0 = np.concatenate([x0, u0[lpfStateIds]])
   ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=True)
 
@@ -236,9 +241,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Record interpolated desired state, control and force at SIM frequency
       sim_data.record_simu_cycle_desired(i)
       # Torque applied by motor on actuator : interpolate current torque and predicted torque 
-      tau_ref_SIMU =  sim_data.y_ref_SIMU[-nu:] 
+      tau_ref_SIMU =  sim_data.y_ref_SIMU[-n_lpf:] 
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
-      tau_mea_SIMU = actuationModel.step(i, tau_ref_SIMU, sim_data.state_mea_SIMU[:,-nu:])   
+        # Simulate imperfect actuation (for dimensions that are assumed perfectly actuated by the MPC)
+        #  sim_data.w_ref_SIMU, sim_data.ctrl_des_SIMU 
+      tau_mea_SIMU = sim_data.w_ref_SIMU 
+      tau_mea_SIMU[nonLpfStateIds] = actuationModel.step(i, sim_data.w_ref_SIMU[nonLpfStateIds], sim_data.ctrl_des_SIMU[nonLpfStateIds]) 
+        # Simulate imperfect actuation (for dimensions that are asssumed to be LPF-actuated by the MPC)
+      tau_mea_SIMU[lpfStateIds] = actuationModel.step(i, tau_ref_SIMU, sim_data.state_mea_SIMU[:,-n_lpf:])   
       # RICCATI GAINS TO INTERPOLATE
       if(config['RICCATI']):
         K = ddp.K[0]

@@ -30,6 +30,8 @@ def getJointAndStateIds(rmodel, jointNames):
         stateIds.append(rmodel.idx_vs[jid] - 6)
       else:
         stateIds.append(rmodel.idx_vs[jid])
+  jointIds.sort()
+  stateIds.sort()
   return jointIds, stateIds
 
 class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):

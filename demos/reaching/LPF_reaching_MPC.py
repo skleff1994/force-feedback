@@ -76,7 +76,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # 
   # Setup Crocoddyl OCP and create solver
   ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
-  lpf_joint_names = robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #['A6'] #robot.model.names[1:] # #
+  lpf_joint_names = ['A2', 'A3'] #, 'A4'] #['A6'] #robot.model.names[1:] # #
   _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
   n_lpf = len(lpf_joint_names) 
   _, nonLpfStateIds = getJointAndStateIds(robot.model, list(set(robot.model.names[1:]) - set(lpf_joint_names)) )
@@ -166,7 +166,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
         # Simulate imperfect actuation (for dimensions that are assumed perfectly actuated by the MPC)
         #  sim_data.w_ref_SIMU, sim_data.ctrl_des_SIMU 
-      tau_mea_SIMU = sim_data.w_ref_SIMU #actuationModel.step(i, sim_data.w_ref_SIMU, sim_data.ctrl_des_SIMU) 
+      tau_mea_SIMU = sim_data.w_ref_SIMU 
+      tau_mea_SIMU[nonLpfStateIds] = actuationModel.step(i, sim_data.w_ref_SIMU[nonLpfStateIds], sim_data.ctrl_des_SIMU[nonLpfStateIds]) 
         # Simulate imperfect actuation (for dimensions that are asssumed to be LPF-actuated by the MPC)
       tau_mea_SIMU[lpfStateIds] = actuationModel.step(i, tau_ref_SIMU, sim_data.state_mea_SIMU[:,-n_lpf:])    
       # RICCATI GAINS TO INTERPOLATE
