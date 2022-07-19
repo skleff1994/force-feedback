@@ -44,7 +44,7 @@ def load_config_file(script_name, robot_name='iiwa'):
     Loads YAML config file in demos/task_dir/config as a python dictionary
     '''
     task_name         = re.split("\.", os.path.basename(script_name))[0] # drop ".py"
-    if('lpf' in task_name.lower()):
+    if('lpf' or 'soft' in task_name.lower()):
         task_dir = re.split("_", task_name)[1]                      # drop "_OCP" or "_MPC"
     else:
         task_dir = re.split("_", task_name)[0]

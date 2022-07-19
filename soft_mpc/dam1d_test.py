@@ -8,7 +8,7 @@ np.random.seed(1)
 import crocoddyl
 import pinocchio as pin
 
-from soft_mpc.dam1d import DAMSoftContactDynamics, DADSoftContactDynamics
+from soft_mpc.dam1d import DAMSoftContactDynamics
 from core_mpc.pin_utils import load_robot_wrapper
 from classical_mpc.data import DDPDataHanlderClassical
 from core_mpc import pin_utils
