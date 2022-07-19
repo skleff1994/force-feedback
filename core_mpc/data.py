@@ -700,7 +700,7 @@ class MPCDataHandlerAbstract:
     if('ctrlRegGrav' in self.WHICH_COSTS):
       q = self.state_pred[nb_plan, 0, :self.nq]
       self.ctrl_ref[nb_plan, :] = pin_utils.get_u_grav(q, m.differential.pinocchio, self.armature)
-    if('force' in self.WHICH_COSTS):
+    if('force' in self.WHICH_COSTS and hasattr(m.differential.costs.costs, 'force')):
       self.f_ee_ref[nb_plan, :] = m.differential.costs.costs['force'].cost.residual.reference.vector
     if('stateReg' in self.WHICH_COSTS):
       self.state_ref[nb_plan, :] = m.differential.costs.costs['stateReg'].cost.residual.reference
