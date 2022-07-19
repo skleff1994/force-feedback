@@ -8,13 +8,13 @@ np.random.seed(1)
 import crocoddyl
 import pinocchio as pin
 
-from soft_mpc.dam3d import DAMSoftContactDynamics
+from soft_mpc.dam1d import DAMSoftContactDynamics, DADSoftContactDynamics
 from core_mpc.pin_utils import load_robot_wrapper
 from classical_mpc.data import DDPDataHanlderClassical
 from core_mpc import pin_utils
 
 
-REF_FRAME = pin.LOCAL
+REF_FRAME = pin.LOCAL_WORLD_ALIGNED
 
 robot = load_robot_wrapper('iiwa')
 model = robot.model ; data = model.createData()
@@ -31,7 +31,7 @@ frameId = model.getFrameId('contact')
 # initial ee position and contact anchor point
 oPf = data.oMf[frameId].translation
 oRf = data.oMf[frameId].rotation
-oPc = oPf + np.array([0.05,.0, 0]) # + cm in x world np.random.rand(3)
+oPc = oPf + np.array([0.,.0, 0.02]) # + cm in x world np.random.rand(3)
 print("initial EE position (WORLD) = \n", oPf)
 print("anchor point (WORLD)        = \n", oPc)
 ov = pin.getFrameVelocity(model, data, frameId, pin.WORLD).linear
@@ -87,14 +87,15 @@ terminalCostModel.addCost("translation", frameTranslationCost, 1e-1)
 
 
 # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
-dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
-dam.set_force_cost(np.array([0.,0.,0.]), 1e-2)
-dam_t = DAMSoftContactDynamics(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+contactType = '1Dx'
+dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, contactType, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+dam.set_force_cost(np.array([0]), 0)
+dam_t = DAMSoftContactDynamics(state, actuation, terminalCostModel, frameId, contactType, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
 
 
 
 # Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
-dt=1e-2
+dt=5e-3
 # runningModel = crocoddyl.IntegratedActionModelRK4(dam, dt)
 # terminalModel = crocoddyl.IntegratedActionModelRK4(dam_t, 0.)
 runningModel = crocoddyl.IntegratedActionModelEuler(dam, dt)
@@ -131,7 +132,9 @@ vs = pin_utils.get_v_(xs[:,:nq], xs[:,nq:], model, frameId, ref=pin.WORLD)
 fs_lin = np.array([data.oMf[frameId].rotation @ (-Kp*(ps[i,:] - oPc) - Kv*vs[i,:]) for i in range(T)])
 fs_ang = np.zeros((T, 3))
 ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
-ddp_data['force_ref'] = [np.concatenate([dam.f_des, np.zeros(3)]) for i in range(T) ]
+f_des = np.zeros(6)
+f_des[dam.mask] = dam.f_des
+ddp_data['force_ref'] = [f_des for i in range(T) ]
 
 # Plot data
 data_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)

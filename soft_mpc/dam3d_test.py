@@ -14,7 +14,7 @@ from classical_mpc.data import DDPDataHanlderClassical
 from core_mpc import pin_utils
 
 
-REF_FRAME = pin.LOCAL
+REF_FRAME = pin.LOCAL_WORLD_ALIGNED
 
 robot = load_robot_wrapper('iiwa')
 model = robot.model ; data = model.createData()
@@ -94,11 +94,11 @@ dam_t = DAMSoftContactDynamics(state, actuation, terminalCostModel, frameId, Kp,
 
 
 # Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
-dt=1e-2
-runningModel = crocoddyl.IntegratedActionModelRK4(dam, dt)
-terminalModel = crocoddyl.IntegratedActionModelRK4(dam_t, 0.)
-# runningModel = crocoddyl.IntegratedActionModelEuler(dam, dt)
-# terminalModel = crocoddyl.IntegratedActionModelEuler(dam_t, 0.)
+dt=5e-3
+# runningModel = crocoddyl.IntegratedActionModelRK4(dam, dt)
+# terminalModel = crocoddyl.IntegratedActionModelRK4(dam_t, 0.)
+runningModel = crocoddyl.IntegratedActionModelEuler(dam, dt)
+terminalModel = crocoddyl.IntegratedActionModelEuler(dam_t, 0.)
 
 
 # # Optionally add armature to take into account actuator's inertia
@@ -106,7 +106,7 @@ terminalModel = crocoddyl.IntegratedActionModelRK4(dam_t, 0.)
 # terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
 
 # Create the shooting problem
-T = 100
+T = 200
 problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
 
 # Create solver + callbacks

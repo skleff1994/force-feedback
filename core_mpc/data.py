@@ -83,6 +83,7 @@ class DDPDataHanlderAbstract:
         ddp_data['contact_translation'] = [self.ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference.translation for i in range(self.ddp.problem.T)]
         ddp_data['contact_translation'].append(self.ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference.translation)
         ddp_data['CONTACT_TYPE'] = '6D'
+        ddp_data['nc'] = 6
         PIN_REF_FRAME =   pin.LOCAL
       # Case 3D contact (x,y,z)
       elif(np.size(contactModelRef0)==3):
@@ -91,11 +92,13 @@ class DDPDataHanlderAbstract:
           ddp_data['contact_translation'] = [self.ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference for i in range(self.ddp.problem.T)]
           ddp_data['contact_translation'].append(self.ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference)
           ddp_data['CONTACT_TYPE'] = '3D'
+          ddp_data['nc'] = 3
         elif(self.ddp.problem.runningModels[0].differential.contacts.contacts[ct_frame_name].contact.nc == 1):
           # Case 1D contact
           ddp_data['contact_translation'] = [self.ddp.problem.runningModels[i].differential.contacts.contacts[ct_frame_name].contact.reference for i in range(self.ddp.problem.T)]
           ddp_data['contact_translation'].append(self.ddp.problem.terminalModel.differential.contacts.contacts[ct_frame_name].contact.reference)
           ddp_data['CONTACT_TYPE'] = '1D'
+          ddp_data['nc'] = 1
         else: 
           print(self.ddp.problem.runningModels[0].differential.contacts.contacts[ct_frame_name].contact.nc == 3)
           logger.error("Contact must be 1D or 3D !")

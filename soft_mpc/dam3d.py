@@ -32,6 +32,9 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
         self.active_contact = True
         self.nc = 3
 
+        self.parentId = self.pinocchio.frames[self.frameId].parent
+        self.jMf = self.pinocchio.frames[self.frameId].placement
+
     def set_active_contact(self, active):
         self.active_contact = active
 
@@ -70,7 +73,7 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
             # Compute spring damper force + express at joint level 
             lv = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear
             data.f = -self.Kp * oRf.T @ ( data.pinocchio.oMf[self.frameId].translation - self.oPc ) - self.Kv*lv
-            data.fext[self.pinocchio.frames[self.frameId].parent] = self.pinocchio.frames[self.frameId].placement.act(pin.Force(data.f, np.zeros(3)))
+            data.fext[self.parentId] = self.jMf.act(pin.Force(data.f, np.zeros(3)))
             # Copy for later
             data.f_copy = data.f.copy()
             data.fext_copy = data.fext.copy()
@@ -83,7 +86,7 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
                 # print('world = ', data.f)
                 assert(np.linalg.norm(data.f - oRf @ data.f_copy) < 1e-4)
                 assert(np.linalg.norm(oRf.T @ data.f - data.f_copy) < 1e-4)
-                data.fext[self.pinocchio.frames[self.frameId].parent] = self.pinocchio.frames[self.frameId].placement.act(pin.Force(oRf.T @ data.f, np.zeros(3)))
+                data.fext[self.parentId] = self.jMf.act(pin.Force(oRf.T @ data.f, np.zeros(3)))
             data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext) 
         else:
             data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau)
@@ -135,7 +138,7 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
             data.Fx += data.pinocchio.Minv @ data.multibody.actuation.dtau_dx
             data.Fu = aba_dtau @ data.multibody.actuation.dtau_du
         else:
-            # Computing the free forward dynamics with ADA derivatives
+            # Computing the free forward dynamics with ABA derivatives
             aba_dq, ada_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau)
             data.Fx[:,:self.state.nq] = aba_dq 
             data.Fx[:,self.state.nq:] = ada_dv 
