@@ -51,7 +51,8 @@ def fdyn_local(model, data, frameId, x, tau, Kp, Kv, oP):
     assert(np.linalg.norm(force2 - force) < 1e-4)
     
     fext = [pin.Force.Zero() for _ in range(model.njoints)]
-    fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(force, np.zeros(3)))
+    lwrench = pin.Force(force, np.zeros(3))
+    fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(lwrench)
     aq = pin.aba(model, data, q, v, tau, fext)
     # print("acc = \n")
     # print(aq)
@@ -79,7 +80,8 @@ def fdyn_world(model, data, frameId, x, tau, Kp, Kv, oP):
     assert(np.linalg.norm(force2 - force) < 1e-4)
 
     fext = [pin.Force.Zero() for _ in range(model.njoints)]
-    fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(oRf.T @ force, np.zeros(3)))
+    owrench = pin.Force(oRf.T @ force, np.zeros(3))
+    fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(owrench)
     aq = pin.aba(model, data, q, v, tau, fext)
     # print("acc = \n")
     # print(aq)
@@ -132,6 +134,7 @@ contactFrameName = "gripper_left_fingertip_1_link"
 model = robot.model
 data = robot.model.createData()
 frameId = model.getFrameId(contactFrameName)
+parentId = model.frames[frameId].parent
 Kp = 100*np.random.rand(1) #need to increase tolerances of assert if high gains
 Kv = 2*np.sqrt(Kp)
 pin.computeAllTerms(model, data, q0, v0)
@@ -155,14 +158,17 @@ assert(np.linalg.norm(ov - oRf @ lv) < 1e-4)
 # LOCAL force and joint acc
 lf = -Kp* oRf.T @ ( data.oMf[frameId].translation - oPc) - Kv*lv
 lfext = [pin.Force.Zero() for _ in range(model.njoints)]
-lfext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(lf, np.zeros(3)))
+lwrench = pin.Force(lf, np.zeros(3))
+lfext[parentId] = model.frames[frameId].placement.act(lwrench)
 laq = pin.aba(model, data, q0, v0, tau, lfext)
 assert(np.linalg.norm(laq - fdyn_local(model, data, frameId, x0, tau, Kp, Kv, oPc)) <1e-4)
 # WORLD force and joint acc
 of = -Kp* ( data.oMf[frameId].translation - oPc) - Kv*ov
 assert(np.linalg.norm(of - oRf @ lf) < 1e-4)
 ofext = [pin.Force.Zero() for _ in range(model.njoints)]
-ofext[model.frames[frameId].parent] = model.frames[frameId].placement.act(pin.Force(oRf.T @ of, np.zeros(3)))
+owrench = pin.Force(of, np.zeros(3)) #pin.Force(oRf.T @ of, np.zeros(3))
+lwaXf = pin.SE3.Identity() ; lwaXf.rotation = oRf ; lwaXf.translation = np.zeros(3)
+ofext[parentId] = model.frames[frameId].placement.act(lwaXf.actInv(owrench))
 oaq = pin.aba(model, data, q0, v0, tau, ofext)
 # print("joint FORCE (LOCAL) : \n", lfext) # same
 # print("joint FORCE (WORLD) : \n", ofext) # same
@@ -171,12 +177,12 @@ assert(np.linalg.norm(oaq - laq) < 1e-4)
 print("joint acc (LOCAL) : \n", laq)
 print("joint acc (WORLD) : \n", oaq)
 # check force at joint level are the same
-jfext_lin = lfext[model.frames[frameId].parent].linear
-jfext_ang = lfext[model.frames[frameId].parent].angular
-ofext_lin = ofext[model.frames[frameId].parent].linear
-ofext_ang = ofext[model.frames[frameId].parent].angular
-assert(np.linalg.norm(jfext_lin - ofext_lin) < 1e-4)
-assert(np.linalg.norm(jfext_ang - ofext_ang) < 1e-4)
+lfext_lin = lfext[parentId].linear
+lfext_ang = lfext[parentId].angular
+ofext_lin = ofext[parentId].linear
+ofext_ang = ofext[parentId].angular
+assert(np.linalg.norm(lfext_lin - ofext_lin) < 1e-4)
+assert(np.linalg.norm(lfext_ang - ofext_ang) < 1e-4)
 # Check derivatives of the force against numdiff
     # ND
 dlf_dx_ND = numdiff(lambda x_:force_local(model, data, frameId, x_, Kp, Kv, oPc), x0)
@@ -199,7 +205,7 @@ dof_dx = np.zeros((3,nx))
 dof_dx[:,:nq] = oRf @ dlf_dx[:,:nq] - pin.skew(oRf @ lf) @ oJ[3:]
 dof_dx[:,nq:] = oRf @ dlf_dx[:,nq:]
 assert(np.linalg.norm(dof_dx - dof_dx_ND) < 1e-3)
-# Compute the derivative of joint acceleration
+# Compute the derivative of joint acceleration (ABA)
     # local 
 laba_dq, laba_dv, laba_dtau = pin.computeABADerivatives(model, data, q0, v0, tau, lfext)
 ldaq_dx = np.zeros((nq, nx))
@@ -226,16 +232,14 @@ assert(np.linalg.norm(oaba_dx_ND - oaba_dx) < 1e-3) # OK
 odaq_dx = np.zeros((nq, nx))
 odaq_du = np.zeros((nq, nu))
 # d(aq)/dx = d(ABA)/dq + Minv*Jt*df/dq 
-odaq_dx[:,:nq] = laba_dq + data.Minv @ lJ[:3].T @ dlf_dx[:,:nq]
-odaq_dx[:,nq:] = laba_dv + data.Minv @ lJ[:3].T @ dlf_dx[:,nq:] # this must be true since da_dx ok ND . But coincidence?
-# odaq_dx[:,:nq] = oaba_dq + data.Minv @ oJ[:3].T @ dof_dx[:,:nq] # this is wrong !!!
-# odaq_dx[:,nq:] = oaba_dv + data.Minv @ oJ[:3].T @ dof_dx[:,nq:] 
+odaq_dx[:,:nq] = oaba_dq + data.Minv @ lJ[:3].T @ (oRf.T @ dof_dx[:,:nq] + pin.skew(oRf.T @ of) @ lJ[3:]) 
+odaq_dx[:,nq:] = oaba_dv + data.Minv @ lJ[:3].T @ (oRf.T @ dof_dx[:,nq:])
 odaq_du = oaba_dtau
 # odaq_dx = ldaq_dx
     # compare numdiff
 odaq_dx_ND = numdiff(lambda x_:fdyn_world(model, data, frameId, x_, tau, Kp, Kv, oPc), x0)
-# print(odaq_dx)
-# print(ldaq_dx)
+print(odaq_dx)
+print(ldaq_dx)
 assert(np.linalg.norm(odaq_dx - odaq_dx_ND) < 1e-2)
 assert(np.linalg.norm(odaq_dx - ldaq_dx) < 1e-3)
 
