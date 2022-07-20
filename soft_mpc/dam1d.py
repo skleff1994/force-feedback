@@ -79,7 +79,7 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
         # logger.debug("CALC")
         q = x[:self.state.nq]
         v = x[self.state.nq:]
-        # pin.computeAllTerms(self.pinocchio, data.pinocchio, q, v)
+        pin.computeAllTerms(self.pinocchio, data.pinocchio, q, v)
         pin.forwardKinematics(self.pinocchio, data.pinocchio, q, v, np.zeros(self.state.nq))
         pin.updateFramePlacements(self.pinocchio, data.pinocchio)
         oRf = data.pinocchio.oMf[self.frameId].rotation
@@ -90,30 +90,32 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
         if(self.active_contact):
             # Compute spring damper force + express at joint level 
             lv = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear
+            # Compute and project local 3D force --> 1D + get external wrench at joint level
             data.f3d = -self.Kp * oRf.T @ ( data.pinocchio.oMf[self.frameId].translation - self.oPc ) - self.Kv*lv
             data.f = data.f3d[self.mask] 
             fLOCAL = np.zeros(3) ; fLOCAL[self.mask] = data.f
             lwrench = pin.Force(fLOCAL, np.zeros(3))
             data.fext[self.parentId] = self.jMf.act(lwrench)
-            # Copy for later
+            # Save local force and external wrench for later
             data.f3d_copy = data.f3d.copy()
             data.f_copy = data.f.copy()
             data.fext_copy = data.fext.copy()
-            # rotate LOCAL derivatives
+            # If LWA, rotate LOCAL quantities to get force and external wrench
             if(self.pinRef != pin.LOCAL):
                 ov = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED).linear
                 assert(np.linalg.norm(ov - oRf @ lv ) < 1e-4)
                 data.f3d = -self.Kp * ( data.pinocchio.oMf[self.frameId].translation - self.oPc ) - self.Kv * ov
                 data.f = data.f3d[self.mask]
-                # print('local = ', oRf @ data.f_copy)
-                # print('world = ', data.f)
                 assert(np.linalg.norm(data.f3d - oRf @ data.f3d_copy) < 1e-4)
                 assert(np.linalg.norm(oRf.T @ data.f3d - data.f3d_copy) < 1e-4)
-                fWORLD = np.zeros(3) ; fWORLD[self.mask] = data.f
-                # owrench = pin.Force(oRf.T @ data.f, np.zeros(3))
-                data.fext[self.parentId] = self.jMf.act(pin.Force(oRf.T @ fWORLD, np.zeros(3)))
+                data.fWORLD = np.zeros(3) ; data.fWORLD[self.mask] = data.f
+                owrench = pin.Force(data.fWORLD, np.zeros(3))
+                lwaXf = pin.SE3.Identity() ; lwaXf.rotation = oRf ; lwaXf.translation = np.zeros(3)
+                data.fext[self.parentId] = self.jMf.act(lwaXf.actInv(owrench))
+            # Compute joint acceleration by calling ABA
             data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext) 
-        # Otherwise compute aq = ABA(q,v,tau)
+        
+        # If contact NOT active : compute aq = ABA(q,v,tau)
         else:
             data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau)
         
@@ -163,22 +165,30 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
                 data.df_dx = data.df3d_dx[self.mask,:]
             # Computing the dynamics using ABA (or manually if armature)
               # LOCAL case
-            aba_dq, ada_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext)
+            aba_dq, aba_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext)
             if(self.pinRef == pin.LOCAL):
-                data.Fx[:,:self.state.nq] = aba_dq + data.pinocchio.Minv @ lJ[:3].T[:,self.mask] @ data.df_dx_copy[:,:self.state.nq]
-                data.Fx[:,self.state.nq:] = ada_dv + data.pinocchio.Minv @ lJ[:3].T[:,self.mask] @ data.df_dx_copy[:,self.state.nq:]
+                data.Fx[:,:self.state.nq] = \
+                    aba_dq + \
+                    data.pinocchio.Minv @ lJ[:3].T[:,self.mask] @ data.df_dx_copy[:,:self.state.nq]
+                data.Fx[:,self.state.nq:] = \
+                    aba_dv + \
+                    data.pinocchio.Minv @ lJ[:3].T[:,self.mask] @ data.df_dx_copy[:,self.state.nq:]
               # LWA case
             else:
-                # aba_dq, ada_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext)
-                data.Fx[:,:self.state.nq] = aba_dq + data.pinocchio.Minv @ lJ[:3].T @ (oRf.T[:,self.mask] @ data.df_dx[:,:self.state.nq] + pin.skew(oRf.T @ data.f3d) @ lJ[3:])
-                data.Fx[:,self.state.nq:] = ada_dv + data.pinocchio.Minv @ lJ[:3].T @ (oRf.T[:,self.mask] @ data.df_dx[:,self.state.nq:])
+                # aba_dq, aba_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext)
+                data.Fx[:,:self.state.nq] = \
+                    aba_dq + \
+                    data.pinocchio.Minv @ lJ[:3].T @ (oRf.T[:,self.mask] @ data.df_dx[:,:self.state.nq] + pin.skew(oRf.T @ data.fWORLD) @ lJ[3:])
+                data.Fx[:,self.state.nq:] = \
+                    aba_dv + \
+                    data.pinocchio.Minv @ lJ[:3].T @ (oRf.T[:,self.mask] @ data.df_dx[:,self.state.nq:])
             data.Fx += data.pinocchio.Minv @ data.multibody.actuation.dtau_dx
             data.Fu = aba_dtau @ data.multibody.actuation.dtau_du
         else:
             # Computing the free forward dynamics with ABA derivatives
-            aba_dq, ada_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau)
+            aba_dq, aba_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau)
             data.Fx[:,:self.state.nq] = aba_dq 
-            data.Fx[:,self.state.nq:] = ada_dv 
+            data.Fx[:,self.state.nq:] = aba_dv 
             data.Fx += data.pinocchio.Minv @ data.multibody.actuation.dtau_dx
             data.Fu = aba_dtau @ data.multibody.actuation.dtau_du
         assert(np.linalg.norm(aba_dtau - data.pinocchio.Minv) <1e-4)
@@ -220,7 +230,7 @@ class DADSoftContactDynamics(crocoddyl.DifferentialActionDataAbstract):
         self.f3d_copy = np.zeros(3)   
         self.df3d_dx = np.zeros((3, am.state.nx))
         self.df3d_dx_copy = np.zeros((3, am.state.nx))   
-
+        self.fWORLD = np.zeros(3)
         self.fext = [pin.Force.Zero() for _ in range(am.pinocchio.njoints)]
         self.fext_copy = [pin.Force.Zero() for _ in range(am.pinocchio.njoints)]
 

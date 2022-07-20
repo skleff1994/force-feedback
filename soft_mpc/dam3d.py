@@ -8,6 +8,10 @@ np.random.seed(1)
 import crocoddyl
 import pinocchio as pin
 
+# # when DAM inherits from FreeFwdDyn  : error in the computation
+# # when DAM inherits from DAMAbstract : ok 
+# # Can be a binding problem because check point inside calc not reached in first case, reached in second case
+# # NumDiff uses base.calc() . Is it also true in C++? 
 
 class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
     '''
@@ -62,7 +66,7 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
         # logger.debug("CALC")
         q = x[:self.state.nq]
         v = x[self.state.nq:]
-        # pin.computeAllTerms(self.pinocchio, data.pinocchio, q, v)
+        pin.computeAllTerms(self.pinocchio, data.pinocchio, q, v)
         pin.forwardKinematics(self.pinocchio, data.pinocchio, q, v, np.zeros(self.state.nq))
         pin.updateFramePlacements(self.pinocchio, data.pinocchio)
         oRf = data.pinocchio.oMf[self.frameId].rotation
@@ -113,13 +117,12 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
         oRf = data.pinocchio.oMf[self.frameId].rotation
         # Actuation calcDiff
         self.actuation.calcDiff(data.multibody.actuation, x, u)
-
+        # pin.computeAllTerms(self.pinocchio, data.pinocchio, q, v)
         if(self.active_contact):
             # Compute spring damper force derivatives in LOCAL
             lJ = pin.getFrameJacobian(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL)
             oJ = pin.getFrameJacobian(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED)
             lv_partial_dq, lv_partial_dv = pin.getFrameVelocityDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL) 
-            # if(self.pinRef == pin.LOCAL):
             data.df_dx[:,:self.state.nq] = \
                 - self.Kp * (lJ[:3] + pin.skew(oRf.T @ (data.pinocchio.oMf[self.frameId].translation - self.oPc)) @ lJ[3:]) \
                 - self.Kv*lv_partial_dq[:3]

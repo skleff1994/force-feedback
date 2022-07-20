@@ -259,8 +259,10 @@ dof_dx_full = np.zeros((3,2*nv))
 dof_dx_full[mask,:] = dof_dx
 # odaq_dx[:,:nq] = oaba_dq_copy + data.Minv @ lJ[:3].T @ (oRf.T @ dof_dx_full[:,:nq] + pin.skew(oRf.T @ fWORLD) @ lJ[3:]) 
 # odaq_dx[:,nq:] = oaba_dv_copy + data.Minv @ lJ[:3].T @ (oRf.T @ dof_dx_full[:,nq:])
-odaq_dx[:,:nq] = oaba_dq_copy + data.Minv @ lJ[:3].T @ (oRf.T[:,mask] @ dof_dx[:,:nq] + pin.skew(oRf.T @ fWORLD) @ lJ[3:]) 
-odaq_dx[:,nq:] = oaba_dv_copy + data.Minv @ lJ[:3].T @ (oRf.T[:,mask] @ dof_dx[:,nq:])
+odaq_dx[:,:nq] = oaba_dq_copy + \
+    data.Minv @ lJ[:3].T @ (oRf.T[:,mask] @ dof_dx[:,:nq] + pin.skew(oRf.T @ fWORLD) @ lJ[3:]) 
+odaq_dx[:,nq:] = oaba_dv_copy + \
+    data.Minv @ lJ[:3].T @ (oRf.T[:,mask] @ dof_dx[:,nq:])
 odaq_du = oaba_dtau
     # compare numdiff
 odaq_dx_ND = numdiff(lambda x_:fdyn_world(model, data, frameId, x_, tau, Kp, Kv, oPc, mask), x0)
@@ -276,34 +278,34 @@ actuation = crocoddyl.ActuationModelFull(state)
 runningCostModel = crocoddyl.CostModelSum(state)
 # terminalCostModel = crocoddyl.CostModelSum(state)
 
-# # Custom DAM to check 
-# dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
-# dad = dam.createData()
-# # Numdiff version 
-# # RTOL            = 1e-2 
-# # ATOL            = 1e-1 
-# dam_nd = crocoddyl.DifferentialActionModelNumDiff(dam, True)
-# dam_nd.disturbance = 1e-6
-# dad_nd = dam_nd.createData()
-# dam.calc(dad, x0, tau)
-# dam_nd.calc(dad_nd, x0, tau)
-# print("custom aq = \n", dad.xout)
-# print("ND xout = \n", dad_nd.xout)
-
-# # when DAM inherits from FreeFwdDyn : error in the computation
-# # when DAM inherits from DAMAbstract : ok 
-# # Must be a binding problem because check point inside calc not reached in first case, reached in second case
-# # NumDiff uses base.calc() . Is it also true in C++?
-# assert(np.linalg.norm(dad.xout - laq) < 1e-2)
-# assert(np.linalg.norm(dad.xout - oaq) < 1e-3)
-# # print("joint acc custom (LOCAL) : \n", dad.xout)
-# dam.calcDiff(dad, x0, tau)
-# # print(dad.Fx)
-# assert(np.linalg.norm(dad.Fx - ldaq_dx )< 1e-3)
-# # print("analytic vs croco nd : \n", np.isclose(dad.Fx, odaq_dx, RTOL, ATOL))
-# assert(np.linalg.norm(dad.Fx - odaq_dx )< 1e-2)
-# dam_nd.calcDiff(dad_nd, x0, tau)
-# # print("analytic vs croco nd : \n", np.isclose(dad.Fx, dad_nd.Fx, RTOL, ATOL))
+# Custom DAM to check 
+# ref = pin.LOCAL_WORLD_ALIGNED
+ref = pin.LOCAL
+dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, '1Dz', Kp, Kv, oPc, pinRefFrame=ref)
+dad = dam.createData()
+# Numdiff version 
+RTOL            = 1e-2 
+ATOL            = 1e-1 
+dam_nd = crocoddyl.DifferentialActionModelNumDiff(dam, True)
+dam_nd.disturbance = 1e-6
+dad_nd = dam_nd.createData()
+# TEST CALC
+dam.calc(dad, x0, tau)
+dam_nd.calc(dad_nd, x0, tau)
+print("custom aq = \n", dad.xout)
+print("ND xout = \n", dad_nd.xout)
+if(ref == pin.LOCAL):
+    assert(np.linalg.norm(dad.xout - laq) < 1e-3)
+else: 
+    assert(np.linalg.norm(dad.xout - oaq) < 1e-3)
+# TEST CALCDIFF 
+dam.calcDiff(dad, x0, tau)
+dam_nd.calcDiff(dad_nd, x0, tau)
+assert(np.linalg.norm(dad.Fx - dad_nd.Fx )< 1e-2)
+if(ref == pin.LOCAL):
+    assert(np.linalg.norm(dad.Fx - ldaq_dx )< 1e-3)
+else:
+    assert(np.linalg.norm(dad.Fx - odaq_dx )< 1e-2)
 
 
 # Further checks using DAM free + setup shooting problem + solver
