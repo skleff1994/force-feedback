@@ -13,7 +13,7 @@ import pinocchio as pin
 # # Can be a binding problem because check point inside calc not reached in first case, reached in second case
 # # NumDiff uses base.calc() . Is it also true in C++? 
 
-class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
+class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
     '''
     Computes the forward dynamics under visco-elastic (spring damper) force
     '''
@@ -83,8 +83,8 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
             data.fext_copy = data.fext.copy()
             # rotate if not local
             if(self.pinRef != pin.LOCAL):
-                ov = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED).linear
-                assert(np.linalg.norm(ov - oRf @ lv ) < 1e-4)
+                # ov = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED).linear
+                # assert(np.linalg.norm(ov - oRf @ lv ) < 1e-4)
                 data.f = -self.Kp * ( data.pinocchio.oMf[self.frameId].translation - self.oPc ) - self.Kv * oRf @ lv
                 # print('local = ', oRf @ data.f_copy)
                 # print('world = ', data.f)

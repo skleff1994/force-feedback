@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file init_ocp.py
+@file soft_mpc/ocp.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -16,8 +16,9 @@ from core_mpc import ocp
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
-from soft_mpc.dam3d import DAMSoftContactDynamics 
-
+from soft_mpc.dam3d import DAMSoftContactDynamics3D
+from soft_mpc.dam1d import DAMSoftContactDynamics1D
+from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
 
 class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
   '''
@@ -35,16 +36,13 @@ class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
     '''
     super().check_config()
 
-  def initialize(self, x0, frameId, Kp, Kv, oPc, pinRefFrame, callbacks=False):
+  def initialize(self, x0, softContactModel, callbacks=False):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
       INPUT: 
-          x0          : initial state of shooting problem
-          frameId     : frame at which the soft contact is defined
-          Kp, Kv      : stiffness and damping coefficient of the visco-elastic contact model
-          oPc         : anchor point of the contact 
-          pinRefFrame : reference frame in which the contact model is expressed (pin.LOCAL or pin.LWA)
-          callbacks   : display Crocoddyl's DDP solver callbacks
+          x0                : initial state of shooting problem
+          softContactModel  : SoftContactModel3D (see in utils)
+          callbacks         : display Crocoddyl's DDP solver callbacks
       OUTPUT:
         FDDP solver
 
@@ -61,19 +59,32 @@ class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
     state = crocoddyl.StateMultibody(self.rmodel)
     actuation = crocoddyl.ActuationModelFull(state)
     
-
+    
   # Create IAMs
     runningModels = []
     for i in range(self.N_h):  
-        # Create DAMContactDyn                    
-        dam = DAMSoftContactDynamics(state, 
-                                    actuation, 
-                                    crocoddyl.CostModelSum(state, nu=actuation.nu),
-                                    frameId, 
-                                    Kp=Kp,
-                                    Kv=Kv,
-                                    oPc=oPc,
-                                    pinRefFrame=pinRefFrame )
+        # Create DAMContactDyn     
+        if(softContactModel.nc == 3):
+          dam = DAMSoftContactDynamics3D(state, 
+                                        actuation, 
+                                        crocoddyl.CostModelSum(state, nu=actuation.nu),
+                                        softContactModel.frameId, 
+                                        Kp=softContactModel.Kp,
+                                        Kv=softContactModel.Kv,
+                                        oPc=softContactModel.oPc,
+                                        pinRefFrame=softContactModel.pinRefFrame )
+        elif(softContactModel.nc == 1):
+          dam = DAMSoftContactDynamics1D(state, 
+                                        actuation, 
+                                        crocoddyl.CostModelSum(state, nu=actuation.nu),
+                                        softContactModel.frameId, 
+                                        softContactModel.contactType,
+                                        Kp=softContactModel.Kp,
+                                        Kv=softContactModel.Kv,
+                                        oPc=softContactModel.oPc,
+                                        pinRefFrame=softContactModel.pinRefFrame )
+        else:
+          logger.error("softContactModel.nc = 3 or 1")
 
       # Create IAM from DAM
         runningModels.append(crocoddyl.IntegratedActionModelEuler(dam, stepTime=self.dt))
@@ -117,9 +128,11 @@ class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
           runningModels[i].differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeight)
         # Frame force cost
         if('force' in self.WHICH_COSTS):
-          runningModels[i].differential.set_force_cost(np.asarray(self.frameForceRef)[:3], self.frameForceWeight)
-        #   frameForceCost = self.create_frame_force_cost(state, actuation)
-        #   runningModels[i].differential.costs.addCost("force", frameForceCost, self.frameForceWeight)
+          if(softContactModel.nc == 3):
+            forceRef = np.asarray(self.frameForceRef)[:3]
+          else:
+            forceRef = np.asarray(self.frameForceRef)[softContactModel.mask]
+          runningModels[i].differential.set_force_cost(forceRef, self.frameForceWeight)
         # Friction cone 
         if('friction' in self.WHICH_COSTS):
           frictionConeCost = self.create_friction_force_cost(state, actuation)
@@ -131,14 +144,27 @@ class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
 
   # Terminal DAM (Contact or FreeFwd)
     # Create terminal DAMContactDyn
-    dam_t = DAMSoftContactDynamics(state, 
+    if(softContactModel.nc == 3):
+      dam_t = DAMSoftContactDynamics3D(state, 
                                     actuation, 
                                     crocoddyl.CostModelSum(state, nu=actuation.nu),
-                                    frameId, 
-                                    Kp=Kp,
-                                    Kv=Kv,
-                                    oPc=oPc,
-                                    pinRefFrame=pinRefFrame )
+                                    softContactModel.frameId, 
+                                    Kp=softContactModel.Kp,
+                                    Kv=softContactModel.Kv,
+                                    oPc=softContactModel.oPc,
+                                    pinRefFrame=softContactModel.pinRefFrame )
+    elif(softContactModel.nc == 1):
+      dam_t = DAMSoftContactDynamics1D(state, 
+                                    actuation, 
+                                    crocoddyl.CostModelSum(state, nu=actuation.nu),
+                                    softContactModel.frameId, 
+                                    softContactModel.contactType,
+                                    Kp=softContactModel.Kp,
+                                    Kv=softContactModel.Kv,
+                                    oPc=softContactModel.oPc,
+                                    pinRefFrame=softContactModel.pinRefFrame )
+    else:
+      logger.error("softContactModel.nc = 3 or 1")
 
   # Create terminal IAM from terminal DAM
     terminalModel = crocoddyl.IntegratedActionModelEuler( dam_t, stepTime=0. )
@@ -168,9 +194,6 @@ class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
     if('rotation' in self.WHICH_COSTS):
       frameRotationCost = self.create_frame_rotation_cost(state, actuation)
       terminalModel.differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeightTerminal*self.dt)
-    # Frame force cost
-    if('force' in self.WHICH_COSTS):
-        runningModels[i].differential.set_force_cost(np.asarray(self.frameForceRef)[:3], self.frameForceWeight)
         
   # Add armature
     terminalModel.differential.armature = np.asarray(self.armature)   
@@ -193,6 +216,9 @@ class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
   # Finish
     logger.info("OCP is ready")
     logger.info("    COSTS   = "+str(self.WHICH_COSTS))
-    logger.info("    SOFT CONTACT MODEL [ oPc="+str(oPc)+" , Kp="+str(Kp)+', Kv='+str(Kv)+', pinRefFrame='+str(pinRefFrame)+']')
+    logger.info("    SOFT CONTACT MODEL [ oPc="+str(softContactModel.oPc)+\
+      " , Kp="+str(softContactModel.Kp)+\
+        ', Kv='+str(softContactModel.Kv)+\
+        ', pinRefFrame='+str(softContactModel.pinRefFrame)+']')
     
     return ddp

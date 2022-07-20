@@ -10,7 +10,7 @@ import pinocchio as pin
 
 
 
-class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
+class DAMSoftContactDynamics1D(crocoddyl.DifferentialActionModelAbstract):
     '''
     Computes the forward dynamics under visco-elastic (spring damper) force 1D
     '''
@@ -102,9 +102,7 @@ class DAMSoftContactDynamics(crocoddyl.DifferentialActionModelAbstract):
             data.fext_copy = data.fext.copy()
             # If LWA, rotate LOCAL quantities to get force and external wrench
             if(self.pinRef != pin.LOCAL):
-                ov = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED).linear
-                assert(np.linalg.norm(ov - oRf @ lv ) < 1e-4)
-                data.f3d = -self.Kp * ( data.pinocchio.oMf[self.frameId].translation - self.oPc ) - self.Kv * ov
+                data.f3d = -self.Kp * ( data.pinocchio.oMf[self.frameId].translation - self.oPc ) - self.Kv * oRf @ lv
                 data.f = data.f3d[self.mask]
                 assert(np.linalg.norm(data.f3d - oRf @ data.f3d_copy) < 1e-4)
                 assert(np.linalg.norm(oRf.T @ data.f3d - data.f3d_copy) < 1e-4)
