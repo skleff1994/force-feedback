@@ -1,5 +1,5 @@
-bullet_utils
-importlib_resources
-pybullet
-robot_properties_kuka
 setuptools
+pybullet
+importlib_resources
+bullet_utils
+robot_properties_kuka

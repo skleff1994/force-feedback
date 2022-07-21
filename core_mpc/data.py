@@ -116,7 +116,7 @@ class DDPDataHanlderAbstract:
       # Express in WORLD aligned frame otherwise
       if(PIN_REF_FRAME == pin.LOCAL_WORLD_ALIGNED or PIN_REF_FRAME == pin.WORLD):
         ct_frame_id = ddp_data['pin_model'].getFrameId(ct_frame_name)
-        Ms = [pin_utils.get_SE3_(self.ddp.xs[i][:ddp_data['nq']], ddp_data['pin_model'], ct_frame_id) for i in range(self.ddp.problem.T)]
+        Ms = [pin_utils.get_SE3_(self.ddp_data['xs'][i][:ddp_data['nq']], ddp_data['pin_model'], ct_frame_id) for i in range(self.ddp.problem.T)]
         ddp_data['fs'] = [Ms[i].action @ ee_forces[i] for i in range(self.ddp.problem.T)]
     # Extract refs for active costs 
     # TODO : active costs may change along horizon : how to deal with that when plotting? 
@@ -127,7 +127,7 @@ class DDPDataHanlderAbstract:
     if('ctrlReg' in ddp_data['active_costs']):
         ddp_data['ctrlReg_ref'] = [self.ddp.problem.runningModels[i].differential.costs.costs['ctrlReg'].cost.residual.reference for i in range(self.ddp.problem.T)]
     if('ctrlRegGrav' in ddp_data['active_costs']):
-        ddp_data['ctrlRegGrav_ref'] = [pin_utils.get_u_grav(self.ddp.xs[i][:ddp_data['nq']], ddp_data['pin_model'], ddp_data['armature']) for i in range(self.ddp.problem.T)]
+        ddp_data['ctrlRegGrav_ref'] = [pin_utils.get_u_grav(self.ddp_data['xs'][i][:ddp_data['nq']], ddp_data['pin_model'], ddp_data['armature']) for i in range(self.ddp.problem.T)]
     if('stateLim' in ddp_data['active_costs']):
         ddp_data['stateLim_ub'] = [self.ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.ub for i in range(self.ddp.problem.T)]
         ddp_data['stateLim_lb'] = [self.ddp.problem.runningModels[i].differential.costs.costs['stateLim'].cost.activation.bounds.lb for i in range(self.ddp.problem.T)]

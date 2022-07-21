@@ -10,12 +10,20 @@
 """
 
 import crocoddyl
-import sobec
 import numpy as np
 from core_mpc import ocp
 
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
+
+
+# Check installed pkg
+import importlib
+FOUND_SOBEC = importlib.util.find_spec("sobec") is not None
+if(FOUND_SOBEC):
+    import sobec 
+else:
+    logger.warning('You need to install Sobec !')
 
 
 class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
@@ -72,14 +80,22 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
           for ct in self.contacts:
             contactModels.append(self.create_contact_model(ct, state, actuation))
 
-          # Create DAMContactDyn                    
-          dam = sobec.DifferentialActionModelContactFwdDynamics(state, 
-                                                                    actuation, 
-                                                                    sobec.ContactModelMultiple(state, actuation.nu), 
-                                                                    crocoddyl.CostModelSum(state, nu=actuation.nu), 
-                                                                    inv_damping=0., 
-                                                                    enable_force=True)
-        # Otherwise just create DAM
+          # Create DAMContactDyn      
+          if(FOUND_SOBEC):
+            dam = sobec.DifferentialActionModelContactFwdDynamics(state, 
+                                                                      actuation, 
+                                                                      sobec.ContactModelMultiple(state, actuation.nu), 
+                                                                      crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                                      inv_damping=0., 
+                                                                      enable_force=True)
+          else:
+            dam = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+                                                                      actuation, 
+                                                                      crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                                      crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                                      inv_damping=0., 
+                                                                      enable_force=True)
+          # Otherwise just create DAM
         else:
           # Create DAMFreeDyn
           dam = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
@@ -155,12 +171,20 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
         contactModels.append(self.create_contact_model(ct, state, actuation))
 
       # Create terminal DAMContactDyn
-      dam_t = sobec.DifferentialActionModelContactFwdDynamics(state, 
-                                                                actuation, 
-                                                                sobec.ContactModelMultiple(state, actuation.nu), 
-                                                                crocoddyl.CostModelSum(state, nu=actuation.nu), 
-                                                                inv_damping=0., 
-                                                                enable_force=True)
+      if(FOUND_SOBEC):
+        dam_t = sobec.DifferentialActionModelContactFwdDynamics(state, 
+                                                                  actuation, 
+                                                                  sobec.ContactModelMultiple(state, actuation.nu), 
+                                                                  crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                                  inv_damping=0., 
+                                                                  enable_force=True)
+      else:
+        dam_t = crocoddyl.DifferentialActionModelContactFwdDynamics(state, 
+                                                                  actuation, 
+                                                                  crocoddyl.ContactModelMultiple(state, actuation.nu), 
+                                                                  crocoddyl.CostModelSum(state, nu=actuation.nu), 
+                                                                  inv_damping=0., 
+                                                                  enable_force=True)
     # If no contact create DAMFreeDyn
     else:
       dam_t = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, 
