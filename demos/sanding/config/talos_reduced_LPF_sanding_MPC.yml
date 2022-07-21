@@ -158,8 +158,8 @@ var_v: 0.028 #x10
 delay_OCP_ms: 1    # in ms
 delay_sim_cycle: 1 # in HF cycles
   # Proportional-integral torque control gains
-Kp: [.2, .2, .2, .2, .2, .2]
-Ki: [.001, .001, .001, .001, .001, .001]
-Kd: [.00001, .00001, .00001, .00001, .00001, .00001]
+Kp_low: [.2, .2, .2, .2, .2, .2]
+Ki_low: [.001, .001, .001, .001, .001, .001]
+Kd_low: [.00001, .00001, .00001, .00001, .00001, .00001]
 u_avg_filter_length: 4 #8 # in HF cycles
 x_avg_filter_length: 5  #20 #8 # in HF cycles

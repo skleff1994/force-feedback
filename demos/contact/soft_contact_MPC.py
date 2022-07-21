@@ -31,7 +31,7 @@ np.set_printoptions(precision=4, linewidth=180)
 
 from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 
-from soft_mpc.data import MPCDataHandlerSoftContact, DDPDataHanlderSoftContact
+from soft_mpc.data import MPCDataHandlerSoftContact, DDPDataHandlerSoftContact
 from soft_mpc.ocp import OptimalControlProblemSoftContact
 from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
 
@@ -102,7 +102,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   frame_of_interest = config['frame_of_interest']
   if(PLOT_INIT):
       #  Plot
-      ddp_handler = DDPDataHanlderSoftContact(ddp)
+      ddp_handler = DDPDataHandlerSoftContact(ddp)
       ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest, ct_frame_name=frame_of_interest)
       # Extract soft force
       xs = np.array(ddp_data['xs'])

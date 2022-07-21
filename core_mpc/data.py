@@ -72,6 +72,7 @@ class DDPDataHandlerAbstract:
     ddp_data['xs'] = self.ddp.xs
     ddp_data['us'] = self.ddp.us
     ddp_data['CONTACT_TYPE'] = None
+    PIN_REF_FRAME =   pin.LOCAL
     # Extract force at EE frame and contact info
     if(hasattr(self.ddp.problem.runningModels[0].differential, 'contacts')):
       # Get refs for contact model

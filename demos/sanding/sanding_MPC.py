@@ -39,7 +39,7 @@ RANDOM_SEED = 1
 from core_mpc import ocp, path_utils, pin_utils, mpc_utils, misc_utils
 
 
-from classical_mpc.data import MPCDataHandlerClassical, DDPDataHanlderClassical
+from classical_mpc.data import MPCDataHandlerClassical, DDPDataHandlerClassical
 from classical_mpc.ocp import OptimalControlProblemClassical
 
 
@@ -135,7 +135,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # Plot initial solution
   if(PLOT_INIT):
-    ddp_handler = DDPDataHanlderClassical(ddp)
+    ddp_handler = DDPDataHandlerClassical(ddp)
     ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
     _, _ = ddp_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 

@@ -31,7 +31,7 @@ np.set_printoptions(precision=4, linewidth=180)
 
 from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 
-from classical_mpc.data import MPCDataHandlerClassical, DDPDataHanlderClassical
+from classical_mpc.data import MPCDataHandlerClassical, DDPDataHandlerClassical
 from classical_mpc.ocp import OptimalControlProblemClassical
 
 
@@ -75,8 +75,8 @@ def main(robot_name, simulator, PLOT_INIT):
   frame_of_interest = config['frameTranslationFrameName']
   # Plot initial solution
   if(PLOT_INIT):
-    ddp_handler = DDPDataHanlderClassical(ddp)
-    ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest)
+    ddp_handler = DDPDataHandlerClassical(ddp)
+    ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest, ct_frame_name=frame_of_interest)
     _, _ = ddp_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
 

@@ -425,7 +425,7 @@ class OptimalControlProblemAbstract:
       else:
         # Default force reference = zero force
         frameForceRef = pin.Force( np.asarray(self.frameForceRef) )
-        frameForceWeights = np.asarray(self.frameForceWeights)[2]
+        frameForceWeights = np.asarray(self.frameForceWeights)[2:3]
         frameForceCost = crocoddyl.CostModelResidual(state, 
                                                     crocoddyl.ActivationModelWeightedQuad(frameForceWeights**2), 
                                                     crocoddyl.ResidualModelContactForce(state, 

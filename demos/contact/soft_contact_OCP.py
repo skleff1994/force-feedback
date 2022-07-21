@@ -28,7 +28,7 @@ np.set_printoptions(precision=4, linewidth=180)
 from core_mpc import path_utils, pin_utils, misc_utils
 
 from soft_mpc.ocp import OptimalControlProblemSoftContact
-from soft_mpc.data import DDPDataHanlderSoftContact
+from soft_mpc.data import DDPDataHandlerSoftContact
 from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
 
 def main(robot_name, PLOT, DISPLAY):
@@ -75,7 +75,7 @@ def main(robot_name, PLOT, DISPLAY):
 
     if(PLOT):
         #  Plot
-        ddp_handler = DDPDataHanlderSoftContact(ddp)
+        ddp_handler = DDPDataHandlerSoftContact(ddp)
         ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
         # Extract soft force
         xs = np.array(ddp_data['xs'])

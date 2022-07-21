@@ -27,7 +27,7 @@ np.set_printoptions(precision=4, linewidth=180)
 from core_mpc import path_utils, pin_utils, misc_utils
 
 from classical_mpc.ocp import OptimalControlProblemClassical
-from classical_mpc.data import DDPDataHanlderClassical
+from classical_mpc.data import DDPDataHandlerClassical
 
 def main(robot_name, PLOT, DISPLAY):
 
@@ -66,7 +66,7 @@ def main(robot_name, PLOT, DISPLAY):
 
     #  Plot
     if(PLOT):
-        ddp_handler = DDPDataHanlderClassical(ddp)
+        ddp_handler = DDPDataHandlerClassical(ddp)
         ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
         _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], markers=['.'], colors=['b'], SHOW=True)
 

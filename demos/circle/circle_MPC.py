@@ -32,7 +32,7 @@ np.set_printoptions(precision=4, linewidth=180)
 
 from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils, ocp
 
-from classical_mpc.data import MPCDataHandlerClassical, DDPDataHanlderClassical
+from classical_mpc.data import MPCDataHandlerClassical, DDPDataHandlerClassical
 from classical_mpc.ocp import OptimalControlProblemClassical
 
 WARM_START_IK = True
@@ -110,7 +110,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Plot initial solution
   frame_of_interest = config['frameTranslationFrameName']
   if(PLOT_INIT):
-    ddp_handler = DDPDataHanlderClassical(ddp)
+    ddp_handler = DDPDataHandlerClassical(ddp)
     ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest, ct_frame_name=frame_of_interest)
     _, _ = ddp_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
@@ -229,14 +229,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                           '_BIAS='+str(config['SCALE_TORQUES'])+\
                           '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
                           '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
-                          '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
+                          '_Fp='+str(sim_data.plan_freq/1000)+'_Fc='+str(sim_data.ctrl_freq/1000)+'_Fs'+str(sim_data.simu_freq/1000)
 
   # Extract plot data from sim data
   plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
   # Plot results
   sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
                                       PLOT_PREDICTIONS=True, 
-                                      pred_plot_sampling=int(freq_PLAN/10),
+                                      pred_plot_sampling=int(sim_data.plan_freq/10),
                                       SAVE=True,
                                       SAVE_DIR=save_dir,
                                       SAVE_NAME=save_name,

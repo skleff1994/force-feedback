@@ -8,6 +8,7 @@ N_h: 400                                             # Horizon length in nodes
 maxiter: 100                                         # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
+WHICH_PLOTS: ['all']                                 # which plots to generate 
 
 
 # Pin model frame name of the end-effector 
@@ -38,14 +39,14 @@ frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 50.
 frameTranslationWeightTerminal: 50. 
 frameTranslationRef: 'DEFAULT'
-frameTranslationFrameName: 'DEFAULT'
+frameTranslationFrameName: 'contact'
 
  # 'rotation' : end-effector frame orientation 
 frameRotationWeights:  [1., 1., 1.]
 frameRotationWeight: 1.
 frameRotationWeightTerminal: 1.
 frameRotationRef: 'DEFAULT' 
-frameRotationFrameName: 'DEFAULT'
+frameRotationFrameName: 'contact'
 frameRotationTrajectoryVelocity: 2. # in rad/s
 ROTATION_LOCAL_AXIS: 'Z'
 
@@ -54,7 +55,7 @@ frameVelocityWeights:  [1., 1., 1., 0., 0. ,0.]
 frameVelocityWeight: .1
 frameVelocityWeightTerminal: .1
 frameVelocityRef: 'DEFAULT'    
-frameVelocityFrameName: 'DEFAULT'
+frameVelocityFrameName: 'contact'
 
  # 'stateLim' : state limits
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
