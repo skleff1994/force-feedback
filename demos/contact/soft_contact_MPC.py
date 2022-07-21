@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file contact_MPC.py
+@file demos/contact/soft_contact_MPC.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2021, New York University & LAAS-CNRS
@@ -33,6 +33,7 @@ from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 
 from soft_mpc.data import MPCDataHandlerSoftContact, DDPDataHanlderSoftContact
 from soft_mpc.ocp import OptimalControlProblemSoftContact
+from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
 
 
 
@@ -66,18 +67,21 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   id_endeff = robot.model.getFrameId(config['frame_of_interest'])
   ee_frame_placement = robot.data.oMf[robot.model.getFrameId(config['frame_of_interest'])]
   oMf = robot.data.oMf[id_endeff]
-  # Contact model
-  # TODO: put in config file
-  oPc = oMf.translation + np.array([0.,0.,0.05    ])
-  Kp = 100
-  Kv = 2*np.sqrt(Kp)
   # Placement of contact frame w.r.t. LOCAL frame
   contact_placement = ee_frame_placement.copy()
   # contact_placement.rotation 
   M_ct = robot.data.oMf[id_endeff].copy()
   contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
-  
+
+  # Contact model
+    # Contact model
+  oPc = contact_placement.translation # oMf.translation + np.asarray(config['oPc_offset'])
+  if('1D' in config['contactType']):
+      softContactModel = SoftContactModel1D(config['Kp'], config['Kv'], oPc, id_endeff, config['contactType'], config['pinRefFrame'])
+  else:
+      softContactModel = SoftContactModel3D(config['Kp'], config['Kv'], oPc, id_endeff, config['pinRefFrame'])
+
 
   import time
   time.sleep(1)
@@ -85,18 +89,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # 
   ### OCP SETUP ###
   # # # # # # # # #
-      # Define initial state
-  import pinocchio as pin
-  # TODO: put in ocp maker
-  pinRefFrame = pin.LOCAL
-  ov = pin.getFrameVelocity(robot.model, robot.data, id_endeff, pin.WORLD).linear
-  of0 = -Kp*(oMf.translation- oPc) - Kv*ov
-  oRf = oMf.rotation
-  lf0 = oRf.T @ of0
-  fext0 = [pin.Force.Zero() for _ in range(robot.model.njoints)]
-  fext0[robot.model.frames[id_endeff].parent] = robot.model.frames[id_endeff].placement.act(pin.Force(lf0, np.zeros(3)))
-  ddp = OptimalControlProblemSoftContact(robot, config).initialize(x0,    
-      id_endeff, Kp, Kv, oPc, pinRefFrame, callbacks=True)
+  # Warm start and reg
+  # Compute initial visco-elastic force
+  fext0 = softContactModel.computeExternalWrench(robot.model, robot.data)
+  # Setup Croco OCP and create solver
+  ddp = OptimalControlProblemSoftContact(robot, config).initialize(x0, softContactModel, callbacks=True)
   # Warmstart and solve
   xs_init = [x0 for i in range(config['N_h']+1)]
   us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, robot.model, np.zeros(nq)) for i in range(config['N_h'])] 
@@ -104,19 +101,24 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   frame_of_interest = config['frame_of_interest']
   if(PLOT_INIT):
-    ddp_handler = DDPDataHanlderSoftContact(ddp)
-    ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest, ct_frame_name=frame_of_interest)
-    # Extract soft force 
-    # TODO: put in data handlers
-    xs = np.array(ddp_data['xs'])
-    ps = pin_utils.get_p_(xs[:,:nq], robot.model, id_endeff)
-    vs = pin_utils.get_v_(xs[:,:nq], xs[:,nq:], robot.model, id_endeff, ref=pin.WORLD)
-    # Force in WORLD aligned frame
-    fs_lin = np.array([robot.data.oMf[id_endeff].rotation @ (-Kp*(ps[i,:] - oPc) - Kv*vs[i,:]) for i in range(config['N_h'])])
-    fs_ang = np.zeros((config['N_h'], 3))
-    ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
-    ddp_data['force_ref'] = [np.zeros(6) for i in range(config['N_h']) ]
-    _, _ = ddp_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+      #  Plot
+      ddp_handler = DDPDataHanlderSoftContact(ddp)
+      ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest, ct_frame_name=frame_of_interest)
+      # Extract soft force
+      xs = np.array(ddp_data['xs'])
+      # Force in WORLD aligned frame
+      if(softContactModel.nc == 3):
+          fs_lin = np.array([softContactModel.computeForce_(robot.model, xs[i,:nq], xs[i,nq:]) for i in range(config['N_h'])])
+      else:
+          fs_lin = np.zeros((config['N_h'],3))
+          fs_lin[:,softContactModel.mask] = np.array([softContactModel.computeForce_(robot.model, xs[i,:nq], xs[i,nq:]) for i in range(config['N_h'])])
+      fs_ang = np.zeros((config['N_h'], 3))
+      ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
+      ddp_data['force_ref'] = [np.zeros(6) for i in range(config['N_h']) ]
+      _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
+                                                          colors=['r'], 
+                                                          markers=['.'], 
+                                                          SHOW=True)
 
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
@@ -153,7 +155,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           # Solve OCP 
           ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
           # Record MPC predictions, cost references and solver data 
-          sim_data.record_predictions(nb_plan, ddp)
+          sim_data.record_predictions(nb_plan, ddp, softContactModel)
           sim_data.record_cost_references(nb_plan, ddp)
           sim_data.record_solver_data(nb_plan, ddp) 
           # Model communication delay between computer & robot (buffered OCP solution)
@@ -187,7 +189,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
-      f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, pinRefFrame)
+      f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, softContactModel.pinRefFrame)
       if(i%50==0): 
         logger.info("f_mea = "+str(f_mea_SIMU))
       # Record data (unnoised)

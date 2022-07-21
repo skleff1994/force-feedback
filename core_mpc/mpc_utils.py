@@ -24,8 +24,8 @@ class ActuationModel:
         self.alpha = np.random.uniform(low=self.config['alpha_min'], high=self.config['alpha_max'], size=(nu,))
         self.beta = np.random.uniform(low=self.config['beta_min'], high=self.config['beta_max'], size=(nu,))
         # PI gains for inner control loop [NOT READY]   
-        self.gain_P = self.config['Kp']*np.eye(nu)      
-        self.gain_I = self.config['Ki']*np.eye(nu)
+        self.gain_P = self.config['Kp_low']*np.eye(nu)      
+        self.gain_I = self.config['Ki_low']*np.eye(nu)
         self.err_I = np.zeros(nu)
         # Delays
         self.delay_sim_cycle = int(self.config['delay_sim_cycle'])       # in simu cycles

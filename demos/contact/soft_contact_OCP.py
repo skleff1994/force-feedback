@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file soft_contact_OCP.py
+@file demos/contact/soft_contact_OCP.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
@@ -78,7 +78,6 @@ def main(robot_name, PLOT, DISPLAY):
         ddp_handler = DDPDataHanlderSoftContact(ddp)
         ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
         # Extract soft force
-        import pinocchio as pin
         xs = np.array(ddp_data['xs'])
         # Force in WORLD aligned frame
         if(softContactModel.nc == 3):

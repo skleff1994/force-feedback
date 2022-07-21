@@ -18,7 +18,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 from soft_mpc.dam3d import DAMSoftContactDynamics3D
 from soft_mpc.dam1d import DAMSoftContactDynamics1D
-from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
+# from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
 
 class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
   '''
@@ -133,10 +133,10 @@ class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
           else:
             forceRef = np.asarray(self.frameForceRef)[softContactModel.mask]
           runningModels[i].differential.set_force_cost(forceRef, self.frameForceWeight)
-        # Friction cone 
-        if('friction' in self.WHICH_COSTS):
-          frictionConeCost = self.create_friction_force_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("friction", frictionConeCost, self.frictionConeWeight)
+        # # Friction cone 
+        # if('friction' in self.WHICH_COSTS):
+        #   frictionConeCost = self.create_friction_force_cost(state, actuation)
+        #   runningModels[i].differential.costs.addCost("friction", frictionConeCost, self.frictionConeWeight)
       
       # Armature 
         # Add armature to current IAM

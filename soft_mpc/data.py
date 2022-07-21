@@ -309,7 +309,7 @@ class MPCDataHandlerSoftContact(MPCDataHandlerAbstract):
 
 
 
-  def record_predictions(self, nb_plan, ddpSolver):
+  def record_predictions(self, nb_plan, ddpSolver, softContactModel):
     '''
     - Records the MPC prediction of at the current step (state, control and forces if contact is specified)
     '''
@@ -320,18 +320,27 @@ class MPCDataHandlerSoftContact(MPCDataHandlerAbstract):
     self.x_pred = self.state_pred[nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*) 
     self.u_curr = self.ctrl_pred[nb_plan, 0, :]     # u0* = optimal control   
     # Record forces in the right frame
-    if(self.is_contact):
-        id_endeff = self.rmodel.getFrameId(self.contactFrameName)
-        if(self.PIN_REF_FRAME == pin.LOCAL):
-            self.force_pred[nb_plan, :, :] = \
-                np.array([ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
-        elif(self.PIN_REF_FRAME == pin.LOCAL_WORLD_ALIGNED or self.PIN_REF_FRAME == pin.WORLD):
-            self.force_pred[nb_plan, :, :] = \
-                np.array([self.rdata.oMf[id_endeff].action @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
-        else:
-            logger.error("The Pinocchio reference frame must be in ['LOCAL', LOCAL_WORLD_ALIGNED', 'WORLD']")
-        self.f_curr = self.force_pred[nb_plan, 0, :]
-        self.f_pred = self.force_pred[nb_plan, 1, :]
+    # id_endeff = softContactModel.frameId
+    # Extract soft force
+    xs = np.array(ddpSolver.xs)
+    # Force in WORLD aligned frame
+    if(softContactModel.nc == 3):
+        fs_lin = np.array([softContactModel.computeForce_(self.rmodel, xs[i,:self.nq], xs[i,self.nq:]) for i in range(self.N_h)])
+    else:
+        fs_lin = np.zeros((self.N_h,3))
+        fs_lin[:,softContactModel.mask] = np.array([softContactModel.computeForce_(self.rmodel, xs[i,:self.nq], xs[i,self.nq:]) for i in range(self.N_h)])
+    fs_ang = np.zeros((self.N_h, 3))
+    fs = np.hstack([fs_lin, fs_ang])
+    # fref = [np.zeros(6) for i in range(self.N_h) ]
+    self.force_pred[nb_plan, :, :] = fs
+    # if(softContactModel.pinRefFrame == pin.LOCAL):
+    #     self.force_pred[nb_plan, :, :] = \
+    #         np.array([ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
+    # else:
+    #     self.force_pred[nb_plan, :, :] = \
+    #         np.array([self.rdata.oMf[id_endeff].action @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
+    self.f_curr = self.force_pred[nb_plan, 0, :]
+    self.f_pred = self.force_pred[nb_plan, 1, :]
 
   
   def record_plan_cycle_desired(self, nb_plan):

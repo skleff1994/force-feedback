@@ -3,9 +3,9 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 250        # Control frequency
-plan_freq: 250        # Planning frequency
-T_tot: 1.             # Simu duration (s)
+ctrl_freq: 500        # Control frequency
+plan_freq: 500        # Planning frequency
+T_tot: .3             # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -44,17 +44,23 @@ WHICH_PLOTS: ['all']                                          # which plots to 
 #   - Overrides the frame name 'DEFAULT' values below
 frame_of_interest: 'contact'
 
+# SOFT CONTACT MODEL
+oPc_offset: [0., 0., 0.0]
+Kp: 100
+Kv: 20
+pinRefFrame: 'LOCAL_WORLD_ALIGNED'
+contactType: '1Dx'
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['force', 'translation', 'stateReg', 'ctrlReg']  
+WHICH_COSTS: ['force', 'stateReg', 'ctrlReg']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 # frameForceWeights:  [1., 1., 1., 0., 0., 0.]
 frameForceWeight: 1
-frameForceRef: [0., 0., 0, 0., 0., 0.]    
+frameForceRef: [-10, 0., 0, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
 
@@ -125,8 +131,8 @@ var_v: 0.028 #x10
 delay_OCP_ms: 1    # in ms
 delay_sim_cycle: 2 # in HF cycles
   # Proportional-integral torque control gains
-Kp: [.2, .2, .2, .2, .2, .2, .2  ]
-Ki: [.001, .001, .001, .001, .001, .001, .01]
-Kd: [.00001, .00001, .00001, .00001, .00001, .00001, .00001]
+Kp_low: [.2, .2, .2, .2, .2, .2, .2  ]
+Ki_low: [.001, .001, .001, .001, .001, .001, .01]
+Kd_low: [.00001, .00001, .00001, .00001, .00001, .00001, .00001]
 u_avg_filter_length: 20 #8 # in HF cycles
 x_avg_filter_length: 5  #20 #8 # in HF cycles

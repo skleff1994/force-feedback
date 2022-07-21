@@ -8,16 +8,12 @@
 @brief Initializes the OCP + DDP solver (visco-elastic contact)
 """
 
-import crocoddyl
-import sobec
 import numpy as np
-from core_mpc import ocp
 import pinocchio as pin
 
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
-from core_mpc.pin_utils import get_p_, get_v_
 
 class SoftContactModel3D:
     def __init__(self, Kp, Kv, oPc, frameId, pinRef):
