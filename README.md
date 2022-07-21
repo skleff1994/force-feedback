@@ -7,7 +7,7 @@ The first approach (submitted to IROS22) consists in modeling the actuation as a
 
 # Dependencies
 - [robot_properties_kuka](https://github.com/machines-in-motion/robot_properties_kuka)
-- [Crocoddyl](https://github.com/skleff1994/crocoddyl/tree/devel) ("devel" branch)
+- [Crocoddyl](https://github.com/loco-3d/crocoddyl) 
 - [Pinocchio](https://github.com/stack-of-tasks/pinocchio)
 - [scipy](https://scipy.org/)
 - [example_robot_data](https://github.com/Gepetto/example-robot-data) 
