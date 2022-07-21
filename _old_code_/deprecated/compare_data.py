@@ -1,4 +1,4 @@
-from utils import utils
+from core_mpc import utils
 import numpy as np 
 import matplotlib.pyplot as plt
 

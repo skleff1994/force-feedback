@@ -15,7 +15,7 @@ The goal of this script is solve the same OCP for different horizons and plot th
 '''
 
 import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
+from core_mpc import ocp, path_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
 
 np.set_printoptions(precision=4, linewidth=180)
@@ -53,7 +53,7 @@ WARM_START = False # warm start each OCP with previous OCP solution (duplicate 
 i = 0
 for N_h in HORIZONS:
     # Create solver with custom horizon
-    ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
+    ddp = ocp.init_DDP(robot, config, x0, callbacks=False, 
                                             which_costs=['translation', 
                                                          'ctrlReg', 
                                                          'stateReg',

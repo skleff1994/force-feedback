@@ -796,4 +796,7 @@ wdaf_dx = -wKinv @ np.vstack([wdrnea_dx, wda0_dx])
 assert(np.linalg.norm(wdaf_dx_ND - wdaf_dx) <1e-3)
 
 # print(wdrnea_dx)
+assert(np.linalg.norm(wdaf_dx[:nq] - ldaf_dx_ND[:nq]) <1e-3)
 
+# print(wdaf_dx[:nq])
+# print(ldaf_dx_ND[:nq])

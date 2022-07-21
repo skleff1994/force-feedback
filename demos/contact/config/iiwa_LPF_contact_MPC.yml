@@ -6,8 +6,8 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 500        # Control frequency
-plan_freq: 500       # Planning frequency
+ctrl_freq: 250        # Control frequency
+plan_freq: 250       # Planning frequency
 T_tot: 3.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False               # Add delay in reference torques (low-level)
@@ -25,17 +25,13 @@ init_log_display_time: 1       # How long (s) to display the initial logs ?
 LOG: True                      # Logs during simulation
 log_rate: 500                  # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['w']
+RICCATI: False
 
-# # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
-#   R =
-#    -0.918754     0.389418    0.0651533
-#     0.388443     0.921061   -0.0275464
-#   -0.0707372 -2.41653e-08    -0.997495
-#   p = 0.3   0 0.7
-# # Starting config for IK (to avoid self-collision solution)
-# q_init =  [-0.2263,  0.    , -0.174 , -1.6865,  0.0358,  1.5   , -0.3946]
-# # Solution of IK_placement(q_init, M)
-# q0 = [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]
+# Definition of the contact surface in the simulator
+# It is aligned with the LOCAL contact frame by default
+# User-defined offset expressed in the LOCAL contact frame :
+contact_plane_offset: [0., 0., 0.034]
+
 
 # General 
 LPF_TYPE: 1                            # (0) ZOH (1) Euler (2) exact EMA
@@ -80,7 +76,7 @@ WHICH_COSTS: ['force', 'translation', 'stateReg', 'ctrlRegGrav']
 frameForceWeights:  [0., 0., 1., 0., 0., 0.]
 frameForceWeight: 10.
 frameForceWeightTerminal: 10.
-frameForceRef: [0., 0., -20, 0., 0., 0.]    
+frameForceRef: [0., 0., 20, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
  # 'stateReg' : state regularization  

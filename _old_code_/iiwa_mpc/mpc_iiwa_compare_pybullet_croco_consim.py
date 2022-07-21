@@ -32,7 +32,7 @@ import crocoddyl
 from bullet_utils.env import BulletEnvWithGround
 from robot_properties_kuka.iiwaWrapper import IiwaRobot, IiwaConfig
 
-from utils import utils
+from core_mpc import utils
 
 import pybullet as p
 import time 

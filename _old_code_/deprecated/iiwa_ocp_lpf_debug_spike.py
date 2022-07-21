@@ -16,7 +16,7 @@ The goal of this script is to setup OCP (play with weights)
 
 import crocoddyl
 import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils
+from core_mpc import ocp, path_utils, pin_utils, plot_utils
 from robot_properties_kuka.config import IiwaConfig
 
 # # # # # # # # # # # #
@@ -44,7 +44,7 @@ dt = config['dt']
 # u0 = np.asarray(config['tau0'])
 ug = pin_utils.get_u_grav(q0, robot) 
 y0 = np.concatenate([x0, ug])
-ddp = ocp_utils.init_DDP_LPF(robot, config, y0, 
+ddp = ocp.init_DDP_LPF(robot, config, y0, 
                              callbacks=True, cost_w=1e-4, #1e-4
                              tau_plus=True, lpf_type=0,
                              which_costs=['all']) 
@@ -52,8 +52,8 @@ ddp = ocp_utils.init_DDP_LPF(robot, config, y0,
 
 # Schedule weights for target reaching
 for k,m in enumerate(ddp.problem.runningModels):
-    m.differential.costs.costs['placement'].weight = ocp_utils.cost_weight_tanh(k, N_h, max_weight=10., alpha=5., alpha_cut=0.65)
-    m.differential.costs.costs['stateReg'].weight = ocp_utils.cost_weight_parabolic(k, N_h, min_weight=0.01, max_weight=config['xRegWeight'])
+    m.differential.costs.costs['placement'].weight = ocp.cost_weight_tanh(k, N_h, max_weight=10., alpha=5., alpha_cut=0.65)
+    m.differential.costs.costs['stateReg'].weight = ocp.cost_weight_parabolic(k, N_h, min_weight=0.01, max_weight=config['xRegWeight'])
     m.differential.costs.costs['ctrlReg'].weight  = 10./(k**2+1) # SOLUTION = penalize input first
 
 # Solve and extract solution trajectories

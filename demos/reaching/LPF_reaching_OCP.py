@@ -17,15 +17,17 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
+from core_mpc import path_utils, pin_utils, misc_utils
 
+from lpf_mpc.ocp import OptimalControlProblemLPF, getJointAndStateIds
+from lpf_mpc.data import DDPDataHandlerLPF
 
 def main(robot_name, PLOT, DISPLAY):
 
@@ -47,10 +49,6 @@ def main(robot_name, PLOT, DISPLAY):
     id_endeff = robot.model.getFrameId(frame_name)
     M_ee = robot.data.oMf[id_endeff]
     nq = robot.model.nq; nv = robot.model.nv; nx = nq+nv; nu = nq
-    # print("ID ENDEFF = ", id_endeff)
-
-    # for elt in robot.model.frames:
-    #     print('frame name = '+str(elt.name) + ' | id = ', robot.model.getFrameId(elt.name))
 
     #################
     ### OCP SETUP ###
@@ -58,14 +56,25 @@ def main(robot_name, PLOT, DISPLAY):
     N_h = config['N_h']
     dt = config['dt']
     ug = pin_utils.get_u_grav(q0, robot.model, config['armature']) 
-    y0 = np.concatenate([x0, ug])
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True)
+    lpf_joint_names = ['A1', 'A2', 'A3', 'A4'] # [] # ['A4'] #robot.model.names[1:]
+    _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
+    y0 = np.concatenate([x0, ug[lpfStateIds]])
+    ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=True)
     # Solve and extract solution trajectories
     xs_init = [y0 for i in range(N_h+1)]
     us_init = [ug for i in range(N_h)]
 
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False) 
     
+    if(PLOT):
+        #  Plot
+        ddp_handler = DDPDataHandlerLPF(ddp, len(lpf_joint_names))
+        ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
+        _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
+                                                            colors=['r'], 
+                                                            markers=['.'], 
+                                                            SHOW=True)
+
 
     if(DISPLAY):
 
@@ -144,13 +153,6 @@ def main(robot_name, PLOT, DISPLAY):
             time.sleep(pause)
 
 
-    if(PLOT):
-        #  Plot
-        ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=frame_name)
-        fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=config['WHICH_PLOTS'], 
-                                                            colors=['r'], 
-                                                            markers=['.'], 
-                                                            SHOW=True)
 
 if __name__=='__main__':
     args = misc_utils.parse_OCP_script(sys.argv[1:])

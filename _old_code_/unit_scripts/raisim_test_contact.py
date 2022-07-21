@@ -1,6 +1,6 @@
 import numpy as np
 import time
-from utils import raisim_utils, pin_utils
+from core_mpc import raisim_utils, pin_utils
 np.set_printoptions(precision=4, linewidth=180)
 
 # # # # # # # # # # # #

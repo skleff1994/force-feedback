@@ -17,15 +17,17 @@ The goal of this script is to setup OCP (play with weights)
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils, misc_utils
+from core_mpc import path_utils, pin_utils, misc_utils
 
+from lpf_mpc.ocp import OptimalControlProblemLPF
+from lpf_mpc.data import DDPDataHandlerLPF
 
 
 def main(robot_name, PLOT, DISPLAY):
@@ -63,7 +65,7 @@ def main(robot_name, PLOT, DISPLAY):
     u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
     y0 = np.concatenate([x0, u0])
     # Setup Croco OCP and create solver
-    ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=True) 
+    ddp = OptimalControlProblemLPF(robot, config).initialize(y0, callbacks=True)
     # Warmstart and solve
     # ug = pin_utils.get_u_grav(q0, robot.model)
     xs_init = [y0 for i in range(config['N_h']+1)]
@@ -73,8 +75,9 @@ def main(robot_name, PLOT, DISPLAY):
 
     if(PLOT):
         #  Plot
-        ddp_data = data_utils.extract_ddp_data_LPF(ddp, ee_frame_name=config['frame_of_interest'], ct_frame_name=config['frame_of_interest'])
-        fig, ax = plot_utils.plot_ddp_results_LPF(ddp_data, which_plots=['all'], 
+        ddp_handler = DDPDataHandlerLPF(ddp)
+        ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
+        _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                             colors=['r'], 
                                                             markers=['.'], 
                                                             SHOW=True)

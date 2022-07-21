@@ -27,7 +27,7 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
@@ -35,7 +35,7 @@ np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
 
-from utils import path_utils, ocp_utils, pin_utils, data_utils, mpc_utils, misc_utils
+from core_mpc import ocp, path_utils, pin_utils, data_utils, mpc_utils, misc_utils
 
 
 
@@ -72,11 +72,11 @@ def main(robot_name, simulator, PLOT_INIT):
   v0 = np.asarray(config['dq0'])
   x0 = np.concatenate([q0, v0])   
   if(simulator == 'bullet'):
-    from utils import sim_utils as simulator_utils
+    from core_mpc import sim_utils as simulator_utils
     env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
-    from utils import raisim_utils as simulator_utils
+    from core_mpc import raisim_utils as simulator_utils
     env, robot_simulator, _ = simulator_utils.init_raisim_simulation(robot_name, dt=dt_simu, x0=x0)  
     robot = robot_simulator
   else:
@@ -100,14 +100,14 @@ def main(robot_name, simulator, PLOT_INIT):
   f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
   u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
   y0 = np.concatenate([x0, u0])
-  ddp = ocp_utils.init_DDP_LPF(robot, config, y0, callbacks=False)
+  ddp = ocp.init_DDP_LPF(robot, config, y0, callbacks=False)
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   RADIUS = config['frameCircleTrajectoryRadius'] 
   OMEGA  = config['frameCircleTrajectoryVelocity']
   for k,m in enumerate(models):
       # Ref
       t = min(k*config['dt'], config['numberOfRounds']*2*np.pi/OMEGA)
-      p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
+      p_ee_ref = ocp.circle_point_WORLD(t, ee_frame_placement, 
                                                  radius=RADIUS,
                                                  omega=OMEGA,
                                                  LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
@@ -171,7 +171,7 @@ def main(robot_name, simulator, PLOT_INIT):
         for i in range(nb_points):
             t = (i/nb_points)*2*np.pi/OMEGA
             pl = ee_frame_placement.copy() #pin_utils.rotate(ee_frame_placement, rpy=TILT_RPY[n_exp])
-            pos = ocp_utils.circle_point_WORLD(t, pl, 
+            pos = ocp.circle_point_WORLD(t, pl, 
                                                   radius=RADIUS, 
                                                   omega=OMEGA, 
                                                   LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
@@ -235,7 +235,7 @@ def main(robot_name, simulator, PLOT_INIT):
                 for k,m in enumerate(models):
                     # Ref
                     t = min(t_simu + k*dt_ocp, config['numberOfRounds']*2*np.pi/OMEGA)
-                    p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement.copy(), 
+                    p_ee_ref = ocp.circle_point_WORLD(t, ee_frame_placement.copy(), 
                                                                 radius=RADIUS,
                                                                 omega=OMEGA,
                                                                 LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])

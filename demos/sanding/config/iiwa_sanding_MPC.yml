@@ -4,8 +4,8 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 500         # Control frequency
-plan_freq: 500         # Planning frequency
+ctrl_freq: 250         # Control frequency
+plan_freq: 250         # Planning frequency
 T_tot: 1.             # Simu duration (s)
 # Simulation options
 DELAY_SIM: True              # Add delay in reference torques (low-level)

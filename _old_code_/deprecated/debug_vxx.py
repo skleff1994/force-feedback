@@ -3,7 +3,7 @@ import pinocchio as pin
 import crocoddyl
 from bullet_utils.env import BulletEnvWithGround
 from robot_properties_kuka.iiwaWrapper import IiwaRobot
-from utils import utils 
+from core_mpc import utils 
 import pybullet as p
 
 # # # # # # # # # # # # # # # # # # #

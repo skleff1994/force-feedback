@@ -17,7 +17,7 @@ from bullet_utils.env import BulletEnvWithGround
 from robot_properties_kuka.iiwaWrapper import IiwaRobot, IiwaConfig
 
 from models.croco_IAMs import IntegratedActionModelLPF
-import utils
+import core_mpc
 
 import pybullet as p
 import time 
@@ -57,7 +57,7 @@ print(M_ct)
 # Measure distance EE to contact surface using p.getContactPoints() 
 # in order to avoid PyB repulsion due to penetration 
 # Result = 0.03 + 0.003499998807875214. Problem : smaller than ball radius (changed urdf?) . 
-contactId = utils.display_contact_surface(M_ct, robot.robotId, with_collision=True)
+contactId = core_mpc.display_contact_surface(M_ct, robot.robotId, with_collision=True)
 print("[PyBullet] Created contact plane (id = "+str(contactId)+")")
 print("[PyBullet]   >> Detect contact points : ")
 p.stepSimulation()
@@ -551,10 +551,10 @@ tau_mea  = X_mea[:,nq+nv:]
 q_des = X_des[:,:nq]
 v_des = X_des[:,nq:nq+nv]
 tau_des = X_des[:,nq+nv:]
-p_mea = utils.get_p(q_mea, robot.pin_robot, id_endeff)
-p_des = utils.get_p(q_des, robot.pin_robot, id_endeff) 
+p_mea = core_mpc.get_p(q_mea, robot.pin_robot, id_endeff)
+p_des = core_mpc.get_p(q_des, robot.pin_robot, id_endeff) 
 # Compute with Pinocchio from measured q,v in order to compare with PyBullet solution
-f_mea = utils.get_f(q_mea, v_mea, tau_mea, robot.pin_robot, id_endeff, dt=1e-3) 
+f_mea = core_mpc.get_f(q_mea, v_mea, tau_mea, robot.pin_robot, id_endeff, dt=1e-3) 
 # Create time spans for X and U + Create figs and subplots
 tspan_x = np.linspace(0, T_tot, N_tot+1)
 tspan_u = np.linspace(0, T_tot-dt_ctrl, N_tot)

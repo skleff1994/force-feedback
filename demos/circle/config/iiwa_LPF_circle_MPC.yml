@@ -25,17 +25,8 @@ init_log_display_time: 1       # How long (s) to display the initial logs ?
 LOG: True                      # Logs during simulation
 log_rate: 500                  # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['all']
+RICCATI: True 
 
-# # Goal placement M = ( M_ee.rot @ rpyToMat(0, pi/2, 0) , [0.3, 0., 0.7] )
-#   R =
-#    -0.918754     0.389418    0.0651533
-#     0.388443     0.921061   -0.0275464
-#   -0.0707372 -2.41653e-08    -0.997495
-#   p = 0.3   0 0.7
-# # Starting config for IK (to avoid self-collision solution)
-# q_init =  [-0.2263,  0.    , -0.174 , -1.6865,  0.0358,  1.5   , -0.3946]
-# # Solution of IK_placement(q_init, M)
-# q0 = [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]
 
 
 # OCP general parameters
@@ -54,19 +45,19 @@ tau0: [  0., -16.4279,  -0.,  14.4554, -0.6963, 0.027, 0.]           # Initial 
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
 # WHICH_COSTS: ['translation', 'velocity', 'ctrlRegGrav', 'stateReg'] #, 'stateLim'] 
-WHICH_COSTS: ['translation', 'rotation', 'ctrlRegGrav', 'stateReg']
+WHICH_COSTS: ['translation', 'ctrlRegGrav', 'stateReg']
 
 # Cost function weights and activations
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1 ,0.1, 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: .1
-stateRegWeightTerminal: 10
+stateRegWeight: 0.1
+stateRegWeightTerminal: 0.1
 stateRegRef: 'DEFAULT' # 'DEFAULT' = [q0, v0]
 
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.01
-ctrlRegWeightTerminal: 0.1
+ctrlRegWeightTerminal: 0.01
 ctrlRegRef: 'DEFAULT'  # DEFAULT = g(q) | NOT used for 'ctrlRegGrav' cost
 
 # 'wReg' : unfiltered torque regularization

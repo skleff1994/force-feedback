@@ -15,7 +15,7 @@ The goal of this script is to debug
 '''
 
 import numpy as np  
-from utils import path_utils, ocp_utils, pin_utils, plot_utils, data_utils
+from core_mpc import ocp, path_utils, pin_utils, plot_utils, data_utils
 from robot_properties_kuka.config import IiwaConfig
 
 np.set_printoptions(precision=4, linewidth=180)
@@ -45,7 +45,7 @@ robot.computeJointJacobians(q0)
 
 # Create solver with custom horizon
 N_h = 1000
-ddp1 = ocp_utils.init_DDP(robot, config, x0, callbacks=False, 
+ddp1 = ocp.init_DDP(robot, config, x0, callbacks=False, 
                                         which_costs=['translation', 
                                                      'ctrlReg', 
                                                      'stateReg',
@@ -63,7 +63,7 @@ SHIFT = int(60)
 
 # Solve same problem with shifted horizon
 x0_shift = ddp_data1['xs'][SHIFT]
-ddp2 = ocp_utils.init_DDP(robot, config, x0_shift, callbacks=False, 
+ddp2 = ocp.init_DDP(robot, config, x0_shift, callbacks=False, 
                                                    which_costs=['translation', 
                                                                'ctrlReg', 
                                                                'stateReg',
