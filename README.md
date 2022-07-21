@@ -12,6 +12,7 @@ The first approach (submitted to IROS22) consists in modeling the actuation as a
 - [scipy](https://scipy.org/)
 - [example_robot_data](https://github.com/Gepetto/example-robot-data) 
 - [Gepetto-viewer](https://github.com/Gepetto/gepetto-viewer)
+- [sobec](https://github.com/MeMory-of-MOtion/sobec) (only for contact tasks in user-aligned frame and force feedback MPC)
 
 You also need either one of these in order to run MPC simulations :
 <!-- - [RaiSim](https://raisim.com/index.html) (only for RaiSim simulations) -->
@@ -19,6 +20,12 @@ You also need either one of these in order to run MPC simulations :
 - [bullet_utils](https://github.com/machines-in-motion/bullet_utils) 
 
 If you don't have PyYaml and six installed : `pip3 install PyYaml && pip3 install six`
+
+# Installation
+The packages can be pip installed with 
+`
+pip install .
+`
 
 # How to use it
 The core and utilities for each type of MPC are available in 
