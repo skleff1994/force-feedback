@@ -11,7 +11,7 @@
 import numpy as np
 from core_mpc import pin_utils
 import pinocchio as pin
-from core_mpc.data import DDPDataHanlderAbstract, MPCDataHandlerAbstract, load_data
+from core_mpc.data import DDPDataHandlerAbstract, MPCDataHandlerAbstract, load_data
 
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
@@ -22,7 +22,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 # Classical OCP data handler : extract data + generate fancy plots
-class DDPDataHanlderSoftContact(DDPDataHanlderAbstract):
+class DDPDataHanlderSoftContact(DDPDataHandlerAbstract):
 
   def __init__(self, ddp):
     super().__init__(ddp)

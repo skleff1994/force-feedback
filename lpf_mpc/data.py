@@ -11,7 +11,7 @@
 
 import numpy as np
 from core_mpc import pin_utils
-from core_mpc.data import DDPDataHanlderAbstract, MPCDataHandlerAbstract
+from core_mpc.data import DDPDataHandlerAbstract, MPCDataHandlerAbstract
 
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
@@ -25,7 +25,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 # Classical OCP data handler : extract data + generate fancy plots
-class DDPDataHandlerLPF(DDPDataHanlderAbstract):
+class DDPDataHandlerLPF(DDPDataHandlerAbstract):
   def __init__(self, ddp, n_lpf):
     super().__init__(ddp)
     self.n_lpf = n_lpf
