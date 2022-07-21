@@ -537,7 +537,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
   # Plot data - classical OCP specific plotting functions
   def plot_mpc_results(self, plot_data, which_plots=None, PLOT_PREDICTIONS=False, 
                                                 pred_plot_sampling=100, 
-                                                SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                                                SAVE=False, SAVE_DIR='/tmp', SAVE_NAME=None,
                                                 SHOW=True,
                                                 AUTOSCALE=False):
       '''
@@ -625,7 +625,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
   def plot_mpc_state(self, plot_data, PLOT_PREDICTIONS=False, 
                                     pred_plot_sampling=100, 
-                                    SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                                    SAVE=False, SAVE_DIR='/tmp', SAVE_NAME=None,
                                     SHOW=True):
       '''
       Plot state data (MPC simulation using LPF, i.e. state x = (q,v,tau))
@@ -769,8 +769,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
       # Save fig
       if(SAVE):
           figs = {'x': fig}
-          if(SAVE_DIR is None):
-              SAVE_DIR = '/home/skleff/force-feedback/data'
           if(SAVE_NAME is None):
               SAVE_NAME = 'testfig'
           for name, fig in figs.items():
@@ -783,7 +781,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
   def plot_mpc_control(self, plot_data, PLOT_PREDICTIONS=False, 
                                       pred_plot_sampling=100, 
-                                      SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                                      SAVE=False, SAVE_DIR='/tmp', SAVE_NAME=None,
                                       SHOW=True):
       '''
       Plot control data (MPC simulation using LPF, i.e. control u = unfiltered torque)
@@ -870,8 +868,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
       # Save figs
       if(SAVE):
           figs = {'u': fig}
-          if(SAVE_DIR is None):
-              SAVE_DIR = '/home/skleff/force-feedback/data'
           if(SAVE_NAME is None):
               SAVE_NAME = 'testfig'
           for name, fig in figs.items():
@@ -882,7 +878,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
       return fig, ax
 
-  def plot_mpc_ricatti_diag(self, plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+  def plot_mpc_ricatti_diag(self, plot_data, SAVE=False, SAVE_DIR='/tmp', SAVE_NAME=None,
                               SHOW=True):
       '''
       Plot ricatti data
@@ -937,8 +933,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
       # Save figs
       if(SAVE):
           figs = {'K_diag': fig_K}
-          if(SAVE_DIR is None):
-              SAVE_DIR = '/home/skleff/force-feedback/data'
           if(SAVE_NAME is None):
               SAVE_NAME = 'testfig'
           for name, fig in figs.items():
@@ -949,7 +943,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
       
       return fig_K
 
-  def plot_mpc_Vxx_eig(self, plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+  def plot_mpc_Vxx_eig(self, plot_data, SAVE=False, SAVE_DIR='/tmp', SAVE_NAME=None,
                           SHOW=True):
       '''
       Plot Vxx eigenvalues
@@ -1002,8 +996,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
       # Save figs
       if(SAVE):
           figs = {'V_eig': fig_V}
-          if(SAVE_DIR is None):
-              SAVE_DIR = '/home/skleff/force-feedback/data'
           if(SAVE_NAME is None):
               SAVE_NAME = 'testfig'
           for name, fig in figs.items():
@@ -1014,7 +1006,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
       
       return fig_V
 
-  def plot_mpc_Vxx_diag(self, plot_data, SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+  def plot_mpc_Vxx_diag(self, plot_data, SAVE=False, SAVE_DIR='/tmp', SAVE_NAME=None,
                           SHOW=True):
       '''
       Plot Vxx diagonal terms
@@ -1068,8 +1060,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
       # Save figs
       if(SAVE):
           figs = {'V_diag': fig_V}
-          if(SAVE_DIR is None):
-              SAVE_DIR = '/home/skleff/force-feedback/data'
           if(SAVE_NAME is None):
               SAVE_NAME = 'testfig'
           for name, fig in figs.items():

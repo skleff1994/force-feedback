@@ -182,19 +182,19 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   # PLOT SIM RESULTS  #
   # # # # # # # # # # #
-  save_dir = '/home/skleff/force-feedback/data'
+  save_dir = '/tmp'
   save_name = config_name+'_bullet_'+\
                           '_BIAS='+str(config['SCALE_TORQUES'])+\
                           '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
                           '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
-                          '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)
+                          '_Fp='+str(sim_data.plan_freq/1000)+'_Fc='+str(sim_data.ctrl_freq/1000)+'_Fs'+str(sim_data.simu_freq/1000)
   #  Extract plot data from sim data
   plot_data = sim_data.extract_data(frame_of_interest=frame_name)
   #  Plot results
-  sim_data.plot_mpc_results(plot_data, which_plots=WHICH_PLOTS,
+  sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
                                   PLOT_PREDICTIONS=True, 
-                                  pred_plot_sampling=int(freq_PLAN/10),
-                                  SAVE=True,
+                                  pred_plot_sampling=int(sim_data.plan_freq/10),
+                                  SAVE=False,
                                   SAVE_DIR=save_dir,
                                   SAVE_NAME=save_name,
                                   AUTOSCALE=True)

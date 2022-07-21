@@ -284,7 +284,7 @@ for i in range(sim_data['N_simu']):
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
-save_dir = '/home/skleff/force-feedback/data'
+save_dir = '/tmp'
 save_name = config_name+'_bullet_'+\
                         '_BIAS='+str(config['SCALE_TORQUES'])+\
                         '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

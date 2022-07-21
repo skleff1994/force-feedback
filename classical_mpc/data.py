@@ -700,7 +700,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
       if(SAVE):
           figs = {'x': fig_x}
           if(SAVE_DIR is None):
-              SAVE_DIR = '/home/skleff/force-feedback/data'
+              logger.error("Please specify SAVE_DIR")
           if(SAVE_NAME is None):
               SAVE_NAME = 'testfig'
           for name, fig in figs.items():
@@ -798,7 +798,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
       if(SAVE):
           figs = {'u': fig_u}
           if(SAVE_DIR is None):
-              SAVE_DIR = '/home/skleff/force-feedback/data'
+              logger.error("Please specify SAVE_DIR")
           if(SAVE_NAME is None):
               SAVE_NAME = 'testfig'
           for name, fig in figs.items():
@@ -858,7 +858,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
       if(SAVE):
           figs = {'K_diag': fig_K}
           if(SAVE_DIR is None):
-              SAVE_DIR = '/home/skleff/force-feedback/data'
+              logger.error("Please specify SAVE_DIR")
           if(SAVE_NAME is None):
               SAVE_NAME = 'testfig'
           for name, fig in figs.items():
@@ -919,7 +919,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
       if(SAVE):
           figs = {'V_eig': fig_V}
           if(SAVE_DIR is None):
-              SAVE_DIR = '/home/skleff/force-feedback/data'
+              logger.error("Please specify SAVE_DIR")
           if(SAVE_NAME is None):
               SAVE_NAME = 'testfig'
           for name, fig in figs.items():
@@ -980,7 +980,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
       if(SAVE):
           figs = {'V_diag': fig_V}
           if(SAVE_DIR is None):
-              SAVE_DIR = '/home/skleff/force-feedback/data'
+              logger.error("Please specify SAVE_DIR")
           if(SAVE_NAME is None):
               SAVE_NAME = 'testfig'
           for name, fig in figs.items():

@@ -16,7 +16,7 @@ FILTER_TORQUES: False         # Moving average smoothing of reference torques
 TORQUE_TRACKING: False        # Simulate low-level torque control loop
 NOISE_STATE: False            # Add Gaussian noise on the measured state 
 FILTER_STATE: False           # Moving average smoothing of reference torques
-SAVE_DATA: True               # Save plot_data to npz
+SAVE_DATA: False               # Save plot_data to npz
 RECORD_SOLVER_DATA: False     # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
 INIT_LOG: True                # Initial logs summarizing parameters
 init_log_display_time: 1      # How long (s) to display the initial logs ?

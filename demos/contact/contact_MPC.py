@@ -176,7 +176,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   # PLOT SIM RESULTS  #
   # # # # # # # # # # #
-  save_dir = '/home/skleff/force-feedback/data'
+  save_dir = '/tmp'
   save_name = config_name+'_'+simulator+'_'+\
                           '_BIAS='+str(config['SCALE_TORQUES'])+\
                           '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
@@ -188,7 +188,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
                                       PLOT_PREDICTIONS=True, 
                                       pred_plot_sampling=int(sim_data.plan_freq/10),
-                                      SAVE=True,
+                                      SAVE=False,
                                       SAVE_DIR=save_dir,
                                       SAVE_NAME=save_name,
                                       AUTOSCALE=True)
