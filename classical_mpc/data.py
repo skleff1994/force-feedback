@@ -165,11 +165,17 @@ class DDPDataHandlerClassical(DDPDataHandlerAbstract):
           ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
           ax[i,1].grid(True)  
 
+          # Set ylim if any
+          ax[i,0].set_ylim(ddp_data['pin_model'].lowerPositionLimit[i], ddp_data['pin_model'].upperPositionLimit[i]) 
+          ax[i,1].set_ylim(-ddp_data['pin_model'].velocityLimit[i], ddp_data['pin_model'].velocityLimit[i])
+
+
       # Common x-labels + align
       ax[-1,0].set_xlabel('Time (s)', fontsize=16)
       ax[-1,1].set_xlabel('Time (s)', fontsize=16)
       fig.align_ylabels(ax[:, 0])
       fig.align_ylabels(ax[:, 1])
+
 
       if(MAKE_LEGEND):
           handles, labels = ax[0,0].get_legend_handles_labels()

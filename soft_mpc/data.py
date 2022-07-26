@@ -22,7 +22,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 # Classical OCP data handler : extract data + generate fancy plots
-class DDPDataHanlderSoftContact(DDPDataHandlerAbstract):
+class DDPDataHandlerSoftContact(DDPDataHandlerAbstract):
 
   def __init__(self, ddp):
     super().__init__(ddp)
