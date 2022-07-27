@@ -348,7 +348,7 @@ assert(np.linalg.norm(lda_df_ND - lda_df) <1e-3)
 
 
 
-# WORLD : rotate local + skew term 
+# deriv frame acc w.r.t. x and tau in WORLD (rotate LOCAL + skew term for q) 
 def frameAcceleration_world(model, data, x, u, Kp, Kv, oPc):
     q = x[:nq]
     v = x[nq:]
@@ -395,84 +395,56 @@ frameAccWorld = frameAcceleration_fWorld(model, data, x0, tau, of)
 assert(np.linalg.norm(frameAccPinWorld - frameAccWorld) <1e-3)
 oda_df_ND = numdiff(lambda f_:frameAcceleration_fWorld(model, data, x0, tau, f_), of)
 _, _, _, oa_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)
-oda_df = oa_da[:3] @ odaq_df #odaq_df  #a_da[:3] @ odaq_df #
+oda_df = oa_da[:3] @ odaq_df
 assert(np.linalg.norm(oda_df_ND - oda_df) <1e-3)
 
 
-# # Check that formula is correct against Pinocchio
-# pin.forwardKinematics(model, data, q0, v0, laq)
-# pin.computeJointJacobiansTimeVariation(model, data, q0, v0)
-# frameAccPin = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL).linear
-# frameAcc = frameAcceleration_world(model, data, x0, tau, Kp, Kv, oPc)
-# assert(np.linalg.norm( frameAccPin - frameAcc ) <1e-3)
-# # Then derivatives should be the same as well (also works in 6D)
-# lda_dx_ND = numdiff(lambda x_:frameAcceleration_world(model, data, x_, tau, Kp, Kv, oPc), x0)
-# lda_dx = np.zeros(lda_dx_ND.shape)
-# _, a_dq, a_dv, a_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL)
-# lda_dx[:,:nq] = a_dq[:3] + a_da[:3] @ ldaq_dx[:,:nq]
-# lda_dx[:,nq:] = a_dv[:3] + a_da[:3] @ ldaq_dx[:,nq:]
-# assert(np.linalg.norm(lda_dx_ND - lda_dx) <1e-3)
-# # Derivatives of frame acc w.r.t. tau_q
-# lda_du_ND = numdiff(lambda tau_:frameAcceleration_world(model, data, x0, tau_, Kp, Kv, oPc), tau)
-# lda_du = np.zeros(lda_du_ND.shape)
-# _, a_dq, a_dv, a_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL)
-# lda_du[:,:nq] = a_da[:3] @ ldaq_du
-# assert(np.linalg.norm(lda_du_ND - lda_du) <1e-3)
-# # Derivatives of frame acc w.r.t. contact force lambda
-# def frameAcceleration_fLocal(model, data, x, u, force3d_local):
-#     q = x[:nq]
-#     v = x[nq:]
-#     aq = aba_local(model, data, frameId, x, u, force3d_local)
-#     # Compute frame acc
-#     pin.computeAllTerms(model, data, q, v)
-#     pin.forwardKinematics(model, data, q, v, aq)
-#     pin.updateFramePlacements(model, data)
-#     lJ = pin.getFrameJacobian(model, data, frameId, pin.LOCAL)
-#     pin.computeJointJacobiansTimeVariation(model, data, q, v)
-#     dJ = pin.getJointJacobianTimeVariation(model, data, parentId, pin.LOCAL)
-#     ldJ = model.frames[frameId].placement.actionInverse @ dJ
-#     return ldJ[:3] @ v + lJ[:3] @ aq
-# frameAcc_f = frameAcceleration_fLocal(model, data, x0, tau, lf)
-# assert(np.linalg.norm( frameAcc_f - frameAcc ) <1e-3)
-# lda_df_ND = numdiff(lambda f_:frameAcceleration_fLocal(model, data, x0, tau, f_), lf)
-# lda_df = a_da[:3] @ ldaq_df
-# assert(np.linalg.norm(lda_df_ND - lda_df) <1e-3)
+# Check the derivatives of lambda dot w.r.t. q, v_q, tau_q
+def lambdaDot_local(model, data, frameId, x, tau, Kp, Kv, oPc):
+    '''
+    compute the time derivative of the contact force in LOCAL
+    '''
+    q = x[:nq]
+    v = x[nq:]
+    la = frameAcceleration_local(model, data, x, tau, Kp, Kv, oPc)
+    # Compute visco-elastic contact force 
+    lv = pin.getFrameVelocity(model, data, frameId, pin.LOCAL).linear
+    # la = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL).linear
+    assert(np.linalg.norm(lv - pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[:3] @ v) < 1e-4)
+    df_dt = -Kp * lv - Kv * la
+    return df_dt
+lv_dq, lv_dv = pin.getFrameVelocityDerivatives(model, data, frameId, pin.LOCAL)
+lv_dx = np.hstack([lv_dq, lv_dv])
+ldfdt_dx = -Kp*lv_dx[:3] - Kv*lda_dx[:3] 
+ldfdt_dx_ND = numdiff(lambda x_:lambdaDot_local(model, data, frameId, x_, tau, Kp, Kv, oPc), x0)
+assert(np.linalg.norm(ldfdt_dx_ND - ldfdt_dx) <1e-2)
+ldfdt_du = -Kv*lda_du
+ldfdt_du_ND = numdiff(lambda tau_:lambdaDot_local(model, data, frameId, x0, tau_, Kp, Kv, oPc), tau)
+assert(np.linalg.norm(ldfdt_du_ND - ldfdt_du) <1e-2)
 
-
-# # Check the derivatives of lambda dot w.r.t. q, v_q, tau_q
-# def lambdaDot_local(model, data, frameId, x, Kp, Kv, oPc):
-#     '''
-#     compute the time derivative of the contact force in LOCAL
-#     '''
-#     q = x[:nq]
-#     v = x[nq:]
-#     pin.computeAllTerms(model, data, q, v)
-#     pin.forwardKinematics(model, data, q, v, np.zeros(nq))
-#     pin.updateFramePlacements(model, data)
-#     # Compute visco-elastic contact force 
-#     lv = pin.getFrameVelocity(model, data, frameId, pin.LOCAL).linear
-#     la = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL).linear
-#     assert(np.linalg.norm(lv - pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[:3] @ v) < 1e-4)
-#     force = -Kp * lv - Kv @ la
-#     return force
-
-# # Check derivatives w.r.t. state, lambda and tau
-# lda_dx_ND = numdiff(lambda x_:frameAcceleration_local(model, data, x_, tau, Kp, Kv, oPc), x0)
-# lda_dx = np.zeros(lda_dx_ND.shape)
-# _, a_dq, a_dv, a_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL)
-# lda_dx[:,:nq] = a_dq[:3] + a_da[:3] @ ldaq_dx[:,:nq]
-# lda_dx[:,nq:] = a_dv[:3] + a_da[:3] @ ldaq_dx[:,nq:]
-# assert(np.linalg.norm(lda_dx_ND - lda_dx) <1e-3)
-
-
-# lda_du_ND = numdiff(lambda tau_:frameAcceleration_local(model, data, x0, tau_, Kp, Kv, oPc), tau)
-# lda_du = np.zeros(lda_du_ND.shape)
-# _, a_dq, a_dv, a_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL)
-# lda_du[:,:nq] = a_da[:3] @ ldaq_du
-# assert(np.linalg.norm(lda_du_ND - lda_du) <1e-3)
-
-
-
+# Check the derivatives of lambda dot w.r.t. q, v_q, tau_q
+def lambdaDot_world(model, data, frameId, x, tau, Kp, Kv, oPc):
+    '''
+    compute the time derivative of the contact force in LOCAL_WORLD_ALIGNED
+    '''
+    q = x[:nq]
+    v = x[nq:]
+    oa = frameAcceleration_world(model, data, x, tau, Kp, Kv, oPc)
+    # Compute visco-elastic contact force 
+    ov = pin.getFrameVelocity(model, data, frameId, pin.LOCAL_WORLD_ALIGNED).linear
+    # la = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL).linear
+    assert(np.linalg.norm(ov - pin.getFrameJacobian(model, data, frameId, pin.LOCAL_WORLD_ALIGNED)[:3] @ v) < 1e-4)
+    df_dt = -Kp * ov - Kv * oa
+    return df_dt
+ldf_dt = lambdaDot_local(model, data, frameId, x0, tau, Kp, Kv, oPc)
+odfdt_dx = np.zeros(np.shape(ldfdt_dx))
+odfdt_dx[:,:nq] = oRf @ ldfdt_dx[:,:nq] - pin.skew(oRf @ ldf_dt) @ oJ[3:]
+odfdt_dx[:,nq:] = oRf @ ldfdt_dx[:,nq:] 
+odfdt_dx_ND = numdiff(lambda x_:lambdaDot_world(model, data, frameId, x_, tau, Kp, Kv, oPc), x0)
+assert(np.linalg.norm(odfdt_dx_ND - odfdt_dx) <1e-2)
+odfdt_du = oRf @ ldfdt_du
+odfdt_du_ND = numdiff(lambda tau_:lambdaDot_world(model, data, frameId, x0, tau_, Kp, Kv, oPc), tau)
+assert(np.linalg.norm(odfdt_du_ND - odfdt_du) <1e-2)
 
 
 # # Check implemented class
