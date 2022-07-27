@@ -144,6 +144,7 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
                 data.df_dx[:,self.state.nq:] = oRf @ data.df_dx_copy[:,self.state.nq:]
             # Computing the dynamics using ABA or manually if armature
             aba_dq, ada_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext_copy)
+            # print("classical : \n", aba_dq)
             data.Fx[:,:self.state.nq] = aba_dq + data.pinocchio.Minv @ lJ[:3].T @ data.df_dx_copy[:,:self.state.nq]
             data.Fx[:,self.state.nq:] = ada_dv + data.pinocchio.Minv @ lJ[:3].T @ data.df_dx_copy[:,self.state.nq:]
             data.Fx += data.pinocchio.Minv @ data.multibody.actuation.dtau_dx

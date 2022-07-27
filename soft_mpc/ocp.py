@@ -16,7 +16,7 @@ from core_mpc import ocp
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
-from soft_mpc.dam3d import DAMSoftContactDynamics3D
+from soft_mpc.soft_models_3D import DAMSoftContactDynamics3D
 from soft_mpc.dam1d import DAMSoftContactDynamics1D
 # from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
 

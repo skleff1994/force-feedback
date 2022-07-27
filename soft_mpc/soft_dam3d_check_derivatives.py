@@ -214,6 +214,9 @@ ldaq_du = laba_dtau
     # compare numdiff
 ldaq_dx_ND = numdiff(lambda x_:fdyn_local(model, data, frameId, x_, tau, Kp, Kv, oPc), x0)
 assert(np.linalg.norm(ldaq_dx - ldaq_dx_ND) < 1e-2)
+print("1 = \n", ldaq_du)
+print("2 = \n", data.Minv @ lJ[:3].T @ dlf_dx[:,:nq])
+print("3 = \n", laba_dq + data.Minv @ lJ[:3].T @ dlf_dx[:,:nq])
     # world needs to be the same as local since using same force (joint level)
 # print("ofext = ", ofext)
 # print("lfext = ", lfext)
@@ -282,7 +285,7 @@ assert(np.linalg.norm( odaq_df - odaq_df_ND ) <1e-3)
 
 # Check derivatives of ddot p w.r.t. q, v_q, tau_q (frame acc derivatives)
 # Use implemented DAM to compute the joint acceleration
-from soft_mpc.dam3d import DAMSoftContactDynamics3D
+from soft_mpc.soft_models_3D import DAMSoftContactDynamics3D as DAM3DClassical
 import crocoddyl
 # State, actuation, cost models
 state = crocoddyl.StateMultibody(model)
@@ -294,7 +297,7 @@ def frameAcceleration_local(model, data, x, u, Kp, Kv, oPc):
     q = x[:nq]
     v = x[nq:]
     # Get joint acceleration
-    dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
+    dam = DAM3DClassical(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
     dad = dam.createData()
     dam.calc(dad, x, u)
     aq = dad.xout
@@ -309,8 +312,8 @@ def frameAcceleration_local(model, data, x, u, Kp, Kv, oPc):
     return ldJ[:3] @ v + lJ[:3] @ aq
 # Check that formula is correct against Pinocchio
 pin.forwardKinematics(model, data, q0, v0, laq)
-pin.computeJointJacobiansTimeVariation(model, data, q0, v0)
 frameAccPin = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL).linear
+pin.computeJointJacobiansTimeVariation(model, data, q0, v0)
 frameAcc = frameAcceleration_local(model, data, x0, tau, Kp, Kv, oPc)
 assert(np.linalg.norm( frameAccPin - frameAcc ) <1e-3)
 # Then derivatives should be the same as well (also works in 6D)
@@ -353,7 +356,7 @@ def frameAcceleration_world(model, data, x, u, Kp, Kv, oPc):
     q = x[:nq]
     v = x[nq:]
     # Get joint acceleration
-    dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
+    dam = DAM3DClassical(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
     dad = dam.createData()
     dam.calc(dad, x, u)
     aq = dad.xout
@@ -416,6 +419,8 @@ def lambdaDot_local(model, data, frameId, x, tau, Kp, Kv, oPc):
 lv_dq, lv_dv = pin.getFrameVelocityDerivatives(model, data, frameId, pin.LOCAL)
 lv_dx = np.hstack([lv_dq, lv_dv])
 ldfdt_dx = -Kp*lv_dx[:3] - Kv*lda_dx[:3] 
+# print(lv_dx)
+# print(lda_dx)
 ldfdt_dx_ND = numdiff(lambda x_:lambdaDot_local(model, data, frameId, x_, tau, Kp, Kv, oPc), x0)
 assert(np.linalg.norm(ldfdt_dx_ND - ldfdt_dx) <1e-2)
 ldfdt_du = -Kv*lda_du
@@ -452,7 +457,8 @@ assert(np.linalg.norm(odfdt_du_ND - odfdt_du) <1e-2)
 
 
 # Check implemented class
-from soft_mpc.dam3d import DAMSoftContactDynamics3D
+from soft_mpc.soft_models_3D import DAMSoftContactDynamics3D as DAM3DClassical
+from soft_mpc.soft_models_3D_augmented import DAMSoftContactDynamics3D as DAM3DAugmented
 import crocoddyl
 # State, actuation, cost models
 state = crocoddyl.StateMultibody(model)
@@ -462,7 +468,9 @@ runningCostModel = crocoddyl.CostModelSum(state)
 # Custom DAM to check 
 # ref = pin.LOCAL_WORLD_ALIGNED
 ref = pin.LOCAL
-dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=ref)
+dam = DAM3DClassical(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=ref)
+dam2 = DAM3DAugmented(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=ref)
+
 dad = dam.createData()
 # Numdiff version 
 RTOL            = 1e-2 
@@ -475,131 +483,141 @@ dad_nd = dam_nd.createData()
 # TEST CALC
 dam.calc(dad, x0, tau)
 dam_nd.calc(dad_nd, x0, tau)
+dad2 = dam2.createData()
+dam2.calc(dad2, x0, lf, tau)
 print("custom aq = \n", dad.xout)
 print("ND xout = \n", dad_nd.xout)
+print("augmented aq = \n", dad2.xout)
 assert(np.linalg.norm(dad.xout - laq) < 1e-2)
 assert(np.linalg.norm(dad.xout - oaq) < 1e-3)
 assert(np.linalg.norm(dad.xout - dad_nd.xout) < 1e-3)
+assert(np.linalg.norm(dad.xout - dad2.xout) < 1e-3)
+
 # TEST CALCDIFF
 dam.calcDiff(dad, x0, tau)
 dam_nd.calcDiff(dad_nd, x0, tau)
+dam2.calcDiff(dad2, x0, lf, tau)
 # print(dad.Fx)
 assert(np.linalg.norm(dad.Fx - dad_nd.Fx )< 1e-2) # !!!
 assert(np.linalg.norm(dad.Fx - ldaq_dx )< 1e-2)
 assert(np.linalg.norm(dad.Fx - odaq_dx )< 1e-2)
+
+assert(np.linalg.norm(dad2.Fx - dad_nd.Fx )< 1e-2) # !!!
+assert(np.linalg.norm(dad2.Fx - ldaq_dx )< 1e-2)
+assert(np.linalg.norm(dad2.Fx - odaq_dx )< 1e-2)
 # print("analytic vs croco nd : \n", np.isclose(dad.Fx, odaq_dx, RTOL, ATOL))
 # print("analytic vs croco nd : \n", np.isclose(dad.Fx, dad_nd.Fx, RTOL, ATOL))
 
 
-# Further checks using DAM free + setup shooting problem + solver
-# the soft contact DAM should coincide with DAM free when Kp, Kv = 0
+# # Further checks using DAM free + setup shooting problem + solver
+# # the soft contact DAM should coincide with DAM free when Kp, Kv = 0
 
-# Control regularization cost
-uref = np.random.rand(nq) 
-uResidual = crocoddyl.ResidualModelControl(state, uref)
-uRegCost = crocoddyl.CostModelResidual(state, uResidual)
-  # State regularization cost
-xResidual = crocoddyl.ResidualModelState(state, x0)
-xRegCost = crocoddyl.CostModelResidual(state, xResidual)
-  # Frame translation cost
-endeff_frame_id = model.getFrameId("gripper_left_fingertip_1_link") ; endeff_translation = oPc 
-frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
-frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
-  # Cost model 
-runningCostModel.addCost("stateReg", xRegCost, 1e-2)
-runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
-# runningCostModel.addCost("translation", frameTranslationCost, 1)
-# terminalCostModel.addCost("stateReg", xRegCost, 1.)
+# # Control regularization cost
+# uref = np.random.rand(nq) 
+# uResidual = crocoddyl.ResidualModelControl(state, uref)
+# uRegCost = crocoddyl.CostModelResidual(state, uResidual)
+#   # State regularization cost
+# xResidual = crocoddyl.ResidualModelState(state, x0)
+# xRegCost = crocoddyl.CostModelResidual(state, xResidual)
+#   # Frame translation cost
+# endeff_frame_id = model.getFrameId("gripper_left_fingertip_1_link") ; endeff_translation = oPc 
+# frameTranslationResidual = crocoddyl.ResidualModelFrameTranslation(state, endeff_frame_id, endeff_translation)
+# frameTranslationCost = crocoddyl.CostModelResidual(state, frameTranslationResidual)
+#   # Cost model 
+# runningCostModel.addCost("stateReg", xRegCost, 1e-2)
+# runningCostModel.addCost("ctrlReg", uRegCost, 1e-4)
+# # runningCostModel.addCost("translation", frameTranslationCost, 1)
+# # terminalCostModel.addCost("stateReg", xRegCost, 1.)
 
-# free model
-damf = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, actuation, runningCostModel)
-dadf = damf.createData()
-# soft contact (abstract)
-# damc1 = DAMSoftContactDynamics1(state, actuation, runningCostModel, frameId, 0, 0., oPc=np.zeros(3), pinRefFrame=pin.LOCAL)
-# dadc1 = damc1.createData()
-# soft contact (free)
-damc2 = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp=0, Kv=0., oPc=np.zeros(3), pinRefFrame=pin.LOCAL)
-dadc2 = damc2.createData()
-# Check DAM
-damf.calc(dadf, x0, tau)
-# damc1.calc(dadc1, x0, tau)
-damc2.calc(dadc2, x0, tau)
-# assert(np.linalg.norm(dadf.xout - dadc1.xout)<1e-4)
-assert(np.linalg.norm(dadf.xout - dadc2.xout)<1e-4)
-# assert(np.linalg.norm(dadf.cost - dadc1.cost)<1e-4)
-assert(np.linalg.norm(dadf.cost - dadc2.cost)<1e-4)
-# prin
-damf.calcDiff(dadf, x0, tau)
-# damc1.calcDiff(dadc1, x0, tau)
-damc2.calcDiff(dadc2, x0, tau)
-# assert(np.linalg.norm(dadf.Fx - dadc1.Fx)<1e-4)
-assert(np.linalg.norm(dadf.Fx - dadc2.Fx)<1e-4)
-# Check IAM
-dt = 0.001
-iamf = crocoddyl.IntegratedActionModelEuler(damf, dt)
-# iamc1 = crocoddyl.IntegratedActionModelEuler(damc1, dt)
-iamc2 = crocoddyl.IntegratedActionModelEuler(damc2, dt)
-iadf = iamf.createData()
-# iadc1 = iamc1.createData()
-iadc2 = iamc2.createData()
-iamf.calc(iadf, x0, tau)
-# iamc1.calc(iadc1, x0, tau)
-iamc2.calc(iadc2, x0, tau)
-# assert(np.linalg.norm(iadf.xnext - iadc1.xnext)<1e-4)
-assert(np.linalg.norm(iadf.xnext - iadc2.xnext)<1e-4)
-iamf.calcDiff(iadf, x0, tau)
-# iamc1.calcDiff(iadc1, x0, tau)
-iamc2.calcDiff(iadc2, x0, tau)
-# assert(np.linalg.norm(iadf.Fx - iadc1.Fx)<1e-4)
-# assert(np.linalg.norm(iadf.Fu - iadc1.Fu)<1e-4)
-# assert(np.linalg.norm(iadf.Lx - iadc1.Lx)<1e-4)
-# assert(np.linalg.norm(iadf.Lu - iadc1.Lu)<1e-4)
-assert(np.linalg.norm(iadf.Fx - iadc2.Fx)<1e-4)
-assert(np.linalg.norm(iadf.Fu - iadc2.Fu)<1e-4)
-assert(np.linalg.norm(iadf.Lx - iadc2.Lx)<1e-4)
-assert(np.linalg.norm(iadf.Lu - iadc2.Lu)<1e-4)
+# # free model
+# damf = crocoddyl.DifferentialActionModelFreeFwdDynamics(state, actuation, runningCostModel)
+# dadf = damf.createData()
+# # soft contact (abstract)
+# # damc1 = DAMSoftContactDynamics1(state, actuation, runningCostModel, frameId, 0, 0., oPc=np.zeros(3), pinRefFrame=pin.LOCAL)
+# # dadc1 = damc1.createData()
+# # soft contact (free)
+# damc2 = DAM3DClassical(state, actuation, runningCostModel, frameId, Kp=0, Kv=0., oPc=np.zeros(3), pinRefFrame=pin.LOCAL)
+# dadc2 = damc2.createData()
+# # Check DAM
+# damf.calc(dadf, x0, tau)
+# # damc1.calc(dadc1, x0, tau)
+# damc2.calc(dadc2, x0, tau)
+# # assert(np.linalg.norm(dadf.xout - dadc1.xout)<1e-4)
+# assert(np.linalg.norm(dadf.xout - dadc2.xout)<1e-4)
+# # assert(np.linalg.norm(dadf.cost - dadc1.cost)<1e-4)
+# assert(np.linalg.norm(dadf.cost - dadc2.cost)<1e-4)
+# # prin
+# damf.calcDiff(dadf, x0, tau)
+# # damc1.calcDiff(dadc1, x0, tau)
+# damc2.calcDiff(dadc2, x0, tau)
+# # assert(np.linalg.norm(dadf.Fx - dadc1.Fx)<1e-4)
+# assert(np.linalg.norm(dadf.Fx - dadc2.Fx)<1e-4)
+# # Check IAM
+# dt = 0.001
+# iamf = crocoddyl.IntegratedActionModelEuler(damf, dt)
+# # iamc1 = crocoddyl.IntegratedActionModelEuler(damc1, dt)
+# iamc2 = crocoddyl.IntegratedActionModelEuler(damc2, dt)
+# iadf = iamf.createData()
+# # iadc1 = iamc1.createData()
+# iadc2 = iamc2.createData()
+# iamf.calc(iadf, x0, tau)
+# # iamc1.calc(iadc1, x0, tau)
+# iamc2.calc(iadc2, x0, tau)
+# # assert(np.linalg.norm(iadf.xnext - iadc1.xnext)<1e-4)
+# assert(np.linalg.norm(iadf.xnext - iadc2.xnext)<1e-4)
+# iamf.calcDiff(iadf, x0, tau)
+# # iamc1.calcDiff(iadc1, x0, tau)
+# iamc2.calcDiff(iadc2, x0, tau)
+# # assert(np.linalg.norm(iadf.Fx - iadc1.Fx)<1e-4)
+# # assert(np.linalg.norm(iadf.Fu - iadc1.Fu)<1e-4)
+# # assert(np.linalg.norm(iadf.Lx - iadc1.Lx)<1e-4)
+# # assert(np.linalg.norm(iadf.Lu - iadc1.Lu)<1e-4)
+# assert(np.linalg.norm(iadf.Fx - iadc2.Fx)<1e-4)
+# assert(np.linalg.norm(iadf.Fu - iadc2.Fu)<1e-4)
+# assert(np.linalg.norm(iadf.Lx - iadc2.Lx)<1e-4)
+# assert(np.linalg.norm(iadf.Lu - iadc2.Lu)<1e-4)
 
-tamf = crocoddyl.IntegratedActionModelEuler(damf, 0.)
-# tamc1 = crocoddyl.IntegratedActionModelEuler(damc1, 0.)
-tamc2 = crocoddyl.IntegratedActionModelEuler(damc2, 0.)
-
-
-N = 100
-pbf = crocoddyl.ShootingProblem(x0, [iamf]*N, tamf)
-# pbc1 = crocoddyl.ShootingProblem(x0, [iamc1]*N, tamc1)
-pbc2 = crocoddyl.ShootingProblem(x0, [iamc2]*N, tamc2)
-
-# Compare calc and calcDiff
-# Warm start : initial state + gravity compensation
-lfext0 = [pin.Force.Zero() for _ in range(model.njoints)]
-from core_mpc import pin_utils
-xs_init = [x0 for i in range(N+1)]
-us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), lfext0, model, np.zeros(nq)) for i in range(N)] #ddp.problem.quasiStatic(xs_init[:-1])
-# pbf.calc(xs_init, us_init)
+# tamf = crocoddyl.IntegratedActionModelEuler(damf, 0.)
+# # tamc1 = crocoddyl.IntegratedActionModelEuler(damc1, 0.)
+# tamc2 = crocoddyl.IntegratedActionModelEuler(damc2, 0.)
 
 
-ddpf = crocoddyl.SolverFDDP(pbf)
-# ddpc1 = crocoddyl.SolverFDDP(pbc1)
-ddpc2 = crocoddyl.SolverFDDP(pbc2)
+# N = 100
+# pbf = crocoddyl.ShootingProblem(x0, [iamf]*N, tamf)
+# # pbc1 = crocoddyl.ShootingProblem(x0, [iamc1]*N, tamc1)
+# pbc2 = crocoddyl.ShootingProblem(x0, [iamc2]*N, tamc2)
 
-ddpf.setCallbacks([crocoddyl.CallbackLogger(),
-                crocoddyl.CallbackVerbose()])
-# ddpc1.setCallbacks([crocoddyl.CallbackLogger(),
-#                 crocoddyl.CallbackVerbose()])
-ddpc2.setCallbacks([crocoddyl.CallbackLogger(),
-                crocoddyl.CallbackVerbose()])
-# ddpc.reg_incFactor = 1.01
-
+# # Compare calc and calcDiff
 # # Warm start : initial state + gravity compensation
 # lfext0 = [pin.Force.Zero() for _ in range(model.njoints)]
 # from core_mpc import pin_utils
 # xs_init = [x0 for i in range(N+1)]
 # us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), lfext0, model, np.zeros(nq)) for i in range(N)] #ddp.problem.quasiStatic(xs_init[:-1])
-# ddpf.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-# ddpc2.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+# # pbf.calc(xs_init, us_init)
 
 
-ddpf.solve([], [], maxiter=100, isFeasible=False)
-# ddpc1.solve([], [], maxiter=100, isFeasible=False)
-ddpc2.solve([], [], maxiter=100, isFeasible=False)
+# ddpf = crocoddyl.SolverFDDP(pbf)
+# # ddpc1 = crocoddyl.SolverFDDP(pbc1)
+# ddpc2 = crocoddyl.SolverFDDP(pbc2)
+
+# ddpf.setCallbacks([crocoddyl.CallbackLogger(),
+#                 crocoddyl.CallbackVerbose()])
+# # ddpc1.setCallbacks([crocoddyl.CallbackLogger(),
+# #                 crocoddyl.CallbackVerbose()])
+# ddpc2.setCallbacks([crocoddyl.CallbackLogger(),
+#                 crocoddyl.CallbackVerbose()])
+# # ddpc.reg_incFactor = 1.01
+
+# # # Warm start : initial state + gravity compensation
+# # lfext0 = [pin.Force.Zero() for _ in range(model.njoints)]
+# # from core_mpc import pin_utils
+# # xs_init = [x0 for i in range(N+1)]
+# # us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), lfext0, model, np.zeros(nq)) for i in range(N)] #ddp.problem.quasiStatic(xs_init[:-1])
+# # ddpf.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+# # ddpc2.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+
+
+# ddpf.solve([], [], maxiter=100, isFeasible=False)
+# # ddpc1.solve([], [], maxiter=100, isFeasible=False)
+# ddpc2.solve([], [], maxiter=100, isFeasible=False)
 
