@@ -242,6 +242,42 @@ assert(np.linalg.norm(odaq_dx - odaq_dx_ND) < 1e-2)
 assert(np.linalg.norm(odaq_dx - ldaq_dx) < 1e-3)
 
 
+# Check d(ABA = laq) / d(lambda) in LOCAL
+def aba_local(model, data, frameId, x, tau, force3d_local):
+    q = x[:nq]
+    v = x[nq:]
+    pin.computeAllTerms(model, data, q, v)
+    pin.forwardKinematics(model, data, q, v, np.zeros(nq))
+    pin.updateFramePlacements(model, data)
+    fext = [pin.Force.Zero() for _ in range(model.njoints)]
+    owrench = pin.Force(force3d_local, np.zeros(3))
+    fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(owrench)
+    aq = pin.aba(model, data, q, v, tau, fext)
+    return aq
+ldaq_df = np.zeros((nq, 3))
+ldaq_df = data.Minv @ lJ[:3].T @ model.frames[frameId].placement.rotation @ np.eye(3) #np.block([np.eye(3), np.zeros((3,3))]).T
+ldaq_df_ND = numdiff(lambda f_:aba_local(model, data, frameId, x0, tau, f_), lf)
+assert(np.linalg.norm( ldaq_df - ldaq_df_ND ) <1e-3)
+
+
+# Check d(ABA = laq) / d(lambda) in WORLD
+def aba_world(model, data, frameId, x, tau, force3d_world):
+    q = x[:nq]
+    v = x[nq:]
+    pin.computeAllTerms(model, data, q, v)
+    pin.forwardKinematics(model, data, q, v, np.zeros(nq))
+    pin.updateFramePlacements(model, data)
+    oRf = data.oMf[frameId].rotation
+    fext = [pin.Force.Zero() for _ in range(model.njoints)]
+    owrench = pin.Force(oRf.T @ force3d_world, np.zeros(3))
+    fext[model.frames[frameId].parent] = model.frames[frameId].placement.act(owrench)
+    aq = pin.aba(model, data, q, v, tau, fext)
+    return aq
+odaq_df = np.zeros((nq, 3))
+odaq_df = data.Minv @ lJ[:3].T @ model.frames[frameId].placement.rotation @ oRf.T #np.block([np.eye(3), np.zeros((3,3))]).T
+odaq_df_ND = numdiff(lambda f_:aba_world(model, data, frameId, x0, tau, f_), lf)
+assert(np.linalg.norm( odaq_df - odaq_df_ND ) <1e-3)
+
 
 
 # Check derivatives of \dot \lambda w.R.T. state
@@ -275,7 +311,7 @@ def frameAcceleration(model, data, x, u, Kp, Kv, oPc):
     ldJ = model.frames[frameId].placement.actionInverse @ dJ
     return ldJ[:3] @ v + lJ[:3] @ aq
 
-# Check that formula is correct
+# Check that formula is correct against Pinocchio
 pin.forwardKinematics(model, data, q0, v0, laq)
 pin.computeJointJacobiansTimeVariation(model, data, q0, v0)
 frameAccPin = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL).linear
@@ -291,25 +327,46 @@ da_dx[:,nq:] = a_dv[:3] + a_da[:3] @ ldaq_dx[:,nq:]
 assert(np.linalg.norm(da_dx_ND - da_dx) <1e-3)
 
 
-# # da_du_ND = numdiff(lambda tau_:frameAcceleration(model, data, x0, tau_), tau)
+da_du_ND = numdiff(lambda tau_:frameAcceleration(model, data, x0, tau_, Kp, Kv, oPc), tau)
+da_du = np.zeros(da_du_ND.shape)
+_, a_dq, a_dv, a_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL)
+da_du[:,:nq] = a_da[:3] @ ldaq_du
+assert(np.linalg.norm(da_du_ND - da_du) <1e-3)
 
 
-# # Forward dynamics in LOCAL or WORLD, inverting KKT : ground truth in LOCAL and LWA
-# def forceTimeDerivative_local(model, data, frameId, x, Kp, Kv, oP):
-#     '''
-#     compute the time derivative of the contact force in LOCAL
-#     '''
-#     q = x[:nq]
-#     v = x[nq:]
-#     pin.computeAllTerms(model, data, q, v)
-#     pin.forwardKinematics(model, data, q, v, np.zeros(nq))
-#     pin.updateFramePlacements(model, data)
-#     # Compute visco-elastic contact force 
-#     lv = pin.getFrameVelocity(model, data, frameId, pin.LOCAL).linear
-#     la = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL).linear
-#     assert(np.linalg.norm(lv - pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[:3] @ v) < 1e-4)
-#     force = -Kp * lv - Kv @ la
-#     return force
+
+
+# Forward dynamics in LOCAL or WORLD, inverting KKT : ground truth in LOCAL and LWA
+def forceTimeDerivative_local(model, data, frameId, x, Kp, Kv, oPc):
+    '''
+    compute the time derivative of the contact force in LOCAL
+    '''
+    q = x[:nq]
+    v = x[nq:]
+    pin.computeAllTerms(model, data, q, v)
+    pin.forwardKinematics(model, data, q, v, np.zeros(nq))
+    pin.updateFramePlacements(model, data)
+    # Compute visco-elastic contact force 
+    lv = pin.getFrameVelocity(model, data, frameId, pin.LOCAL).linear
+    la = pin.getFrameAcceleration(model, data, frameId, pin.LOCAL).linear
+    assert(np.linalg.norm(lv - pin.getFrameJacobian(model, data, frameId, pin.LOCAL)[:3] @ v) < 1e-4)
+    force = -Kp * lv - Kv @ la
+    return force
+
+# Check derivatives w.r.t. state, lambda and tau
+da_dx_ND = numdiff(lambda x_:frameAcceleration(model, data, x_, tau, Kp, Kv, oPc), x0)
+da_dx = np.zeros(da_dx_ND.shape)
+_, a_dq, a_dv, a_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL)
+da_dx[:,:nq] = a_dq[:3] + a_da[:3] @ ldaq_dx[:,:nq]
+da_dx[:,nq:] = a_dv[:3] + a_da[:3] @ ldaq_dx[:,nq:]
+assert(np.linalg.norm(da_dx_ND - da_dx) <1e-3)
+
+
+da_du_ND = numdiff(lambda tau_:frameAcceleration(model, data, x0, tau_, Kp, Kv, oPc), tau)
+da_du = np.zeros(da_du_ND.shape)
+_, a_dq, a_dv, a_da = pin.getFrameAccelerationDerivatives(model, data, frameId, pin.LOCAL)
+da_du[:,:nq] = a_da[:3] @ ldaq_du
+assert(np.linalg.norm(da_du_ND - da_du) <1e-3)
 
 
 

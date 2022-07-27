@@ -8,9 +8,9 @@ np.random.seed(1)
 import crocoddyl
 import pinocchio as pin
 
-from soft_mpc.dam3d import DAMSoftContactDynamics
+from soft_mpc.dam3d import DAMSoftContactDynamics3D
 from core_mpc.pin_utils import load_robot_wrapper
-from classical_mpc.data import DDPDataHanlderClassical
+from classical_mpc.data import DDPDataHandlerClassical
 from core_mpc import pin_utils
 
 
@@ -87,9 +87,9 @@ terminalCostModel.addCost("translation", frameTranslationCost, 1e-1)
 
 
 # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
-dam = DAMSoftContactDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
 dam.set_force_cost(np.array([0.,0.,0.]), 1e-2)
-dam_t = DAMSoftContactDynamics(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+dam_t = DAMSoftContactDynamics3D(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
 
 
 
@@ -121,7 +121,7 @@ us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq)) f
 ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 # Extract data
-data_handler = DDPDataHanlderClassical(ddp)
+data_handler = DDPDataHandlerClassical(ddp)
 ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
   # Extract soft force
 xs = np.array(ddp_data['xs'])
