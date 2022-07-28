@@ -10,7 +10,7 @@ import pinocchio as pin
 
 from soft_mpc.soft_models_3D_augmented import DAMSoftContactDynamics3D, IAMSoftContactDynamics3D, StateSoftContact3D
 from core_mpc.pin_utils import load_robot_wrapper
-from classical_mpc.data import DDPDataHandlerClassical
+from soft_mpc.data import DDPDataHandlerSoftContact
 from core_mpc import pin_utils
 
 
@@ -86,164 +86,164 @@ terminalCostModel.addCost("translation", frameTranslationCost, 1e-1)
 
 
 
-# check derivatives against numdiff !!!!
-def numdiff(f,x0,h=1e-6):
-    if(type(f(x0))!=np.ndarray):
-      f0 = f(x0)
-    else:
-      f0 = f(x0).copy()
-    x = x0.copy()
-    Fx = []
-    for ix in range(len(x)):
-        x[ix] += h
-        Fx.append((f(x)-f0)/h)
-        x[ix] = x0[ix]
-    return np.array(Fx).T
+# # check derivatives against numdiff !!!!
+# def numdiff(f,x0,h=1e-6):
+#     if(type(f(x0))!=np.ndarray):
+#       f0 = f(x0)
+#     else:
+#       f0 = f(x0).copy()
+#     x = x0.copy()
+#     Fx = []
+#     for ix in range(len(x)):
+#         x[ix] += h
+#         Fx.append((f(x)-f0)/h)
+#         x[ix] = x0[ix]
+#     return np.array(Fx).T
 
-# Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
-dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
-fref = np.random.rand(3)
-dam.set_force_cost(fref, 1e-2)
-# dam_t = DAMSoftContactDynamics3D(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
-tau = np.random.rand(nq)
-y0 = np.concatenate([x0, lf0])
-dad = dam.createData()
-dam.calc(dad, x0, lf0, tau)
-dam.calcDiff(dad, x0, lf0, tau)
-dam_ND = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
-dam_ND.set_force_cost(fref, 1e-2)
-dad_ND = dam_ND.createData()
-# Test xout
-def get_xout(model, data, x, f, u):
-  model.calc(data, x, f, u)
-  return data.xout
-dxout_dx_ND = numdiff(lambda x_:get_xout(dam_ND, dad_ND, x_, lf0, tau), x0)
-dxout_dx = dad.Fx
-assert(np.linalg.norm(dxout_dx_ND - dxout_dx )< 1e-2) 
-dxout_du_ND = numdiff(lambda u_:get_xout(dam_ND, dad_ND, x0, lf0, u_), tau)
-dxout_du = dad.Fu
-assert(np.linalg.norm(dxout_du_ND - dxout_du )< 1e-2) 
-dxout_df_ND = numdiff(lambda f_:get_xout(dam_ND, dad_ND, x0, f_, tau), lf0)
-dxout_df = dad.dABA_df
-assert(np.linalg.norm(dxout_df_ND - dxout_df )< 1e-2)
-# Test fout
-def get_fout(model, data, x, f, u):
-  model.calc(data, x, f, u)
-  return data.fout
-dfout_dx_ND = numdiff(lambda x_:get_fout(dam_ND, dad_ND, x_, lf0, tau), x0)
-dfout_dx = dad.dfdt_dx
-assert(np.linalg.norm(dfout_dx_ND - dfout_dx )< 1e-2)
-dfout_du_ND = numdiff(lambda u_:get_fout(dam_ND, dad_ND, x0, lf0, u_), tau)
-dfout_du = dad.dfdt_du
-assert(np.linalg.norm(dfout_du_ND - dfout_du )< 1e-2) 
-dfout_df_ND = numdiff(lambda f_:get_fout(dam_ND, dad_ND, x0, f_, tau), lf0)
-dfout_df = dad.dfdt_df
-assert(np.linalg.norm(dfout_df_ND - dfout_df )< 1e-2)  
-#  Test cost
-def get_cost(model, data, x, f, u):
-  model.calc(data, x, f, u)
-  return data.cost
-dcost_dx_ND = numdiff(lambda x_:get_cost(dam_ND, dad_ND, x_, lf0, tau), x0)
-dcost_dx = dad.Lx
-assert(np.linalg.norm(dcost_dx_ND - dcost_dx )< 1e-2)
-dcost_du_ND = numdiff(lambda u_:get_cost(dam_ND, dad_ND, x0, lf0, u_), tau)
-dcost_du = dad.Lu
-assert(np.linalg.norm(dcost_du_ND - dcost_du )< 1e-2) 
-dcost_df_ND = numdiff(lambda f_:get_cost(dam_ND, dad_ND, x0, f_, tau), lf0)
-dcost_df = dad.Lf
-assert(np.linalg.norm(dcost_df_ND - dcost_df )< 1e-2)  
-
-
-# Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
-dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
-fref = np.random.rand(3)
-dam.set_force_cost(fref, 1e-2)
-# dam_t = DAMSoftContactDynamics3D(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
-tau = np.random.rand(nq)
-y0 = np.concatenate([x0, of0])
-dad = dam.createData()
-dam.calc(dad, x0, of0, tau)
-dam.calcDiff(dad, x0, of0, tau)
-dam_ND = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
-dam_ND.set_force_cost(fref, 1e-2)
-dad_ND = dam_ND.createData()
-# Test xout
-def get_xout(model, data, x, f, u):
-  model.calc(data, x, f, u)
-  return data.xout
-dxout_dx_ND = numdiff(lambda x_:get_xout(dam_ND, dad_ND, x_, of0, tau), x0)
-dxout_dx = dad.Fx
-assert(np.linalg.norm(dxout_dx_ND - dxout_dx )< 1e-2) 
-dxout_du_ND = numdiff(lambda u_:get_xout(dam_ND, dad_ND, x0, of0, u_), tau)
-dxout_du = dad.Fu
-assert(np.linalg.norm(dxout_du_ND - dxout_du )< 1e-2) 
-dxout_df_ND = numdiff(lambda f_:get_xout(dam_ND, dad_ND, x0, f_, tau), of0)
-dxout_df = dad.dABA_df
-assert(np.linalg.norm(dxout_df_ND - dxout_df )< 1e-2)
-# Test fout
-def get_fout(model, data, x, f, u):
-  model.calc(data, x, f, u)
-  return data.fout
-dfout_dx_ND = numdiff(lambda x_:get_fout(dam_ND, dad_ND, x_, of0, tau), x0)
-dfout_dx = dad.dfdt_dx
-assert(np.linalg.norm(dfout_dx_ND - dfout_dx )< 1e-2)
-dfout_du_ND = numdiff(lambda u_:get_fout(dam_ND, dad_ND, x0, of0, u_), tau)
-dfout_du = dad.dfdt_du
-assert(np.linalg.norm(dfout_du_ND - dfout_du )< 1e-2) 
-dfout_df_ND = numdiff(lambda f_:get_fout(dam_ND, dad_ND, x0, f_, tau), of0)
-dfout_df = dad.dfdt_df
-assert(np.linalg.norm(dfout_df_ND - dfout_df )< 1e-2)  
-#  Test cost
-def get_cost(model, data, x, f, u):
-  model.calc(data, x, f, u)
-  return data.cost
-dcost_dx_ND = numdiff(lambda x_:get_cost(dam_ND, dad_ND, x_, of0, tau), x0)
-dcost_dx = dad.Lx
-assert(np.linalg.norm(dcost_dx_ND - dcost_dx )< 1e-2)
-dcost_du_ND = numdiff(lambda u_:get_cost(dam_ND, dad_ND, x0, of0, u_), tau)
-dcost_du = dad.Lu
-assert(np.linalg.norm(dcost_du_ND - dcost_du )< 1e-2) 
-dcost_df_ND = numdiff(lambda f_:get_cost(dam_ND, dad_ND, x0, f_, tau), of0)
-dcost_df = dad.Lf
-assert(np.linalg.norm(dcost_df_ND - dcost_df )< 1e-2)  
+# # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
+# dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
+# fref = np.random.rand(3)
+# dam.set_force_cost(fref, 1e-2)
+# # dam_t = DAMSoftContactDynamics3D(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
+# tau = np.random.rand(nq)
+# y0 = np.concatenate([x0, lf0])
+# dad = dam.createData()
+# dam.calc(dad, x0, lf0, tau)
+# dam.calcDiff(dad, x0, lf0, tau)
+# dam_ND = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL)
+# dam_ND.set_force_cost(fref, 1e-2)
+# dad_ND = dam_ND.createData()
+# # Test xout
+# def get_xout(model, data, x, f, u):
+#   model.calc(data, x, f, u)
+#   return data.xout
+# dxout_dx_ND = numdiff(lambda x_:get_xout(dam_ND, dad_ND, x_, lf0, tau), x0)
+# dxout_dx = dad.Fx
+# assert(np.linalg.norm(dxout_dx_ND - dxout_dx )< 1e-2) 
+# dxout_du_ND = numdiff(lambda u_:get_xout(dam_ND, dad_ND, x0, lf0, u_), tau)
+# dxout_du = dad.Fu
+# assert(np.linalg.norm(dxout_du_ND - dxout_du )< 1e-2) 
+# dxout_df_ND = numdiff(lambda f_:get_xout(dam_ND, dad_ND, x0, f_, tau), lf0)
+# dxout_df = dad.dABA_df
+# assert(np.linalg.norm(dxout_df_ND - dxout_df )< 1e-2)
+# # Test fout
+# def get_fout(model, data, x, f, u):
+#   model.calc(data, x, f, u)
+#   return data.fout
+# dfout_dx_ND = numdiff(lambda x_:get_fout(dam_ND, dad_ND, x_, lf0, tau), x0)
+# dfout_dx = dad.dfdt_dx
+# assert(np.linalg.norm(dfout_dx_ND - dfout_dx )< 1e-2)
+# dfout_du_ND = numdiff(lambda u_:get_fout(dam_ND, dad_ND, x0, lf0, u_), tau)
+# dfout_du = dad.dfdt_du
+# assert(np.linalg.norm(dfout_du_ND - dfout_du )< 1e-2) 
+# dfout_df_ND = numdiff(lambda f_:get_fout(dam_ND, dad_ND, x0, f_, tau), lf0)
+# dfout_df = dad.dfdt_df
+# assert(np.linalg.norm(dfout_df_ND - dfout_df )< 1e-2)  
+# #  Test cost
+# def get_cost(model, data, x, f, u):
+#   model.calc(data, x, f, u)
+#   return data.cost
+# dcost_dx_ND = numdiff(lambda x_:get_cost(dam_ND, dad_ND, x_, lf0, tau), x0)
+# dcost_dx = dad.Lx
+# assert(np.linalg.norm(dcost_dx_ND - dcost_dx )< 1e-2)
+# dcost_du_ND = numdiff(lambda u_:get_cost(dam_ND, dad_ND, x0, lf0, u_), tau)
+# dcost_du = dad.Lu
+# assert(np.linalg.norm(dcost_du_ND - dcost_du )< 1e-2) 
+# dcost_df_ND = numdiff(lambda f_:get_cost(dam_ND, dad_ND, x0, f_, tau), lf0)
+# dcost_df = dad.Lf
+# assert(np.linalg.norm(dcost_df_ND - dcost_df )< 1e-2)  
 
 
+# # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
+# dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
+# fref = np.random.rand(3)
+# dam.set_force_cost(fref, 1e-2)
+# # dam_t = DAMSoftContactDynamics3D(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
+# tau = np.random.rand(nq)
+# y0 = np.concatenate([x0, of0])
+# dad = dam.createData()
+# dam.calc(dad, x0, of0, tau)
+# dam.calcDiff(dad, x0, of0, tau)
+# dam_ND = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
+# dam_ND.set_force_cost(fref, 1e-2)
+# dad_ND = dam_ND.createData()
+# # Test xout
+# def get_xout(model, data, x, f, u):
+#   model.calc(data, x, f, u)
+#   return data.xout
+# dxout_dx_ND = numdiff(lambda x_:get_xout(dam_ND, dad_ND, x_, of0, tau), x0)
+# dxout_dx = dad.Fx
+# assert(np.linalg.norm(dxout_dx_ND - dxout_dx )< 1e-2) 
+# dxout_du_ND = numdiff(lambda u_:get_xout(dam_ND, dad_ND, x0, of0, u_), tau)
+# dxout_du = dad.Fu
+# assert(np.linalg.norm(dxout_du_ND - dxout_du )< 1e-2) 
+# dxout_df_ND = numdiff(lambda f_:get_xout(dam_ND, dad_ND, x0, f_, tau), of0)
+# dxout_df = dad.dABA_df
+# assert(np.linalg.norm(dxout_df_ND - dxout_df )< 1e-2)
+# # Test fout
+# def get_fout(model, data, x, f, u):
+#   model.calc(data, x, f, u)
+#   return data.fout
+# dfout_dx_ND = numdiff(lambda x_:get_fout(dam_ND, dad_ND, x_, of0, tau), x0)
+# dfout_dx = dad.dfdt_dx
+# assert(np.linalg.norm(dfout_dx_ND - dfout_dx )< 1e-2)
+# dfout_du_ND = numdiff(lambda u_:get_fout(dam_ND, dad_ND, x0, of0, u_), tau)
+# dfout_du = dad.dfdt_du
+# assert(np.linalg.norm(dfout_du_ND - dfout_du )< 1e-2) 
+# dfout_df_ND = numdiff(lambda f_:get_fout(dam_ND, dad_ND, x0, f_, tau), of0)
+# dfout_df = dad.dfdt_df
+# assert(np.linalg.norm(dfout_df_ND - dfout_df )< 1e-2)  
+# #  Test cost
+# def get_cost(model, data, x, f, u):
+#   model.calc(data, x, f, u)
+#   return data.cost
+# dcost_dx_ND = numdiff(lambda x_:get_cost(dam_ND, dad_ND, x_, of0, tau), x0)
+# dcost_dx = dad.Lx
+# assert(np.linalg.norm(dcost_dx_ND - dcost_dx )< 1e-2)
+# dcost_du_ND = numdiff(lambda u_:get_cost(dam_ND, dad_ND, x0, of0, u_), tau)
+# dcost_du = dad.Lu
+# assert(np.linalg.norm(dcost_du_ND - dcost_du )< 1e-2) 
+# dcost_df_ND = numdiff(lambda f_:get_cost(dam_ND, dad_ND, x0, f_, tau), of0)
+# dcost_df = dad.Lf
+# assert(np.linalg.norm(dcost_df_ND - dcost_df )< 1e-2)  
 
 
 
-# Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
-dt=1e-3
-dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
-fref = np.random.rand(3)
-dam.set_force_cost(fref, 1e-2)
-iam = IAMSoftContactDynamics3D(dam, dt)
-tau = np.random.rand(nq)
-y0 = np.concatenate([x0, lf0])
-iad = iam.createData()
-iam.calc(iad, y0, tau)
-iam.calcDiff(iad, y0, tau)
-iam_ND = IAMSoftContactDynamics3D(dam, dt)
-iad_ND = iam_ND.createData()
-# Test xout
-def get_xnext(model, data, y, u):
-  model.calc(data, y, u)
-  return data.xnext
-dxnext_dx_ND = numdiff(lambda y_:get_xnext(iam_ND, iad_ND, y_, tau), y0)
-dxnext_dx = iad.Fx
-assert(np.linalg.norm(dxnext_dx_ND - dxnext_dx )< 1e-2) 
-dxnext_du_ND = numdiff(lambda u_:get_xnext(iam_ND, iad_ND, y0, u_), tau)
-dxnext_du = iad.Fu
-assert(np.linalg.norm(dxnext_du_ND - dxnext_du )< 1e-2) 
-# Test cost
-def get_cost(model, data, x, u):
-  model.calc(data, x, u)
-  return data.cost
-dcost_dx_ND = numdiff(lambda y_:get_cost(iam_ND, iad_ND, y_, tau), y0)
-dcost_dx = iad.Lx
-assert(np.linalg.norm(dcost_dx_ND - dcost_dx )< 1e-2)
-dcost_du_ND = numdiff(lambda u_:get_cost(iam_ND, iad_ND, y0, u_), tau)
-dcost_du = iad.Lu
-assert(np.linalg.norm(dcost_du_ND - dcost_du )< 1e-2) 
+
+
+# # Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
+# dt=1e-3
+# dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=pin.LOCAL_WORLD_ALIGNED)
+# fref = np.random.rand(3)
+# dam.set_force_cost(fref, 1e-2)
+# iam = IAMSoftContactDynamics3D(dam, dt)
+# tau = np.random.rand(nq)
+# y0 = np.concatenate([x0, lf0])
+# iad = iam.createData()
+# iam.calc(iad, y0, tau)
+# iam.calcDiff(iad, y0, tau)
+# iam_ND = IAMSoftContactDynamics3D(dam, dt)
+# iad_ND = iam_ND.createData()
+# # Test xout
+# def get_xnext(model, data, y, u):
+#   model.calc(data, y, u)
+#   return data.xnext
+# dxnext_dx_ND = numdiff(lambda y_:get_xnext(iam_ND, iad_ND, y_, tau), y0)
+# dxnext_dx = iad.Fx
+# assert(np.linalg.norm(dxnext_dx_ND - dxnext_dx )< 1e-2) 
+# dxnext_du_ND = numdiff(lambda u_:get_xnext(iam_ND, iad_ND, y0, u_), tau)
+# dxnext_du = iad.Fu
+# assert(np.linalg.norm(dxnext_du_ND - dxnext_du )< 1e-2) 
+# # Test cost
+# def get_cost(model, data, x, u):
+#   model.calc(data, x, u)
+#   return data.cost
+# dcost_dx_ND = numdiff(lambda y_:get_cost(iam_ND, iad_ND, y_, tau), y0)
+# dcost_dx = iad.Lx
+# assert(np.linalg.norm(dcost_dx_ND - dcost_dx )< 1e-2)
+# dcost_du_ND = numdiff(lambda u_:get_cost(iam_ND, iad_ND, y0, u_), tau)
+# dcost_du = iad.Lu
+# assert(np.linalg.norm(dcost_du_ND - dcost_du )< 1e-2) 
 
 
 
@@ -277,17 +277,19 @@ us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq)) f
 ddp.solve(ys_init, us_init, maxiter=100, isFeasible=False)
 
 # Extract data
-data_handler = DDPDataHandlerClassical(ddp)
+from soft_mpc.utils import SoftContactModel3D
+softContactModel = SoftContactModel3D(Kp, Kv, oPc, frameId, REF_FRAME)
+data_handler = DDPDataHandlerSoftContact(ddp, softContactModel)
 ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
-  # Extract soft force
-xs = np.array(ddp_data['xs'])
-ps = pin_utils.get_p_(xs[:,:nq], model, frameId)
-vs = pin_utils.get_v_(xs[:,:nq], xs[:,nq:], model, frameId, ref=pin.WORLD)
-  # Force in WORLD aligned frame
-fs_lin = np.array([data.oMf[frameId].rotation @ (-Kp*(ps[i,:] - oPc) - Kv*vs[i,:]) for i in range(T)])
-fs_ang = np.zeros((T, 3))
-ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
-ddp_data['force_ref'] = [np.concatenate([dam.f_des, np.zeros(3)]) for i in range(T) ]
+#   # Extract soft force
+# xs = np.array(ddp_data['xs'])
+# ps = pin_utils.get_p_(xs[:,:nq], model, frameId)
+# vs = pin_utils.get_v_(xs[:,:nq], xs[:,nq:nq+nv], model, frameId, ref=pin.WORLD)
+#   # Force in WORLD aligned frame
+# fs_lin = np.array([data.oMf[frameId].rotation @ (-Kp*(ps[i,:] - oPc) - Kv*vs[i,:]) for i in range(T)])
+# fs_ang = np.zeros((T, 3))
+# ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
+# ddp_data['force_ref'] = [np.concatenate([dam.f_des, np.zeros(3)]) for i in range(T) ]
 
 # Plot data
 data_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)

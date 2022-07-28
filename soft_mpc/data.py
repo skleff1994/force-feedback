@@ -24,11 +24,36 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 # Classical OCP data handler : extract data + generate fancy plots
 class DDPDataHandlerSoftContact(DDPDataHandlerAbstract):
 
-  def __init__(self, ddp):
+  def __init__(self, ddp, softContactModel):
     super().__init__(ddp)
+    self.softContactModel = softContactModel
 
   def extract_data(self, ee_frame_name, ct_frame_name):
-    return super().extract_data(ee_frame_name, ct_frame_name)
+    ddp_data = super().extract_data(ee_frame_name, ct_frame_name)
+    # Compute the visco-elastic contact force
+    xs = np.array(ddp_data['xs'])
+    nq = ddp_data['nq']
+    nv = ddp_data['nv']
+    if(self.softContactModel.nc == 3):
+        fs_lin = np.array([self.softContactModel.computeForce_(ddp_data['pin_model'], xs[i,:nq], xs[i,nq:nq+nv]) for i in range(ddp_data['T'])])
+        fdes_lin = np.array([self.ddp.problem.runningModels[i].differential.f_des for i in range(ddp_data['T'])])
+    else:
+        fs_lin = np.zeros((ddp_data['T'],3))
+        fs_lin[:,self.softContactModel.mask] = np.array([self.softContactModel.computeForce_(ddp_data['pin_model'], xs[i,:nq], xs[i,nq:]) for i in range(ddp_data['T'])])
+        fdes_lin = np.zeros((ddp_data['T'],3))
+        fs_lin[:,self.softContactModel.mask] = np.array([self.ddp.problem.runningModels[i].differential.f_des for i in range(ddp_data['T'])])
+    fs_ang = np.zeros((ddp_data['T'], 3))
+    fdes_ang = np.zeros((ddp_data['T'], 3))
+    ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
+    ddp_data['force_ref'] = np.hstack([fdes_lin, fdes_ang])
+    return ddp_data
+
+  def extract_data_augmented(self, ee_frame_name, ct_frame_name):
+    ddp_data = super().extract_data(ee_frame_name, ct_frame_name)
+    ddp_data['nq'] = 7
+    ddp_data['nv'] = 7
+    ddp_data['nx'] = 14
+    return ddp_data
 
   def plot_ddp_results(self, DDP_DATA, which_plots='all', labels=None, markers=None, colors=None, sampling_plot=1, SHOW=False):
       '''
@@ -119,7 +144,7 @@ class DDPDataHandlerSoftContact(DDPDataHandlerAbstract):
       # Extract trajectories
       x = np.array(ddp_data['xs'])
       q = x[:,:nq]
-      v = x[:,nv:]
+      v = x[:,nq:nq+nv]
       # If state reg cost, 
       if('stateReg' in ddp_data['active_costs']):
           x_reg_ref = np.array(ddp_data['stateReg_ref'])
@@ -132,7 +157,6 @@ class DDPDataHandlerSoftContact(DDPDataHandlerAbstract):
       for i in range(nq):
           # Plot positions
           ax[i,0].plot(tspan, q[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
-
           # Plot joint position regularization reference
           if('stateReg' in ddp_data['active_costs']):
               handles, labels = ax[i,0].get_legend_handles_labels()
@@ -145,10 +169,10 @@ class DDPDataHandlerSoftContact(DDPDataHandlerAbstract):
           ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
           ax[i,0].grid(True)
-
+    #   logger.debug(x_reg_ref.shape)
+      for i in range(nv):
           # Plot velocities
           ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)  
-
           # Plot joint velocity regularization reference
           if('stateReg' in ddp_data['active_costs']):
               handles, labels = ax[i,1].get_legend_handles_labels()
@@ -156,8 +180,7 @@ class DDPDataHandlerSoftContact(DDPDataHandlerAbstract):
                   handles.pop(labels.index('reg_ref'))
                   ax[i,1].lines.pop(labels.index('reg_ref'))
                   labels.remove('reg_ref')
-              ax[i,1].plot(tspan, x_reg_ref[:,nq+i], linestyle='-.', color='k', marker=None, label='reg_ref', alpha=0.5)
-          
+              ax[i,1].plot(tspan, x_reg_ref[:,nq+i], linestyle='-.', color='k', marker=None, label='reg_ref', alpha=0.5)    
           # Labels, tick labels and grid
           ax[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
           ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
