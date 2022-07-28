@@ -252,7 +252,7 @@ REF_FRAME = pin.LOCAL
 dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
 dam_t = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
 dt=1e-3
-dam.set_force_cost(np.array([0.,0.,0.]), 1e-2)
+dam.set_force_cost(np.array([0.,0.,10.]), 1e-2)
 runningModel = IAMSoftContactDynamics3D(dam, dt)
 terminalModel = IAMSoftContactDynamics3D(dam_t, 0.)
 
@@ -280,7 +280,7 @@ ddp.solve(ys_init, us_init, maxiter=100, isFeasible=False)
 from soft_mpc.utils import SoftContactModel3D
 softContactModel = SoftContactModel3D(Kp, Kv, oPc, frameId, REF_FRAME)
 data_handler = DDPDataHandlerSoftContact(ddp, softContactModel)
-ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
+ddp_data = data_handler.extract_data_augmented(ee_frame_name='contact', ct_frame_name='contact')
 #   # Extract soft force
 # xs = np.array(ddp_data['xs'])
 # ps = pin_utils.get_p_(xs[:,:nq], model, frameId)
