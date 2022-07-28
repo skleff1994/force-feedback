@@ -14,13 +14,12 @@ from classical_mpc.data import DDPDataHandlerClassical
 from core_mpc import pin_utils
 
 
-REF_FRAME = pin.LOCAL
 
 robot = load_robot_wrapper('iiwa')
 model = robot.model ; data = model.createData()
 nq = model.nq; nv = model.nv; nu = nq; nx = nq+nv
-q0 = np.random.rand(nq) #np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.])
-v0 = np.random.rand(nv) #np.zeros(nv) #np.random.rand(nv)
+q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]) #np.random.rand(nq) #
+v0 = np.zeros(nv) #np.random.rand(nv)
 x0 = np.concatenate([q0, v0])
 pin.computeAllTerms(robot.model, robot.data, q0, v0)
 pin.forwardKinematics(model, data, q0, v0, np.zeros(nq))
@@ -31,7 +30,7 @@ frameId = model.getFrameId('contact')
 # initial ee position and contact anchor point
 oPf = data.oMf[frameId].translation
 oRf = data.oMf[frameId].rotation
-oPc = np.random.rand(3) #oPf + np.array([0.05,.0, 0]) # + cm in x world np.random.rand(3)
+oPc = oPf + np.array([0.05,.0, 0]) # + cm in x world np.random.rand(3) #np.random.rand(3) #
 print("initial EE position (WORLD) = \n", oPf)
 print("anchor point (WORLD)        = \n", oPc)
 ov = pin.getFrameVelocity(model, data, frameId, pin.WORLD).linear
@@ -249,107 +248,111 @@ assert(np.linalg.norm(dcost_du_ND - dcost_du )< 1e-2)
 
 
 
+REF_FRAME = pin.LOCAL
+dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+dam_t = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+dt=1e-3
+dam.set_force_cost(np.array([0.,0.,0.]), 1e-2)
+runningModel = IAMSoftContactDynamics3D(dam, dt)
+terminalModel = IAMSoftContactDynamics3D(dam_t, 0.)
 
+# # Optionally add armature to take into account actuator's inertia
+# runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
+# terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
 
+# Create the shooting problem
+T = 200
+y0 = np.concatenate([x0, lf0])
+problem = crocoddyl.ShootingProblem(y0, [runningModel] * T, terminalModel)
 
+# Create solver + callbacks
+ddp = crocoddyl.SolverFDDP(problem)
+ddp.setCallbacks([crocoddyl.CallbackLogger(),
+                crocoddyl.CallbackVerbose()])
+# Warm start : initial state + gravity compensation
+ys_init = [y0 for i in range(T+1)]
+us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq)) for i in range(T)] #ddp.problem.quasiStatic(xs_init[:-1])
 
+# Solve
+ddp.solve(ys_init, us_init, maxiter=100, isFeasible=False)
 
-# # # Optionally add armature to take into account actuator's inertia
-# # runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
-# # terminalModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
+# Extract data
+data_handler = DDPDataHandlerClassical(ddp)
+ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
+  # Extract soft force
+xs = np.array(ddp_data['xs'])
+ps = pin_utils.get_p_(xs[:,:nq], model, frameId)
+vs = pin_utils.get_v_(xs[:,:nq], xs[:,nq:], model, frameId, ref=pin.WORLD)
+  # Force in WORLD aligned frame
+fs_lin = np.array([data.oMf[frameId].rotation @ (-Kp*(ps[i,:] - oPc) - Kv*vs[i,:]) for i in range(T)])
+fs_ang = np.zeros((T, 3))
+ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
+ddp_data['force_ref'] = [np.concatenate([dam.f_des, np.zeros(3)]) for i in range(T) ]
 
-# # Create the shooting problem
-# T = 200
-# problem = crocoddyl.ShootingProblem(x0, [runningModel] * T, terminalModel)
+# Plot data
+data_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
-# # Create solver + callbacks
-# ddp = crocoddyl.SolverFDDP(problem)
-# ddp.setCallbacks([crocoddyl.CallbackLogger(),
-#                 crocoddyl.CallbackVerbose()])
-# # Warm start : initial state + gravity compensation
-# xs_init = [x0 for i in range(T+1)]
-# us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, model, np.zeros(nq)) for i in range(T)] #ddp.problem.quasiStatic(xs_init[:-1])
-
-# # Solve
-# ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-
-# # Extract data
-# data_handler = DDPDataHandlerClassical(ddp)
-# ddp_data = data_handler.extract_data(ee_frame_name='contact', ct_frame_name='contact')
-#   # Extract soft force
-# xs = np.array(ddp_data['xs'])
-# ps = pin_utils.get_p_(xs[:,:nq], model, frameId)
-# vs = pin_utils.get_v_(xs[:,:nq], xs[:,nq:], model, frameId, ref=pin.WORLD)
-#   # Force in WORLD aligned frame
-# fs_lin = np.array([data.oMf[frameId].rotation @ (-Kp*(ps[i,:] - oPc) - Kv*vs[i,:]) for i in range(T)])
-# fs_ang = np.zeros((T, 3))
-# ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
-# ddp_data['force_ref'] = [np.concatenate([dam.f_des, np.zeros(3)]) for i in range(T) ]
-
-# # Plot data
-# data_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
-
-# DISPLAY = True
-# # Visualize motion in Gepetto-viewer
-# if(DISPLAY):
-#     import time
-#     import pinocchio as pin
-#     N_h = T
-#     # Init viewer
-#     viz = pin.visualize.GepettoVisualizer(robot.model, robot.collision_model, robot.visual_model)
-#     viz.initViewer()
-#     viz.loadViewerModel()
-#     viz.display(q0)
-#     # time.sleep(100)
-#     gui = viz.viewer.gui
-#     draw_rate = int(N_h/50)
-#     log_rate  = int(N_h/10)    
-#     ref_color  = [1., 0., 0., 1.]
-#     real_color = [0., 0., 1., 0.3]
-#     ref_size    = 0.02
-#     real_size   = 0.02
-#     pause = 0.05
-#     # cleanup
-#         # clean ref
-#     if(gui.nodeExists('world/EE_ref')):
-#         gui.deleteNode('world/EE_ref', True)
-#     for i in range(N_h):
-#         # clean DDP sol
-#         if(gui.nodeExists('world/EE_sol_'+str(i))):
-#             gui.deleteNode('world/EE_sol_'+str(i), True)
-#             gui.deleteLandmark('world/EE_sol_'+str(i))
-#     # Get initial EE placement + tf
-#     ee_frame_placement = data.oMf[frameId]
-#     tf_ee = list(pin.SE3ToXYZQUAT(ee_frame_placement))
-#     # Display sol init + landmark
-#     gui.addSphere('world/EE_sol_', real_size, real_color)
-#     gui.addLandmark('world/EE_sol_', 0.25)
-#     gui.applyConfiguration('world/EE_sol_', tf_ee)
-#     # Get anchor point = ref EE placement + tf
-#     ref_frame_placement = data.oMf[frameId].copy()
-#     ref_frame_placement.translation = oPc
-#     tf_ref = list(pin.SE3ToXYZQUAT(ref_frame_placement))
-#     # Display ref
-#     gui.addSphere('world/EE_ref', ref_size, ref_color)
-#     gui.applyConfiguration('world/EE_ref', tf_ref)
-#     # Refresh and wait
-#     gui.refresh()
-#     time.sleep(1.)
-#     # Animate
-#     for i in range(N_h):
-#         # Display robot in config q
-#         q = ddp.xs[i][:nq]
-#         viz.display(q)
-#         # Display EE traj and ref circle traj
-#         if(i%draw_rate==0):
-#             # EE trajectory
-#             robot.framesForwardKinematics(q)
-#             m_ee = robot.data.oMf[frameId].copy()
-#             tf_ee = list(pin.SE3ToXYZQUAT(m_ee))
-#             gui.addSphere('world/EE_sol_'+str(i), real_size, real_color)
-#             gui.applyConfiguration('world/EE_sol_'+str(i), tf_ee)
-#             gui.applyConfiguration('world/EE_sol_', tf_ee)
-#         gui.refresh()
-#         if(i%log_rate==0):
-#             print("Display config n°"+str(i))
-#         time.sleep(pause)
+DISPLAY = False
+# Visualize motion in Gepetto-viewer
+if(DISPLAY):
+    import time
+    import pinocchio as pin
+    N_h = T
+    # Init viewer
+    viz = pin.visualize.GepettoVisualizer(robot.model, robot.collision_model, robot.visual_model)
+    viz.initViewer()
+    viz.loadViewerModel()
+    viz.display(q0)
+    # time.sleep(100)
+    gui = viz.viewer.gui
+    draw_rate = int(N_h/50)
+    log_rate  = int(N_h/10)    
+    ref_color  = [1., 0., 0., 1.]
+    real_color = [0., 0., 1., 0.3]
+    ref_size    = 0.02
+    real_size   = 0.02
+    pause = 0.05
+    # cleanup
+        # clean ref
+    if(gui.nodeExists('world/EE_ref')):
+        gui.deleteNode('world/EE_ref', True)
+    for i in range(N_h):
+        # clean DDP sol
+        if(gui.nodeExists('world/EE_sol_'+str(i))):
+            gui.deleteNode('world/EE_sol_'+str(i), True)
+            gui.deleteLandmark('world/EE_sol_'+str(i))
+    # Get initial EE placement + tf
+    ee_frame_placement = data.oMf[frameId]
+    tf_ee = list(pin.SE3ToXYZQUAT(ee_frame_placement))
+    # Display sol init + landmark
+    gui.addSphere('world/EE_sol_', real_size, real_color)
+    gui.addLandmark('world/EE_sol_', 0.25)
+    gui.applyConfiguration('world/EE_sol_', tf_ee)
+    # Get anchor point = ref EE placement + tf
+    ref_frame_placement = data.oMf[frameId].copy()
+    ref_frame_placement.translation = oPc
+    tf_ref = list(pin.SE3ToXYZQUAT(ref_frame_placement))
+    # Display ref
+    gui.addSphere('world/EE_ref', ref_size, ref_color)
+    gui.applyConfiguration('world/EE_ref', tf_ref)
+    # Refresh and wait
+    gui.refresh()
+    time.sleep(1.)
+    # Animate
+    for i in range(N_h):
+        # Display robot in config q
+        q = ddp.xs[i][:nq]
+        viz.display(q)
+        # Display EE traj and ref circle traj
+        if(i%draw_rate==0):
+            # EE trajectory
+            robot.framesForwardKinematics(q)
+            m_ee = robot.data.oMf[frameId].copy()
+            tf_ee = list(pin.SE3ToXYZQUAT(m_ee))
+            gui.addSphere('world/EE_sol_'+str(i), real_size, real_color)
+            gui.applyConfiguration('world/EE_sol_'+str(i), tf_ee)
+            gui.applyConfiguration('world/EE_sol_', tf_ee)
+        gui.refresh()
+        if(i%log_rate==0):
+            print("Display config n°"+str(i))
+        time.sleep(pause)

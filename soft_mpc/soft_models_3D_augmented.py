@@ -69,7 +69,8 @@ class StateSoftContact3D(crocoddyl.StateAbstract):
 # Integrated action model and data 
 class IAMSoftContactDynamics3D(crocoddyl.ActionModelAbstract): #IntegratedActionModelAbstract
     def __init__(self, dam, dt=1e-3, withCostResidual=True):
-        crocoddyl.ActionModelAbstract.__init__(self, dam.state, dam.nu, dam.costs.nr + 3)
+        # crocoddyl.ActionModelAbstract.__init__(self, dam.state, dam.nu, dam.costs.nr + 3)
+        crocoddyl.ActionModelAbstract.__init__(self, crocoddyl.StateVector(dam.state.nq + dam.state.nv + 3), dam.nu, dam.costs.nr + 3)
         self.differential = dam
         # self.state = StateSoftContact3D(dam.pinocchio, 3)
         self.stateSoft = StateSoftContact3D(dam.pinocchio, 3)
@@ -83,11 +84,14 @@ class IAMSoftContactDynamics3D(crocoddyl.ActionModelAbstract): #IntegratedAction
     def calc(self, data, y, u):
         nx = self.differential.state.nx
         nv = self.differential.state.nv
+        nq = self.differential.state.nq
+        # logger.debug(nx)
+        # logger.debug(data.differential.xout)
         nc = self.stateSoft.nc
         x = y[:nx]
         f = y[-nc:]
         # q = x[:self.state.nq]
-        v = x[self.state.nq:]
+        v = x[-nv:]
         # self.control.calc(data.control, 0., u)
         self.differential.calc(data.differential, x, f, u) #data.control.w)
         a = data.differential.xout
