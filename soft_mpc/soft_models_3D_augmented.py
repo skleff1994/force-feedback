@@ -284,21 +284,21 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
             aba_dq, aba_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext)
             data.Fx[:,:self.state.nq] = aba_dq 
             data.Fx[:,self.state.nq:] = aba_dv 
-            # Skew term added to RNEA derivatives when force is expressed in LWA
-            if(self.pinRef != pin.LOCAL):
-                # logger.debug("corrective term aba LWA : \n"+str(data.pinocchio.Minv @ lJ[:3].T @ pin.skew(oRf.T @ f) @ lJ[3:]))
-                data.Fx[:,:self.state.nq] += data.pinocchio.Minv @ lJ[:3].T @ pin.skew(oRf.T @ f) @ lJ[3:]
             data.Fx += data.pinocchio.Minv @ data.multibody.actuation.dtau_dx
             data.Fu = aba_dtau @ data.multibody.actuation.dtau_du
             # Compute derivatives of data.xout (ABA) w.r.t. f in LOCAL 
             data.dABA_df = data.pinocchio.Minv @ lJ[:3].T @ self.pinocchio.frames[self.frameId].placement.rotation @ np.eye(3) 
-            
+           
+            # Skew term added to RNEA derivatives when force is expressed in LWA
+            if(self.pinRef != pin.LOCAL):
+                # logger.debug("corrective term aba LWA : \n"+str(data.pinocchio.Minv @ lJ[:3].T @ pin.skew(oRf.T @ f) @ lJ[3:]))
+                data.Fx[:,:self.state.nq] += data.pinocchio.Minv @ lJ[:3].T @ pin.skew(oRf.T @ f) @ lJ[3:]
+                # Rotate dABA/df
+                data.dABA_df = data.dABA_df @ oRf.T 
 
-
-            # Derivatives of data.fout in LOCAL
+            # Derivatives of data.fout in LOCAL : important >> UPDATE FORWARD KINEMATICS with data.xout
             pin.computeAllTerms(self.pinocchio, data.pinocchio, q, v)
             pin.forwardKinematics(self.pinocchio, data.pinocchio, q, v, data.xout)
-            # pin.computeJointJacobiansTimeVariation(self.pinocchio, data.pinocchio, q, v)
             pin.updateFramePlacements(self.pinocchio, data.pinocchio)
             lv_dq, lv_dv = pin.getFrameVelocityDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL)
             lv_dx = np.hstack([lv_dq, lv_dv])
@@ -309,28 +309,14 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
             da_du = a_da[:3] @ data.Fu
             da_df = a_da[:3] @ data.dABA_df
             # Deriv of lambda dot
-            # print(lv_dx)
-            # print(da_dx)
             data.dfdt_dx = -self.Kp*lv_dx[:3] - self.Kv*da_dx[:3]
             data.dfdt_du = -self.Kv*da_du
             data.dfdt_df = -self.Kv*da_df
             ldfdt_dx_copy = data.dfdt_dx.copy()
             ldfdt_du_copy = data.dfdt_du.copy()
             ldfdt_df_copy = data.dfdt_df.copy()
-            # Rotate if not LOCAL 
+            # Rotate dfout_dx if not LOCAL 
             if(self.pinRef != pin.LOCAL):
-                data.dABA_df = data.dABA_df @ oRf.T #data.pinocchio.Minv @ lJ[:3].T @ self.pinocchio.frames[self.frameId].placement.rotation @ oRf.T
-                # lv = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear
-                # la = pin.getFrameAcceleration(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear
-                # df_dt = -self.Kp * lv - self.Kv * la
-                # rotate local derivatives
-                # ov_dq, ov_dv = pin.getFrameVelocityDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED)
-                # ov_dx = np.hstack([ov_dq, ov_dv])
-                # _, oa_dq, oa_dv, oa_da = pin.getFrameAccelerationDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED)
-                # oda_dx = np.zeros((3,self.state.nx))
-                # oda_dx[:,:self.state.nq] = oa_dq[:3] + oa_da[:3] @ data.Fx[:,:self.state.nq] 
-                # oda_dx[:,self.state.nq:] = oa_dv[:3] + oa_da[:3] @ data.Fx[:,self.state.nq:] 
-                # data.dfdt_dx = -self.Kp * ov_dx[:3] - self.Kv * oda_dx[:3]
                 oJ = pin.getFrameJacobian(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED)
                 data.dfdt_dx[:,:self.state.nq] = oRf @ ldfdt_dx_copy[:,:self.state.nq] - pin.skew(oRf @ data.fout_copy) @ oJ[3:]
                 data.dfdt_dx[:,self.state.nq:] = oRf @ ldfdt_dx_copy[:,self.state.nq:] 
