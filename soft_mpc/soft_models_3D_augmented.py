@@ -47,6 +47,24 @@ class StateSoftContact3D(crocoddyl.StateAbstract):
         yout[nq:] = y[nq:] + dy[nq:]
         return yout
 
+    def Jintegrate(self, y, dy, Jfirst):
+        '''
+        Default values :
+         firstsecond = crocoddyl.Jcomponent.first 
+         op = crocoddyl.addto
+        '''
+        Jfirst[:self.nv, :self.nv] = pin.dIntegrate(self.pinocchio, y[:self.nq], dy[:self.nv], pin.ARG0) #, crocoddyl.addto)
+        Jfirst[self.nv:2*self.nv, self.nv:2*self.nv] += np.eye(self.nv)
+        # Jfirst[-self.nc:, -self.nc:] += np.eye(self.nc)
+    
+    def JintegrateTransport(self, y, dy, Jin, firstsecond):
+        if(firstsecond == crocoddyl.Jcomponent.first):
+            pin.dIntegrateTransport(self.pinocchio, y[:self.nq], dy[:self.nv], Jin[:self.nv], pin.ARG0)
+        elif(firstsecond == crocoddyl.Jcomponent.second):
+            pin.dIntegrateTransport(self.pinocchio, y[:self.nq], dy[:self.nv], Jin[:self.nv], pin.ARG1)
+        else:
+            logger.error("wrong arg firstsecond")
+
 
 # Integrated action model and data 
 class IAMSoftContactDynamics3D(crocoddyl.ActionModelAbstract): #IntegratedActionModelAbstract
@@ -73,9 +91,11 @@ class IAMSoftContactDynamics3D(crocoddyl.ActionModelAbstract): #IntegratedAction
         # self.control.calc(data.control, 0., u)
         self.differential.calc(data.differential, x, f, u) #data.control.w)
         a = data.differential.xout
+        fdot = data.differential.fout
         data.dx[:nv] = v*self.dt + a*self.dt**2
         data.dx[nv:2*nv] = a*self.dt
-        data.dx[-nv:] = a*self.dt
+        data.dx[-nc:] = fdot*self.dt
+        data.xnext = self.stateSoft.integrate(y, data.dx)
         data.cost = self.dt*data.differential.cost
         if(self.withCostResidual):
             data.r = data.differential.r
@@ -125,7 +145,7 @@ class IAMSoftContactDynamics3D(crocoddyl.ActionModelAbstract): #IntegratedAction
         self.stateSoft.JintegrateTransport(y, data.dx, data.Fx, crocoddyl.Jcomponent.second)
         
         # state_->Jintegrate(x, d->dx, d->Fx, d->Fx, first, addto);
-        self.stateSoft.Jintegrate(y, data.dx, data.Fx,  data.Fx, crocoddyl.addto)  # add identity to Fx = d(x+dx)/dx = d(q,v)/d(q,v)
+        self.stateSoft.Jintegrate(y, data.dx, data.Fx)  # add identity to Fx = d(x+dx)/dx = d(q,v)/d(q,v)
         # data.Fx (nu, nu).diagonal().array() -=
         #     Scalar(1.);  // remove identity from Ftau (due to stateLPF.Jintegrate)
         
@@ -221,7 +241,6 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
         self.actuation.calc(data.multibody.actuation, x, u)
 
         if(self.active_contact):
-            # logger.debug('dam.calc active contact')
             # Compute external wrench for LOCAL f
             data.fext[self.parentId] = self.jMf.act(pin.Force(f, np.zeros(3)))
             data.fext_copy = data.fext.copy()
@@ -229,7 +248,6 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
             if(self.pinRef != pin.LOCAL):
                 data.fext[self.parentId] = self.jMf.act(pin.Force(oRf.T @ f, np.zeros(3)))
             data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext) 
-            # logger.debug('dam.calc xout = \n'+str(data.xout))
 
             # Compute time derivative of contact force : need to forward kin with current acc
             pin.forwardKinematics(self.pinocchio, data.pinocchio, q, v, data.xout)
@@ -243,12 +261,6 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
                 ov = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED).linear
                 data.fout = -self.Kp * ov - self.Kv * oa
                 assert(np.linalg.norm(data.fout - oRf @ data.fout_copy) < 1e-3)
-                # The formular below is wrong, oddly
-                # ow = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED).angular
-                # fout_check = oRf @ data.fout_copy + pin.skew(ow) @ f
-                # logger.debug(fout_check)
-                # logger.debug(data.fout)
-                # assert(np.linalg.norm(data.fout - fout_check) < 1e-3)
         else:
             data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau)
             # data.fout = np.zeros(3)
@@ -264,7 +276,6 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
             # Add force cost to total cost
             data.cost += 0.5 * self.f_weight * self.f_residual.T @ self.f_residual
         return data.xout, data.fout, data.cost
-
 
     def calcDiff(self, data, x, f, u):
         '''
