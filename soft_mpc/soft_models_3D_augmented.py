@@ -55,7 +55,7 @@ class StateSoftContact3D(crocoddyl.StateAbstract):
         '''
         Jfirst[:self.nv, :self.nv] = pin.dIntegrate(self.pinocchio, y[:self.nq], dy[:self.nv], pin.ARG0) #, crocoddyl.addto)
         Jfirst[self.nv:2*self.nv, self.nv:2*self.nv] += np.eye(self.nv)
-        # Jfirst[-self.nc:, -self.nc:] += np.eye(self.nc)
+        Jfirst[-self.nc:, -self.nc:] += np.eye(self.nc)
     
     def JintegrateTransport(self, y, dy, Jin, firstsecond):
         if(firstsecond == crocoddyl.Jcomponent.first):
@@ -148,7 +148,8 @@ class IAMSoftContactDynamics3D(crocoddyl.ActionModelAbstract): #IntegratedAction
         self.stateSoft.Jintegrate(y, data.dx, data.Fx)  # add identity to Fx = d(x+dx)/dx = d(q,v)/d(q,v)
         # data.Fx (nu, nu).diagonal().array() -=
         #     Scalar(1.);  // remove identity from Ftau (due to stateLPF.Jintegrate)
-        
+        data.Fx[-nc:, -nc:] -= np.eye(nc)
+
         # state_->JintegrateTransport(x, d->dx, d->Fu, second);
         self.stateSoft.JintegrateTransport(y, data.dx, data.Fu, crocoddyl.Jcomponent.second)
 
@@ -271,10 +272,9 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
         data.cost = data.costs.cost
         # Add hard-coded cost
         if(self.with_force_cost):
-            # Compute force residual
-            self.f_residual = f - self.f_des
-            # Add force cost to total cost
-            data.cost += 0.5 * self.f_weight * self.f_residual.T @ self.f_residual
+            # Compute force residual and add force cost to total cost
+            data.f_residual = f - self.f_des
+            data.cost += 0.5 * self.f_weight * data.f_residual.T @ data.f_residual
         return data.xout, data.fout, data.cost
 
     def calcDiff(self, data, x, f, u):
@@ -349,8 +349,8 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
         data.Luu = data.costs.Luu
         # add hard-coded cost
         if(self.active_contact and self.with_force_cost):
-            self.f_residual = data.f - self.f_des
-            data.Lf = self.f_weight * self.f_residual
+            data.f_residual = f - self.f_des
+            data.Lf = self.f_weight * data.f_residual.T
             data.Lff = self.f_weight * np.eye(3)
 
 
@@ -380,6 +380,7 @@ class DADSoftContactDynamics(crocoddyl.DifferentialActionDataAbstract):
         self.Luu = np.zeros((am.actuation.nu, am.actuation.nu))
         self.Lf = np.zeros(am.nc)
         self.Lff = np.zeros((am.nc, am.nc))
+        self.f_residual = np.zeros(am.nc)
         # External wrench
         self.fext = [pin.Force.Zero() for _ in range(am.pinocchio.njoints)]
         self.fext_copy = [pin.Force.Zero() for _ in range(am.pinocchio.njoints)]
