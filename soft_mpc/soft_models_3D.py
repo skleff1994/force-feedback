@@ -125,10 +125,11 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
         oRf = data.pinocchio.oMf[self.frameId].rotation
         # Actuation calcDiff
         self.actuation.calcDiff(data.multibody.actuation, x, u)
-        # pin.computeAllTerms(self.pinocchio, data.pinocchio, q, v)
+
         if(self.active_contact):
             # Compute spring damper force derivatives in LOCAL
             lJ = pin.getFrameJacobian(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL)
+            # logger.debug(lJ)
             oJ = pin.getFrameJacobian(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED)
             lv_partial_dq, lv_partial_dv = pin.getFrameVelocityDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL) 
             data.df_dx[:,:self.state.nq] = \

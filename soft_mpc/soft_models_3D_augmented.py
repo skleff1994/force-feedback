@@ -221,6 +221,7 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
         self.actuation.calc(data.multibody.actuation, x, u)
 
         if(self.active_contact):
+            # logger.debug('dam.calc active contact')
             # Compute external wrench for LOCAL f
             data.fext[self.parentId] = self.jMf.act(pin.Force(f, np.zeros(3)))
             data.fext_copy = data.fext.copy()
@@ -228,16 +229,26 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
             if(self.pinRef != pin.LOCAL):
                 data.fext[self.parentId] = self.jMf.act(pin.Force(oRf.T @ f, np.zeros(3)))
             data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext) 
+            # logger.debug('dam.calc xout = \n'+str(data.xout))
 
-            # Compute time derivative of contact force
-            # pin.forwardKinematics(self.pinocchio, data.pinocchio, q, v, data.xout)
+            # Compute time derivative of contact force : need to forward kin with current acc
+            pin.forwardKinematics(self.pinocchio, data.pinocchio, q, v, data.xout)
             la = pin.getFrameAcceleration(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear         
             lv = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear
             data.fout = -self.Kp * lv - self.Kv * la
-            fout_copy = data.fout.copy()
+            data.fout_copy = data.fout.copy()
             # Rotate if not f not in LOCAL
             if(self.pinRef != pin.LOCAL):
-                data.fout = oRf @ fout_copy
+                oa = pin.getFrameAcceleration(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED).linear         
+                ov = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED).linear
+                data.fout = -self.Kp * ov - self.Kv * oa
+                assert(np.linalg.norm(data.fout - oRf @ data.fout_copy) < 1e-3)
+                # The formular below is wrong, oddly
+                # ow = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED).angular
+                # fout_check = oRf @ data.fout_copy + pin.skew(ow) @ f
+                # logger.debug(fout_check)
+                # logger.debug(data.fout)
+                # assert(np.linalg.norm(data.fout - fout_check) < 1e-3)
         else:
             data.xout = pin.aba(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau)
             # data.fout = np.zeros(3)
@@ -259,47 +270,42 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
         '''
         Compute derivatives 
         '''
-        # First call calc
         q = x[:self.state.nq]
         v = x[self.state.nq:]
         oRf = data.pinocchio.oMf[self.frameId].rotation
-        # pin.computeAllTerms(self.pinocchio, data.pinocchio, q, v)
-        # pin.forwardKinematics(self.pinocchio, data.pinocchio, q, v, np.zeros(self.state.nq))
-        # pin.updateFramePlacements(self.pinocchio, data.pinocchio)
         # Actuation calcDiff
         self.actuation.calcDiff(data.multibody.actuation, x, u)
-        
-        if(self.active_contact):
-            lJ = pin.getFrameJacobian(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL)
 
-            # Derivatives of data.xout (ABA) w.r.t. x and u in LOCAL (same in WORLD)
+        if(self.active_contact):
+            # Compute Jacobian
+            lJ = pin.getFrameJacobian(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL)            
             
-            lv_partial_dq, lv_partial_dv = pin.getFrameVelocityDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL) 
-            dlf_dx = np.zeros((3,self.state.nx))
-            dlf_dx[:,:self.state.nq] = -self.Kp * (lJ[:3] + pin.skew(oRf.T @ (data.pinocchio.oMf[self.frameId].translation - self.oPc)) @ lJ[3:]) - self.Kv*lv_partial_dq[:3]
-            dlf_dx[:,self.state.nq:] = -self.Kv*lv_partial_dv[:3]
-            # print("dlf_dx = \n", dlf_dx)
+            # Derivatives of data.xout (ABA) w.r.t. x and u in LOCAL (same in WORLD)
             aba_dq, aba_dv, aba_dtau = pin.computeABADerivatives(self.pinocchio, data.pinocchio, q, v, data.multibody.actuation.tau, data.fext)
-            data.Fx[:,:self.state.nq] = aba_dq + data.pinocchio.Minv @ lJ[:3].T @ dlf_dx[:,:self.state.nq]
-            data.Fx[:,self.state.nq:] = aba_dv + data.pinocchio.Minv @ lJ[:3].T @ dlf_dx[:,self.state.nq:]
-            print("1 \n", aba_dq)
-            print("2 \n", data.pinocchio.Minv @ lJ[:3].T @ dlf_dx[:,:self.state.nq])
-            print("3 \n", aba_dq + data.pinocchio.Minv @ lJ[:3].T @ dlf_dx[:,:self.state.nq])
+            data.Fx[:,:self.state.nq] = aba_dq 
+            data.Fx[:,self.state.nq:] = aba_dv 
+            # Skew term added to RNEA derivatives when force is expressed in LWA
+            if(self.pinRef != pin.LOCAL):
+                # logger.debug("corrective term aba LWA : \n"+str(data.pinocchio.Minv @ lJ[:3].T @ pin.skew(oRf.T @ f) @ lJ[3:]))
+                data.Fx[:,:self.state.nq] += data.pinocchio.Minv @ lJ[:3].T @ pin.skew(oRf.T @ f) @ lJ[3:]
             data.Fx += data.pinocchio.Minv @ data.multibody.actuation.dtau_dx
             data.Fu = aba_dtau @ data.multibody.actuation.dtau_du
             # Compute derivatives of data.xout (ABA) w.r.t. f in LOCAL 
             data.dABA_df = data.pinocchio.Minv @ lJ[:3].T @ self.pinocchio.frames[self.frameId].placement.rotation @ np.eye(3) 
-            # Rotate if not LOCAL 
-            # if(self.pinRef != pin.LOCAL):
-            #     data.dABA_df = data.dABA_df @ oRf.T 
             
+
+
             # Derivatives of data.fout in LOCAL
-            # lv_dq, lv_dv = pin.getFrameVelocityDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL)
-            lv_dx = np.hstack([lv_partial_dq, lv_partial_dv])
+            pin.computeAllTerms(self.pinocchio, data.pinocchio, q, v)
+            pin.forwardKinematics(self.pinocchio, data.pinocchio, q, v, data.xout)
+            # pin.computeJointJacobiansTimeVariation(self.pinocchio, data.pinocchio, q, v)
+            pin.updateFramePlacements(self.pinocchio, data.pinocchio)
+            lv_dq, lv_dv = pin.getFrameVelocityDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL)
+            lv_dx = np.hstack([lv_dq, lv_dv])
             _, a_dq, a_dv, a_da = pin.getFrameAccelerationDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL)
             da_dx = np.zeros((3,self.state.nx))
-            da_dx[:,:self.state.nq] = a_dq[:3] + a_da[:3] @ aba_dq #data.Fx[:,:self.state.nq]
-            da_dx[:,self.state.nq:] = a_dv[:3] + a_da[:3] @ aba_dv #data.Fx[:,self.state.nq:]
+            da_dx[:,:self.state.nq] = a_dq[:3] + a_da[:3] @ data.Fx[:,:self.state.nq] # same as aba_dq here
+            da_dx[:,self.state.nq:] = a_dv[:3] + a_da[:3] @ data.Fx[:,self.state.nq:] # same as aba_dv here
             da_du = a_da[:3] @ data.Fu
             da_df = a_da[:3] @ data.dABA_df
             # Deriv of lambda dot
@@ -314,12 +320,19 @@ class DAMSoftContactDynamics3D(crocoddyl.DifferentialActionModelAbstract):
             # Rotate if not LOCAL 
             if(self.pinRef != pin.LOCAL):
                 data.dABA_df = data.dABA_df @ oRf.T #data.pinocchio.Minv @ lJ[:3].T @ self.pinocchio.frames[self.frameId].placement.rotation @ oRf.T
-                lv = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear
-                la = pin.getFrameAcceleration(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear
-                df_dt = -self.Kp * lv - self.Kv * la
+                # lv = pin.getFrameVelocity(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear
+                # la = pin.getFrameAcceleration(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL).linear
+                # df_dt = -self.Kp * lv - self.Kv * la
                 # rotate local derivatives
+                # ov_dq, ov_dv = pin.getFrameVelocityDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED)
+                # ov_dx = np.hstack([ov_dq, ov_dv])
+                # _, oa_dq, oa_dv, oa_da = pin.getFrameAccelerationDerivatives(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED)
+                # oda_dx = np.zeros((3,self.state.nx))
+                # oda_dx[:,:self.state.nq] = oa_dq[:3] + oa_da[:3] @ data.Fx[:,:self.state.nq] 
+                # oda_dx[:,self.state.nq:] = oa_dv[:3] + oa_da[:3] @ data.Fx[:,self.state.nq:] 
+                # data.dfdt_dx = -self.Kp * ov_dx[:3] - self.Kv * oda_dx[:3]
                 oJ = pin.getFrameJacobian(self.pinocchio, data.pinocchio, self.frameId, pin.LOCAL_WORLD_ALIGNED)
-                data.dfdt_dx[:,:self.state.nq] = oRf @ ldfdt_dx_copy[:,:self.state.nq] - pin.skew(oRf @ df_dt) @ oJ[3:]
+                data.dfdt_dx[:,:self.state.nq] = oRf @ ldfdt_dx_copy[:,:self.state.nq] - pin.skew(oRf @ data.fout_copy) @ oJ[3:]
                 data.dfdt_dx[:,self.state.nq:] = oRf @ ldfdt_dx_copy[:,self.state.nq:] 
                 data.dfdt_du = oRf @ ldfdt_du_copy
                 data.dfdt_df = oRf @ ldfdt_df_copy
@@ -354,6 +367,7 @@ class DADSoftContactDynamics(crocoddyl.DifferentialActionDataAbstract):
         crocoddyl.DifferentialActionDataAbstract.__init__(self, am)
         # Force model + derivatives
         self.fout = np.zeros(am.nc)
+        self.fout_copy = np.zeros(am.nc)
         self.dfdt_dx = np.zeros((3,am.state.nx))
         self.dfdt_du = np.zeros((3,am.nu))
         self.dfdt_df = np.zeros((3,3))  
