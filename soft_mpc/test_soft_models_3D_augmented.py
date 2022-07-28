@@ -1,5 +1,4 @@
 import sys
-
 sys.path.append('.')
 
 import numpy as np
@@ -248,7 +247,7 @@ terminalCostModel.addCost("translation", frameTranslationCost, 1e-1)
 
 
 
-REF_FRAME = pin.LOCAL
+REF_FRAME = pin.LOCAL_WORLD_ALIGNED
 dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
 dam_t = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
 dt=1e-3
@@ -262,7 +261,7 @@ terminalModel = IAMSoftContactDynamics3D(dam_t, 0.)
 
 # Create the shooting problem
 T = 200
-y0 = np.concatenate([x0, lf0])
+y0 = np.concatenate([x0, of0])
 problem = crocoddyl.ShootingProblem(y0, [runningModel] * T, terminalModel)
 
 # Create solver + callbacks
@@ -281,18 +280,20 @@ from soft_mpc.utils import SoftContactModel3D
 softContactModel = SoftContactModel3D(Kp, Kv, oPc, frameId, REF_FRAME)
 data_handler = DDPDataHandlerSoftContact(ddp, softContactModel)
 ddp_data = data_handler.extract_data_augmented(ee_frame_name='contact', ct_frame_name='contact')
-#   # Extract soft force
-# xs = np.array(ddp_data['xs'])
-# ps = pin_utils.get_p_(xs[:,:nq], model, frameId)
-# vs = pin_utils.get_v_(xs[:,:nq], xs[:,nq:nq+nv], model, frameId, ref=pin.WORLD)
-#   # Force in WORLD aligned frame
-# fs_lin = np.array([data.oMf[frameId].rotation @ (-Kp*(ps[i,:] - oPc) - Kv*vs[i,:]) for i in range(T)])
-# fs_ang = np.zeros((T, 3))
-# ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
-# ddp_data['force_ref'] = [np.concatenate([dam.f_des, np.zeros(3)]) for i in range(T) ]
+fs_lin = np.zeros((T,3))
+xs = np.array(ddp_data['xs'])
+fs_lin = np.array([softContactModel.computeForce_(model, xs[i,:nq], xs[i,nq:nq+nv]) for i in range(T)])
+fs_ang = np.zeros((ddp_data['T'], 3))
+f_prediction= np.hstack([fs_lin, fs_ang])
 
-# Plot data
-data_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+# Plot data + predictions
+fix, ax = data_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=False)
+for i in range(3): ax['f'][i,0].plot(np.linspace(0, T*dt, T), f_prediction[:,i], 'ro', label='pred')
+import matplotlib.pyplot as plt
+plt.show()
+
+
+
 
 DISPLAY = False
 # Visualize motion in Gepetto-viewer

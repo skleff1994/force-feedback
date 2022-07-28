@@ -45,11 +45,11 @@ class SoftContactModel3D:
         oRf = rdata.oMf[self.frameId].rotation
         oPf = rdata.oMf[self.frameId].translation
         lv = pin.getFrameVelocity(rmodel, rdata, self.frameId, pin.LOCAL).linear
-        # print(lv)
-        if(self.pinRefFrame == pin.LOCAL):
-            f = -self.Kp * oRf.T @ (oPf - self.oPc) - self.Kv * lv
-        elif(self.pinRefFrame == pin.LOCAL_WORLD_ALIGNED):
-            f = -self.Kp * (oPf - self.oPc) - self.Kv * oRf @ lv
+        f = -self.Kp * oRf.T @ (oPf - self.oPc) - self.Kv * lv
+        # if(self.pinRefFrame == pin.LOCAL):
+            # f = -self.Kp * oRf.T @ (oPf - self.oPc) - self.Kv * lv
+        if(self.pinRefFrame == pin.LOCAL_WORLD_ALIGNED):
+            f = oRf @ f
         return f
 
     def computeForce_(self, rmodel, q, v):
