@@ -14,7 +14,7 @@ from classical_mpc.data import DDPDataHandlerClassical
 from core_mpc import pin_utils
 
 
-REF_FRAME = pin.LOCAL_WORLD_ALIGNED
+REF_FRAME = pin.LOCAL
 
 robot = load_robot_wrapper('iiwa')
 model = robot.model ; data = model.createData()
@@ -87,9 +87,12 @@ terminalCostModel.addCost("translation", frameTranslationCost, 1e-1)
 
 
 # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
-dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+# dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+import sobec
+dam = sobec.DifferentialActionModelSoftContact3DFwdDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, REF_FRAME)
 dam.set_force_cost(np.array([0.,0.,0.]), 1e-2)
-dam_t = DAMSoftContactDynamics3D(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+# dam_t = DAMSoftContactDynamics3D(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+dam_t = sobec.DifferentialActionModelSoftContact3DFwdDynamics(state, actuation, terminalCostModel, frameId, Kp, Kv, oPc, REF_FRAME)
 
 
 
@@ -136,7 +139,7 @@ ddp_data['force_ref'] = [np.concatenate([dam.f_des, np.zeros(3)]) for i in range
 # Plot data
 data_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
 
-DISPLAY = True
+DISPLAY = False
 # Visualize motion in Gepetto-viewer
 if(DISPLAY):
     import time

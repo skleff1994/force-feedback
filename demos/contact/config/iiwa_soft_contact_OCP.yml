@@ -20,7 +20,7 @@ frame_of_interest: 'contact'
 oPc_offset: [0., 0., 0.05]
 Kp: 100
 Kv: 20
-pinRefFrame: 'LOCAL_WORLD_ALIGNED'
+pinRefFrame: 'LOCAL'
 contactType: '3D'
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)

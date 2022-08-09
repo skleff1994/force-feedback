@@ -65,14 +65,22 @@ class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
     for i in range(self.N_h):  
         # Create DAMContactDyn     
         if(softContactModel.nc == 3):
-          dam = DAMSoftContactDynamics3D(state, 
+          # dam = DAMSoftContactDynamics3D(state, 
+          #                               actuation, 
+          #                               crocoddyl.CostModelSum(state, nu=actuation.nu),
+          #                               softContactModel.frameId, 
+          #                               Kp=softContactModel.Kp,
+          #                               Kv=softContactModel.Kv,
+          #                               oPc=softContactModel.oPc,
+          #                               pinRefFrame=softContactModel.pinRefFrame )
+          dam = sobec.DifferentialActionModelSoftContact3DFwdDynamics(state, 
                                         actuation, 
                                         crocoddyl.CostModelSum(state, nu=actuation.nu),
                                         softContactModel.frameId, 
-                                        Kp=softContactModel.Kp,
-                                        Kv=softContactModel.Kv,
-                                        oPc=softContactModel.oPc,
-                                        pinRefFrame=softContactModel.pinRefFrame )
+                                        softContactModel.Kp,
+                                        softContactModel.Kv,
+                                        softContactModel.oPc,
+                                        softContactModel.pinRefFrame )
         elif(softContactModel.nc == 1):
           dam = DAMSoftContactDynamics1D(state, 
                                         actuation, 
@@ -145,14 +153,22 @@ class OptimalControlProblemSoftContact(ocp.OptimalControlProblemAbstract):
   # Terminal DAM (Contact or FreeFwd)
     # Create terminal DAMContactDyn
     if(softContactModel.nc == 3):
-      dam_t = DAMSoftContactDynamics3D(state, 
+      # dam_t = DAMSoftContactDynamics3D(state, 
+      #                               actuation, 
+      #                               crocoddyl.CostModelSum(state, nu=actuation.nu),
+      #                               softContactModel.frameId, 
+      #                               Kp=softContactModel.Kp,
+      #                               Kv=softContactModel.Kv,
+      #                               oPc=softContactModel.oPc,
+      #                               pinRefFrame=softContactModel.pinRefFrame )
+      dam_t = sobec.DifferentialActionModelSoftContact3DFwdDynamics(state, 
                                     actuation, 
                                     crocoddyl.CostModelSum(state, nu=actuation.nu),
                                     softContactModel.frameId, 
-                                    Kp=softContactModel.Kp,
-                                    Kv=softContactModel.Kv,
-                                    oPc=softContactModel.oPc,
-                                    pinRefFrame=softContactModel.pinRefFrame )
+                                    softContactModel.Kp,
+                                    softContactModel.Kv,
+                                    softContactModel.oPc,
+                                    softContactModel.pinRefFrame )
     elif(softContactModel.nc == 1):
       dam_t = DAMSoftContactDynamics1D(state, 
                                     actuation, 
