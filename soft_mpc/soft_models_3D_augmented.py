@@ -162,8 +162,8 @@ class IAMSoftContactDynamics3D(crocoddyl.ActionModelAbstract): #IntegratedAction
         data.Lxx[:ndx,:ndx] = data.differential.Lxx*self.dt
         data.Lxx[-nc:,-nc:] = data.differential.Lff*self.dt
         data.Lxu[:ndx, :nu] = data.differential.Lxu*self.dt
-        data.Lu = data.Lu*self.dt
-        data.Luu = data.Luu*self.dt
+        data.Lu = data.differential.Lu*self.dt
+        data.Luu = data.differential.Luu*self.dt
 
 
 class IADSoftContactDynamics3D(crocoddyl.ActionDataAbstract): #IntegratedActionDataAbstract
