@@ -35,7 +35,7 @@ print("anchor point (WORLD)        = \n", oPc)
 ov = pin.getFrameVelocity(model, data, frameId, pin.WORLD).linear
 print("initial EE velocity (WORLD) = \n", ov)
 # contact gains
-Kp = 100
+Kp = 100.
 Kv = 2*np.sqrt(Kp)
 print("stiffness = ", Kp)
 print("damping   = ", Kv)
@@ -248,12 +248,23 @@ terminalCostModel.addCost("translation", frameTranslationCost, 1e-1)
 
 
 REF_FRAME = pin.LOCAL_WORLD_ALIGNED
-dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
-dam_t = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+# # Python proto
+# dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+# dam_t = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
+# dt=1e-3
+# dam.set_force_cost(np.array([0.,0.,10.]), 1e-2)
+# runningModel = IAMSoftContactDynamics3D(dam, dt)
+# terminalModel = IAMSoftContactDynamics3D(dam_t, 0.)
+
+# Sobec C++ bindings
+import sobec
+dam = sobec.DAMSoftContact3DAugmentedFwdDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, REF_FRAME)
+dam_t = sobec.DAMSoftContact3DAugmentedFwdDynamics(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, REF_FRAME)
 dt=1e-3
 dam.set_force_cost(np.array([0.,0.,10.]), 1e-2)
-runningModel = IAMSoftContactDynamics3D(dam, dt)
-terminalModel = IAMSoftContactDynamics3D(dam_t, 0.)
+runningModel = sobec.IAMSoftContact3DAugmented(dam, dt)
+terminalModel = sobec.IAMSoftContact3DAugmented(dam_t, 0.)
+
 
 # # Optionally add armature to take into account actuator's inertia
 # runningModel.differential.armature = np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.])
