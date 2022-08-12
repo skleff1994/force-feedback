@@ -22,11 +22,11 @@ USE_SOBEC_BINDINGS = True
 
 
 if(USE_SOBEC_BINDINGS):
-  from soft_mpc.soft_models_3D_augmented import DAMSoftContactDynamics3D as DAMSoft3DAugmented
-  from soft_mpc.soft_models_3D_augmented import IAMSoftContactDynamics3D as IAMSoft3DAugmented
-else:
   from sobec import DAMSoftContact3DAugmentedFwdDynamics as DAMSoft3DAugmented
   from sobec import IAMSoftContact3DAugmented as IAMSoft3DAugmented
+else:
+  from soft_mpc.soft_models_3D_augmented import DAMSoftContactDynamics3D as DAMSoft3DAugmented
+  from soft_mpc.soft_models_3D_augmented import IAMSoftContactDynamics3D as IAMSoft3DAugmented
 
 
 class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstract):

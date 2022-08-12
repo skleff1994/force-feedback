@@ -92,13 +92,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # #
   # Warm start and reg
   # Compute initial visco-elastic force
-#   fext0 = softContactModel.computeExternalWrench(robot.model, robot.data)
+  fext0 = softContactModel.computeExternalWrench(robot.model, robot.data)
   # Setup Croco OCP and create solver
   ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=True)
   # Warmstart and solve
-#   xs_init = [x0 for i in range(config['N_h']+1)]
-#   us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, robot.model, np.zeros(nq)) for i in range(config['N_h'])] 
-  ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
+  xs_init = [y0 for i in range(config['N_h']+1)]
+  us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, robot.model, np.zeros(nq)) for i in range(config['N_h'])] 
+#   ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
+  ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
   frame_of_interest = config['frame_of_interest']
   if(PLOT_INIT):

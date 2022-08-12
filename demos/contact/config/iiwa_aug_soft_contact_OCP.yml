@@ -20,7 +20,7 @@ frame_of_interest: 'contact'
 oPc_offset: [0., 0., 0.05]
 Kp: 1000
 Kv: 20
-pinRefFrame: 'LOCAL'
+pinRefFrame: 'LOCAL_WORLD_ALIGNED'
 contactType: '3D'
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
@@ -32,7 +32,7 @@ WHICH_COSTS: ['force', 'stateReg', 'ctrlReg']
  # 'force' : end-effector frame force (translation + rotation)
 # frameForceWeights:  [1., 1., 1., 0., 0., 0.]
 frameForceWeight: 0.01
-frameForceRef: [0., 50., 10, 0., 0., 0.]    
+frameForceRef: [10., 0., 0, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
 
