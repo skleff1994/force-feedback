@@ -16,37 +16,14 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 # Classical OCP data handler : extract data + generate fancy plots
-class DDPDataHandlerSoftContact(DDPDataHandlerClassical):
+class DDPDataHandlerSoftContactAugmented(DDPDataHandlerClassical):
 
   def __init__(self, ddp, softContactModel):
     super().__init__(ddp)
     self.softContactModel = softContactModel
 
-  def extract_data(self, ee_frame_name, ct_frame_name):
-    '''
-    Extract data from ddp solver
-    '''
-    ddp_data = super().extract_data(ee_frame_name, ct_frame_name)
-    # Compute the visco-elastic contact force & extract the reference force from DAM
-    xs = np.array(ddp_data['xs'])
-    nq = ddp_data['nq']
-    nv = ddp_data['nv']
-    if(self.softContactModel.nc == 3):
-        fs_lin = np.array([self.softContactModel.computeForce_(ddp_data['pin_model'], xs[i,:nq], xs[i,nq:nq+nv]) for i in range(ddp_data['T'])])
-        fdes_lin = np.array([self.ddp.problem.runningModels[i].differential.f_des for i in range(ddp_data['T'])])
-    else:
-        fs_lin = np.zeros((ddp_data['T'],3))
-        fs_lin[:,self.softContactModel.mask] = np.array([self.softContactModel.computeForce_(ddp_data['pin_model'], xs[i,:nq], xs[i,nq:]) for i in range(ddp_data['T'])])
-        fdes_lin = np.zeros((ddp_data['T'],3))
-        fs_lin[:,self.softContactModel.mask] = np.array([self.ddp.problem.runningModels[i].differential.f_des for i in range(ddp_data['T'])])
-    fs_ang = np.zeros((ddp_data['T'], 3))
-    fdes_ang = np.zeros((ddp_data['T'], 3))
-    ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
-    ddp_data['force_ref'] = np.hstack([fdes_lin, fdes_ang])
-    return ddp_data
-
   # Temporary patch for augmented soft ddp  --> need to clean it up
-  def extract_data_augmented(self, ee_frame_name, ct_frame_name):
+  def extract_data(self, ee_frame_name, ct_frame_name):
     '''
     Extract data from DDP solver 
     Patch for augmented soft contact formulation 
@@ -80,7 +57,7 @@ class DDPDataHandlerSoftContact(DDPDataHandlerClassical):
 
 
 # Classical MPC data handler : initialize, extract data + generate fancy plots
-class MPCDataHandlerSoftContact(MPCDataHandlerClassical):
+class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
 
   def __init__(self, config, robot):
     super().__init__(config, robot)

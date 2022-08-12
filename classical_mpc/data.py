@@ -120,7 +120,7 @@ class DDPDataHandlerClassical(DDPDataHandlerAbstract):
       # Extract trajectories
       x = np.array(ddp_data['xs'])
       q = x[:,:nq]
-      v = x[:,nv:]
+      v = x[:,nq:nq+nv]
       # If state reg cost, 
       if('stateReg' in ddp_data['active_costs']):
           x_reg_ref = np.array(ddp_data['stateReg_ref'])
@@ -146,7 +146,7 @@ class DDPDataHandlerClassical(DDPDataHandlerAbstract):
           ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
           ax[i,0].grid(True)
-
+      for i in range(nv):
           # Plot velocities
           ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)  
 

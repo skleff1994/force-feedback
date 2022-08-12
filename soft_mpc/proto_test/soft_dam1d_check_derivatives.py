@@ -270,7 +270,7 @@ assert(np.linalg.norm(odaq_dx - odaq_dx_ND) < 1e-2)
 
 
 # Check implemented class
-from dam1d import DAMSoftContactDynamics1D
+from soft_mpc.soft_models_1D import DAMSoftContactDynamics1D
 import crocoddyl
 # State, actuation, cost models
 state = crocoddyl.StateMultibody(model)

@@ -31,6 +31,9 @@ class SoftContactModel3D:
         self.frameId = frameId 
 
     def setPinRef(self, pinRef):
+        '''
+        Sets pinocchio reference frame from string or pin.ReferenceFrame
+        '''
         if(type(pinRef) == str):
             if(pinRef == 'LOCAL'):
                 return pin.LOCAL
@@ -42,6 +45,11 @@ class SoftContactModel3D:
             return pinRef
 
     def computeForce(self, rmodel, rdata):
+        '''
+        Compute the 3D visco-elastic contact force 
+          rmodel : robot model
+          rdata  : robot data
+        '''
         oRf = rdata.oMf[self.frameId].rotation
         oPf = rdata.oMf[self.frameId].translation
         lv = pin.getFrameVelocity(rmodel, rdata, self.frameId, pin.LOCAL).linear
@@ -53,12 +61,23 @@ class SoftContactModel3D:
         return f
 
     def computeForce_(self, rmodel, q, v):
+        '''
+        Compute the 3D visco-elastic contact force from (q, v)
+          rmodel : robot model
+          rdata  : robot data
+        '''
         rdata = rmodel.createData()
         pin.forwardKinematics(rmodel, rdata, q, v)
         pin.updateFramePlacements(rmodel, rdata)
         return self.computeForce(rmodel, rdata)
 
     def computeExternalWrench(self, rmodel, rdata):
+        '''
+        Compute the vector for pin.Force (external wrenches) due to
+        the 3D visco-elastic contact force
+          rmodel  : robot model
+          rdata   : robot data
+        '''
         f3D = self.computeForce(rmodel, rdata)
         oRf = rdata.oMf[self.frameId].rotation
         wrench = [pin.Force.Zero() for _ in range(rmodel.njoints)]
@@ -71,6 +90,18 @@ class SoftContactModel3D:
             lwaXf = pin.SE3.Identity() ; lwaXf.rotation = oRf ; lwaXf.translation = np.zeros(3)
             wrench[parentId] = jMf.act(lwaXf.actInv(f6D))
         return wrench
+
+    def computeExternalWrench_(self, rmodel, q, v):
+        '''
+        Compute the vector for pin.Force (external wrenches) due to
+        the 3D visco-elastic contact force from (q, v)
+          rmodel : robot model
+          rdata  : robot data
+        '''
+        rdata = rmodel.createData()
+        pin.forwardKinematics(rmodel, rdata, q, v)
+        pin.updateFramePlacements(rmodel, rdata)
+        return self.computeExternalWrench(rmodel, rdata)
 
 
 

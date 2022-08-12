@@ -27,8 +27,8 @@ class StateSoftContact3D(crocoddyl.StateAbstract):
         self.nq = self.nx - self.nc - self.nv
         self.ny = self.nq + self.nv + self.nc
         self.ndy = 2*self.nv + self.nc
-        print("Augmented state ny = ", self.ny)
-        print("Augmented state ndy = ", self.ndy)
+        # print("Augmented state ny = ", self.ny)
+        # print("Augmented state ndy = ", self.ndy)
 
     def diff(self, y0, y1):
         yout = np.zeros(self.ny)
