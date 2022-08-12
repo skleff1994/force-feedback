@@ -9,7 +9,12 @@
 """
 
 import numpy as np
+from core_mpc import pin_utils
 from classical_mpc.data import DDPDataHandlerClassical, MPCDataHandlerClassical
+
+import matplotlib.pyplot as plt
+import matplotlib
+from matplotlib.collections import LineCollection
 
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
@@ -59,40 +64,324 @@ class DDPDataHandlerSoftContactAugmented(DDPDataHandlerClassical):
 # Classical MPC data handler : initialize, extract data + generate fancy plots
 class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
 
-  def __init__(self, config, robot):
+  def __init__(self, config, robot, nc):
     super().__init__(config, robot)
+    self.ny = self.nx + nc
+    self.nc = nc
 
-  def record_predictions(self, nb_plan, ddpSolver, softContactModel):
+  # Allocate data 
+  def init_predictions(self):
     '''
-    - Records the MPC prediction of at the current step (state, control and forces if contact is specified)
+    Allocate data for state, control & force predictions
+    '''
+    self.state_pred     = np.zeros((self.N_plan, self.N_h+1, self.ny)) # Predicted states  ( self.ddp.xs : {x* = (q*, v*)} )
+    self.ctrl_pred      = np.zeros((self.N_plan, self.N_h, self.nu))   # Predicted torques ( self.ddp.us : {u*} )
+    self.force_pred     = np.zeros((self.N_plan, self.N_h, 6))         # Predicted EE contact forces
+    self.state_des_PLAN = np.zeros((self.N_plan+1, self.ny))           # Predicted states at planner frequency  ( x* interpolated at PLAN freq )
+    self.ctrl_des_PLAN  = np.zeros((self.N_plan, self.nu))             # Predicted torques at planner frequency ( u* interpolated at PLAN freq )
+    self.force_des_PLAN = np.zeros((self.N_plan, 6))                   # Predicted EE contact forces planner frequency  
+    self.state_des_CTRL = np.zeros((self.N_ctrl+1, self.ny))           # Reference state at motor drivers freq ( x* interpolated at CTRL freq )
+    self.ctrl_des_CTRL  = np.zeros((self.N_ctrl, self.nu))             # Reference input at motor drivers freq ( u* interpolated at CTRL freq )
+    self.force_des_CTRL = np.zeros((self.N_ctrl, 6))                   # Reference EE contact force at motor drivers freq
+    self.state_des_SIMU = np.zeros((self.N_simu+1, self.ny))           # Reference state at actuation freq ( x* interpolated at SIMU freq )
+    self.ctrl_des_SIMU  = np.zeros((self.N_simu, self.nu))             # Reference input at actuation freq ( u* interpolated at SIMU freq )
+    self.force_des_SIMU = np.zeros((self.N_simu, 6))                   # Reference EE contact force at actuation freq
+
+  def init_measurements(self, y0):
+    '''
+    Allocate data for simulation state & force measurements 
+    '''
+    self.state_mea_SIMU                = np.zeros((self.N_simu+1, self.ny))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq )
+    self.state_mea_no_noise_SIMU       = np.zeros((self.N_simu+1, self.ny))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq ) without noise
+    self.force_mea_SIMU                = np.zeros((self.N_simu, 6)) 
+    self.state_mea_SIMU[0, :]          = y0
+    self.state_mea_no_noise_SIMU[0, :] = y0
+
+  def init_sim_data(self, y0):
+    '''
+    Allocate and initialize MPC simulation data
+    '''
+    # sim_data = {}
+    # MPC & simulation parameters
+    self.N_plan = int(self.T_tot*self.plan_freq)         # Total number of planning steps in the simulation
+    self.N_ctrl = int(self.T_tot*self.ctrl_freq)         # Total number of control steps in the simulation 
+    self.N_simu = int(self.T_tot*self.simu_freq)         # Total number of simulation steps 
+    self.T_h = self.N_h*self.dt                          # Duration of the MPC horizon (s)
+    self.dt_ctrl = float(1./self.ctrl_freq)              # Duration of 1 control cycle (s)
+    self.dt_plan = float(1./self.plan_freq)              # Duration of 1 planning cycle (s)
+    self.dt_simu = float(1./self.simu_freq)              # Duration of 1 simulation cycle (s)
+    self.OCP_TO_PLAN_RATIO = self.dt_plan / self.dt
+    # Init actuation model
+    self.init_actuation_model()
+    # Cost references 
+    self.init_cost_references()
+    # Predictions
+    self.init_predictions()
+    # Measurements
+    self.init_measurements(y0)
+
+    # DDP solver-specific data
+    if(self.RECORD_SOLVER_DATA):
+      self.init_solver_data()
+   
+    logger.info("Initialized MPC simulation data.")
+
+    if(self.INIT_LOG):
+      self.print_sim_params(self.init_log_display_time)
+
+  def record_predictions(self, nb_plan, ddpSolver):
+    '''
+    - Records the MPC prediction of at the current step 
     '''
     self.state_pred[nb_plan, :, :] = np.array(ddpSolver.xs)
     self.ctrl_pred[nb_plan, :, :] = np.array(ddpSolver.us)
     # Extract relevant predictions for interpolations to MPC frequency
-    self.x_curr = self.state_pred[nb_plan, 0, :]    # x0* = measured state    (q^,  v^ )
-    self.x_pred = self.state_pred[nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*) 
-    self.u_curr = self.ctrl_pred[nb_plan, 0, :]     # u0* = optimal control   
-    # Record forces in the right frame
-    # id_endeff = softContactModel.frameId
-    # Extract soft force
-    xs = np.array(ddpSolver.xs)
-    # Force in WORLD aligned frame
-    if(softContactModel.nc == 3):
-        fs_lin = np.array([softContactModel.computeForce_(self.rmodel, xs[i,:self.nq], xs[i,self.nq:]) for i in range(self.N_h)])
-    else:
-        fs_lin = np.zeros((self.N_h,3))
-        fs_lin[:,softContactModel.mask] = np.array([softContactModel.computeForce_(self.rmodel, xs[i,:self.nq], xs[i,self.nq:]) for i in range(self.N_h)])
-    fs_ang = np.zeros((self.N_h, 3))
-    fs = np.hstack([fs_lin, fs_ang])
-    # fref = [np.zeros(6) for i in range(self.N_h) ]
-    self.force_pred[nb_plan, :, :] = fs
-    # if(softContactModel.pinRefFrame == pin.LOCAL):
-    #     self.force_pred[nb_plan, :, :] = \
-    #         np.array([ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
-    # else:
-    #     self.force_pred[nb_plan, :, :] = \
-    #         np.array([self.rdata.oMf[id_endeff].action @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
-    self.f_curr = self.force_pred[nb_plan, 0, :]
-    self.f_pred = self.force_pred[nb_plan, 1, :]
+    self.y_curr = self.state_pred[nb_plan, 0, :]    # y0* = measured state    (q^,  v^, f^ )
+    self.y_pred = self.state_pred[nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, f1*) 
+    self.u_curr = self.ctrl_pred[nb_plan, 0, :]     # u0* = optimal control
 
+  def record_cost_references(self, nb_plan, ddpSolver):
+    '''
+    Handy function for MPC + clean plots
+    Extract and record cost references of DAM into sim_data at i^th simulation step
+     # careful, ref is hard-coded only for the first node
+    '''
+    # Get nodes
+    super().record_cost_references(nb_plan, ddpSolver)
+    m = ddpSolver.problem.runningModels[0]
+    self.f_ee_ref[nb_plan, :self.nc] = m.differential.f_des
+
+
+  def record_plan_cycle_desired(self, nb_plan):
+    '''
+    - Records the planning cycle data (state, control)
+    If an interpolation to planning frequency is needed, here is the place where to implement it
+    '''
+    if(nb_plan==0):
+        self.state_des_PLAN[nb_plan, :] = self.y_curr  
+    self.ctrl_des_PLAN[nb_plan, :]      = self.u_curr   
+    self.state_des_PLAN[nb_plan+1, :]   = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)    
+
+  def record_ctrl_cycle_desired(self, nb_ctrl):
+    '''
+    - Records the control cycle data (state, control, force)
+    If an interpolation to control frequency is needed, here is the place where to implement it
+    '''
+    # Record stuff
+    if(nb_ctrl==0):
+        self.state_des_CTRL[nb_ctrl, :]   = self.y_curr  
+    self.ctrl_des_CTRL[nb_ctrl, :]    = self.u_curr   
+    self.state_des_CTRL[nb_ctrl+1, :] = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)   
   
+  def record_simu_cycle_desired(self, nb_simu):
+    '''
+    - Records the control cycle data (state, control, force)
+    If an interpolation to control frequency is needed, here is the place where to implement it
+    '''
+    self.y_ref_SIMU  = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)
+    self.u_ref_SIMU  = self.u_curr 
+    if(nb_simu==0):
+        self.state_des_SIMU[nb_simu, :] = self.y_curr  
+    self.ctrl_des_SIMU[nb_simu, :]   = self.u_ref_SIMU 
+    self.state_des_SIMU[nb_simu+1, :] = self.y_ref_SIMU 
+
+    return 
+
+  # Extract MPC simu-specific plotting data from sim data
+  def extract_data(self, frame_of_interest):
+    '''
+    Extract plot data from simu data
+    '''
+    logger.info('Extracting plot data from simulation data...')
+    
+    plot_data = self.__dict__.copy()
+    # Get costs
+    plot_data['WHICH_COSTS'] = self.WHICH_COSTS
+    # Robot model & params
+    plot_data['pin_model'] = self.rmodel
+    self.id_endeff = self.rmodel.getFrameId(frame_of_interest)
+    nq = self.nq ; nv = self.nv ; nu = self.nv ; nc = self.nc
+    # Control predictions
+    plot_data['u_pred'] = self.ctrl_pred
+      # Extract 1st prediction
+    plot_data['u_des_PLAN'] = self.ctrl_des_PLAN
+    plot_data['u_des_CTRL'] = self.ctrl_des_CTRL
+    plot_data['u_des_SIMU'] = self.ctrl_des_SIMU
+    # State predictions (at PLAN freq)
+    plot_data['q_pred']     = self.state_pred[:,:,:nq]
+    plot_data['v_pred']     = self.state_pred[:,:,nq:nq+nv]
+    plot_data['q_des_PLAN'] = self.state_des_PLAN[:,:nq]
+    plot_data['v_des_PLAN'] = self.state_des_PLAN[:,nq:nq+nv] 
+    plot_data['q_des_CTRL'] = self.state_des_CTRL[:,:nq] 
+    plot_data['v_des_CTRL'] = self.state_des_CTRL[:,nq:nq+nv]
+    plot_data['q_des_SIMU'] = self.state_des_SIMU[:,:nq]
+    plot_data['v_des_SIMU'] = self.state_des_SIMU[:,nq:nq+nv]
+    # State measurements (at SIMU freq)
+    plot_data['q_mea']          = self.state_mea_SIMU[:,:nq]
+    plot_data['v_mea']          = self.state_mea_SIMU[:,nq:nq+nv]
+    # plot_data['f_mea'] = self.state_mea_SIMU[:,-nc:]
+    plot_data['q_mea_no_noise'] = self.state_mea_no_noise_SIMU[:,:nq]
+    plot_data['v_mea_no_noise'] = self.state_mea_no_noise_SIMU[:,nq:nq+nv]
+    plot_data['f_mea_no_noise'] = self.state_mea_no_noise_SIMU[:,-nc:]
+    # Extract EE force
+    plot_data['f_ee_pred']     = self.state_pred[:,:,-nc:]
+    plot_data['f_ee_mea']      = self.state_mea_SIMU[:,-nc:]
+    plot_data['f_ee_des_PLAN'] = self.state_des_PLAN[:,-nc:]
+    plot_data['f_ee_des_CTRL'] = self.state_des_CTRL[:,-nc:]
+    plot_data['f_ee_des_SIMU'] = self.state_des_SIMU[:,-nc:] 
+    # Extract gravity torques
+    plot_data['grav'] = np.zeros((self.N_simu+1, nq))
+    # print(plot_data['pin_model'])
+    for i in range(plot_data['N_simu']+1):
+      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'], self.armature)
+    # EE predictions (at PLAN freq)
+      # Linear position velocity of EE
+    plot_data['lin_pos_ee_pred'] = np.zeros((self.N_plan, self.N_h+1, 3))
+    plot_data['lin_vel_ee_pred'] = np.zeros((self.N_plan, self.N_h+1, 3))
+      # Angular position velocity of EE
+    plot_data['ang_pos_ee_pred'] = np.zeros((self.N_plan, self.N_h+1, 3)) 
+    plot_data['ang_vel_ee_pred'] = np.zeros((self.N_plan, self.N_h+1, 3)) 
+    for node_id in range(self.N_h+1):
+        plot_data['lin_pos_ee_pred'][:, node_id, :] = pin_utils.get_p_(plot_data['q_pred'][:, node_id, :], plot_data['pin_model'], self.id_endeff)
+        plot_data['lin_vel_ee_pred'][:, node_id, :] = pin_utils.get_v_(plot_data['q_pred'][:, node_id, :], plot_data['v_pred'][:, node_id, :], plot_data['pin_model'], self.id_endeff)
+        plot_data['ang_pos_ee_pred'][:, node_id, :] = pin_utils.get_rpy_(plot_data['q_pred'][:, node_id, :], plot_data['pin_model'], self.id_endeff)
+        plot_data['ang_vel_ee_pred'][:, node_id, :] = pin_utils.get_w_(plot_data['q_pred'][:, node_id, :], plot_data['v_pred'][:, node_id, :], plot_data['pin_model'], self.id_endeff)
+    # EE measurements (at SIMU freq)
+      # Linear
+    plot_data['lin_pos_ee_mea']          = pin_utils.get_p_(plot_data['q_mea'], self.rmodel, self.id_endeff)
+    plot_data['lin_vel_ee_mea']          = pin_utils.get_v_(plot_data['q_mea'], plot_data['v_mea'], self.rmodel, self.id_endeff)
+    plot_data['lin_pos_ee_mea_no_noise'] = pin_utils.get_p_(plot_data['q_mea_no_noise'], plot_data['pin_model'], self.id_endeff)
+    plot_data['lin_vel_ee_mea_no_noise'] = pin_utils.get_v_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], self.id_endeff)
+      # Angular
+    plot_data['ang_pos_ee_mea']          = pin_utils.get_rpy_(plot_data['q_mea'], self.rmodel, self.id_endeff)
+    plot_data['ang_vel_ee_mea']          = pin_utils.get_w_(plot_data['q_mea'], plot_data['v_mea'], self.rmodel, self.id_endeff)
+    plot_data['ang_pos_ee_mea_no_noise'] = pin_utils.get_rpy_(plot_data['q_mea_no_noise'], plot_data['pin_model'], self.id_endeff)
+    plot_data['ang_vel_ee_mea_no_noise'] = pin_utils.get_w_(plot_data['q_mea_no_noise'], plot_data['v_mea_no_noise'], plot_data['pin_model'], self.id_endeff)
+    # EE des
+      # Linear
+    plot_data['lin_pos_ee_des_PLAN'] = pin_utils.get_p_(plot_data['q_des_PLAN'], self.rmodel, self.id_endeff)
+    plot_data['lin_vel_ee_des_PLAN'] = pin_utils.get_v_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], self.rmodel, self.id_endeff)
+    plot_data['lin_pos_ee_des_CTRL'] = pin_utils.get_p_(plot_data['q_des_CTRL'], self.rmodel, self.id_endeff)
+    plot_data['lin_vel_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], self.rmodel, self.id_endeff)
+    plot_data['lin_pos_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], self.rmodel, self.id_endeff)
+    plot_data['lin_vel_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], self.rmodel, self.id_endeff)
+      # Angular
+    plot_data['ang_pos_ee_des_PLAN'] = pin_utils.get_rpy_(plot_data['q_des_PLAN'], self.rmodel, self.id_endeff)
+    plot_data['ang_vel_ee_des_PLAN'] = pin_utils.get_w_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], self.rmodel, self.id_endeff)
+    plot_data['ang_pos_ee_des_CTRL'] = pin_utils.get_rpy_(plot_data['q_des_CTRL'], self.rmodel, self.id_endeff)
+    plot_data['ang_vel_ee_des_CTRL'] = pin_utils.get_w_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], self.rmodel, self.id_endeff)
+    plot_data['ang_pos_ee_des_SIMU'] = pin_utils.get_rpy_(plot_data['q_des_SIMU'], self.rmodel, self.id_endeff)
+    plot_data['ang_vel_ee_des_SIMU'] = pin_utils.get_w_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], self.rmodel, self.id_endeff)
+
+    return plot_data
+
+  def plot_mpc_force(self, plot_data, PLOT_PREDICTIONS=False, 
+                            pred_plot_sampling=100, 
+                            SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
+                            SHOW=True,
+                            AUTOSCALE=False):
+      '''
+      Plot EE force data
+      Input:
+        plot_data                 : plotting data
+        PLOT_PREDICTIONS          : True or False
+        pred_plot_sampling        : plot every pred_plot_sampling prediction 
+                                    to avoid huge amount of plotted data 
+                                    ("1" = plot all)
+        SAVE, SAVE_DIR, SAVE_NAME : save plots as .png
+        SHOW                      : show plots
+        AUTOSCALE                 : rescale y-axis of endeff plot 
+                                    based on maximum value taken
+      '''
+      logger.info('Plotting force data...')
+      T_tot = plot_data['T_tot']
+      N_simu = plot_data['N_simu']
+      N_ctrl = plot_data['N_ctrl']
+      N_plan = plot_data['N_plan']
+      dt_plan = plot_data['dt_plan']
+      dt_simu = plot_data['dt_simu']
+      dt_ctrl = plot_data['dt_ctrl']
+      T_h = plot_data['T_h']
+      N_h = plot_data['N_h']
+      logger.debug(plot_data['f_ee_ref'])
+      # Create time spans for X and U + Create figs and subplots
+      t_span_simu = np.linspace(0, T_tot, N_simu+1)
+      t_span_plan = np.linspace(0, T_tot, N_plan+1)
+      fig, ax = plt.subplots(3, 1, figsize=(19.2,10.8), sharex='col') 
+      # Plot endeff
+      xyz = ['x', 'y', 'z']
+      for i in range(3):
+
+          if(PLOT_PREDICTIONS):
+              f_ee_pred_i = plot_data['f_ee_pred'][:, :, i]
+              # For each planning step in the trajectory
+              for j in range(0, N_plan, pred_plot_sampling):
+                  # Receding horizon = [j,j+N_h]
+                  t0_horizon = j*dt_plan
+                  tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+                  # Set up lists of (x,y) points for predicted positions and velocities
+                  points_q = np.array([tspan_x_pred, f_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                  # Set up lists of segments
+                  segs_q = np.concatenate([points_q[:-1], points_q[1:]], axis=1)
+                  # Make collections segments
+                  cm = plt.get_cmap('Greys_r') 
+                  lc_q = LineCollection(segs_q, cmap=cm, zorder=-1)
+                  lc_q.set_array(tspan_x_pred)
+                  # Customize
+                  lc_q.set_linestyle('-')
+                  lc_q.set_linewidth(1)
+                  # Plot collections
+                  ax[i].add_collection(lc_q)
+                  # Scatter to highlight points
+                  colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
+                  my_colors = cm(colors)
+                  ax[i].scatter(tspan_x_pred, f_ee_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black', 
+
+        
+          # EE linear force
+          ax[i].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
+          # ax[i].plot(t_span_ctrl, plot_data['f_ee_des_CTRL'][:,i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
+          # ax[i].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
+          ax[i].plot(t_span_simu, plot_data['f_ee_mea'][:,i], 'r-', label='Measured', linewidth=2, alpha=0.6)
+          # ax[i].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
+          # Plot reference
+          if('force' in plot_data['WHICH_COSTS']):
+              ax[i].plot(t_span_plan[:-1], plot_data['f_ee_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', linewidth=2., label='Reference', alpha=0.9)
+          ax[i].set_ylabel('$\\lambda^{EE}_%s$  (N)'%xyz[i], fontsize=16)
+          ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
+          ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+          ax[i].grid(True)
+      
+    #   # Align
+      fig.align_ylabels(ax[0])
+    #   fig.align_ylabels(ax[:,1])
+      ax[i].set_xlabel('t (s)', fontsize=16)
+    #   ax[i,1].set_xlabel('t (s)', fontsize=16)
+      # Set ylim if any
+      TOL = 1e-3
+      if(AUTOSCALE):
+          ax_ylim = 1.1*max( np.nanmax(np.abs(plot_data['f_ee_mea'])), TOL )
+          ax_ylim = 1.1*max( np.nanmax(np.abs(plot_data['f_ee_mea'])), TOL )
+          for i in range(3):
+              ax[i].set_ylim(-ax_ylim, ax_ylim) 
+              # ax[i].set_ylim(-30, 10) 
+            #   ax[i,1].set_ylim(-ax_ylim, ax_ylim) 
+
+      handles_p, labels_p = ax[0].get_legend_handles_labels()
+      fig.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
+      # Titles
+      fig.suptitle('End-effector forces (LOCAL)', size=18)
+      # Save figs
+      if(SAVE):
+          figs = {'f': fig}
+          if(SAVE_DIR is None):
+              logger.error("Please specify SAVE_DIR")
+          if(SAVE_NAME is None):
+              SAVE_NAME = 'testfig'
+          for name, fig in figs.items():
+              fig.savefig(SAVE_DIR + '/' +str(name) + '_' + SAVE_NAME +'.png')
+      
+      if(SHOW):
+          plt.show() 
+      
+      return fig, ax

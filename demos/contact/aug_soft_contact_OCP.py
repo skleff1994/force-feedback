@@ -1,10 +1,10 @@
 """
 @package force_feedback
-@file demos/contact/augsoft_contact_OCP.py
+@file demos/contact/aug_soft_contact_OCP.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
-@date 2020-05-18
+@date 2022-08-12
 @brief OCP for static EE pose task  
 """
 
@@ -66,14 +66,13 @@ def main(robot_name, PLOT, DISPLAY):
     # # # # # # # # # 
     # Warm start and reg
     # Compute initial visco-elastic force
-    fext0 = softContactModel.computeExternalWrench(robot.model, robot.data)
+    # fext0 = softContactModel.computeExternalWrench(robot.model, robot.data)
     # Setup Croco OCP and create solver
     ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=True)
     # # Warmstart and solve
     # xs_init = [y0 for i in range(self.N_h+1)]
     # fext0 = softContactModel.computeExternalWrench_(self.rmodel, y0[:self.nq], y0[:self.nv])
     # us_init = [pin_utils.get_tau(y0[:self.nq], y0[:self.nv], np.zeros(self.nv), fext0, self.rmodel, np.zeros(self.nq)) for i in range(self.N_h)] #ddp.problem.quasiStatic(xs_init[:-1])
-
     ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
 
     if(PLOT):
