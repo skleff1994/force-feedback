@@ -84,3 +84,4 @@ coef_ulim: 1
 
 # armature
 armature: [.1, .1, .1, .1, .1, .1, .0]
+# armature: [.0, .0, .0, .0, .0, .0, .0]

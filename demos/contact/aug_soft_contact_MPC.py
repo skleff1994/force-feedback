@@ -53,7 +53,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   if(simulator == 'bullet'):
     from core_mpc import sim_utils as simulator_utils
     env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
-    print(base_placement)
+    # print(base_placement)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
     from core_mpc import raisim_utils as simulator_utils
@@ -71,12 +71,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   contact_placement = ee_frame_placement.copy()
   # contact_placement.rotation 
   M_ct = robot.data.oMf[id_endeff].copy()
-  contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
+  contact_placement.translation = contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
 
   # Contact model
     # Contact model
-  oPc = contact_placement.translation # oMf.translation + np.asarray(config['oPc_offset'])
+  oPc = contact_placement.translation #oMf.translation #+ np.asarray(config['oPc_offset']) #contact_placement.translation # 
   if('1D' in config['contactType']):
       softContactModel = SoftContactModel1D(config['Kp'], config['Kv'], oPc, id_endeff, config['contactType'], config['pinRefFrame'])
   else:
@@ -98,8 +98,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Warmstart and solve
   xs_init = [y0 for i in range(config['N_h']+1)]
   us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, robot.model, np.zeros(nq)) for i in range(config['N_h'])] 
-#   ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
-  ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+  ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
+  # ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
   frame_of_interest = config['frame_of_interest']
   if(PLOT_INIT):
@@ -169,10 +169,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       sim_data.record_simu_cycle_desired(i)
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
       tau_mea_SIMU = actuationModel.step(i, sim_data.u_ref_SIMU, sim_data.ctrl_des_SIMU) 
-      # RICCATI GAINS TO INTERPOLATE
+      # RICCATI GAINS TO INTERPOLATE (only state for now)
       if(config['RICCATI']):
-        tau_mea_SIMU += ddp.K[0].dot(ddp.problem.x0 - sim_data.state_mea_SIMU[i,:])
-      #  Send output of actuation torque to the RBD simulator 
+        tau_mea_SIMU += ddp.K[0][:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:][:nq+nv])
+      #  Send output of actuation torque to the RBD simulator 0
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()
       # Measure new state from simulation 
@@ -187,7 +187,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       sim_data.state_mea_no_noise_SIMU[i+1, :] = y_mea_SIMU
       # Sensor model ( simulation state ==> noised / filtered state )
       sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)
-      sim_data.force_mea_SIMU[i, :] = f_mea_SIMU
+
+
 
   # # # # # # # # # # #
   # PLOT SIM RESULTS  #
@@ -207,7 +208,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                                       SAVE=False,
                                       SAVE_DIR=save_dir,
                                       SAVE_NAME=save_name,
-                                      AUTOSCALE=True)
+                                      AUTOSCALE=False)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)

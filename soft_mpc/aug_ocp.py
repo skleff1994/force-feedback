@@ -149,6 +149,8 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
 
       # Armature 
         # Add armature to current IAM
+        if(self.armature == 'DEFAULT'):
+          self.armature = self.rmodel.rotorInertia / (self.rmodel.rotorGearRatio**2)
         runningModels[i].differential.armature = np.asarray(self.armature)
 
   # Terminal DAM (Contact or FreeFwd)

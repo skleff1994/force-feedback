@@ -102,19 +102,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   frame_of_interest = config['frame_of_interest']
   if(PLOT_INIT):
       #  Plot
-      ddp_handler = DDPDataHandlerSoftContact(ddp)
+      ddp_handler = DDPDataHandlerSoftContact(ddp, softContactModel)
       ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest, ct_frame_name=frame_of_interest)
-      # Extract soft force
-      xs = np.array(ddp_data['xs'])
-      # Force in WORLD aligned frame
-      if(softContactModel.nc == 3):
-          fs_lin = np.array([softContactModel.computeForce_(robot.model, xs[i,:nq], xs[i,nq:]) for i in range(config['N_h'])])
-      else:
-          fs_lin = np.zeros((config['N_h'],3))
-          fs_lin[:,softContactModel.mask] = np.array([softContactModel.computeForce_(robot.model, xs[i,:nq], xs[i,nq:]) for i in range(config['N_h'])])
-      fs_ang = np.zeros((config['N_h'], 3))
-      ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
-      ddp_data['force_ref'] = [np.zeros(6) for i in range(config['N_h']) ]
       _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                           colors=['r'], 
                                                           markers=['.'], 

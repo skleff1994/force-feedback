@@ -170,7 +170,7 @@ class DDPDataHandlerAbstract:
 
   # Base plotting functions
   def plot_ddp_endeff_linear(self, ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
-                                                      MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
+                                                      MAKE_LEGEND=False, SHOW=True, AUTOSCALE=False):
       '''
       Plot ddp results (endeff linear position, velocity)
       '''
@@ -375,7 +375,7 @@ class DDPDataHandlerAbstract:
       return fig, ax
 
   def plot_ddp_force(self, ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., 
-                                                  MAKE_LEGEND=False, SHOW=True, AUTOSCALE=True):
+                                                  MAKE_LEGEND=False, SHOW=True, AUTOSCALE=False):
       '''
       Plot ddp results (force)
       '''

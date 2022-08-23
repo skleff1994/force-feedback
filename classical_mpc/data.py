@@ -166,8 +166,8 @@ class DDPDataHandlerClassical(DDPDataHandlerAbstract):
           ax[i,1].grid(True)  
 
           # Set ylim if any
-          ax[i,0].set_ylim(ddp_data['pin_model'].lowerPositionLimit[i], ddp_data['pin_model'].upperPositionLimit[i]) 
-          ax[i,1].set_ylim(-ddp_data['pin_model'].velocityLimit[i], ddp_data['pin_model'].velocityLimit[i])
+        #   ax[i,0].set_ylim(ddp_data['pin_model'].lowerPositionLimit[i], ddp_data['pin_model'].upperPositionLimit[i]) 
+        #   ax[i,1].set_ylim(-ddp_data['pin_model'].velocityLimit[i], ddp_data['pin_model'].velocityLimit[i])
 
 
       # Common x-labels + align
