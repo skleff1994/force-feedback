@@ -468,20 +468,20 @@ class OptimalControlProblemAbstract:
     self.check_attribute('collisionObstaclePosition')
     self.check_attribute('collisionObstacleSize')
     self.check_attribute('collisionThreshold')
+    self.check_attribute('collisionFrameName')
+    self.check_attribute('collisionCapsuleLength')
+    self.check_attribute('collisionCapsuleRadius')
 
     # Create pinocchio geometry of capsule around link of interest
-    link_name = 'A7'
-    pin_link_id = self.rmodel.getFrameId('L7')
-    pin_joint_id = self.rmodel.getJointId(link_name)
+    collisionFrameId = self.rmodel.getFrameId(self.collisionFrameName)
+    parentJointId = self.rmodel.frames[collisionFrameId].parent
     geom_model = pin.GeometryModel()
-    RADIUS = 0.09
-    LENGTH = 0.45
     se3_pose = pin.SE3.Identity()
     se3_pose.translation = np.array([-0.025,0.,-.225])
     ig_arm = geom_model.addGeometryObject(pin.GeometryObject("simple_arm", 
-                                                             pin_link_id, 
-                                                             self.rmodel.frames[pin_link_id].parent, 
-                                                             hppfcl.Capsule(0, LENGTH),
+                                                             collisionFrameId, 
+                                                             parentJointId, 
+                                                             hppfcl.Capsule(self.collisionCapsuleRadius, self.collisionCapsuleLength),
                                                              se3_pose))
     # Add obstacle in the world
     se3_pose.translation = np.zeros(3)
@@ -494,7 +494,7 @@ class OptimalControlProblemAbstract:
     geom_model.addCollisionPair(pin.CollisionPair(ig_arm, ig_obs))
     # Add collision cost 
     pair_id = 0
-    collision_radius = RADIUS + self.collisionThreshold + self.collisionObstacleSize
+    collision_radius = self.collisionCapsuleRadius + self.collisionThreshold + self.collisionObstacleSize
     actCollision = crocoddyl.ActivationModel2NormBarrier(3, collision_radius)
     collisionCost = crocoddyl.CostModelResidual(state, 
                                                 actCollision, 
@@ -502,7 +502,7 @@ class OptimalControlProblemAbstract:
                                                                                      actuation.nu, 
                                                                                      geom_model, 
                                                                                      pair_id, 
-                                                                                     pin_joint_id)) 
+                                                                                     parentJointId)) 
     return collisionCost
     
 

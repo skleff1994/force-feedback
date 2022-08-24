@@ -93,6 +93,7 @@ def main(robot_name, PLOT, DISPLAY):
         ref_color  = [0., 1., 0., 1.]
         real_color = [0., 0., 1., 0.3]
         obs_color = [1., 0., 1., 1.]
+        caps_color = [1., 1., .5, 0.2]
         ref_size    = 0.03
         real_size   = 0.02
         pause = 0.05
@@ -103,6 +104,9 @@ def main(robot_name, PLOT, DISPLAY):
             # clean obs
         if(gui.nodeExists('world/obs')):
             gui.deleteNode('world/obs', True)
+            # clean caps
+        if(gui.nodeExists('world/caps')):
+            gui.deleteNode('world/caps', True)
         for i in range(N_h):
             # clean DDP sol
             if(gui.nodeExists('world/EE_sol_'+str(i))):
@@ -118,6 +122,8 @@ def main(robot_name, PLOT, DISPLAY):
         m_obs = pin.SE3.Identity()
         m_obs.translation = np.asarray(config['collisionObstaclePosition'])
         tf_obs = list(pin.se3ToXYZQUAT(m_obs))
+        m_caps = robot.data.oMf[robot.model.getFrameId(config['collisionFrameName'])]
+        tf_caps = list(pin.se3ToXYZQUAT(m_caps))
         # Display ref
         gui.addSphere('world/EE_ref', ref_size, ref_color)
         gui.applyConfiguration('world/EE_ref', tf_ee_ref)
@@ -128,6 +134,9 @@ def main(robot_name, PLOT, DISPLAY):
         gui.addSphere('world/EE_sol_', real_size, real_color)
         gui.addLandmark('world/EE_sol_', 0.25)
         gui.applyConfiguration('world/EE_sol_', tf_ee)
+        # Display capsule around link of interest
+        gui.addCapsule('world/caps', config['collisionCapsuleRadius'], config['collisionCapsuleLength'], caps_color)
+        gui.applyConfiguration('world/caps', tf_caps)
         # Refresh and wait
         gui.refresh()
         logger.info("Visualizing...")
@@ -141,11 +150,19 @@ def main(robot_name, PLOT, DISPLAY):
             if(i%draw_rate==0):
                 # EE trajectory
                 robot.framesForwardKinematics(q)
+                # Target 
                 m_ee = robot.data.oMf[id_endeff].copy()
                 tf_ee = list(pin.SE3ToXYZQUAT(m_ee))
                 gui.addSphere('world/EE_sol_'+str(i), real_size, real_color)
                 gui.applyConfiguration('world/EE_sol_'+str(i), tf_ee)
-                gui.applyConfiguration('world/EE_sol_', tf_ee)
+                # Capsule
+                m_caps = robot.data.oMf[robot.model.getFrameId(config['collisionFrameName'])].copy()
+                tf_caps = list(pin.se3ToXYZQUAT(m_caps))
+                if(gui.nodeExists('world/caps')):
+                    gui.deleteNode('world/caps', True)
+                gui.addCapsule('world/caps', config['collisionCapsuleRadius'], config['collisionCapsuleLength'], caps_color)
+                gui.applyConfiguration('world/caps', tf_caps)
+                # gui.applyConfiguration('world/EE_sol_', tf_ee)
             gui.refresh()
             if(i%log_rate==0):
                 logger.info("Display config n°"+str(i))

@@ -4,7 +4,7 @@
 
 # General
 dt: 0.02                                             # OCP integration step 
-N_h: 100                                             # Horizon length in nodes
+N_h: 200                                             # Horizon length in nodes
 maxiter: 100                                         # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
@@ -32,7 +32,7 @@ ctrlRegRef: 'DEFAULT' # DEFAULT = g(q) | NOT used for 'ctrlRegGrav' cost
 frameTranslationWeights:  [1., 1., 1.]
 frameTranslationWeight: 2.
 frameTranslationWeightTerminal: 2. 
-frameTranslationRef: [-0.4, -0.4, 0.7]
+frameTranslationRef: [-0.3, -0.3, 0.9]
 frameTranslationFrameName: 'contact' # 'DEFAULT' = $(frame_of_interest)
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
@@ -43,12 +43,14 @@ frameVelocityRef: [0., 0., 0., 0., 0., 0.]
 frameVelocityFrameName: 'contact' # 'DEFAULT' = $(frame_of_interest)
 
  # 'collision' : obstacle avoidance cost 
-collisionLinkName: 'L7'
+collisionFrameName: 'A6'
+collisionCapsuleLength: 0.2
+collisionCapsuleRadius: 0.05
 collisionCostWeight: 1.
 collisionCostWeightTerminal: 1.
 collisionObstaclePosition: [-0.2, -0.2, 0.8]
 collisionObstacleSize: 0.03
-collisionThreshold: 0.1
+collisionThreshold: 0.2
 
  # 'stateLim' : state limits 
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]
