@@ -64,8 +64,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Get dimensions 
   nq, nv = robot.model.nq, robot.model.nv; nu = nq
   # Placement of LOCAL end-effector frame w.r.t. WORLD frame
-  id_endeff = robot.model.getFrameId(config['frame_of_interest'])
-  ee_frame_placement = robot.data.oMf[robot.model.getFrameId(config['frame_of_interest'])]
+  frame_of_interest = config['frame_of_interest']
+  id_endeff = robot.model.getFrameId(frame_of_interest)
+  ee_frame_placement = robot.data.oMf[robot.model.getFrameId(frame_of_interest)]
   oMf = robot.data.oMf[id_endeff]
   # Placement of contact frame w.r.t. LOCAL frame
   contact_placement = ee_frame_placement.copy()
@@ -74,20 +75,18 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   contact_placement.translation = contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   contactId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   
-  logger.debug("dynamics of contact surface BEFORE change  :")
-  simulator_utils.print_dynamics_info(contactId)
+  # logger.debug("dynamics of contact surface BEFORE change  :")
+  # simulator_utils.print_dynamics_info(contactId)
   # for bid in robot_simulator.bullet_endeff_ids:
   #   simulator_utils.print_dynamics_info(robot_simulator.robotId, bid)
-
-  simulator_utils.set_lateral_friction(contactId, 0.8)
-  simulator_utils.set_contact_stiffness_and_damping(contactId, 1000, 63)
-
-  logger.debug("dynamics of contact surface AFTER change  :")
-  simulator_utils.print_dynamics_info(contactId)
+  simulator_utils.set_lateral_friction(contactId, 0.9)
+  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e6, 1e3)
+  # logger.debug("dynamics of contact surface AFTER change  :")
+  # simulator_utils.print_dynamics_info(contactId)
 
   # Contact model
     # Contact model
-  oPc = contact_placement.translation #oMf.translation #+ np.asarray(config['oPc_offset']) #contact_placement.translation # 
+  oPc = contact_placement.translation #+ np.asarray(config['oPc_offset']) #oMf.translation ##contact_placement.translation # 
   if('1D' in config['contactType']):
       softContactModel = SoftContactModel1D(config['Kp'], config['Kv'], oPc, id_endeff, config['contactType'], config['pinRefFrame'])
   else:
@@ -97,37 +96,39 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   y0 = np.concatenate([x0, f0[-softContactModel.nc:]])  
   # y0 = np.concatenate([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
 
-  logger.debug("initial augmented state = ")
-  logger.debug(str(y0))
+  # logger.debug("initial augmented state = ")
+  # logger.debug(str(y0))
 
-  import time
-  time.sleep(1)
+  # import time
+  # time.sleep(1)
 
   # # # # # # # # # 
   ### OCP SETUP ###
   # # # # # # # # #
-  # Warm start and reg
   # Compute initial external wrench for each joint
   # f_ext0 = softContactModel.computeExternalWrench(robot.model, robot.data)    # Visco-elastic prediction (model)
   f_ext0 = pin_utils.get_external_joint_torques(contact_placement, f0, robot)   # Measured in PyBullet initially
+  u0 = pin_utils.get_tau(q0, v0, np.zeros(nq), f_ext0, robot.model, np.zeros(nq))
+  config['ctrlRegRef'] = np.zeros(nu) # u0
   # Setup Croco OCP and create solver
   ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=True)
   # Warmstart and solve
   xs_init = [y0 for i in range(config['N_h']+1)]
-  us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), f_ext0, robot.model, np.zeros(nq)) for i in range(config['N_h'])]
-  logger.debug(us_init[0]) 
-  ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-  # ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+  us_init = [u0 for i in range(config['N_h'])]
+  ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   
-  frame_of_interest = config['frame_of_interest']
+
   if(PLOT_INIT):
     #  Plot
     ddp_handler = DDPDataHandlerSoftContactAugmented(ddp, softContactModel)
-    ddp_data = ddp_handler.extract_data(ee_frame_name=config['frame_of_interest'], ct_frame_name=config['frame_of_interest'])
+    ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest, ct_frame_name=frame_of_interest)
     _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                         colors=['r'], 
                                                         markers=['.'], 
                                                         SHOW=True)
+  
+  
+  
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
   # # # # # # # # # # #
@@ -189,7 +190,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       tau_mea_SIMU = actuationModel.step(i, sim_data.u_ref_SIMU, sim_data.ctrl_des_SIMU) 
       # RICCATI GAINS TO INTERPOLATE (only state for now)
       if(config['RICCATI']):
-        tau_mea_SIMU += ddp.K[0][:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:][:nq+nv])
+        # tau_mea_SIMU += ddp.K[0][:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:][:nq+nv])
+        tau_mea_SIMU += ddp.K[0].dot(ddp.problem.x0 - sim_data.state_mea_SIMU[i,:])
       #  Send output of actuation torque to the RBD simulator 0
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()
@@ -227,7 +229,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                                       SAVE=False,
                                       SAVE_DIR=save_dir,
                                       SAVE_NAME=save_name,
-                                      AUTOSCALE=True)
+                                      AUTOSCALE=False)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)
