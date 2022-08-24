@@ -104,7 +104,6 @@ class SoftContactModel3D:
         return self.computeExternalWrench(rmodel, rdata)
 
 
-
 class SoftContactModel1D:
     def __init__(self, Kp, Kv, oPc, frameId, contactType, pinRef):
         '''

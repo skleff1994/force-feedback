@@ -1,3 +1,4 @@
+from os import link
 import numpy as np
 import pinocchio as pin
 
@@ -330,17 +331,67 @@ def remove_body_from_sim(bodyId):
     p.removeBody(int(bodyId))
 
 
+def print_dynamics_info(bodyId, linkId=-1):
+    '''
+    Returns pybullet dynamics info
+    '''
+    logger.info("Body n°"+str(bodyId))
+    d = p.getDynamicsInfo(bodyId, linkId)
+    print(d)
+    logger.info("  mass                   : "+str(d[0]))
+    logger.info("  lateral_friction       : "+str(d[1]))
+    logger.info("  local_inertia_diagonal : "+str(d[2]))
+    logger.info("  local_inertia_pos      : "+str(d[3]))
+    logger.info("  local_inertia_orn      : "+str(d[4]))
+    logger.info("  restitution            : "+str(d[5]))
+    logger.info("  rolling friction       : "+str(d[6]))
+    logger.info("  spinning friction      : "+str(d[7]))
+    logger.info("  contact damping        : "+str(d[8]))
+    logger.info("  contact stiffness      : "+str(d[9]))
+    logger.info("  body type              : "+str(d[10]))
+    logger.info("  collision margin       : "+str(d[11]))
+
+
 # Set lateral friction coefficient to PyBullet body
-def set_friction_coef(bodyId, coef):
+def set_lateral_friction(bodyId, coef, linkId=-1):
   '''
   Set lateral friction coefficient to PyBullet body
   Input :
     bodyId : PyBullet body unique id
+    linkId : linkId . Default : -1 (base link)
     coef   : friction coefficient in (0,1)
   '''
-  p.changeDynamics(bodyId, -1, lateralFriction=0.5) 
-  logger.info("Set friction of body n°"+str(bodyId)+" to "+str(coef)) 
-  # print(p.getDynamicsInfo(id, -1))
+  p.changeDynamics(bodyId, linkId, lateralFriction=coef) 
+  logger.info("Set friction of body n°"+str(bodyId)+" (link n°"+str(linkId)+") to "+str(coef)) 
+
+
+# Set contact stiffness coefficient to PyBullet body
+def set_contact_stiffness_and_damping(bodyId, Ks, Kd, linkId=-1):
+  '''
+  Set contact stiffness coefficient to PyBullet body
+  Input :
+    bodyId : PyBullet body unique id
+    linkId : linkId . Default : -1 (base link)
+    Ks, Kd : stiffness and damping coefficients
+  '''
+#   p.changeDynamics(bodyId, linkId, restitution=0.2) 
+  p.changeDynamics(bodyId, linkId, contactStiffness=Ks, contactDamping=Kd) 
+  logger.info("Set contact stiffness of body n°"+str(bodyId)+" (link n°"+str(linkId)+") to "+str(Ks)) 
+  logger.info("Set contact damping of body n°"+str(bodyId)+" (link n°"+str(linkId)+") to "+str(Kd)) 
+
+
+# Set contact stiffness coefficient to PyBullet body
+def set_contact_restitution(bodyId, Ks, Kd, linkId=-1):
+  '''
+  Set contact restitution coefficient to PyBullet body
+  Input :
+    bodyId : PyBullet body unique id
+    linkId : linkId . Default : -1 (base link)
+    coef   : restitution coefficient
+  '''
+  p.changeDynamics(bodyId, linkId, restitution=0.2) 
+  logger.info("Set restitution of body n°"+str(bodyId)+" (link n°"+str(linkId)+") to "+str(Ks)) 
+
 
 
 

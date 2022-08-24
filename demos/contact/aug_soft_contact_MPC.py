@@ -53,7 +53,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   if(simulator == 'bullet'):
     from core_mpc import sim_utils as simulator_utils
     env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
-    # print(base_placement)
+    # logger.info("End-effector ids = "+str(robot_simulator.bullet_endeff_ids))
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
     from core_mpc import raisim_utils as simulator_utils
@@ -72,7 +72,18 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # contact_placement.rotation 
   M_ct = robot.data.oMf[id_endeff].copy()
   contact_placement.translation = contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
-  simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
+  contactId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
+  
+  logger.debug("dynamics of contact surface BEFORE change  :")
+  simulator_utils.print_dynamics_info(contactId)
+  # for bid in robot_simulator.bullet_endeff_ids:
+  #   simulator_utils.print_dynamics_info(robot_simulator.robotId, bid)
+
+  simulator_utils.set_lateral_friction(contactId, 0.8)
+  simulator_utils.set_contact_stiffness_and_damping(contactId, 1000, 63)
+
+  logger.debug("dynamics of contact surface AFTER change  :")
+  simulator_utils.print_dynamics_info(contactId)
 
   # Contact model
     # Contact model
@@ -83,6 +94,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       softContactModel = SoftContactModel3D(config['Kp'], config['Kv'], oPc, id_endeff, config['pinRefFrame'])
   y0 = np.concatenate([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
 
+  logger.debug("initial augmented state = ")
+  logger.debug(str(y0))
 
   import time
   time.sleep(1)
@@ -91,7 +104,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### OCP SETUP ###
   # # # # # # # # #
   # Warm start and reg
-  # Compute initial visco-elastic force
+  # Compute initial visco-elastic force 
   fext0 = softContactModel.computeExternalWrench(robot.model, robot.data)
   # Setup Croco OCP and create solver
   ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=True)
@@ -100,7 +113,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, robot.model, np.zeros(nq)) for i in range(config['N_h'])] 
   ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
   # ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-
+  
   frame_of_interest = config['frame_of_interest']
   if(PLOT_INIT):
     #  Plot
@@ -184,6 +197,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
         logger.info("f_mea = "+str(f_mea_SIMU))
       # Record data (unnoised)
       y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, f_mea_SIMU[:softContactModel.nc]]).T 
+      # y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, sim_data.y_pred[-softContactModel.nc:]]).T 
       sim_data.state_mea_no_noise_SIMU[i+1, :] = y_mea_SIMU
       # Sensor model ( simulation state ==> noised / filtered state )
       sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)
@@ -204,7 +218,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Plot results
   sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
                                       PLOT_PREDICTIONS=True, 
-                                      pred_plot_sampling=int(sim_data.plan_freq/10),
+                                      pred_plot_sampling=2,#int(sim_data.plan_freq/10),
                                       SAVE=False,
                                       SAVE_DIR=save_dir,
                                       SAVE_NAME=save_name,
