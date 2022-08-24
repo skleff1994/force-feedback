@@ -150,7 +150,10 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
         if('friction' in self.WHICH_COSTS):
           frictionConeCost = self.create_friction_force_cost(state, actuation)
           runningModels[i].differential.costs.addCost("friction", frictionConeCost, self.frictionConeWeight)
-      
+        if('collision' in self.WHICH_COSTS):
+          collisionCost = self.create_collision_cost(state, actuation)
+          runningModels[i].differential.costs.addCost("collision", collisionCost, self.collisionCostWeight)
+
       # Armature 
         # Add armature to current IAM
         runningModels[i].differential.armature = np.asarray(self.armature)
@@ -219,6 +222,10 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
     if('rotation' in self.WHICH_COSTS):
       frameRotationCost = self.create_frame_rotation_cost(state, actuation)
       terminalModel.differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeightTerminal*self.dt)
+    # End-effector orientation 
+    if('collision' in self.WHICH_COSTS):
+      collisionCost = self.create_collision_cost(state, actuation)
+      terminalModel.differential.costs.addCost("collision", collisionCost, self.collisionCostWeightTerminal*self.dt)
 
   # Add armature
     terminalModel.differential.armature = np.asarray(self.armature)   

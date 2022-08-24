@@ -11,6 +11,7 @@
 import crocoddyl
 import numpy as np
 import pinocchio as pin
+import hppfcl
 
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
@@ -457,6 +458,54 @@ class OptimalControlProblemAbstract:
                                                   crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
                                                   crocoddyl.ResidualModelContactFrictionCone(state, frictionConeFrameId, frictionCone, actuation.nu))
     return frictionConeCost
+
+  def create_collision_cost(self, state, actuation):
+    '''
+    Create collision cost model
+    '''
+    self.check_attribute('collisionCostWeightTerminal')
+    self.check_attribute('collisionCostWeight')
+    self.check_attribute('collisionObstaclePosition')
+    self.check_attribute('collisionObstacleSize')
+    self.check_attribute('collisionThreshold')
+
+    # Create pinocchio geometry of capsule around link of interest
+    link_name = 'A7'
+    pin_link_id = self.rmodel.getFrameId('L7')
+    pin_joint_id = self.rmodel.getJointId(link_name)
+    geom_model = pin.GeometryModel()
+    RADIUS = 0.09
+    LENGTH = 0.45
+    se3_pose = pin.SE3.Identity()
+    se3_pose.translation = np.array([-0.025,0.,-.225])
+    ig_arm = geom_model.addGeometryObject(pin.GeometryObject("simple_arm", 
+                                                             pin_link_id, 
+                                                             self.rmodel.frames[pin_link_id].parent, 
+                                                             hppfcl.Capsule(0, LENGTH),
+                                                             se3_pose))
+    # Add obstacle in the world
+    se3_pose.translation = np.zeros(3)
+    ig_obs = geom_model.addGeometryObject(pin.GeometryObject("simple_obs",
+                                                             self.rmodel.getFrameId("universe"),
+                                                             self.rmodel.frames[self.rmodel.getFrameId("universe")].parent,
+                                                             hppfcl.Capsule(0, self.collisionObstacleSize),
+                                                             se3_pose))
+    # Create collision pair 
+    geom_model.addCollisionPair(pin.CollisionPair(ig_arm, ig_obs))
+    # Add collision cost 
+    pair_id = 0
+    collision_radius = RADIUS + self.collisionThreshold + self.collisionObstacleSize
+    actCollision = crocoddyl.ActivationModel2NormBarrier(3, collision_radius)
+    collisionCost = crocoddyl.CostModelResidual(state, 
+                                                actCollision, 
+                                                crocoddyl.ResidualModelPairCollision(state, 
+                                                                                     actuation.nu, 
+                                                                                     geom_model, 
+                                                                                     pair_id, 
+                                                                                     pin_joint_id)) 
+    return collisionCost
+    
+
 
 
 

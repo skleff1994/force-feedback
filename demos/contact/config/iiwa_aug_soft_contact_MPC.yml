@@ -21,7 +21,7 @@ INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 500                   # Display sim status once very 'log_rate' sim cycles
-WHICH_PLOTS: ['f', 'u']
+WHICH_PLOTS: ['f']
 RICCATI: True 
 
 # Definition of the contact surface in the simulator
@@ -58,7 +58,7 @@ WHICH_COSTS: ['force',  'stateReg', 'ctrlReg']
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 # frameForceWeights:  [1., 1., 1., 0., 0., 0.]
-frameForceWeight: 0.005
+frameForceWeight: 0.01
 frameForceRef: [0., 0., -50, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 

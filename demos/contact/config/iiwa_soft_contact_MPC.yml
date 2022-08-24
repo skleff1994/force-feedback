@@ -5,7 +5,7 @@
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 500        # Control frequency
 plan_freq: 500        # Planning frequency
-T_tot: .3             # Simu duration (s)
+T_tot: 2.             # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -30,12 +30,11 @@ RICCATI: True
 contact_plane_offset: [0., 0., 0.034]
 
 # General
-dt: 0.005                                             # OCP integration step 
+dt: 0.01                                             # OCP integration step 
 N_h: 100                                             # Horizon length in nodes
 maxiter: 5                                         # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
-WHICH_PLOTS: ['all']                                          # which plots to generate 
 
 
 
@@ -46,8 +45,8 @@ frame_of_interest: 'contact'
 
 # SOFT CONTACT MODEL
 oPc_offset: [0., 0., 0.0]
-Kp: 100
-Kv: 20
+Kp: 10000
+Kv: 100
 pinRefFrame: 'LOCAL'
 contactType: '3D' #'1Dx'
 
@@ -59,7 +58,7 @@ WHICH_COSTS: ['force', 'stateReg', 'ctrlReg']
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 # frameForceWeights:  [1., 1., 1., 0., 0., 0.]
-frameForceWeight: 1
+frameForceWeight: 0.01
 frameForceRef: [0, 0., -50., 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
@@ -73,7 +72,9 @@ stateRegRef: 'DEFAULT'
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.0001
-ctrlRegRef: [ -0., -31.123713,  -0.77562 ,  -0.782922,   0.,   0.184399,   0.] #'DEFAULT' # reference not used for 'ctrlRegGrav'
+ctrlRegRef: ''
+# [ -0., -31.123713,  -0.77562 ,  -0.782922,   0.,   0.184399,   0.] 
+#'DEFAULT' # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
