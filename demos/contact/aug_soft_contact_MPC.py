@@ -92,7 +92,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       softContactModel = SoftContactModel1D(config['Kp'], config['Kv'], oPc, id_endeff, config['contactType'], config['pinRefFrame'])
   else:
       softContactModel = SoftContactModel3D(config['Kp'], config['Kv'], oPc, id_endeff, config['pinRefFrame'])
-  y0 = np.concatenate([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
+
+  f0 = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, softContactModel.pinRefFrame)
+  y0 = np.concatenate([x0, f0[-softContactModel.nc:]])  
+  # y0 = np.concatenate([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
 
   logger.debug("initial augmented state = ")
   logger.debug(str(y0))
@@ -104,14 +107,16 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### OCP SETUP ###
   # # # # # # # # #
   # Warm start and reg
-  # Compute initial visco-elastic force 
-  fext0 = softContactModel.computeExternalWrench(robot.model, robot.data)
+  # Compute initial external wrench for each joint
+  # f_ext0 = softContactModel.computeExternalWrench(robot.model, robot.data)    # Visco-elastic prediction (model)
+  f_ext0 = pin_utils.get_external_joint_torques(contact_placement, f0, robot)   # Measured in PyBullet initially
   # Setup Croco OCP and create solver
   ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=True)
   # Warmstart and solve
   xs_init = [y0 for i in range(config['N_h']+1)]
-  us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), fext0, robot.model, np.zeros(nq)) for i in range(config['N_h'])] 
-  ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
+  us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), f_ext0, robot.model, np.zeros(nq)) for i in range(config['N_h'])]
+  logger.debug(us_init[0]) 
+  ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
   # ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   
   frame_of_interest = config['frame_of_interest']
@@ -218,11 +223,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Plot results
   sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
                                       PLOT_PREDICTIONS=True, 
-                                      pred_plot_sampling=2,#int(sim_data.plan_freq/10),
+                                      pred_plot_sampling=int(sim_data.plan_freq/10),
                                       SAVE=False,
                                       SAVE_DIR=save_dir,
                                       SAVE_NAME=save_name,
-                                      AUTOSCALE=False)
+                                      AUTOSCALE=True)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)

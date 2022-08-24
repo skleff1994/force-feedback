@@ -103,6 +103,26 @@ class SoftContactModel3D:
         pin.updateFramePlacements(rmodel, rdata)
         return self.computeExternalWrench(rmodel, rdata)
 
+    # def getExternalWrenchFromForce(self, rmodel, rdata, f3D):
+    #     '''
+    #     Compute the vector for pin.Force (external wrenches) due to
+    #     the 3D visco-elastic contact force
+    #       rmodel  : robot model
+    #       rdata   : robot data
+    #       f3D     : measured 3D force at contact point
+    #     '''
+    #     oRf = rdata.oMf[self.frameId].rotation
+    #     wrench = [pin.Force.Zero() for _ in range(rmodel.njoints)]
+    #     f6D = pin.Force(f3D, np.zeros(3))
+    #     parentId = rmodel.frames[self.frameId].parent
+    #     jMf = rmodel.frames[self.frameId].placement
+    #     if(self.pinRefFrame == pin.LOCAL):
+    #         wrench[parentId] = jMf.act(f6D)
+    #     elif(self.pinRefFrame == pin.LOCAL_WORLD_ALIGNED):
+    #         lwaXf = pin.SE3.Identity() ; lwaXf.rotation = oRf ; lwaXf.translation = np.zeros(3)
+    #         wrench[parentId] = jMf.act(lwaXf.actInv(f6D))
+    #     return wrench
+
 
 class SoftContactModel1D:
     def __init__(self, Kp, Kv, oPc, frameId, contactType, pinRef):

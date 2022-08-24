@@ -531,13 +531,13 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
           plots['x'] = self.plot_mpc_state(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                            SHOW=False)
+                                            SHOW=False, AUTOSCALE=AUTOSCALE)
       
       if('u' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
           plots['u'] = self.plot_mpc_control(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                               pred_plot_sampling=pred_plot_sampling, 
                                               SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
-                                              SHOW=False)
+                                              SHOW=False, AUTOSCALE=AUTOSCALE)
 
       if('ee' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
           plots['ee_lin'] = self.plot_mpc_endeff_linear(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
@@ -597,7 +597,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
   def plot_mpc_state(self, plot_data, PLOT_PREDICTIONS=False, 
                             pred_plot_sampling=100, 
                             SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
-                            SHOW=True):
+                            SHOW=True, AUTOSCALE=False):
       '''
       Plot state data
       Input:
@@ -675,6 +675,9 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
           ax_x[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax_x[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
           ax_x[i,0].grid(True)
+          # Set xlim if any
+          if(AUTOSCALE):
+            ax_x[i,0].set_ylim(plot_data['pin_model'].lowerPositionLimit[i], plot_data['pin_model'].upperPositionLimit[i]) 
 
           # Joint velocity 
           ax_x[i,1].plot(t_span_plan, plot_data['v_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN)', alpha=0.5)
@@ -688,6 +691,9 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
           ax_x[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax_x[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
           ax_x[i,1].grid(True)
+          # Set xlim if any
+          if(AUTOSCALE):
+            ax_x[i,1].set_ylim(-plot_data['pin_model'].velocityLimit[i], plot_data['pin_model'].velocityLimit[i]) 
 
           # Add xlabel on bottom plot of each column
           if(i == nq-1):
@@ -696,6 +702,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
           # Legend
           handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
           fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+
       # y axis labels
       fig_x.text(0.05, 0.5, 'Joint position (rad)', va='center', rotation='vertical', fontsize=16)
       fig_x.text(0.49, 0.5, 'Joint velocity (rad/s)', va='center', rotation='vertical', fontsize=16)
@@ -720,8 +727,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
   def plot_mpc_control(self, plot_data, PLOT_PREDICTIONS=False, 
                               pred_plot_sampling=100, 
                               SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
-                              SHOW=True,
-                              AUTOSCALE=False):
+                              SHOW=True, AUTOSCALE=False):
       '''
       Plot control data
       Input:
@@ -790,6 +796,9 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
           ax_u[i].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax_u[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
           ax_u[i].grid(True)
+          if(AUTOSCALE):
+            ax_u[i].set_ylim(-plot_data['pin_model'].effortLimit[i], plot_data['pin_model'].effortLimit[i]) 
+
           # Last x axis label
           if(i == nq-1):
               ax_u[i].set_xlabel('t (s)', fontsize=16)

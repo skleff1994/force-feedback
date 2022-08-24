@@ -5,7 +5,7 @@
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 500        # Control frequency
 plan_freq: 500       # Planning frequency
-T_tot: .1            # Simu duration (s)
+T_tot: 1.            # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -21,13 +21,13 @@ INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 500                   # Display sim status once very 'log_rate' sim cycles
-WHICH_PLOTS: ['all']
+WHICH_PLOTS: ['f']
 RICCATI: False 
 
 # Definition of the contact surface in the simulator
 # It is aligned with the LOCAL contact frame by default
 # User-defined offset expressed in the LOCAL contact frame :
-contact_plane_offset: [0., 0., 0.036] #0.034]
+contact_plane_offset: [0., 0., 0.034] #0.034]
 
 # General
 dt: 0.01                                             # OCP integration step 
@@ -35,7 +35,6 @@ N_h: 100                                             # Horizon length in nodes
 maxiter: 100                                         # Max number of iterations in DDP
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
-WHICH_PLOTS: ['all']                                          # which plots to generate 
 
 
 # Pin model frame name of the end-effector 
@@ -73,7 +72,8 @@ stateRegRef: 'DEFAULT'
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
 ctrlRegWeight: 0.0001
-ctrlRegRef: [ -0., -31.123713,  -0.77562 ,  -0.782922,   0.,   0.184399,   0.] #'DEFAULT' # reference not used for 'ctrlRegGrav'
+ctrlRegRef: [0., -33.006, -0.96201, -0.25331,  0.0000000081288, -0.41909,  0.]
+# [ -0., -31.123713,  -0.77562 ,  -0.782922,   0.,   0.184399,   0.] #'DEFAULT' # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]

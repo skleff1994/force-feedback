@@ -226,7 +226,7 @@ def get_contact_wrench(pybullet_simulator, id_endeff, ref=pin.LOCAL):
 # Get joint torques from robot simulator
 def get_contact_joint_torques(pybullet_simulator, id_endeff):
     '''
-    Get contact wrench in LOCAL contact frame
+    Get joint torques due to external wrench
     '''
     wrench = get_contact_wrench(pybullet_simulator, id_endeff)
     jac = pybullet_simulator.pin_robot.data.J

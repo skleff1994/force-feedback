@@ -278,8 +278,7 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
   def plot_mpc_force(self, plot_data, PLOT_PREDICTIONS=False, 
                             pred_plot_sampling=100, 
                             SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
-                            SHOW=True,
-                            AUTOSCALE=False):
+                            SHOW=True, AUTOSCALE=False):
       '''
       Plot EE force data
       Input:
@@ -360,12 +359,12 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
       # Set ylim if any
       TOL = 1e-3
       if(AUTOSCALE):
-          ax_ylim = 1.1*max( np.nanmax(np.abs(plot_data['f_ee_mea'])), TOL )
-          ax_ylim = 1.1*max( np.nanmax(np.abs(plot_data['f_ee_mea'])), TOL )
+          ax_ylim1 = 1.1*max(np.max(np.abs(plot_data['f_ee_pred'])), TOL) # 1.1*max( np.nanmax(np.abs(plot_data['f_ee_mea'])), TOL )
+          ax_ylim2 = 1.1*max(np.max(np.abs(plot_data['f_ee_mea'])), TOL) 
+          ax_ylim = max(ax_ylim1, ax_ylim2)
           for i in range(3):
               ax[i].set_ylim(-ax_ylim, ax_ylim) 
-              # ax[i].set_ylim(-30, 10) 
-            #   ax[i,1].set_ylim(-ax_ylim, ax_ylim) 
+              # ax[i].set_ylim(-10, 10) 
 
       handles_p, labels_p = ax[0].get_legend_handles_labels()
       fig.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
