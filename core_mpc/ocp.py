@@ -472,6 +472,12 @@ class OptimalControlProblemAbstract:
     self.check_attribute('collisionCapsuleLength')
     self.check_attribute('collisionCapsuleRadius')
 
+    loader = hppfcl.MeshLoader()
+    path = "/home/skleff/devel/workspace/src/robot_properties_kuka/src/robot_properties_kuka/robot_properties_kuka/meshes/stl/iiwa_link_6.stl"
+    mesh: hppfcl.BVHModelBase = loader.load(path)
+    mesh.buildConvexHull(True, "Qt")
+    shape1 = mesh.convex
+
     # Create pinocchio geometry of capsule around link of interest
     collisionFrameId = self.rmodel.getFrameId(self.collisionFrameName)
     parentJointId = self.rmodel.frames[collisionFrameId].parent
@@ -479,10 +485,10 @@ class OptimalControlProblemAbstract:
     se3_pose = pin.SE3.Identity()
     se3_pose.translation = np.array([-0.025,0.,-.225])
     ig_arm = geom_model.addGeometryObject(pin.GeometryObject("simple_arm", 
-                                                             collisionFrameId, 
-                                                             parentJointId, 
-                                                             hppfcl.Capsule(self.collisionCapsuleRadius, self.collisionCapsuleLength),
-                                                             se3_pose))
+                                          collisionFrameId, 
+                                          parentJointId, 
+                                          shape1, #hppfcl.Capsule(self.collisionCapsuleRadius, self.collisionCapsuleLength),
+                                          se3_pose))
     # Add obstacle in the world
     se3_pose.translation = np.zeros(3)
     ig_obs = geom_model.addGeometryObject(pin.GeometryObject("simple_obs",
