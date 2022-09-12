@@ -74,8 +74,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   M_ct = robot.data.oMf[id_endeff].copy()
   contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   contactId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
-  simulator_utils.set_lateral_friction(contactId, 0.9)
-  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e6, 1e3)
+  # simulator_utils.set_lateral_friction(contactId, 0.9)
+  # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e6, 1e3)
+  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e4, 1e2)
 
   # Contact model
     # Contact model
@@ -212,7 +213,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                                       SAVE=False,
                                       SAVE_DIR=save_dir,
                                       SAVE_NAME=save_name,
-                                      AUTOSCALE=True)
+                                      AUTOSCALE=False)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)

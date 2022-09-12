@@ -75,12 +75,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   contact_placement.translation = contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   contactId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   
-  # logger.debug("dynamics of contact surface BEFORE change  :")
+  logger.debug("dynamics of contact surface BEFORE change  :")
   # simulator_utils.print_dynamics_info(contactId)
   # for bid in robot_simulator.bullet_endeff_ids:
   #   simulator_utils.print_dynamics_info(robot_simulator.robotId, bid)
-  simulator_utils.set_lateral_friction(contactId, 0.9)
-  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e6, 1e3)
+  # simulator_utils.set_lateral_friction(contactId, 0.9)
+  # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e6, 1e3)
+  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e4, 1e2)
+  # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e2, 20)
   # logger.debug("dynamics of contact surface AFTER change  :")
   # simulator_utils.print_dynamics_info(contactId)
 

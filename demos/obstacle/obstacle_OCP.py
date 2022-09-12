@@ -83,24 +83,45 @@ def main(robot_name, PLOT, DISPLAY):
         import pinocchio as pin
         N_h = config['N_h']
         # Init viewer
-        viz = pin.visualize.GepettoVisualizer(robot.model, robot.collision_model, robot.visual_model)
-        viz.initViewer()
-        viz.loadViewerModel()
-        viz.display(q0)
-        viewer = viz.viewer; gui = viewer.gui
+        from core_mpc import gepetto_utils
+        viz = gepetto_utils.launch_viewer(robot, q0)
+        # viz = pin.visualize.GepettoVisualizer(robot.model, robot.collision_model, robot.visual_model)
+        # viz.initViewer()
+        # viz.loadViewerModel()
+        # viz.display(q0)
+        # viewer = viz.viewer; 
+        gui = viz.viewer.gui
+
+
         draw_rate = int(N_h/50)
         log_rate  = int(N_h/10)    
-        ref_color  = [0., 1., 0., 1.]
+        tar_color  = [0., 1., 0., 1.]
         real_color = [0., 0., 1., 0.3]
         obs_color = [1., 0., 1., 1.]
         caps_color = [1., 1., .5, 0.2]
-        ref_size    = 0.03
+        tar_size    = 0.03
         real_size   = 0.02
         pause = 0.05
         # cleanup
+        gepetto_utils.clear_viewer(gui)
+        # Display target , obstacle and capsule around robot 
+        gepetto_utils.display_sphere(gui, 'world/EE_ref', config['frameTranslationRef'], tar_size, tar_color)
+        m_obs = pin.SE3(np.eye(3), config['collisionObstaclePosition'])
+        gepetto_utils.display_capsule(gui, 'world/obs', m_obs, config['obstacleRadius'], config['obstacleLength'], obs_color)
+        # gepetto_utils.display_sphere(gui, 'world/caps', config['frameTranslationRef'], tar_size, tar_color)
+
+        for i in range(N_h):
+            gepetto_utils.display_sphere(gui, 'world/EE_sol_'+str(i), config['frameTranslationRef'], real_size, real_color)
+            # gui.addLandmark('world/EE_sol_', 0.25)
+            # clean DDP sol
+            # if(gui.nodeExists('world/EE_sol_'+str(i))):
+            #     gui.deleteNode('world/EE_sol_'+str(i), True)
+            #     gui.deleteLandmark('world/EE_sol_'+str(i))
+
+        # gepetto_utils.display_sphere(gui, 'world/obs', np.array([0.4, 0.4, 0.8]), obs_size, obs_color)
             # clean ref
-        if(gui.nodeExists('world/EE_ref')):
-            gui.deleteNode('world/EE_ref', True)
+        # if(gui.nodeExists('world/EE_ref')):
+        #     gui.deleteNode('world/EE_ref', True)
             # clean obs
         if(gui.nodeExists('world/obs')):
             gui.deleteNode('world/obs', True)
@@ -116,17 +137,17 @@ def main(robot_name, PLOT, DISPLAY):
         ee_frame_placement = M_ee.copy()
         tf_ee = list(pin.SE3ToXYZQUAT(ee_frame_placement))
         # Get ref EE placement + tf
-        m_ee_ref = ee_frame_placement.copy()
-        m_ee_ref.translation = np.asarray(config['frameTranslationRef'])
-        tf_ee_ref = list(pin.SE3ToXYZQUAT(m_ee_ref))
+        # m_ee_ref = ee_frame_placement.copy()
+        # m_ee_ref.translation = np.asarray(config['frameTranslationRef'])
+        # tf_ee_ref = list(pin.SE3ToXYZQUAT(m_ee_ref))
         m_obs = pin.SE3.Identity()
         m_obs.translation = np.asarray(config['collisionObstaclePosition'])
         tf_obs = list(pin.se3ToXYZQUAT(m_obs))
         m_caps = robot.data.oMf[robot.model.getFrameId(config['collisionFrameName'])]
         tf_caps = list(pin.se3ToXYZQUAT(m_caps))
         # Display ref
-        gui.addSphere('world/EE_ref', ref_size, ref_color)
-        gui.applyConfiguration('world/EE_ref', tf_ee_ref)
+        # gui.addSphere('world/EE_ref', tar_size, tar_color)
+        # gui.applyConfiguration('world/EE_ref', tf_ee_ref)
         # Display obs
         gui.addCapsule('world/obs', config['collisionObstacleSize'], 0.5, obs_color)
         gui.applyConfiguration('world/obs', tf_obs)

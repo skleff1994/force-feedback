@@ -43,14 +43,16 @@ frameVelocityRef: [0., 0., 0., 0., 0., 0.]
 frameVelocityFrameName: 'contact' # 'DEFAULT' = $(frame_of_interest)
 
  # 'collision' : obstacle avoidance cost 
-collisionFrameName: 'A6'
+collisionFrameName: 'L7'
 collisionCapsuleLength: 0.2
 collisionCapsuleRadius: 0.05
-collisionCostWeight: 1.
-collisionCostWeightTerminal: 1.
+collisionCostWeight: 100.
+collisionCostWeightTerminal: 100.
 collisionObstaclePosition: [-0.2, -0.2, 0.8]
+obstacleRadius: 0.03
+obstacleLength: 0.5
 collisionObstacleSize: 0.03
-collisionThreshold: 0.2
+collisionThreshold: 0.05
 
  # 'stateLim' : state limits 
 stateLimWeights: [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]

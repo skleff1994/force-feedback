@@ -472,22 +472,23 @@ class OptimalControlProblemAbstract:
     self.check_attribute('collisionCapsuleLength')
     self.check_attribute('collisionCapsuleRadius')
 
-    loader = hppfcl.MeshLoader()
-    path = "/home/skleff/devel/workspace/src/robot_properties_kuka/src/robot_properties_kuka/robot_properties_kuka/meshes/stl/iiwa_link_6.stl"
-    mesh: hppfcl.BVHModelBase = loader.load(path)
-    mesh.buildConvexHull(True, "Qt")
-    shape1 = mesh.convex
+    # loader = hppfcl.MeshLoader()
+    # path = "/home/skleff/devel/workspace/src/robot_properties_kuka/src/robot_properties_kuka/robot_properties_kuka/meshes/stl/iiwa_link_6.stl"
+    # mesh: hppfcl.BVHModelBase = loader.load(path)
+    # mesh.buildConvexHull(True, "Qt")
+    # shape1 = mesh.convex
 
     # Create pinocchio geometry of capsule around link of interest
     collisionFrameId = self.rmodel.getFrameId(self.collisionFrameName)
     parentJointId = self.rmodel.frames[collisionFrameId].parent
     geom_model = pin.GeometryModel()
-    se3_pose = pin.SE3.Identity()
-    se3_pose.translation = np.array([-0.025,0.,-.225])
+    se3_pose = self.rmodel.frames[collisionFrameId].placement
+    logger.debug(str(se3_pose))
+    # se3_pose.translation = np.zeros(3) #np.array([-0,0.,0])
     ig_arm = geom_model.addGeometryObject(pin.GeometryObject("simple_arm", 
                                           collisionFrameId, 
                                           parentJointId, 
-                                          shape1, #hppfcl.Capsule(self.collisionCapsuleRadius, self.collisionCapsuleLength),
+                                          hppfcl.Capsule(self.collisionCapsuleRadius, self.collisionCapsuleLength), #shape1
                                           se3_pose))
     # Add obstacle in the world
     se3_pose.translation = np.zeros(3)
@@ -500,7 +501,7 @@ class OptimalControlProblemAbstract:
     geom_model.addCollisionPair(pin.CollisionPair(ig_arm, ig_obs))
     # Add collision cost 
     pair_id = 0
-    collision_radius = self.collisionCapsuleRadius + self.collisionThreshold + self.collisionObstacleSize
+    collision_radius = 0.1 #self.collisionCapsuleRadius + self.collisionThreshold + self.collisionObstacleSize
     actCollision = crocoddyl.ActivationModel2NormBarrier(3, collision_radius)
     collisionCost = crocoddyl.CostModelResidual(state, 
                                                 actCollision, 
