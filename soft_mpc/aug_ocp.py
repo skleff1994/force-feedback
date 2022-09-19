@@ -17,16 +17,14 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 
-USE_SOBEC_BINDINGS = True
-
-
-
-if(USE_SOBEC_BINDINGS):
-  from sobec import DAMSoftContact3DAugmentedFwdDynamics as DAMSoft3DAugmented
-  from sobec import IAMSoftContact3DAugmented as IAMSoft3DAugmented
-else:
-  from soft_mpc.soft_models_3D_augmented import DAMSoftContactDynamics3D as DAMSoft3DAugmented
-  from soft_mpc.soft_models_3D_augmented import IAMSoftContactDynamics3D as IAMSoft3DAugmented
+# USE_SOBEC_BINDINGS = True
+# if(USE_SOBEC_BINDINGS):
+from sobec import DAMSoftContact3DAugmentedFwdDynamics as DAMSoft3DAugmented
+from sobec import DAMSoftContact1DAugmentedFwdDynamics as DAMSoft1DAugmented
+from sobec import IAMSoftContactAugmented as IAMSoftAugmented
+# else:
+#   from soft_mpc.soft_models_3D_augmented import DAMSoftContactDynamics3D as DAMSoft3DAugmented
+#   from soft_mpc.soft_models_3D_augmented import IAMSoftContactDynamics3D as IAMSoftAugmented
 
 
 class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstract):
@@ -88,21 +86,21 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
                                   softContactModel.Kv,
                                   softContactModel.oPc,
                                   softContactModel.pinRefFrame )
-        # elif(softContactModel.nc == 1):
-        #   dam = DAMSoft1D(state, 
-        #                   actuation, 
-        #                   crocoddyl.CostModelSum(state, nu=actuation.nu),
-        #                   softContactModel.frameId, 
-        #                   softContactModel.contactType,
-        #                   softContactModel.Kp,
-        #                   softContactModel.Kv,
-        #                   softContactModel.oPc,
-        #                   softContactModel.pinRefFrame )
+        elif(softContactModel.nc == 1):
+          dam = DAMSoft1DAugmented(state, 
+                                  actuation, 
+                                  crocoddyl.CostModelSum(state, nu=actuation.nu),
+                                  softContactModel.frameId, 
+                                  softContactModel.Kp,
+                                  softContactModel.Kv,
+                                  softContactModel.oPc,
+                                  softContactModel.pinRefFrame,
+                                  softContactModel.sobecType )
         else:
           logger.error("softContactModel.nc = 3 or 1")
 
       # Create IAM from DAM
-        runningModels.append(IAMSoft3DAugmented(dam, self.dt))
+        runningModels.append(IAMSoftAugmented(dam, self.dt))
         
       # Create and add cost function terms to current IAM
         # State regularization 
@@ -164,21 +162,21 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
                                 softContactModel.Kv,
                                 softContactModel.oPc,
                                 softContactModel.pinRefFrame )
-    # elif(softContactModel.nc == 1):
-    #   dam_t = DAMSoft1D(state, 
-    #                     actuation, 
-    #                     crocoddyl.CostModelSum(state, nu=actuation.nu),
-    #                     softContactModel.frameId, 
-    #                     softContactModel.contactType,
-    #                     softContactModel.Kp,
-    #                     softContactModel.Kv,
-    #                     softContactModel.oPc,
-    #                     softContactModel.pinRefFrame )
+    elif(softContactModel.nc == 1):
+      dam_t = DAMSoft1DAugmented(state, 
+                                actuation, 
+                                crocoddyl.CostModelSum(state, nu=actuation.nu),
+                                softContactModel.frameId, 
+                                softContactModel.Kp,
+                                softContactModel.Kv,
+                                softContactModel.oPc,
+                                softContactModel.pinRefFrame,
+                                softContactModel.sobecType )
     else:
       logger.error("softContactModel.nc = 3 or 1")
 
   # Create terminal IAM from terminal DAM
-    terminalModel = IAMSoft3DAugmented( dam_t, 0. )
+    terminalModel = IAMSoftAugmented( dam_t, 0. )
 
   # Create and add terminal cost models to terminal IAM
     # State regularization
@@ -231,7 +229,7 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
 
   # Finish
     logger.info("OCP is ready !")
-    logger.info(  "USE_SOBEC_BINDINGS = "+str(USE_SOBEC_BINDINGS))
+    # logger.info(  "USE_SOBEC_BINDINGS = "+str(USE_SOBEC_BINDINGS))
     logger.info("    COSTS   = "+str(self.WHICH_COSTS))
     logger.info("    SOFT CONTACT MODEL [ oPc="+str(softContactModel.oPc)+\
       " , Kp="+str(softContactModel.Kp)+\

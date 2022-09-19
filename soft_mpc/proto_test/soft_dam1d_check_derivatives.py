@@ -271,17 +271,17 @@ assert(np.linalg.norm(odaq_dx - odaq_dx_ND) < 1e-2)
 
 # Check implemented class
 from soft_mpc.soft_models_1D import DAMSoftContactDynamics1D
+# from soft_mpc.soft_models_1D_augmented import DAMSoftContactDynamics1D as DAM1DAugmented
 import crocoddyl
 # State, actuation, cost models
 state = crocoddyl.StateMultibody(model)
 actuation = crocoddyl.ActuationModelFull(state)
 runningCostModel = crocoddyl.CostModelSum(state)
-# terminalCostModel = crocoddyl.CostModelSum(state)
 
 # Custom DAM to check 
-# ref = pin.LOCAL_WORLD_ALIGNED
-ref = pin.LOCAL
+ref = pin.LOCAL # pin.LOCAL_WORLD_ALIGNED
 dam = DAMSoftContactDynamics1D(state, actuation, runningCostModel, frameId, '1Dz', Kp, Kv, oPc, pinRefFrame=ref)
+# dam2 = DAM1DAugmented(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=ref)
 dad = dam.createData()
 # Numdiff version 
 RTOL            = 1e-2 
@@ -292,6 +292,8 @@ dad_nd = dam_nd.createData()
 # TEST CALC
 dam.calc(dad, x0, tau)
 dam_nd.calc(dad_nd, x0, tau)
+# dad2 = dam2.createData()
+# dam2.calc(dad2, x0, lf, tau)
 print("custom aq = \n", dad.xout)
 print("ND xout = \n", dad_nd.xout)
 if(ref == pin.LOCAL):

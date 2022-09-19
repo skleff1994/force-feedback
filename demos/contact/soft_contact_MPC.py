@@ -77,6 +77,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # simulator_utils.set_lateral_friction(contactId, 0.9)
   # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e6, 1e3)
   simulator_utils.set_contact_stiffness_and_damping(contactId, 1e4, 1e2)
+  # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e5, 316)
 
   # Contact model
     # Contact model

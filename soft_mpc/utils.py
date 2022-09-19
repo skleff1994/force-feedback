@@ -13,7 +13,7 @@ import pinocchio as pin
 
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
-
+import sobec
 
 class SoftContactModel3D:
     def __init__(self, Kp, Kv, oPc, frameId, pinRef):
@@ -147,10 +147,13 @@ class SoftContactModel1D:
         self.contact_type = contactType
         if(contactType == '1Dx'):
             self.mask = [0]
+            self.sobecType = sobec.sobec_pywrap.Vector3MaskType.x
         if(contactType == '1Dy'):
             self.mask = [1]
+            self.sobecType = sobec.sobec_pywrap.Vector3MaskType.y
         if(contactType == '1Dz'):
             self.mask = [2]
+            self.sobecType = sobec.sobec_pywrap.Vector3MaskType.z
        
     def setPinRef(self, pinRef):
         if(type(pinRef) == str):

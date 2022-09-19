@@ -1,4 +1,5 @@
 
+from curses import noqiflush
 import numpy as np
 
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
@@ -30,14 +31,18 @@ class ActuationModel:
         # Delays
         self.delay_sim_cycle = int(self.config['delay_sim_cycle'])       # in simu cycles
         self.buffer_sim   = []                                           # buffer for measured torque delayed by e.g. actuation and/or sensing 
+        # Noise
+        self.var_u = np.asarray(self.config['var_u'])
         # Actuation model options
         self.DELAY_SIM         = config['DELAY_SIM']                     # Add delay in reference torques (low-level)
         self.SCALE_TORQUES     = config['SCALE_TORQUES']                 # Affinescaling of reference torque
         self.FILTER_TORQUES    = config['FILTER_TORQUES']                # Moving average smoothing of reference torques
+        self.NOISE_TORQUES     = config['NOISE_TORQUES']                # Moving average smoothing of reference torques
         self.TORQUE_TRACKING   = config['TORQUE_TRACKING']                # NOT READY
         logger.info("Created ActuationModel(DELAY_SIM="+str(self.DELAY_SIM)+
                     ", SCALE_TORQUES="+str(self.SCALE_TORQUES)+
-                    ", FILTER_TORQUES="+str(self.FILTER_TORQUES)+").")
+                    ", FILTER_TORQUES="+str(self.FILTER_TORQUES)+
+                    ", NOISE_TORQUES="+str(self.NOISE_TORQUES)+").")
         if(self.SCALE_TORQUES):
           logger.info("Torques scaling : alpha = "+str(self.alpha)+" | beta = "+str(self.beta))
 
@@ -48,6 +53,7 @@ class ActuationModel:
          - affine bias on torques a*tau_ref(i) + b
          - moving avg filter on tau_ref(i)
          - delay tau_ref(i) = tau_ref(i-delay)
+         - Gaussian noise on tau_ref(i)
          - torque PI control (tau_mea, tau_ref)
         '''
         measured_torque = reference_torque.copy()
@@ -67,6 +73,10 @@ class ActuationModel:
             pass
           else:                          
             measured_torque = self.buffer_sim.pop(-self.delay_sim_cycle)
+        # Optional Gaussian noise on desired torque 
+        if(self.NOISE_TORQUES):
+            noise_u = np.random.normal(0., self.var_u, self.nu)
+            measured_torque += noise_u
         # Inner PID torque control loop [NOT READY]
         if(self.TORQUE_TRACKING):
             self.err_P = measured_torque - reference_torque              
@@ -118,22 +128,24 @@ class CommunicationModel:
 
 class SensorModel:
 
-    def __init__(self, config, nq=7, nv=7, ntau=0, SEED=1):
+    def __init__(self, config, naug=0, SEED=1):
         '''
         Sensing model with parameters defined in config YAML file
         Simulates (optionally)
          - gaussian noise on measured state
          - moving avg filtering on measured state
+         naug : for augmented state (lpf, soft contact, etc..). 0 by default
         '''
         np.random.seed(SEED)
         self.config = config
-        self.nq = nq
-        self.nv = nv
-        self.ntau = ntau
+        self.nq = len(config['q0']) 
+        self.nv = len(config['dq0'])
+        self.naug = naug
         # White noise on desired torque and measured state
         self.var_q = np.asarray(self.config['var_q'])
         self.var_v = np.asarray(self.config['var_v'])
-        self.var_u = 0.5*np.asarray(self.config['var_u'])[:ntau]
+        if(self.naug > 0):
+          self.var_aug = np.asarray(self.config['var_aug'])[:naug]
         # Sensing model options
         self.NOISE_STATE       = config['NOISE_STATE']                   # Add Gaussian noise on the measured state 
         self.FILTER_STATE      = config['FILTER_STATE']                  # Moving average smoothing of reference torques
@@ -150,8 +162,8 @@ class SensorModel:
         if(self.NOISE_STATE):
           noise_q = np.random.normal(0., self.var_q, self.nq)
           noise_v = np.random.normal(0., self.var_v, self.nv)
-          if(self.ntau != 0):
-            noise_tau = np.random.normal(0., self.var_u, self.ntau)
+          if(self.naug > 0):
+            noise_tau = np.random.normal(0., self.var_aug, self.naug)
             measured_state += np.concatenate([noise_q, noise_v, noise_tau]).T
           else:
             measured_state += np.concatenate([noise_q, noise_v]).T

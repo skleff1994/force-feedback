@@ -20,6 +20,7 @@ imperfect actuation (bias, noise, delays) at higher frequency
 
 
 import sys
+from turtle import color
 sys.path.append('.')
 
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
@@ -68,13 +69,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   id_endeff = robot.model.getFrameId(frame_of_interest)
   ee_frame_placement = robot.data.oMf[robot.model.getFrameId(frame_of_interest)]
   oMf = robot.data.oMf[id_endeff]
-  # Placement of contact frame w.r.t. LOCAL frame
+  # Placement of contact surface w.r.t. LOCAL frame : offset in the normal direction
   contact_placement = ee_frame_placement.copy()
-  # contact_placement.rotation 
   M_ct = robot.data.oMf[id_endeff].copy()
   contact_placement.translation = contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   contactId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
-  
+  # Set contact surface model parameters in simulator
   logger.debug("dynamics of contact surface BEFORE change  :")
   # simulator_utils.print_dynamics_info(contactId)
   # for bid in robot_simulator.bullet_endeff_ids:
@@ -82,13 +82,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # simulator_utils.set_lateral_friction(contactId, 0.9)
   # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e6, 1e3)
   simulator_utils.set_contact_stiffness_and_damping(contactId, 1e4, 1e2)
-  # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e2, 20)
+  # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e5, 316)
   # logger.debug("dynamics of contact surface AFTER change  :")
   # simulator_utils.print_dynamics_info(contactId)
 
   # Contact model
     # Contact model
-  oPc = contact_placement.translation #+ np.asarray(config['oPc_offset']) #oMf.translation ##contact_placement.translation # 
+  oPc = contact_placement.translation + np.asarray(config['oPc_offset'])
+  simulator_utils.display_ball(oPc, base_placement, RADIUS=0.01, COLOR=[1.,0.,0.,1.])
   if('1D' in config['contactType']):
       softContactModel = SoftContactModel1D(config['Kp'], config['Kv'], oPc, id_endeff, config['contactType'], config['pinRefFrame'])
   else:
@@ -113,7 +114,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   u0 = pin_utils.get_tau(q0, v0, np.zeros(nq), f_ext0, robot.model, np.zeros(nq))
   config['ctrlRegRef'] = np.zeros(nu) # u0
   # Setup Croco OCP and create solver
-  ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=True)
+  ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=False) #True)
   # Warmstart and solve
   xs_init = [y0 for i in range(config['N_h']+1)]
   us_init = [u0 for i in range(config['N_h'])]
@@ -142,11 +143,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Additional simulation blocks 
   communicationModel = mpc_utils.CommunicationModel(config)
   actuationModel     = mpc_utils.ActuationModel(config, nu=nu)
-  sensingModel       = mpc_utils.SensorModel(config)
+  sensingModel       = mpc_utils.SensorModel(config, naug=softContactModel.nc)
 
   # # # # # # # # # # # #
   ### SIMULATION LOOP ###
   # # # # # # # # # # # #
+  from core_mpc.analysis_utils import MPCBenchmark
+  bench = MPCBenchmark()
 
   # SIMULATE
   for i in range(sim_data.N_simu): 
@@ -164,7 +167,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           xs_init[0] = sim_data.state_mea_SIMU[i, :]
           us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
           # Solve OCP 
+          bench.start_timer()
+          bench.start_croco_profiler()
           ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+          bench.record_profiles()
+          bench.stop_timer(nb_iter=ddp.iter)
+          bench.stop_croco_profiler()
           # Record MPC predictions, cost references and solver data 
           sim_data.record_predictions(nb_plan, ddp)
           sim_data.record_cost_references(nb_plan, ddp)
@@ -212,7 +220,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)
 
 
-
+  bench.plot_timer()
+  bench.plot_profiles()
+  bench.plot_avg_profiles()
   # # # # # # # # # # #
   # PLOT SIM RESULTS  #
   # # # # # # # # # # #

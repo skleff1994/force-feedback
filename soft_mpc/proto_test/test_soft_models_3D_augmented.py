@@ -247,7 +247,7 @@ terminalCostModel.addCost("translation", frameTranslationCost, 1e-1)
 
 
 
-REF_FRAME = pin.LOCAL_WORLD_ALIGNED
+REF_FRAME = pin.LOCAL
 # # Python proto
 # dam = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)
 # dam_t = DAMSoftContactDynamics3D(state, actuation, runningCostModel, frameId, Kp, Kv, oPc, pinRefFrame=REF_FRAME)

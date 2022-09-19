@@ -576,12 +576,12 @@ class MPCDataHandlerAbstract:
       self.check_attribute('var_u')
       self.var_u = 0.5*np.asarray(self.var_u) 
     if(self.TORQUE_TRACKING):
-      self.check_attribute('Kp')
-      self.check_attribute('Ki')
-      self.check_attribute('Kd')
-      self.gain_P = self.Kp*np.eye(self.nq)
-      self.gain_I = self.Ki*np.eye(self.nq)
-      self.gain_D = self.Kd*np.eye(self.nq)
+      self.check_attribute('Kp_low')
+      self.check_attribute('Ki_low')
+      self.check_attribute('Kd_low')
+      self.gain_P = self.Kp_low*np.eye(self.nq)
+      self.gain_I = self.Ki_low*np.eye(self.nq)
+      self.gain_D = self.Kd_low*np.eye(self.nq)
     if(self.FILTER_STATE):
       self.check_attribute('x_avg_filter_length')
     if(self.FILTER_TORQUES):
