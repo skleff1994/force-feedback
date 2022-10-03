@@ -20,6 +20,7 @@ else:
 
 if(FOUND_ROB_PROP_KUKA_PKG):
     from robot_properties_kuka.iiwaWrapper import IiwaRobot as IiwaRobot
+    from robot_properties_kuka.iiwaReducedWrapper import IiwaReducedRobot as IiwaReducedRobot
 else:
     logger.error('You need to install robot_properties_kuka ( https://github.com/machines-in-motion/robot_properties_kuka )')
 
@@ -42,7 +43,7 @@ else:
 #     logger.error('You need to install example_robot_data !')
 
 # Global & default settings (change CAREFULLY)
-SUPPORTED_ROBOTS         = ['iiwa', 'talos_arm', 'talos_reduced']
+SUPPORTED_ROBOTS         = ['iiwa', 'iiwa_reduced', 'talos_arm', 'talos_reduced']
 
 TALOS_DEFAULT_MESH_PATH  = '/opt/openrobots/share'
 
@@ -71,6 +72,8 @@ def init_bullet_simulation(robot_name, dt=1e3, x0=None):
             return init_talos_arm_bullet(dt=dt, x0=x0)
         elif(robot_name == 'talos_reduced'):
             return init_talos_reduced_bullet(dt=dt, x0=x0)
+        elif(robot_name == 'iiwa_reduced'):
+            return init_iiwa_reduced_bullet(dt=dt, x0=x0)
 
 
 # Load KUKA arm in PyBullet environment
@@ -144,13 +147,48 @@ def init_talos_reduced_bullet(dt=1e3, x0=None, pos=TALOS_REDUCED_DEFAULT_BASE_PO
     '''
     # Info log
     print("")
-    logger.info("Initializing TALOS left arm in PyBulletsimulator...")
+    logger.info("Initializing TALOS reduced model in PyBullet simulator...")
     print("")
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.GUI, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
     base_placement = pin.XYZQUATToSE3(pos + list(orn_quat)) 
     robot_simulator = env.add_robot(TalosReducedRobot(pos, orn_quat))
+    # Initialize
+    if(x0 is None):
+        q0 = np.array([2., 0., 0., 0., 0., 0., 0.])
+        dq0 = np.zeros(robot_simulator.pin_robot.model.nv)
+    else:
+        q0 = x0[:robot_simulator.pin_robot.model.nq]
+        dq0 = x0[robot_simulator.pin_robot.model.nv:]
+    robot_simulator.reset_state(q0, dq0)
+    robot_simulator.forward_robot(q0, dq0)
+    # To allow collisions with all parts of the robot if there is a contact surface (for contact & sanding tasks)
+    # for i in range(p.getNumJoints(robot_simulator.robotId)):
+    #     robot_simulator.bullet_endeff_ids.append(i)
+    # robot_simulator.endeff_names = [] 
+    return env, robot_simulator, base_placement
+
+
+# Load TALOS arm in PyBullet environment
+def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIWA_DEFAULT_BASE_RPY):
+    '''
+    Loads IIWA reduced arm model in PyBullet simulator
+    using the PinBullet wrapper to simplify interactions
+      INPUT:
+        dt        : simulator time step
+        x0        : initial robot state (pos and vel)
+    '''
+    # Info log
+    print("")
+    logger.info("Initializing iiwa reduced in PyBullet simulator...")
+    print("")
+    controlled_joints = ['A1', 'A2', 'A3', 'A4']
+    # Create PyBullet sim environment + initialize sumulator
+    env = BulletEnvWithGround(p.GUI, dt=dt)
+    orn_quat = p.getQuaternionFromEuler(orn)
+    base_placement = pin.XYZQUATToSE3(pos + list(orn_quat)) 
+    robot_simulator = env.add_robot(IiwaReducedRobot(controlled_joints, pos, orn_quat))
     # Initialize
     if(x0 is None):
         q0 = np.array([2., 0., 0., 0., 0., 0., 0.])

@@ -21,7 +21,7 @@ if(not found_robot_properties_kuka_pkg):
     logger.error("Either install robot_properties_talos, or directly build the pinocchio robot wrapper from URDF file.")
 
 
-SUPPORTED_ROBOTS = ['iiwa', 'talos_arm', 'talos_reduced', 'talos_full']
+SUPPORTED_ROBOTS = ['iiwa', 'iiwa_reduced', 'talos_arm', 'talos_reduced', 'talos_full']
 
 
 # Returns pinocchio robot wrapper
@@ -31,9 +31,15 @@ def load_robot_wrapper(robot_name):
     if(robot_name not in SUPPORTED_ROBOTS):
         logger.error('Unknown robot name ! Choose a robot in supported robots '+str(SUPPORTED_ROBOTS))
     else:
+        # Load full iiwa wrapper
         if(robot_name == 'iiwa'):
             from robot_properties_kuka.config import IiwaConfig
             robot = IiwaConfig.buildRobotWrapper()
+        # Load reduced iiwa wrapper
+        if(robot_name == 'iiwa_reduced'):
+            from robot_properties_kuka.config import IiwaReducedConfig
+            controlled_joints = ['A1', 'A2', 'A3', 'A4']
+            robot = IiwaReducedConfig.buildRobotWrapper(controlled_joints)
         # Load talos left arm robot wrapper
         elif(robot_name == 'talos_arm'):
             from robot_properties_talos.config import TalosArmConfig

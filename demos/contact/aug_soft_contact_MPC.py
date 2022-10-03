@@ -70,7 +70,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ee_frame_placement = robot.data.oMf[robot.model.getFrameId(frame_of_interest)]
   oMf = robot.data.oMf[id_endeff]
   # Placement of contact surface w.r.t. LOCAL frame : offset in the normal direction
-  contact_placement = ee_frame_placement.copy()
+  # import pinocchio as pin
+  contact_placement = ee_frame_placement.copy() # pin.SE3.Identity() #
+  # contact_placement.translation = np.array([0.5, 0., 0.01])
   M_ct = robot.data.oMf[id_endeff].copy()
   contact_placement.translation = contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   contactId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
@@ -79,12 +81,16 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # simulator_utils.print_dynamics_info(contactId)
   # for bid in robot_simulator.bullet_endeff_ids:
   #   simulator_utils.print_dynamics_info(robot_simulator.robotId, bid)
-  # simulator_utils.set_lateral_friction(contactId, 0.9)
+  simulator_utils.set_lateral_friction(contactId, 0.9)
   # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e6, 1e3)
-  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e4, 1e2)
+  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e4, 10)
   # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e5, 316)
   # logger.debug("dynamics of contact surface AFTER change  :")
   # simulator_utils.print_dynamics_info(contactId)
+
+  # # Warm start state = IK of circle trajectory
+  # logger.info("Computing warm-start using Inverse Kinematics...")
+  # q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, pin.SE3., DT=1e-2, IT_MAX=100)
 
   # Contact model
     # Contact model
@@ -144,6 +150,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   communicationModel = mpc_utils.CommunicationModel(config)
   actuationModel     = mpc_utils.ActuationModel(config, nu=nu)
   sensingModel       = mpc_utils.SensorModel(config, naug=softContactModel.nc)
+  velocityEstimator  = mpc_utils.VelocityEstimator(dt_simu)
 
   # # # # # # # # # # # #
   ### SIMULATION LOOP ###
@@ -196,17 +203,22 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     # Simulate actuation/sensing and step simulator (physics simulation frequency)
       # Record interpolated desired state, control and force at SIM frequency
       sim_data.record_simu_cycle_desired(i)
-      # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
-      tau_mea_SIMU = actuationModel.step(i, sim_data.u_ref_SIMU, sim_data.ctrl_des_SIMU) 
       # RICCATI GAINS TO INTERPOLATE (only state for now)
       if(config['RICCATI']):
-        # tau_mea_SIMU += ddp.K[0][:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:][:nq+nv])
-        tau_mea_SIMU += ddp.K[0].dot(ddp.problem.x0 - sim_data.state_mea_SIMU[i,:])
+        # tau_mea_SIMU = ddp.K[0][:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:][:nq+nv])
+        tau_mea_SIMU = sim_data.u_ref_SIMU + ddp.K[0].dot(ddp.problem.x0 - sim_data.state_mea_SIMU[i,:])
+      # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
+      tau_mea_SIMU = actuationModel.step(i, tau_mea_SIMU, sim_data.ctrl_des_SIMU)
+      # tau_mea_SIMU = actuationModel.step(i, sim_data.u_ref_SIMU, sim_data.ctrl_des_SIMU) if actuation BEFORE riccati?
       #  Send output of actuation torque to the RBD simulator 0
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()
       # Measure new state from simulation 
-      q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
+      if(config['FD_ESTIMATE_VELOCITY']==False):
+        q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
+      else:
+        q_mea_SIMU, _ = robot_simulator.get_state()
+        v_mea_SIMU = velocityEstimator.FD1_estimate(q_mea_SIMU)
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
       f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, softContactModel.pinRefFrame)
@@ -221,8 +233,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
 
   bench.plot_timer()
-  bench.plot_profiles()
-  bench.plot_avg_profiles()
+  # bench.plot_profiles()
+  # bench.plot_avg_profiles()
   # # # # # # # # # # #
   # PLOT SIM RESULTS  #
   # # # # # # # # # # #
