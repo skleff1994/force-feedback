@@ -119,6 +119,9 @@ class DDPDataHandlerClassical(DDPDataHandlerAbstract):
       nv = ddp_data['nv'] 
       # Extract trajectories
       x = np.array(ddp_data['xs'])
+      logger.debug("Dimensions of the reduced model : ")
+      logger.debug(str(nq))
+      logger.debug(str(nv))
       q = x[:,:nq]
       v = x[:,nq:nq+nv]
       # If state reg cost, 

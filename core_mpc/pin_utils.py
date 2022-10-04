@@ -39,7 +39,8 @@ def load_robot_wrapper(robot_name):
         if(robot_name == 'iiwa_reduced'):
             from robot_properties_kuka.config import IiwaReducedConfig
             controlled_joints = ['A1', 'A2', 'A3', 'A4']
-            robot = IiwaReducedConfig.buildRobotWrapper(controlled_joints)
+            qref = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]) 
+            robot = IiwaReducedConfig.buildRobotWrapper(controlled_joints, qref)
         # Load talos left arm robot wrapper
         elif(robot_name == 'talos_arm'):
             from robot_properties_talos.config import TalosArmConfig

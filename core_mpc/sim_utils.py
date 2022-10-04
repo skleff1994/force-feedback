@@ -1,3 +1,4 @@
+from cmath import log
 from os import link
 import numpy as np
 import pinocchio as pin
@@ -183,19 +184,23 @@ def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIW
     print("")
     logger.info("Initializing iiwa reduced in PyBullet simulator...")
     print("")
+    # HARD CODED !!!
     controlled_joints = ['A1', 'A2', 'A3', 'A4']
+    qref = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]) 
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.GUI, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
     base_placement = pin.XYZQUATToSE3(pos + list(orn_quat)) 
-    robot_simulator = env.add_robot(IiwaReducedRobot(controlled_joints, pos, orn_quat))
+    robot_simulator = env.add_robot(IiwaReducedRobot(controlled_joints, qref, pos, orn_quat))
     # Initialize
     if(x0 is None):
-        q0 = np.array([2., 0., 0., 0., 0., 0., 0.])
+        q0 = qref[:len(controlled_joints)]
         dq0 = np.zeros(robot_simulator.pin_robot.model.nv)
     else:
         q0 = x0[:robot_simulator.pin_robot.model.nq]
         dq0 = x0[robot_simulator.pin_robot.model.nv:]
+    logger.debug(q0)
+    logger.debug(dq0)
     robot_simulator.reset_state(q0, dq0)
     robot_simulator.forward_robot(q0, dq0)
     # To allow collisions with all parts of the robot if there is a contact surface (for contact & sanding tasks)
