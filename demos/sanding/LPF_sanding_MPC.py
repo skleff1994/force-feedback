@@ -85,7 +85,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Create the contact surface in PyBullet simulator 
   contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement.copy(), bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Set lateral friction coefficient of the contact surface
-  simulator_utils.set_friction_coef(contact_surface_bulletId, 0.5)
+  # simulator_utils.set_friction_coef(contact_surface_bulletId, 0.5)
+  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
 
 
 
@@ -171,7 +172,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Additional simulation blocks 
   communicationModel = mpc_utils.CommunicationModel(config)
   actuationModel     = mpc_utils.ActuationModel(config, nu, SEED=RANDOM_SEED)
-  sensingModel       = mpc_utils.SensorModel(config, nq=nq, nv=nv, ntau=n_lpf, SEED=RANDOM_SEED)
+  sensingModel       = mpc_utils.SensorModel(config, naug=n_lpf, SEED=RANDOM_SEED)
   # Display target circle  trajectory (reference)
   nb_points = 20 
   for i in range(nb_points):

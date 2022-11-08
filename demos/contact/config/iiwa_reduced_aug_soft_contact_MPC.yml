@@ -45,7 +45,7 @@ WHICH_PLOTS: ['all']                                          # which plots to 
 frame_of_interest: 'contact'
 
 # SOFT CONTACT MODEL
-oPc_offset: [0., 0., 0.05]
+oPc_offset: [0.05, 0.05, 0.05]
 Kp: 1000
 Kv: 100
 pinRefFrame: 'LOCAL'
