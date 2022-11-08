@@ -1,9 +1,11 @@
 # Description
-Several approaches toward Force feedback in Optimal Control are explored:
-- __Assuming imperfect torque actuation (a.k.a. "LPF")__
-- Relaxing the rigid contact assumption (a.k.a. "soft contact")
+Simulation scripts to test & compare several approaches toward the incorporation of Force feedback into Model Predictive Control :
+- Assuming imperfect torque actuation (a.k.a. "LPF" formulation) : it consists in modeling the actuation as a low-pass filter (LPF) on the torques in order to allow joint torque predictive feedback. See more details about this approach in our [IROS22 paper](https://hal.archives-ouvertes.fr/hal-03594295/)
+- Relaxing the rigid contact assumption (a.k.a. "soft contact" formulation) : it consists in modeling the contact force as a linear spring-damper in order to augment directly the state space (ongoing work)
 
-The first approach (submitted to IROS22) consists in modeling the actuation as a low-pass filter (LPF) on the torques in order to allow joint torque predictive feedback. It is tested on several models (KUKA iiwa, Talos) for several tasks. The core of this approach is a custom action model implemented in C++ my fork of the Crocoddyl library. 
+A "classical" closed-loop MPC is also implemented to serve as a baseline, which is described in our [ICRA21 paper](https://hal.archives-ouvertes.fr/hal-02993058).
+
+The controllers are systematically tested on several robot models (KUKA iiwa, Talos) for several tasks (reaching, contact, polishing, etc.). The core pieces of software are custom "action models" implemented in the [Sobec](https://github.com/MeMory-of-MOtion/sobec/tree/devel) library based on the optimal control solver Crocoddyl.
 
 # Dependencies
 - [robot_properties_kuka](https://github.com/machines-in-motion/robot_properties_kuka)
@@ -29,7 +31,7 @@ pip install .
 
 # How to use it
 The core and utilities for each type of MPC are available in 
-- classical_mpc : classical MPC based on position-velocity state feedback and torque control
+- classical_mpc : classical MPC based on position-velocity state feedback and torque control (baseline)
 - lpf_mpc : "LPF" MPC based on augmented state (position, velocity, torques) feedback 
 - soft_mpc : "soft" MPC based on visco-elastic contact model to allow cartesian force feedback 
 
