@@ -59,7 +59,9 @@ def main(robot_name, PLOT, DISPLAY):
         softContactModel = SoftContactModel1D(config['Kp'], config['Kv'], oPc, id_endeff, config['contactType'], config['pinRefFrame'])
     else:
         softContactModel = SoftContactModel3D(config['Kp'], config['Kv'], oPc, id_endeff, config['pinRefFrame'])
-    y0 = np.concatenate([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
+    # print(x0)
+    # print(softContactModel.computeForce_(robot.model, q0, v0))
+    y0 = np.hstack([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
 
     # # # # # # # # # 
     ### OCP SETUP ###

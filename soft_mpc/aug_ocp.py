@@ -87,6 +87,7 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
                                   softContactModel.oPc,
                                   softContactModel.pinRefFrame )
         elif(softContactModel.nc == 1):
+          softContactModel.print()
           dam = DAMSoft1DAugmented(state, 
                                   actuation, 
                                   crocoddyl.CostModelSum(state, nu=actuation.nu),

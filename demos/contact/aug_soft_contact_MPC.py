@@ -204,9 +204,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Record interpolated desired state, control and force at SIM frequency
       sim_data.record_simu_cycle_desired(i)
       # RICCATI GAINS TO INTERPOLATE (only state for now)
+      tau_mea_SIMU = sim_data.u_ref_SIMU
       if(config['RICCATI']):
         # tau_mea_SIMU = ddp.K[0][:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:][:nq+nv])
-        tau_mea_SIMU = sim_data.u_ref_SIMU + ddp.K[0].dot(ddp.problem.x0 - sim_data.state_mea_SIMU[i,:])
+        tau_mea_SIMU += ddp.K[0].dot(ddp.problem.x0 - sim_data.state_mea_SIMU[i,:])
       # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
       tau_mea_SIMU = actuationModel.step(i, tau_mea_SIMU, sim_data.ctrl_des_SIMU)
       # tau_mea_SIMU = actuationModel.step(i, sim_data.u_ref_SIMU, sim_data.ctrl_des_SIMU) if actuation BEFORE riccati?

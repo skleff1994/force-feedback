@@ -3,17 +3,17 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 100        # Control frequency
-plan_freq: 100       # Planning frequency
-T_tot: 2.            # Simu duration (s)
+ctrl_freq: 1000        # Control frequency
+plan_freq: 1000       # Planning frequency
+T_tot: 0.1            # Simu duration (s)
 # Simulation options
-DELAY_SIM: True                # Add delay in reference torques (low-level)
-DELAY_OCP: True                # Add delay in OCP solution (i.e. ~1ms resolution time)
-SCALE_TORQUES: True            # Affine scaling of reference torque
-NOISE_TORQUES: True            # Add Gaussian noise on reference torques
+DELAY_SIM: False                # Add delay in reference torques (low-level)
+DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
+SCALE_TORQUES: False            # Affine scaling of reference torque
+NOISE_TORQUES: False            # Add Gaussian noise on reference torques
 FILTER_TORQUES: False           # Moving average smoothing of reference torques
 TORQUE_TRACKING: False        # Simulate low-level torque control loop
-NOISE_STATE: True              # Add Gaussian noise on the measured state 
+NOISE_STATE: False              # Add Gaussian noise on the measured state 
 FILTER_STATE: False             # Moving average smoothing of reference torques
 SAVE_DATA: True                 # Save plot_data to npz
 RECORD_SOLVER_DATA: False       # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
@@ -22,8 +22,8 @@ init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 500                   # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['f', 'u', 'x', 'ee']
-RICCATI: True 
-FD_ESTIMATE_VELOCITY: True 
+RICCATI: False 
+FD_ESTIMATE_VELOCITY: False 
 
 # Definition of the contact surface in the simulator
 # It is aligned with the LOCAL contact frame by default

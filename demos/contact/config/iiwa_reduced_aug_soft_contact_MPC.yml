@@ -45,11 +45,11 @@ WHICH_PLOTS: ['all']                                          # which plots to 
 frame_of_interest: 'contact'
 
 # SOFT CONTACT MODEL
-oPc_offset: [0.05, 0.05, 0.05]
-Kp: 1000
-Kv: 100
+oPc_offset: [0., 0., 0.05]
+Kp: 1000.
+Kv: 100.
 pinRefFrame: 'LOCAL'
-contactType: '3D'
+contactType: '1Dz'
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'

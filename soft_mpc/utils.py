@@ -146,13 +146,13 @@ class SoftContactModel1D:
         assert(contactType in ['1Dx', '1Dy', '1Dz'])
         self.contact_type = contactType
         if(contactType == '1Dx'):
-            self.mask = [0]
+            self.mask = 0
             self.sobecType = sobec.sobec_pywrap.Vector3MaskType.x
         if(contactType == '1Dy'):
-            self.mask = [1]
+            self.mask = 1
             self.sobecType = sobec.sobec_pywrap.Vector3MaskType.y
         if(contactType == '1Dz'):
-            self.mask = [2]
+            self.mask = 2
             self.sobecType = sobec.sobec_pywrap.Vector3MaskType.z
        
     def setPinRef(self, pinRef):
@@ -197,3 +197,14 @@ class SoftContactModel1D:
             lwaXf = pin.SE3.Identity() ; lwaXf.rotation = oRf ; lwaXf.translation = np.zeros(3)
             wrench[parentId] = jMf.act(lwaXf.actInv(f6D))
         return wrench
+    
+    def print(self):
+        logger.debug("- - - - - - - - - - - - - -")
+        logger.debug("Contact model parameters")
+        logger.debug(" -> frameId : "+str(self.frameId))
+        logger.debug(" -> Kp      : "+str(self.Kp))
+        logger.debug(" -> Kv      : "+str(self.Kv))
+        logger.debug(" -> oPc     : "+str(self.oPc))
+        logger.debug(" -> pinRef  : "+str(self.pinRefFrame))
+        logger.debug(" -> mask    : "+str(self.sobecType))
+        logger.debug("- - - - - - - - - - - - - -")
