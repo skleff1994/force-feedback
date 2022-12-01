@@ -67,18 +67,30 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Placement of LOCAL end-effector frame w.r.t. WORLD frame
   frame_of_interest = config['frame_of_interest']
   id_endeff = robot.model.getFrameId(frame_of_interest)
-
-  # Contact location
-  contactTranslationTarget = np.asarray(config['contactPosition'])
-  simulator_utils.display_ball(contactTranslationTarget, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
-  # Display contact surface
-  import pinocchio as pin
-  contact_placement = pin.SE3(np.eye(3), contactTranslationTarget)
+  ee_frame_placement = robot.data.oMf[robot.model.getFrameId(frame_of_interest)]
+  oMf = robot.data.oMf[id_endeff]
+  # Placement of contact surface w.r.t. LOCAL frame : offset in the normal direction
+  # import pinocchio as pin
+  contact_placement = ee_frame_placement.copy() # pin.SE3.Identity() #
+  # contact_placement.translation = np.array([0.5, 0., 0.01])
+  M_ct = robot.data.oMf[id_endeff].copy()
+  contact_placement.translation = contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   contactId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
-  # Make the contact soft (e.g. tennis ball or sponge on the robot)
+  # Set contact surface model parameters in simulator
+  logger.debug("dynamics of contact surface BEFORE change  :")
+  # simulator_utils.print_dynamics_info(contactId)
+  # for bid in robot_simulator.bullet_endeff_ids:
+  #   simulator_utils.print_dynamics_info(robot_simulator.robotId, bid)
   simulator_utils.set_lateral_friction(contactId, 0.9)
-  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e4, 1e2)
+  # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e6, 1e3)
+  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e4, 10)
+  # simulator_utils.set_contact_stiffness_and_damping(contactId, 1e5, 316)
+  # logger.debug("dynamics of contact surface AFTER change  :")
+  # simulator_utils.print_dynamics_info(contactId)
 
+  # # Warm start state = IK of circle trajectory
+  # logger.info("Computing warm-start using Inverse Kinematics...")
+  # q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, pin.SE3., DT=1e-2, IT_MAX=100)
 
   # Contact model
     # Contact model
@@ -93,6 +105,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   y0 = np.concatenate([x0, f0[-softContactModel.nc:]])  
   # y0 = np.concatenate([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
 
+  # logger.debug("initial augmented state = ")
+  # logger.debug(str(y0))
+
+  # import time
+  # time.sleep(1)
 
   # # # # # # # # # 
   ### OCP SETUP ###
@@ -141,27 +158,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   from core_mpc.analysis_utils import MPCBenchmark
   bench = MPCBenchmark()
 
-  # Horizon in simu cycles
-  NH_SIMU   = int(config['N_h']*sim_data.dt/sim_data.dt_simu)
-  T_REACH   = int(config['T_REACH']/sim_data.dt_simu)
-  T_CONTACT = int(config['T_CONTACT']/sim_data.dt_simu)
-  OCP_TO_MPC_CYCLES = 1./(sim_data.dt_plan / config['dt'])
-  OCP_TO_SIMU_CYCLES = 1./(sim_data.dt_simu / config['dt'])
-  logger.debug("Size of MPC horizon in simu cycles = "+str(NH_SIMU))
-  logger.debug("Start of reaching phase in simu cycles = "+str(T_REACH))
-  logger.debug("Start of contact phase in simu cycles = "+str(T_CONTACT))
-  logger.debug("Start of contact phase in simu cycles = "+str(OCP_TO_MPC_CYCLES))
-
-  # Deactivate all costs & contact models initially !!!
-  models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-  for k,m in enumerate(models):
-    # m.differential.active_contact = False
-    m.differential.Kp = 0.
-    m.differential.Kv = 0.
-    m.differential.costs.costs["translation"].active = True
-
-
-
   # SIMULATE
   for i in range(sim_data.N_simu): 
 
@@ -169,47 +165,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
         print('')
         logger.info("SIMU step "+str(i)+"/"+str(sim_data.N_simu))
         print('')
-
-
-      # If tracking phase enters the MPC horizon, start updating models from the end with tracking models      
-      if(i >= T_REACH and i <= T_REACH + NH_SIMU):
-        # print(int(T_REACH-i))
-        # If current time matches an OCP node 
-        if(int(T_REACH - i)%OCP_TO_SIMU_CYCLES == 0):
-          # Select IAM
-          if(int(T_REACH - i) == 0):
-            logger.debug("Update terminal model to TRACKING")
-            ddp.problem.terminalModel.differential.costs.costs["translation"].active = True
-            ddp.problem.terminalModel.differential.costs.costs["translation"].cost.residual.reference = contactTranslationTarget
-          else:
-            node_idx = config['N_h'] + int((T_REACH - i)/OCP_TO_SIMU_CYCLES)
-            # logger.debug("Update running model "+str(node_idx)+" to TRACKING ")
-            ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].active = True
-            ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.residual.reference = contactTranslationTarget
-
-
-      # If contact phase enters horizon start updating models from the the end with contact models
-      if(i >= T_CONTACT and i <= T_CONTACT + NH_SIMU):
-        # print(int(T_CONTACT-i))	
-        # If current time matches an OCP node 
-        if(int(T_CONTACT - i)%OCP_TO_SIMU_CYCLES == 0):
-          # Select IAM
-          if (int(T_CONTACT - i) == 0):
-            logger.debug("Update terminal model to CONTACT")
-            # ddp.problem.terminalModel.differential.active_contact = True
-            ddp.problem.terminalModel.differential.Kp = config['Kp']
-            ddp.problem.terminalModel.differential.Kv = config['Kv']
-          else:
-            node_idx = config['N_h'] + int((T_CONTACT - i)/OCP_TO_SIMU_CYCLES)
-            # logger.debug("Update running model "+str(node_idx)+" to CONTACT ")
-            # ddp.problem.runningModels[node_idx].differential.costs.costs["force"].active = True
-            # ddp.problem.runningModels[node_idx].differential.costs.costs["stateReg"].cost.residual.reference = np.concatenate([qref, np.zeros(nv)])
-            # ddp.problem.runningModels[node_idx].differential.costs.costs["friction"].active = True
-            # ddp.problem.runningModels[node_idx].differential.active_contact = True
-            ddp.problem.runningModels[node_idx].differential.Kp = config['Kp']
-            ddp.problem.runningModels[node_idx].differential.Kv = config['Kv']
-            # ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.weight = 10
-
 
     # Solve OCP if we are in a planning cycle (MPC/planning frequency)
       if(i%int(sim_data.simu_freq/sim_data.plan_freq) == 0):
