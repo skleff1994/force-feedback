@@ -78,7 +78,7 @@ class OptimalControlProblemAbstract:
     contactModelGains = np.asarray(contact_config['contactModelGains'])
     contactModelFrameName = contact_config['contactModelFrameName']
     contactModelFrameId = self.rmodel.getFrameId(contactModelFrameName)
-    contactModelTranslationRef = contact_config['contactModelTranslationRef']
+    contactModelTranslationRef = np.asarray(contact_config['contactModelTranslationRef'])
     contactModelRotationRef = contact_config['contactModelRotationRef']
     contactModelType = contact_config['contactModelType']
 
@@ -309,6 +309,7 @@ class OptimalControlProblemAbstract:
       frameTranslationRef = self.rdata.oMf[frameTranslationFrameId].translation.copy()
     else:
       frameTranslationRef = np.asarray(self.frameTranslationRef)
+      logger.debug(str(frameTranslationRef))
     if(hasattr(self, 'frameTranslationWeights')): 
       frameTranslationWeights = np.asarray(self.frameTranslationWeights)
       frameTranslationActivation = crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2)
@@ -444,6 +445,7 @@ class OptimalControlProblemAbstract:
     self.check_attribute('frictionConeFrameName')
     self.check_attribute('mu')
     self.check_attribute('frictionConeWeight')
+    # self.check_attribute('frictioncon')
     # nsurf = cone_rotation.dot(np.matrix(np.array([0, 0, 1])).T)
     mu = self.mu
     frictionConeFrameId = self.rmodel.getFrameId(self.frictionConeFrameName)  
@@ -453,7 +455,7 @@ class OptimalControlProblemAbstract:
     normal = cone_placement.rotation.T.dot(np.array([0.,0.,1.]))
     # cone_rotation = cone_placement.rotation.dot(pin.utils.rpyToMatrix(+np.pi, 0., 0.))
     # cone_rotation = self.rdata.oMf[frictionConeFrameId].rotation.copy() #contactModelPlacementRef.rotation
-    frictionCone = crocoddyl.FrictionCone(normal, mu, 4, False) #, 0, 1000)
+    frictionCone = crocoddyl.FrictionCone(np.eye(3), mu, 4, False) #, 0, 1000)
     frictionConeCost = crocoddyl.CostModelResidual(state,
                                                   crocoddyl.ActivationModelQuadraticBarrier(crocoddyl.ActivationBounds(frictionCone.lb , frictionCone.ub)),
                                                   crocoddyl.ResidualModelContactFrictionCone(state, frictionConeFrameId, frictionCone, actuation.nu))
