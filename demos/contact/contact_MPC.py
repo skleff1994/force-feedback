@@ -64,18 +64,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   nq, nv = robot.model.nq, robot.model.nv; nu = nq
   # Placement of LOCAL end-effector frame w.r.t. WORLD frame
   id_endeff = robot.model.getFrameId(config['frame_of_interest'])
-  # ee_frame_placement = robot.data.oMf[robot.model.getFrameId(config['frame_of_interest'])]
   
   # Contact location
   contactTranslationTarget = np.asarray(config['contactPosition'])
   simulator_utils.display_ball(contactTranslationTarget, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
   # Display contact surface
-  # contact_placement = ee_frame_placement.copy()
-  # contact_placement.rotation 
-  # M_ct = robot.data.oMf[id_endeff].copy()
   import pinocchio as pin
   contact_placement = pin.SE3(np.eye(3), contactTranslationTarget)
-  # contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
   contactId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
   simulator_utils.set_lateral_friction(contactId, 0.9)
@@ -140,6 +135,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     m.differential.costs.costs["translation"].active = True
     m.differential.contacts.changeContactStatus("contact", False)
 
+
+
   # SIMULATE
   for i in range(sim_data.N_simu): 
 
@@ -160,10 +157,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
             ddp.problem.terminalModel.differential.costs.costs["translation"].cost.residual.reference = contactTranslationTarget
           else:
             node_idx = config['N_h'] + int((T_REACH - i)/OCP_TO_SIMU_CYCLES)
-            logger.debug("Update running model "+str(node_idx)+" to TRACKING ")
+            # logger.debug("Update running model "+str(node_idx)+" to TRACKING ")
             ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].active = True
             ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.residual.reference = contactTranslationTarget
-	
+      
+      # # Record new state reg 
+      # if(i == T_CONTACT):
+      #   qref = sim_data.state_mea_SIMU[i, :nq]
+
       # If contact phase enters horizon start updating models from the the end with contact models
       if(i >= T_CONTACT and i <= T_CONTACT + NH_SIMU):
         # print(int(T_CONTACT-i))	
@@ -176,97 +177,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
             ddp.problem.terminalModel.differential.contacts.changeContactStatus("contact", True)
           else:
             node_idx = config['N_h'] + int((T_CONTACT - i)/OCP_TO_SIMU_CYCLES)
-            logger.debug("Update running model "+str(node_idx)+" to CONTACT ")
+            # logger.debug("Update running model "+str(node_idx)+" to CONTACT ")
             ddp.problem.runningModels[node_idx].differential.costs.costs["force"].active = True
+            # ddp.problem.runningModels[node_idx].differential.costs.costs["stateReg"].cost.residual.reference = np.concatenate([qref, np.zeros(nv)])
             # ddp.problem.runningModels[node_idx].differential.costs.costs["friction"].active = True
             ddp.problem.runningModels[node_idx].differential.contacts.changeContactStatus("contact", True)
-            ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.weight = 10
-
-          # Activate contact and force cost + update force residual reference in LOCAL frame 
-          # contact force reference is expressed in LOCAL contact frame, which is supposed to be aligned with WORLD at contact
-
- 	
-    #     // If time of switch;  set target position (x,y) to current one to stabilize contact
-    #     // And get create a new frame aligned with WORLD to keep vertical axis aligned while drawing circle
-    #     if(iteration_ == TIME_CONTACT_ + MPC_HORIZON_IN_MPC_CYCLES_){
-    #         // New target to stabilize frame translation in contact in x,y, plane (z weight is 0 and force acts along z anyway)
-    #         target_position_in_contact = pin_data_.oMf[end_effector_frame_id_].translation(); // ref = current translation 
-    #         //target_rotation_ = pin_data_.oMf[end_effector_frame_id_].rotation();    // reference orientation = current orientation 
-    #         target_rotation_ = Eigen::Matrix3d::Identity();               // contactFramePlacementWORLD reference orientation = Identity in WORLD
-    #         target_rotation_quat_ = Eigen::Quaterniond(target_rotation_);
-    #         target_rotation_vec_ = target_rotation_quat_.vec();
-    #         target_rotation_w_ = target_rotation_quat_.w();
-    #     }
-
-
-    #     // If we are in contact, update contact force residual reference and record current force reference
-    #     // Also activate quadratic cost translation to stabilize (x,y) and orientation cost to keep aligned with WORLD 
-    #     if(iteration_ >= TIME_CONTACT_ + MPC_HORIZON_IN_MPC_CYCLES_){                      
-    #         // Update all nodes of the OCP at once with current force reference
-    #         for(size_t k=0; k < horizon_length_ +1 ; k++){
-    #             // update target position on the table
-    #             if (k == horizon_length_) {
-    #                 IAM_ = boost::static_pointer_cast< crocoddyl::IntegratedActionModelEuler > (ddp_->get_problem()->get_terminalModel());
-    #             }
-    #             else{
-    #                 IAM_ = boost::static_pointer_cast< crocoddyl::IntegratedActionModelEuler > (ddp_->get_problem()->get_runningModels()[k]);
-    #             }
-    #             DAM_ = boost::static_pointer_cast< sobec::newcontacts::DifferentialActionModelContactFwdDynamics > (IAM_->get_differential());
-    #             // Update reference force 
-    #             contactForceResidual_ = boost::static_pointer_cast<sobec::newcontacts::ResidualModelContactForce>(DAM_->get_costs()->get_costs().at("force")->cost->get_residual());
-    #             contactForceResidual_->set_reference(pin_data_.oMf[end_effector_frame_id_].actInv(force_reference_));
-		#         // Activate rotation cost , set reference 
-    #             DAM_->get_costs()->changeCostStatus("rotation", true);
-    #             frameRotationResidual_ = boost::static_pointer_cast<crocoddyl::ResidualModelFrameRotation >(DAM_->get_costs()->get_costs().at("rotation")->cost->get_residual());
-    #             frameRotationResidual_->set_reference(target_rotation_);
-    #             // Activate frame translation cost to remain in place 
-    #             DAM_->get_costs()->changeCostStatus("circleTracking", true);
-    #             frameTranslationResidual_ = boost::static_pointer_cast<crocoddyl::ResidualModelFrameTranslation >(DAM_->get_costs()->get_costs().at("circleTracking")->cost->get_residual());
-    #             frameTranslationResidual_->set_reference(target_position_in_contact);
-    #         }
-    #         // Record current force reference 
-    #         pinocchio::Force ref_force(contactForceResidual_->get_reference());
-    #         ref_force_linear_ = ref_force.linear_impl();
-    #         ref_force_angular_ = ref_force.angular_impl();
-    #     }
-
-    #     // If total time enters the MPC horizon, start updating models from the end with tracking models to go back to initial position
-    #     if (iteration_ >= TOTAL_TIME_ and iteration_ <= TOTAL_TIME_ + MPC_HORIZON_IN_MPC_CYCLES_) {
-    #         // If current time matches an OCP node 
-    #         if((TOTAL_TIME_ - iteration_)%ocp_to_mpc_cycles_ == 0) {
-    #             // Select IAM
-    #             if (TOTAL_TIME_ - iteration_ == 0) {
-    #                 //ROS_INFO_STREAM("Update terminal model to TRACKING");
-    #                 IAM_ = boost::static_pointer_cast< crocoddyl::IntegratedActionModelEuler > (ddp_->get_problem()->get_terminalModel());
-    #             }
-    #             else {
-    #                 node_index_ = horizon_length_ + (int)(TOTAL_TIME_ - iteration_)*mpc_to_ocp_cycles_;
-    #                 //ROS_INFO_STREAM("Update running model " << node_index_ << " to TRACKING ");
-    #                 IAM_ = boost::static_pointer_cast< crocoddyl::IntegratedActionModelEuler > (ddp_->get_problem()->get_runningModels()[node_index_]);
-    #             }
-    #             DAM_ = boost::static_pointer_cast< sobec::newcontacts::DifferentialActionModelContactFwdDynamics > (IAM_->get_differential());
-    #             // Deactivate contact model and force cost
-    #             DAM_->get_contacts()->changeContactStatus(pin_model_.frames[end_effector_frame_id_].name + "_contact", false);
-    #             DAM_->get_costs()->changeCostStatus("force", false);
-    #             // Activate cost reaching and deactivate cost tracking
-    #             DAM_->get_costs()->changeCostStatus("tableReaching", true);
-    #             DAM_->get_costs()->changeCostStatus("circleTracking", false);
-    #             // Update reference of frame translation residual
-    #             frameTranslationResidual_ = boost::static_pointer_cast<crocoddyl::ResidualModelFrameTranslation >(DAM_->get_costs()->get_costs().at("tableReaching")->cost->get_residual());
-    #             frameTranslationResidual_->set_reference(initial_target_position);
-    #             DAM_->get_costs()->get_costs().at("tableReaching")->weight = frameTranslationWeightGoBack_;
-    #         }
-		# }
-
-
-    #     // Record current force ref to 0 once contact is broken
-    #     if(iteration_ == TOTAL_TIME_ + MPC_HORIZON_IN_MPC_CYCLES_){
-    #         pinocchio::Force ref_force(pinocchio::Force::Zero());
-    #         ref_force_linear_ = ref_force.linear_impl();
-    #         ref_force_angular_ = ref_force.angular_impl();
-    #     }
-
-
+            # ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.weight = 10
 
 
     # Solve OCP if we are in a planning cycle (MPC/planning frequency)
@@ -341,7 +257,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                                       SAVE=False,
                                       SAVE_DIR=save_dir,
                                       SAVE_NAME=save_name,
-                                      AUTOSCALE=True)
+                                      AUTOSCALE=False)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)

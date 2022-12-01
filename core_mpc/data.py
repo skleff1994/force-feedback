@@ -1018,7 +1018,7 @@ class MPCDataHandlerAbstract:
                             pred_plot_sampling=100, 
                             SAVE=False, SAVE_DIR=None, SAVE_NAME=None,
                             SHOW=True,
-                            AUTOSCALE=True):
+                            AUTOSCALE=False):
       '''
       Plot EE force data
       Input:

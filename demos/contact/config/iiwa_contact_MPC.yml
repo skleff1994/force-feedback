@@ -3,9 +3,9 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 250        # Control frequency
-plan_freq: 250       # Planning frequency
-T_tot: 20.             # Simu duration (s)
+ctrl_freq: 100        # Control frequency
+plan_freq: 100       # Planning frequency
+T_tot: 10.             # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
 DELAY_OCP: False                # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -15,19 +15,19 @@ FILTER_TORQUES: False           # Moving average smoothing of reference torques
 TORQUE_TRACKING: False        # Simulate low-level torque control loop
 NOISE_STATE: False              # Add Gaussian noise on the measured state 
 FILTER_STATE: False             # Moving average smoothing of reference torques
-SAVE_DATA: False                 # Save plot_data to npz
+SAVE_DATA: True                 # Save plot_data to npz
 RECORD_SOLVER_DATA: False       # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
 INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 500                   # Display sim status once very 'log_rate' sim cycles
-WHICH_PLOTS: ['f']
+WHICH_PLOTS: ['all']
 RICCATI: True
 
 # Start of the reaching phase
 T_REACH: 1.
 # Start of the contact phase
-T_CONTACT: 3.
+T_CONTACT: 5.
 
 # Definition of the contact surface in the simulator
 # It is aligned with the LOCAL contact frame by default
@@ -56,31 +56,31 @@ contacts:
       contactModelFrameName: 'contact',     # frame name in pinocchio model
       pinocchioReferenceFrame: 'LOCAL_WORLD_ALIGNED',     # LOCAL, WORLD, LOCAL_WORLD_ALIGNED
       contactModelType: '3D',               # 1Dx, 1Dy, 1Dz, 3D, 6D
-      contactModelTranslationRef: [0.7, 0.0, 0.0],       # 3d vector
+      contactModelTranslationRef: '', #[0.7, 0.0, 0.0],       # 3d vector
       contactModelRotationRef: '',          # 3d matrix
-      contactModelGains: [10, 50],           # Baumgarte stabilization gains
-      active: True                          # Initially active? 
+      contactModelGains: [0, 50],           # Baumgarte stabilization gains
+      active: False                          # Initially active? 
     }
 
-contactPosition: [0.7, 0.0, 0.0]
+contactPosition: [0.6, 0.0, 0.01]
 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['stateReg', 'force', 'translation', 'ctrlRegGrav', 'stateLim'] 
+WHICH_COSTS: ['stateReg', 'force', 'translation', 'ctrlRegGrav'] 
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeights:  [1., 1., 1., 0, 0, 0.]
+frameForceWeights:  [1, 1, 1., 0, 0, 0.]
 frameForceWeight: 50
 frameForceRef: [0., 0., 50, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
- # 'friction' : end-effector frame friction cone 
-mu:  0.9
-frictionConeWeight: 5.
-frictionConeFrameName: 'contact'
+#  # 'friction' : end-effector frame friction cone 
+# mu:  0.9
+# frictionConeWeight: 5.
+# frictionConeFrameName: 'contact'
 
 
  # 'stateReg' : state regularization  
@@ -91,7 +91,7 @@ stateRegRef: 'DEFAULT'
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.001
+ctrlRegWeight: 0.0001
 ctrlRegRef: 'DEFAULT' # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
