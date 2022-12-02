@@ -113,7 +113,10 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
           uRegCost = self.create_ctrl_reg_cost(state)
           runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, self.ctrlRegWeight)
         # Control regularization (gravity)
-          # not supported yet
+        if('ctrlRegGrav' in self.WHICH_COSTS):
+          self.nb_contacts = 1
+          uRegCostGrav = self.create_ctrl_reg_grav_cost(state)
+          runningModels[i].differential.costs.addCost("ctrlRegGrav", uRegCostGrav, self.ctrlRegWeight)
         # State limits penalization
         if('stateLim' in self.WHICH_COSTS):
           xLimitCost = self.create_state_limit_cost(state, actuation)
@@ -146,11 +149,11 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
             forceRef = np.asarray(self.frameForceRef)[softContactModel.mask]
           runningModels[i].differential.set_force_cost(forceRef, self.frameForceWeight)
 
-      # Armature 
-        # Add armature to current IAM
-        if(self.armature == 'DEFAULT'):
-          self.armature = self.rmodel.rotorInertia / (self.rmodel.rotorGearRatio**2)
-        runningModels[i].differential.armature = np.asarray(self.armature)
+      # # Armature 
+      #   # Add armature to current IAM
+      #   if(self.armature == 'DEFAULT'):
+      #     self.armature = self.rmodel.rotorInertia / (self.rmodel.rotorGearRatio**2)
+      #   runningModels[i].differential.armature = np.asarray(self.armature)
 
   # Terminal DAM (Contact or FreeFwd)
     # Create terminal DAMContactDyn
@@ -206,7 +209,7 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
       terminalModel.differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeightTerminal*self.dt)
         
   # Add armature
-    terminalModel.differential.armature = np.asarray(self.armature)   
+    # terminalModel.differential.armature = np.asarray(self.armature)   
 
     logger.info("Created IAMs.")  
 

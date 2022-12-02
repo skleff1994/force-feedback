@@ -77,7 +77,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   contactId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
   simulator_utils.set_lateral_friction(contactId, 0.9)
-  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e4, 1e2)
+  simulator_utils.set_contact_stiffness_and_damping(contactId, 1e6, 1e3)
 
 
   # Contact model
@@ -89,26 +89,40 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   else:
       softContactModel = SoftContactModel3D(config['Kp'], config['Kv'], oPc, id_endeff, config['pinRefFrame'])
 
+  # Measure initial force in pybullet
   f0 = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, softContactModel.pinRefFrame)
   y0 = np.concatenate([x0, f0[-softContactModel.nc:]])  
-  # y0 = np.concatenate([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
-
+  # Get corresponding external torques
+  f_ext0 = pin_utils.get_external_joint_torques(contact_placement, f0, robot)   
+  # # Visco-elastic prediction (model)
+  # f_ext0 = softContactModel.computeExternalWrench(robot.model, robot.data)   
 
   # # # # # # # # # 
   ### OCP SETUP ###
   # # # # # # # # #
-  # Compute initial external wrench for each joint
-  # f_ext0 = softContactModel.computeExternalWrench(robot.model, robot.data)    # Visco-elastic prediction (model)
-  f_ext0 = pin_utils.get_external_joint_torques(contact_placement, f0, robot)   # Measured in PyBullet initially
+  # Compute initial gravity compensation torque torque   
   u0 = pin_utils.get_tau(q0, v0, np.zeros(nq), f_ext0, robot.model, np.zeros(nq))
-  config['ctrlRegRef'] = np.zeros(nu) # u0
   # Setup Croco OCP and create solver
   ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=False) #True)
+  
+  # !!! Deactivate all costs & contact models initially !!!
+  models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+  for k,m in enumerate(models):
+    m.differential.active_contact = False
+    # logger.info("set DAM.active_contact "+str(k)+" to "+str(m.differential.active_contact))
+  # Tell DAMs that there is a gravity cost residual
+  config['ctrlRegRef'] = u0
+  if('ctrlRegGrav' in config['WHICH_COSTS']):
+    for k,m in enumerate(models):
+      m.differential.with_gravity_torque_reg = True
+      m.differential.tau_grav_weight = 2*config['ctrlRegWeight']
+      # logger.info("set DAM.gravity_reg "+str(k)+" to "+str(m.differential.with_gravity_torque_reg))
+      # logger.info("set DAM.weight "+str(k)+" to "+str(m.differential.tau_grav_weight))
+
   # Warmstart and solve
   xs_init = [y0 for i in range(config['N_h']+1)]
   us_init = [u0 for i in range(config['N_h'])]
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-  
 
   if(PLOT_INIT):
     #  Plot
@@ -117,9 +131,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                         colors=['r'], 
                                                         markers=['.'], 
-                                                        SHOW=True)
-  
-  
+                                                        SHOW=True)  
   
   # # # # # # # # # # #
   ### INIT MPC SIMU ###
@@ -151,16 +163,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   logger.debug("Start of reaching phase in simu cycles = "+str(T_REACH))
   logger.debug("Start of contact phase in simu cycles = "+str(T_CONTACT))
   logger.debug("Start of contact phase in simu cycles = "+str(OCP_TO_MPC_CYCLES))
-
-  # Deactivate all costs & contact models initially !!!
-  models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-  for k,m in enumerate(models):
-    # m.differential.active_contact = False
-    m.differential.Kp = 0.
-    m.differential.Kv = 0.
-    m.differential.costs.costs["translation"].active = True
-
-
 
   # SIMULATE
   for i in range(sim_data.N_simu): 
@@ -196,19 +198,19 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           # Select IAM
           if (int(T_CONTACT - i) == 0):
             logger.debug("Update terminal model to CONTACT")
-            # ddp.problem.terminalModel.differential.active_contact = True
-            ddp.problem.terminalModel.differential.Kp = config['Kp']
-            ddp.problem.terminalModel.differential.Kv = config['Kv']
+            ddp.problem.terminalModel.differential.active_contact = True
+            # ddp.problem.terminalModel.differential.Kp = config['Kp']
+            # ddp.problem.terminalModel.differential.Kv = config['Kv']
           else:
             node_idx = config['N_h'] + int((T_CONTACT - i)/OCP_TO_SIMU_CYCLES)
             # logger.debug("Update running model "+str(node_idx)+" to CONTACT ")
             # ddp.problem.runningModels[node_idx].differential.costs.costs["force"].active = True
             # ddp.problem.runningModels[node_idx].differential.costs.costs["stateReg"].cost.residual.reference = np.concatenate([qref, np.zeros(nv)])
             # ddp.problem.runningModels[node_idx].differential.costs.costs["friction"].active = True
-            # ddp.problem.runningModels[node_idx].differential.active_contact = True
-            ddp.problem.runningModels[node_idx].differential.Kp = config['Kp']
-            ddp.problem.runningModels[node_idx].differential.Kv = config['Kv']
-            # ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.weight = 10
+            ddp.problem.runningModels[node_idx].differential.active_contact = True
+            # ddp.problem.runningModels[node_idx].differential.Kp = config['Kp']
+            # ddp.problem.runningModels[node_idx].differential.Kv = config['Kv']
+            ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.weight = 1
 
 
     # Solve OCP if we are in a planning cycle (MPC/planning frequency)
