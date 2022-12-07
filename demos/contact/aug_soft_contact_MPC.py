@@ -213,12 +213,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
             # ddp.problem.runningModels[node_idx].differential.Kv = config['Kv']
             # ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.weight = 10
 
-      # If we are fully inside the contact phase, update nodes 1 by 1
-      if(i >= T_CONTACT + NH_SIMU):
-        node_idx = config['N_h'] - int((i - (T_CONTACT - NH_SIMU))/OCP_TO_SIMU_CYCLES)
-          ddp.problem.terminalModel.differential.force_weight = ocp_utils.cost_weight_linear(node_idx, node_idx, min_weight=0., max_weight=100)
-        else:
-          ddp.problem.runningModels[k].differential.force_weight = ocp_utils.cost_weight_linear(node_idx, node_idx, min_weight=0., max_weight=100)
+      # # If we are fully inside the contact phase, update nodes 1 by 1
+      # if(i >= T_CONTACT + NH_SIMU):
+      #   node_idx = config['N_h'] - int((i - (T_CONTACT - NH_SIMU))/OCP_TO_SIMU_CYCLES)
+      #   if()
+      #   ddp.problem.terminalModel.differential.force_weight = ocp_utils.cost_weight_linear(node_idx, node_idx, min_weight=0., max_weight=100)
+      #   else:
+      #     ddp.problem.runningModels[k].differential.force_weight = ocp_utils.cost_weight_linear(node_idx, node_idx, min_weight=0., max_weight=100)
 
 
     # Solve OCP if we are in a planning cycle (MPC/planning frequency)

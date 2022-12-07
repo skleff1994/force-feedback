@@ -8,16 +8,17 @@ for (root, _, files) in walk(path.join("demos")):
     for demo_file in files:
         if('yml' not in demo_file):
             scripts_list.append(path.join(root, demo_file))
-# print(scripts_list)
+print(find_packages(include=['core_mpc', 
+                             'soft_mpc', 
+                             'classical_mpc', 
+                             'lpf_mpc']))
 setup(
     name=package_name,
     version="1.0.0",
-    package_dir={package_name: path.join('.')},
-    # packages=[package_name],
-    packages=find_packages(include=['core_mpc', 'soft_mpc', 'classical_mpc', 'lpf_mpc']),
-    # package_data={package_name: resources},
-    # data_files=data_files_to_install,
-    # scripts=scripts_list,
+    package_dir={
+        "": "python",
+    },
+    packages=find_packages(where="python"),
     install_requires=["setuptools", 
                       "pybullet", 
                       "importlib_resources",
