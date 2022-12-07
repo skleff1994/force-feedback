@@ -114,10 +114,9 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
           runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, self.ctrlRegWeight)
         # Control regularization (gravity)
         if('ctrlRegGrav' in self.WHICH_COSTS):
-          self.nb_contacts = 1
-          uRegCostGrav = self.create_ctrl_reg_grav_cost(state)
-          runningModels[i].differential.costs.addCost("ctrlRegGrav", uRegCostGrav, self.ctrlRegWeight)
-        # State limits penalization
+          runningModels[i].differential.with_gravity_torque_reg = True
+          runningModels[i].differential.tau_grav_weight = self.ctrlRegWeight
+        # State limits penalizationself.
         if('stateLim' in self.WHICH_COSTS):
           xLimitCost = self.create_state_limit_cost(state, actuation)
           runningModels[i].differential.costs.addCost("stateLim", xLimitCost, self.stateLimWeight)
@@ -207,7 +206,13 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
     if('rotation' in self.WHICH_COSTS):
       frameRotationCost = self.create_frame_rotation_cost(state, actuation)
       terminalModel.differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeightTerminal*self.dt)
-        
+    # Frame force cost
+    if('force' in self.WHICH_COSTS):
+      if(softContactModel.nc == 3):
+        forceRef = np.asarray(self.frameForceRef)[:3]
+      else:
+        forceRef = np.asarray(self.frameForceRef)[softContactModel.mask]
+      terminalModel.differential.set_force_cost(forceRef, self.frameForceWeight)
   # Add armature
     # terminalModel.differential.armature = np.asarray(self.armature)   
 

@@ -20,7 +20,6 @@ imperfect actuation (bias, noise, delays) at higher frequency
 
 
 import sys
-from turtle import color
 sys.path.append('.')
 
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
@@ -31,6 +30,7 @@ import numpy as np
 np.set_printoptions(precision=4, linewidth=180)
 
 from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
+from core_mpc import ocp as ocp_utils
 
 from soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented
 from soft_mpc.aug_data import DDPDataHandlerSoftContactAugmented, MPCDataHandlerSoftContactAugmented
@@ -111,11 +111,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     m.differential.active_contact = False
     # logger.info("set DAM.active_contact "+str(k)+" to "+str(m.differential.active_contact))
   # Tell DAMs that there is a gravity cost residual
-  config['ctrlRegRef'] = u0
-  if('ctrlRegGrav' in config['WHICH_COSTS']):
-    for k,m in enumerate(models):
-      m.differential.with_gravity_torque_reg = True
-      m.differential.tau_grav_weight = 2*config['ctrlRegWeight']
+  # config['ctrlRegRef'] = u0
+  # if('ctrlRegGrav' in config['WHICH_COSTS']):
+  #   for k,m in enumerate(models):
+  #     m.differential.with_gravity_torque_reg = True
+  #     m.differential.tau_grav_weight = config['ctrlRegWeight']
       # logger.info("set DAM.gravity_reg "+str(k)+" to "+str(m.differential.with_gravity_torque_reg))
       # logger.info("set DAM.weight "+str(k)+" to "+str(m.differential.tau_grav_weight))
 
@@ -174,7 +174,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
 
       # If tracking phase enters the MPC horizon, start updating models from the end with tracking models      
-      if(i >= T_REACH and i <= T_REACH + NH_SIMU):
+      if(i >= T_REACH and i < T_REACH + NH_SIMU):
         # print(int(T_REACH-i))
         # If current time matches an OCP node 
         if(int(T_REACH - i)%OCP_TO_SIMU_CYCLES == 0):
@@ -189,9 +189,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
             ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].active = True
             ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.residual.reference = contactTranslationTarget
 
+      # if(i == T_CONTACT):
+      #   qref = sim_data.state_mea_SIMU[i, :nq]
 
       # If contact phase enters horizon start updating models from the the end with contact models
-      if(i >= T_CONTACT and i <= T_CONTACT + NH_SIMU):
+      if(i >= T_CONTACT and i < T_CONTACT + NH_SIMU):
         # print(int(T_CONTACT-i))	
         # If current time matches an OCP node 
         if(int(T_CONTACT - i)%OCP_TO_SIMU_CYCLES == 0):
@@ -199,18 +201,24 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           if (int(T_CONTACT - i) == 0):
             logger.debug("Update terminal model to CONTACT")
             ddp.problem.terminalModel.differential.active_contact = True
-            # ddp.problem.terminalModel.differential.Kp = config['Kp']
-            # ddp.problem.terminalModel.differential.Kv = config['Kv']
           else:
             node_idx = config['N_h'] + int((T_CONTACT - i)/OCP_TO_SIMU_CYCLES)
             # logger.debug("Update running model "+str(node_idx)+" to CONTACT ")
-            # ddp.problem.runningModels[node_idx].differential.costs.costs["force"].active = True
+            ddp.problem.runningModels[node_idx].differential.active_contact = True
+            ddp.problem.runningModels[node_idx].differential.force_weight = ocp_utils.cost_weight_linear(config['N_h'] - node_idx, config['N_h'], min_weight=0., max_weight=100)
+            # ddp.problem.runningModels[node_idx].differential.force_weight = ocp_utils.cost_weight_tanh(config['N_h'] - node_idx, config['N_h'], max_weight=50, alpha=10, alpha_cut=0.5)
             # ddp.problem.runningModels[node_idx].differential.costs.costs["stateReg"].cost.residual.reference = np.concatenate([qref, np.zeros(nv)])
             # ddp.problem.runningModels[node_idx].differential.costs.costs["friction"].active = True
-            ddp.problem.runningModels[node_idx].differential.active_contact = True
             # ddp.problem.runningModels[node_idx].differential.Kp = config['Kp']
             # ddp.problem.runningModels[node_idx].differential.Kv = config['Kv']
-            ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.weight = 1
+            # ddp.problem.runningModels[node_idx].differential.costs.costs["translation"].cost.weight = 10
+
+      # If we are fully inside the contact phase, update nodes 1 by 1
+      if(i >= T_CONTACT + NH_SIMU):
+        node_idx = config['N_h'] - int((i - (T_CONTACT - NH_SIMU))/OCP_TO_SIMU_CYCLES)
+          ddp.problem.terminalModel.differential.force_weight = ocp_utils.cost_weight_linear(node_idx, node_idx, min_weight=0., max_weight=100)
+        else:
+          ddp.problem.runningModels[k].differential.force_weight = ocp_utils.cost_weight_linear(node_idx, node_idx, min_weight=0., max_weight=100)
 
 
     # Solve OCP if we are in a planning cycle (MPC/planning frequency)

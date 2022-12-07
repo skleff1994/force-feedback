@@ -29,7 +29,7 @@ FD_ESTIMATE_VELOCITY: False
 # Start of the reaching phase
 T_REACH: 1.
 # Start of the contact phase
-T_CONTACT: 3.
+T_CONTACT: 4.
 
 
 # General
@@ -49,7 +49,7 @@ frame_of_interest: 'contact'
 # SOFT CONTACT MODEL
 oPc_offset: [0., 0., 0.]
 Kp: 10000 #1000000
-Kv: 320 #2000 #320 #65.
+Kv: 316 #2000 #320 #65.
 pinRefFrame: 'LOCAL_WORLD_ALIGNED'
 contactType: '3D' 
 contactPosition: [0.6, 0.0, 0.01]
@@ -57,12 +57,12 @@ contactPosition: [0.6, 0.0, 0.01]
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement'
-WHICH_COSTS: ['force', 'translation', 'stateReg', 'ctrlReg']  
+WHICH_COSTS: ['force', 'translation', 'stateReg', 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 # frameForceWeights:  [1., 1., 1., 0., 0., 0.]
-frameForceWeight: 100
+frameForceWeight: 10
 frameForceRef: [0., 0., 50, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
