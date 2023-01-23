@@ -317,7 +317,6 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, bullet_endeff_
       robotId        : id of the robot in simulator
       radius         : radius of cylinder
       length         : length of cylinder
-      with_collision : robot can collide with surface if True, cannot otherwise
       TILT           : RPY tilt of the surface
     '''
     logger.info("Creating PyBullet contact surface...")
@@ -348,12 +347,12 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, bullet_endeff_
                     
       # Desactivate collisions for all links
       for i in range(p.getNumJoints(robotId)):
-            p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
-            # p.setCollisionFilterPair(contactId, robotId, -1, i, 0)
-      # activate collisions only for EE ids
-      for ee_id in bullet_endeff_ids:
-            p.setCollisionFilterPair(contactId, robotId, -1, ee_id, 1)
-
+            p.setCollisionFilterPair(contactId, robotId, -1, i, 1) # 0
+            logger.info("Set collision pair ("+str(contactId)+","+str(robotId)+"."+str(i)+") to True")
+    #   # activate collisions only for EE ids
+    #   for ee_id in bullet_endeff_ids:
+    #         p.setCollisionFilterPair(contactId, robotId, -1, ee_id, 1)
+    #         logger.info("Set collision pair ("+str(contactId)+","+str(robotId)+"."+str(ee_id)+") to True")
       return contactId
     # Without collisions
     else:

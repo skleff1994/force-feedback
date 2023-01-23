@@ -3,8 +3,8 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 250        # Control frequency
-plan_freq: 250       # Planning frequency
+ctrl_freq: 100        # Control frequency
+plan_freq: 100       # Planning frequency
 T_tot: 10            # Simu duration (s)
 # Simulation options
 DELAY_SIM: False                # Add delay in reference torques (low-level)
@@ -21,21 +21,21 @@ INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 500                   # Display sim status once very 'log_rate' sim cycles
-WHICH_PLOTS: ['f', 'u', 'x', 'ee']
+WHICH_PLOTS: ['f'] # 'u', 'x', 'ee']
 RICCATI: False 
-FD_ESTIMATE_VELOCITY: False 
+FD_ESTIMATE_VELOCITY: True 
 
 
 # Start of the reaching phase
 T_REACH: 1.
 # Start of the contact phase
-T_CONTACT: 4.
+T_CONTACT: 5.
 
 
 # General
 dt: 0.01                                             # OCP integration step 
-N_h: 80                                             # Horizon length in nodes
-maxiter: 2                                         # Max number of iterations in DDP
+N_h: 100                                             # Horizon length in nodes
+maxiter: 10                                         # Max number of iterations in DDP
 # q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
 q0: [0., 0.34, 0., -0.75, 0., 0., 0.]  # Initial robot joint configuration (as in KUKA Java DGM app)
 dq0: [0.,0.,0.,0.,0.,0.,0.]            # Initial robot joint velocity
@@ -47,9 +47,9 @@ dq0: [0.,0.,0.,0.,0.,0.,0.]            # Initial robot joint velocity
 frame_of_interest: 'contact'
 
 # SOFT CONTACT MODEL
-oPc_offset: [0., 0., 0.]
-Kp: 10000 #1000000
-Kv: 316 #2000 #320 #65.
+oPc_offset: [0., 0., 0.034]
+Kp: 20000 # also works with 10000
+Kv: 1600 ## also works with 800 (do not underest. real damping)
 pinRefFrame: 'LOCAL_WORLD_ALIGNED'
 contactType: '3D' 
 contactPosition: [0.6, 0.0, 0.01]
@@ -62,15 +62,15 @@ WHICH_COSTS: ['force', 'translation', 'stateReg', 'ctrlRegGrav']
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 # frameForceWeights:  [1., 1., 1., 0., 0., 0.]
-frameForceWeight: 10
+frameForceWeight: 1
 frameForceRef: [0., 0., 50, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
 
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.01
-stateRegWeightTerminal: 0.01
+stateRegWeight: 0.001
+stateRegWeightTerminal: 0.001
 stateRegRef: 'DEFAULT'
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
