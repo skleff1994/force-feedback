@@ -111,7 +111,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Additional simulation blocks 
   communicationModel = mpc_utils.CommunicationModel(config)
   actuationModel     = mpc_utils.ActuationModel(config, nu)
-  sensingModel       = mpc_utils.SensorModel(config, ntau=n_lpf)
+  sensingModel       = mpc_utils.SensorModel(config, naug=n_lpf)
 
   # Display target
   if(hasattr(simulator_utils, 'display_ball')):

@@ -701,7 +701,7 @@ class MPCDataHandlerAbstract:
     if('ctrlRegGrav' in self.WHICH_COSTS):
       q = self.state_pred[nb_plan, 0, :self.nq]
       self.ctrl_ref[nb_plan, :] = pin_utils.get_u_grav(q, m.differential.pinocchio, self.armature)
-    if('force' in self.WHICH_COSTS and hasattr(m.differential.costs.costs, 'force')):
+    if('force' in self.WHICH_COSTS or hasattr(m.differential.costs.costs, 'force')):
       self.f_ee_ref[nb_plan, :] = m.differential.costs.costs['force'].cost.residual.reference.vector
     if('stateReg' in self.WHICH_COSTS):
       self.state_ref[nb_plan, :] = m.differential.costs.costs['stateReg'].cost.residual.reference
@@ -1083,7 +1083,9 @@ class MPCDataHandlerAbstract:
           ax[i,0].plot(t_span_simu, plot_data['f_ee_mea'][:,i], 'r-', label='Measured', linewidth=2, alpha=0.6)
           # ax[i,0].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
           # Plot reference
+          # print(plot_data['f_ee_ref'])
           if('force' in plot_data['WHICH_COSTS']):
+              logger.debug(str(i), plot_data['f_ee_ref'][:,i])
               ax[i,0].plot(t_span_plan, plot_data['f_ee_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', linewidth=2., label='Reference', alpha=0.9)
           ax[i,0].set_ylabel('$\\lambda^{EE}_%s$  (N)'%xyz[i], fontsize=16)
           ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))

@@ -6,9 +6,9 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 250        # Control frequency
-plan_freq: 250       # Planning frequency
-T_tot: 3.              # Simu duration (s)
+ctrl_freq: 100        # Control frequency
+plan_freq: 100       # Planning frequency
+T_tot: 5.              # Simu duration (s)
 # Simulation options
 DELAY_SIM: False               # Add delay in reference torques (low-level)
 DELAY_OCP: False               # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -24,13 +24,23 @@ INIT_LOG: True                 # Initial logs summarizing parameters
 init_log_display_time: 1       # How long (s) to display the initial logs ?
 LOG: True                      # Logs during simulation
 log_rate: 500                  # Display sim status once very 'log_rate' sim cycles
-WHICH_PLOTS: ['w']
-RICCATI: False
+WHICH_PLOTS: ['f']
+RICCATI: True
+
+
+
+
+# Start of the reaching phase
+T_REACH: 1.
+# Start of the contact phase
+T_CONTACT: 2.
+
+
 
 # Definition of the contact surface in the simulator
 # It is aligned with the LOCAL contact frame by default
 # User-defined offset expressed in the LOCAL contact frame :
-contact_plane_offset: [0., 0., 0.034]
+contact_plane_offset: [0., 0., 0.03] #0.034]
 
 
 # General 
@@ -40,9 +50,9 @@ tau_plus_integration: False            # semi-implicit if true, explicit if fal
 dt: 0.01                                                             # OCP integration step 
 N_h: 100                                                             # Horizon length in nodes
 maxiter: 5                                                        # Max number of iterations in DDP
-q0: [-0.1194, -0.1913,  0.0971, -1.3812, -0.008 ,  1.885 ,  0.3739]  # Initial robot joint configuration
+q0: [0., 0.34, 0., -0.75, 0., 0., 0.]  # Initial robot joint configuration (as in KUKA Java DGM app)
 dq0: [0.,0.,0.,0.,0.,0.,0.]                                          # Initial robot joint velocity
-tau0: [  0., -16.4279,  -0.,  14.4554, -0.6963, 0.027, 0.]           # Initial robot joint torque
+# tau0: [  0., -16.4279,  -0.,  14.4554, -0.6963, 0.027, 0.]           # Initial robot joint torque
 
 
 
@@ -58,11 +68,12 @@ contacts:
   - {
       contactModelFrameName: 'contact',     # frame name in pinocchio model
       pinocchioReferenceFrame: 'LOCAL_WORLD_ALIGNED',     # LOCAL, WORLD, LOCAL_WORLD_ALIGNED
-      contactModelType: '3D',              # 1Dx, 1Dy, 1Dz, 3D, 6D
+      contactModelType: '3D',               # 1Dx, 1Dy, 1Dz, 3D, 6D
       contactModelTranslationRef: '',       # 3d vector
       contactModelRotationRef: '',          # 3d matrix
-      contactModelGains: [0, 0],           # Baumgarte stabilization gains
-      active: True                          # Initially active? 
+      contactModelGains: [0, 0],            # Baumgarte stabilization gains
+      active: False,                         # Initially active? 
+      contactPosition: [0.6, 0.0, 0.01]     #
     }
 
 
@@ -73,22 +84,22 @@ WHICH_COSTS: ['force', 'translation', 'stateReg', 'ctrlRegGrav']
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeights:  [0., 0., 1., 0., 0., 0.]
-frameForceWeight: 10.
-frameForceWeightTerminal: 10.
-frameForceRef: [0., 0., 20, 0., 0., 0.]    
+frameForceWeights:  [1, 1., 1., 0., 0., 0.]
+frameForceWeight: 100.
+frameForceWeightTerminal: 100.
+frameForceRef: [0., 0., 50, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 
  # 'stateReg' : state regularization  
 stateRegWeights: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2., 2.]
-stateRegWeight: 0.1
-stateRegWeightTerminal: 0.1
+stateRegWeight: 0.01
+stateRegWeightTerminal: 0.01
 stateRegRef: 'DEFAULT'
 
  # 'ctrlReg' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.001
-ctrlRegWeightTerminal: 0.001
+ctrlRegWeight: 0.0001
+ctrlRegWeightTerminal: 0.0001
 ctrlRegRef: 'DEFAULT'  # default 0 if None
 
 # 'wReg' : unfiltered torque regularization
@@ -99,9 +110,9 @@ wRegRef: 'zero'
 wLimWeight: 100
 
  # 'translation' : end-effector frame translation 
-frameTranslationWeights:  [1., 1., 0.]
-frameTranslationWeight: 2.
-frameTranslationWeightTerminal: 2. 
+frameTranslationWeights:  [1., 1., 1.]
+frameTranslationWeight: 10.
+frameTranslationWeightTerminal: 100. 
 frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
 
@@ -134,7 +145,7 @@ ctrlLimWeightTerminal: 10
 coef_ulim: 1 
 
 # armature
-armature: [.1, .1, .1, .1, .1, .1, 0.]
+armature: [0., 0., 0., 0., 0., 0., 0.]
 
 # # # # # # # # # # # # # # # # # # # # # #
 # Low-level simulation (actuation model)  #
@@ -148,6 +159,7 @@ beta_max: 0.1
 var_u: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1, 0.1]
 var_q: 0.028 #x10
 var_v: 0.028 #x10
+var_aug: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1, 0.1]
   # Buffer for torque delay
 delay_OCP_ms: 1    # in ms
 delay_sim_cycle: 2 # in HF cycles

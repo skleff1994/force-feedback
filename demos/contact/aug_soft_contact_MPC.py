@@ -278,7 +278,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Sensor model ( simulation state ==> noised / filtered state )
       sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)
 
-
   bench.plot_timer()
   # bench.plot_profiles()
   # bench.plot_avg_profiles()
