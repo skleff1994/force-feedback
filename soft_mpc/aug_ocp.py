@@ -146,7 +146,9 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
             forceRef = np.asarray(self.frameForceRef)[:3]
           else:
             forceRef = np.asarray(self.frameForceRef)[softContactModel.mask]
-          runningModels[i].differential.set_force_cost(forceRef, self.frameForceWeight)
+          runningModels[i].differential.f_des = forceRef
+          runningModels[i].differential.f_weight = self.frameForceWeight
+          runningModels[i].differential.with_force_cost = True
 
       # # Armature 
       #   # Add armature to current IAM
@@ -212,8 +214,9 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
         forceRef = np.asarray(self.frameForceRef)[:3]
       else:
         forceRef = np.asarray(self.frameForceRef)[softContactModel.mask]
-      terminalModel.differential.set_force_cost(forceRef, self.frameForceWeight)
-  # Add armature
+      terminalModel.differential.f_des = forceRef
+      terminalModel.differential.f_weight = self.frameForceWeight
+      terminalModel.differential.with_force_cost = True  # Add armature
     # terminalModel.differential.armature = np.asarray(self.armature)   
 
     logger.info("Created IAMs.")  
