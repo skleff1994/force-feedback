@@ -45,7 +45,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### LOAD ROBOT MODEL and SIMU ENV ### 
   # # # # # # # # # # # # # # # # # # # 
   # Read config file
-  config, config_name = path_utils.load_config_file(__file__, robot_name)
+  # config, config_name = path_utils.load_config_file(__file__, robot_name)
+  config_name = 'soft_mpc_contact'
+  file = '/home/skleff/ws/workspace/src/force_feedback_dgh/config/soft_mpc_contact.yml' # 
+  config = path_utils.load_yaml_file(file)
   # Create a simulation environment & simu-pin wrapper 
   dt_simu = 1./float(config['simu_freq'])  
   q0 = np.asarray(config['q0'])
@@ -101,6 +104,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # #
   # Compute initial gravity compensation torque torque   
   u0 = pin_utils.get_tau(q0, v0, np.zeros(nq), f_ext0, robot.model, np.zeros(nq))
+  logger.debug(str(u0))
   # Setup Croco OCP and create solver
   ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=False) #True)
   
@@ -155,7 +159,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   logger.debug("Size of MPC horizon in simu cycles = "+str(NH_SIMU))
   logger.debug("Start of reaching phase in simu cycles = "+str(T_REACH))
   logger.debug("Start of contact phase in simu cycles = "+str(T_CONTACT))
-  logger.debug("Start of contact phase in simu cycles = "+str(OCP_TO_MPC_CYCLES))
+  logger.debug("OCP to PLAN time ratio = "+str(OCP_TO_MPC_CYCLES))
 
   # SIMULATE
   for i in range(sim_data.N_simu): 

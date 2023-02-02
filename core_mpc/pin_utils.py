@@ -409,14 +409,6 @@ def get_u_grav(q, model, armature):
     data.M += np.diag(armature)
     return pin.computeGeneralizedGravity(model, data, q)
 
-# Get joint torques 
-def get_tau(q, v, a, f, model, armature):
-    '''
-    Return torque using rnea
-    '''
-    data = model.createData()
-    data.M += np.diag(armature)
-    return pin.rnea(model, data, q, v, a, f)
 
 # Get joint torques due to an external wrench 
 def get_external_joint_torques(M_contact, wrench, robot):
@@ -438,6 +430,44 @@ def get_external_joint_torques(M_contact, wrench, robot):
         f_ext.append(pin.Force(f_JOINT))
     return f_ext
 
+
+# Get joint torques (with contact force)
+def get_tau_(q, v, a, f, model, armature=None):
+    '''
+    Return torque using rnea
+        q        : joint positions
+        v        : joint velocities,
+        a        : joint accelerations
+        f        : external contact forces
+        model    : robot pinwrapper
+        armature : size nv
+    '''
+    if(armature is None):
+        armature = np.zeros(model.nv)
+    data = model.createData()
+    data.M += np.diag(armature)
+    try: 
+        assert(len(q) == len(v))
+        assert(len(v) == len(a))
+    except: 
+        logger.error("q,v a must have the same size !")
+    if(type(q)==np.ndarray and len(q.shape)==1):
+        tau = pin.rnea(model, data, q, v, a, f)
+    else:
+        N = np.shape(q)[0]
+        tau = np.empty((N,model.nv))
+        for i in range(N):
+            tau[i,:] = pin.rnea(model, data, q[i], v[i], a[i], f[i])
+    return tau
+
+
+
+# Get joint torques (with contact force)
+def get_tau(q, v, a, f, model, armature=None):
+    '''
+    Return torque using rnea
+    '''
+    return get_tau_(q, v, a, f, model, armature)
 
 
 
