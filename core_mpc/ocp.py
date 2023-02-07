@@ -103,11 +103,11 @@ class OptimalControlProblemAbstract:
     if(FOUND_SOBEC):
       if('1D' in contactModelType):
         if('x' in contactModelType):
-          constrainedAxis = sobec.sobec_pywrap.Vector3MaskType.x
+          constrainedAxis = sobec.sobec_pywrap.Vector3MaskType3.x
         elif('y' in contactModelType):
-          constrainedAxis = sobec.sobec_pywrap.Vector3MaskType.y
+          constrainedAxis = sobec.sobec_pywrap.Vector3MaskType3.y
         elif('z' in contactModelType):
-          constrainedAxis = sobec.sobec_pywrap.Vector3MaskType.z
+          constrainedAxis = sobec.sobec_pywrap.Vector3MaskType3.z
         else: logger.error('Unknown 1D contact model. Please select 1D contactModelType in {1Dx, 1Dy, 1Dz} !')
         contactModel = sobec.ContactModel1D(state, 
                                                 contactModelFrameId, 
@@ -411,9 +411,9 @@ class OptimalControlProblemAbstract:
     # 1D contact case : linear force along z (LOCAL)
     if('1D' in ct_force_frame_type):
       if(FOUND_SOBEC):
-        if('x' in ct_force_frame_type): constrainedAxis = sobec.sobec_pywrap.Vector3MaskType.x
-        if('y' in ct_force_frame_type): constrainedAxis = sobec.sobec_pywrap.Vector3MaskType.y
-        if('z' in ct_force_frame_type): constrainedAxis = sobec.sobec_pywrap.Vector3MaskType.z
+        if('x' in ct_force_frame_type): constrainedAxis = sobec.sobec_pywrap.Vector3MaskType3.x
+        if('y' in ct_force_frame_type): constrainedAxis = sobec.sobec_pywrap.Vector3MaskType3.y
+        if('z' in ct_force_frame_type): constrainedAxis = sobec.sobec_pywrap.Vector3MaskType3.z
         # Default force reference = zero force
         frameForceRef = pin.Force( np.asarray(self.frameForceRef) )
         frameForceWeights = np.asarray(self.frameForceWeights)[constrainedAxis:constrainedAxis+1]

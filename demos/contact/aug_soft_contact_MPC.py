@@ -45,10 +45,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### LOAD ROBOT MODEL and SIMU ENV ### 
   # # # # # # # # # # # # # # # # # # # 
   # Read config file
-  # config, config_name = path_utils.load_config_file(__file__, robot_name)
-  config_name = 'soft_mpc_contact'
-  file = '/home/skleff/ws/workspace/src/force_feedback_dgh/config/soft_mpc_contact.yml' # 
-  config = path_utils.load_yaml_file(file)
+  config, config_name = path_utils.load_config_file(__file__, robot_name)
+  # config_name = 'soft_mpc_contact'
+  # file = '/home/skleff/ws/workspace/src/force_feedback_dgh/config/soft_mpc_contact.yml' # 
+  # config = path_utils.load_yaml_file(file)
   # Create a simulation environment & simu-pin wrapper 
   dt_simu = 1./float(config['simu_freq'])  
   q0 = np.asarray(config['q0'])

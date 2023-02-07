@@ -197,6 +197,18 @@ class SoftContactModel1D:
             lwaXf = pin.SE3.Identity() ; lwaXf.rotation = oRf ; lwaXf.translation = np.zeros(3)
             wrench[parentId] = jMf.act(lwaXf.actInv(f6D))
         return wrench
+
+    def computeExternalWrench_(self, rmodel, q, v):
+        '''
+        Compute the vector for pin.Force (external wrenches) due to
+        the 3D visco-elastic contact force from (q, v)
+          rmodel : robot model
+          rdata  : robot data
+        '''
+        rdata = rmodel.createData()
+        pin.forwardKinematics(rmodel, rdata, q, v)
+        pin.updateFramePlacements(rmodel, rdata)
+        return self.computeExternalWrench(rmodel, rdata)
     
     def print(self):
         logger.debug("- - - - - - - - - - - - - -")
