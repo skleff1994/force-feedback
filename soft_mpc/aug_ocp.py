@@ -213,10 +213,10 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
       if(softContactModel.nc == 3):
         forceRef = np.asarray(self.frameForceRef)[:3]
       else:
-        forceRef = np.asarray(self.frameForceRef)[softContactModel.mask]
-      # terminalModel.differential.f_des = forceRef
-      # terminalModel.differential.f_weight = self.frameForceWeight
-      # terminalModel.differential.with_force_cost = True  
+        forceRef = np.array([np.asarray(self.frameForceRef)[softContactModel.mask]])
+      terminalModel.differential.f_des = forceRef
+      terminalModel.differential.f_weight = self.frameForceWeight
+      terminalModel.differential.with_force_cost = True  
       # Add armature
     # terminalModel.differential.armature = np.asarray(self.armature)   
 
