@@ -46,7 +46,7 @@ class ActuationModel:
         if(self.SCALE_TORQUES):
           logger.info("Torques scaling : alpha = "+str(self.alpha)+" | beta = "+str(self.beta))
 
-    def step(self, i, reference_torque, memory):
+    def step(self, i, reference_torque, memory=None):
         '''
         Transforms reference torque into measured torque
         Simulates (optionally) 
@@ -61,7 +61,7 @@ class ActuationModel:
         if(self.SCALE_TORQUES):
           measured_torque = self.alpha * measured_torque + self.beta
         # Filtering (moving average)
-        if(self.FILTER_TORQUES):
+        if(self.FILTER_TORQUES and memory is not None):
           n_sum = min(i, self.config['u_avg_filter_length'])
           for k in range(n_sum):
             measured_torque += memory[i-k-1, :]
