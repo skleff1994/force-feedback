@@ -103,6 +103,16 @@ class SoftContactModel3D:
         pin.updateFramePlacements(rmodel, rdata)
         return self.computeExternalWrench(rmodel, rdata)
 
+    def print(self):
+        logger.debug("- - - - - - - - - - - - - -")
+        logger.debug("Contact model parameters")
+        logger.debug(" -> frameId : "+str(self.frameId))
+        logger.debug(" -> Kp      : "+str(self.Kp))
+        logger.debug(" -> Kv      : "+str(self.Kv))
+        logger.debug(" -> oPc     : "+str(self.oPc))
+        logger.debug(" -> pinRef  : "+str(self.pinRefFrame))
+        logger.debug("- - - - - - - - - - - - - -")
+
     # def getExternalWrenchFromForce(self, rmodel, rdata, f3D):
     #     '''
     #     Compute the vector for pin.Force (external wrenches) due to

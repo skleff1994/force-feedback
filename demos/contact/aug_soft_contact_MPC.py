@@ -87,10 +87,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   oPc = contact_placement.translation + np.asarray(config['oPc_offset'])
   simulator_utils.display_ball(oPc, base_placement, RADIUS=0.01, COLOR=[1.,0.,0.,1.])
   if('1D' in config['contactType']):
-      softContactModel = SoftContactModel1D(config['Kp'], config['Kv'], oPc, id_endeff, config['contactType'], config['pinRefFrame'])
+      softContactModel = SoftContactModel1D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff, config['contactType'], config['pinRefFrame'])
   else:
-      softContactModel = SoftContactModel3D(config['Kp'], config['Kv'], oPc, id_endeff, config['pinRefFrame'])
+      softContactModel = SoftContactModel3D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff, config['pinRefFrame'])
 
+  softContactModel.print()
+  
   # Measure initial force in pybullet
   f0 = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, softContactModel.pinRefFrame)
   y0 = np.concatenate([x0, f0[-softContactModel.nc:]])  

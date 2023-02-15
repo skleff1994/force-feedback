@@ -56,9 +56,9 @@ def main(robot_name, PLOT, DISPLAY):
     # Contact model
     oPc = oMf.translation + np.asarray(config['oPc_offset'])
     if('1D' in config['contactType']):
-        softContactModel = SoftContactModel1D(config['Kp'], config['Kv'], oPc, id_endeff, config['contactType'], config['pinRefFrame'])
+        softContactModel = SoftContactModel1D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff, config['contactType'], config['pinRefFrame'])
     else:
-        softContactModel = SoftContactModel3D(config['Kp'], config['Kv'], oPc, id_endeff, config['pinRefFrame'])
+        softContactModel = SoftContactModel3D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff, config['pinRefFrame'])
     # print(x0)
     # print(softContactModel.computeForce_(robot.model, q0, v0))
     y0 = np.hstack([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
