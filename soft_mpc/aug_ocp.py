@@ -149,7 +149,11 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
           runningModels[i].differential.f_des = forceRef
           runningModels[i].differential.f_weight = self.frameForceWeight
           runningModels[i].differential.with_force_cost = True
-
+        # Frame force rate reg cost
+        if('forceRateReg' in self.WHICH_COSTS):
+          runningModels[i].differential.with_force_rate_reg_cost = True
+          runningModels[i].differential.f_rate_reg_weight = self.forceRateRegWeight
+   
       # # Armature 
       #   # Add armature to current IAM
       #   if(self.armature == 'DEFAULT'):
@@ -217,6 +221,11 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
       terminalModel.differential.f_des = forceRef
       terminalModel.differential.f_weight = self.frameForceWeight
       terminalModel.differential.with_force_cost = True  
+    # Frame force rate reg cost
+    if('forceRateReg' in self.WHICH_COSTS):
+      runningModels[i].differential.with_force_rate_reg_cost = True
+      runningModels[i].differential.f_rate_reg_weight = self.forceRateRegWeight
+
       # Add armature
     # terminalModel.differential.armature = np.asarray(self.armature)   
 
