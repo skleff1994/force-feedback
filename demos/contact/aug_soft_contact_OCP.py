@@ -75,6 +75,21 @@ def main(robot_name, PLOT, DISPLAY):
     # xs_init = [y0 for i in range(self.N_h+1)]
     # fext0 = softContactModel.computeExternalWrench_(self.rmodel, y0[:self.nq], y0[:self.nv])
     # us_init = [pin_utils.get_tau(y0[:self.nq], y0[:self.nv], np.zeros(self.nv), fext0, self.rmodel, np.zeros(self.nq)) for i in range(self.N_h)] #ddp.problem.quasiStatic(xs_init[:-1])
+
+    # # Set ramp force profile
+    models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+    # for k in range(len(list(ddp.problem.runningModels))):
+    #     ddp.problem.runningModels[k].differential.f_des = np.array([0.,0.,k])
+    #     print("set force des = "+str(ddp.problem.runningModels[k].differential.f_des))
+
+    for k,m in enumerate(models):
+        print(k/config['N_h'])
+        print(config['N_h'])
+        # m.differential.f_des = np.array([0.,0., max(5,config['frameForceRef'][2]*k/config['N_h'])])
+        m.differential.f_des = np.array([0.,0., config['frameForceRef'][2]])
+        print("set force des = "+str(m.differential.f_des[2]))
+
+
     ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
 
     if(PLOT):
