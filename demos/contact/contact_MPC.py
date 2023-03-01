@@ -89,7 +89,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
   u0 = pin_utils.get_u_grav(q0, robot.model, armature=config['armature'])
   xs_init = [x0 for i in range(config['N_h']+1)]
-  us_init = [u0 for i in range(config['N_h'])]
+  us_init = [u0 for i in range(config['N_h'])]      
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
   frame_of_interest = config['frame_of_interest']
@@ -128,14 +128,16 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # Deactivate all costs & contact models initially !!!
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+  sim_data.dts = []
   for k,m in enumerate(models):
     if(k!=len(models)-1):
       m.differential.costs.costs["force"].active = False
       # m.differential.costs.costs["friction"].active = True
+      if(k < 5): m.dt = 0.001
+      else: m.dt = 0.02
     m.differential.costs.costs["translation"].active = True
     m.differential.contacts.changeContactStatus("contact", False)
-
-
+    sim_data.dts.append(m.dt)
 
   # SIMULATE
   for i in range(sim_data.N_simu): 

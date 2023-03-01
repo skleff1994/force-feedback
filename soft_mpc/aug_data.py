@@ -317,7 +317,7 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
               for j in range(0, N_plan, pred_plot_sampling):
                   # Receding horizon = [j,j+N_h]
                   t0_horizon = j*dt_plan
-                  tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
+                  tspan_x_pred = np.array([t0_horizon + sum(plot_data['dts'][:i]) for i in range(len(plot_data['dts']))]) #np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
                   # Set up lists of (x,y) points for predicted positions and velocities
                   points_q = np.array([tspan_x_pred, f_ee_pred_i[j,:]]).transpose().reshape(-1,1,2)
                   # Set up lists of segments
