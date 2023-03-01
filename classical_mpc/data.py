@@ -128,7 +128,7 @@ class DDPDataHandlerClassical(DDPDataHandlerAbstract):
       if('stateReg' in ddp_data['active_costs']):
           x_reg_ref = np.array(ddp_data['stateReg_ref'])
       # Plots
-      tspan = np.linspace(0, N*dt, N+1)
+      tspan = np.array([sum(ddp_data['dts'][:i]) for i in range(len(ddp_data['dts']))]) #np.linspace(0, N*dt, N+1)
       if(ax is None or fig is None):
           fig, ax = plt.subplots(nq, 2, sharex='col') 
       if(label is None):
@@ -204,7 +204,7 @@ class DDPDataHandlerClassical(DDPDataHandlerAbstract):
       if('ctrlRegGrav' in ddp_data['active_costs']):
           ureg_grav = np.array(ddp_data['ctrlRegGrav_ref'])
 
-      tspan = np.linspace(0, N*dt-dt, N)
+      tspan = np.array([sum(ddp_data['dts'][:i]) for i in range(len(ddp_data['dts'])-1)]) #np.linspace(0, N*dt-dt, N)
       if(ax is None or fig is None):
           fig, ax = plt.subplots(nu, 1, sharex='col') 
       if(label is None):

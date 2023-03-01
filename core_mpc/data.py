@@ -64,6 +64,8 @@ class DDPDataHandlerAbstract:
     ddp_data['nv'] = self.ddp.problem.runningModels[0].state.nv
     ddp_data['nu'] = self.ddp.problem.runningModels[0].differential.actuation.nu
     ddp_data['nx'] = self.ddp.problem.runningModels[0].state.nx
+    ddp_data['dts'] = [self.ddp.problem.runningModels[i].dt for i in range(ddp_data['T'])]
+    ddp_data['dts'].append(self.ddp.problem.terminalModel.dt)
     # Pin model
     ddp_data['pin_model'] = self.ddp.problem.runningModels[0].differential.pinocchio
     ddp_data['armature'] = self.ddp.problem.runningModels[0].differential.armature
@@ -199,7 +201,7 @@ class DDPDataHandlerAbstract:
       if(ddp_data['CONTACT_TYPE'] is not None):
           lin_pos_ee_contact = np.array(ddp_data['contact_translation'])
       # Plots
-      tspan = np.linspace(0, N*dt, N+1)
+      tspan = np.array([sum(ddp_data['dts'][:i]) for i in range(len(ddp_data['dts']))]) #np.linspace(0, N*sum(ddp_data['dts']), N+1)
       if(ax is None or fig is None):
           fig, ax = plt.subplots(3, 2, sharex='col')
       if(label is None):
@@ -299,7 +301,7 @@ class DDPDataHandlerAbstract:
       if(ddp_data['CONTACT_TYPE']=='6D'):
           rpy_ee_contact = np.array([pin.utils.matrixToRpy(R) for R in ddp_data['contact_rotation']])
       # Plots
-      tspan = np.linspace(0, N*dt, N+1)
+      tspan = np.array([sum(ddp_data['dts'][:i]) for i in range(len(ddp_data['dts']))]) #np.linspace(0, N*sum(ddp_data['dts']), N+1)
       if(ax is None or fig is None):
           fig, ax = plt.subplots(3, 2, sharex='col')
       if(label is None):
@@ -394,7 +396,7 @@ class DDPDataHandlerAbstract:
       f_ee_lin_ref = f_ee_ref[:,:3]
       f_ee_ang_ref = f_ee_ref[:,3:]
       # Plots
-      tspan = np.linspace(0, N*dt, N)
+      tspan = np.array([sum(ddp_data['dts'][:i]) for i in range(len(ddp_data['dts'])-1)]) #)] np.linspace(0, N*sum(ddp_data['dts']), N)
       if(ax is None or fig is None):
           fig, ax = plt.subplots(3, 2, sharex='col')
       if(label is None):

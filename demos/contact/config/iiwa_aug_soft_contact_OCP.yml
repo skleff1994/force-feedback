@@ -8,7 +8,7 @@ N_h: 15                                             # Horizon length in nodes
 maxiter: 5                                         # Max number of iterations in DDP
 q0: [0., 0.34, 0., -0.75, 0., 0., 0.]  # Initial robot joint configuration (as in KUKA Java DGM app)
 dq0: [0.,0.,0.,0.,0.,0.,0.]                          # Initial robot joint velocity
-WHICH_PLOTS: ['f']                                          # which plots to generate 
+WHICH_PLOTS: ['all']                                          # which plots to generate 
 
 
 # Pin model frame name of the end-effector 

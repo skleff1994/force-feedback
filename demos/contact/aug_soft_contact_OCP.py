@@ -81,14 +81,19 @@ def main(robot_name, PLOT, DISPLAY):
     # for k in range(len(list(ddp.problem.runningModels))):
     #     ddp.problem.runningModels[k].differential.f_des = np.array([0.,0.,k])
     #     print("set force des = "+str(ddp.problem.runningModels[k].differential.f_des))
-
+    
+    import pinocchio as pin
     for k,m in enumerate(models):
         print(k/config['N_h'])
         print(config['N_h'])
         # m.differential.f_des = np.array([0.,0., max(5,config['frameForceRef'][2]*k/config['N_h'])])
         m.differential.f_des = np.array([0.,0., config['frameForceRef'][2]])
+        m.differential.cost_ref = pin.LOCAL
+        if(k < 5):
+            m.dt = 0.001
+        else:
+            m.dt = 0.02
         print("set force des = "+str(m.differential.f_des[2]))
-
 
     ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
 
