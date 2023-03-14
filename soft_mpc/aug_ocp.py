@@ -219,12 +219,12 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
       else:
         forceRef = np.array([np.asarray(self.frameForceRef)[softContactModel.mask]])
       terminalModel.differential.f_des = forceRef
-      terminalModel.differential.f_weight = np.asarray(self.frameForceWeight)
+      terminalModel.differential.f_weight = np.asarray(self.frameForceWeightTerminal)*self.dt
       terminalModel.differential.with_force_cost = True  
     # Frame force rate reg cost
     if('forceRateReg' in self.WHICH_COSTS):
-      runningModels[i].differential.with_force_rate_reg_cost = True
-      runningModels[i].differential.f_rate_reg_weight = np.asarray(self.forceRateRegWeight)
+      terminalModel.differential.with_force_rate_reg_cost = True
+      terminalModel.differential.f_rate_reg_weight = np.asarray(self.forceRateRegWeight)*self.dt
 
       # Add armature
     # terminalModel.differential.armature = np.asarray(self.armature)   

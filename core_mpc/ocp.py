@@ -293,7 +293,7 @@ class OptimalControlProblemAbstract:
                                                     crocoddyl.ResidualModelFrameVelocity(state, 
                                                                                         frameVelocityFrameId, 
                                                                                         frameVelocityRef, 
-                                                                                        pin.LOCAL, 
+                                                                                        pin.WORLD, 
                                                                                         actuation.nu)) 
     return frameVelocityCost
 
