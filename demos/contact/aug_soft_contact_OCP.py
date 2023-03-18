@@ -38,7 +38,8 @@ def main(robot_name, PLOT, DISPLAY):
     ### LOAD ROBOT MODEL ## 
     # # # # # # # # # # # # 
     # Read config file
-    config, _ = path_utils.load_config_file(__file__, robot_name)
+    # config, _ = path_utils.load_config_file(__file__, robot_name)
+    config = path_utils.load_yaml_file('/home/skleff/ws/workspace/src/force-feedback/demos/contact/config/iiwa_aug_soft_contact_OCP.yml')
     q0 = np.asarray(config['q0'])
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0]) 
@@ -62,7 +63,7 @@ def main(robot_name, PLOT, DISPLAY):
     # print(x0)
     # print(softContactModel.computeForce_(robot.model, q0, v0))
     y0 = np.hstack([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
-
+    logger.debug(str(y0))
     # # # # # # # # # 
     ### OCP SETUP ###
     # # # # # # # # # 
@@ -70,33 +71,28 @@ def main(robot_name, PLOT, DISPLAY):
     # Compute initial visco-elastic force
     # fext0 = softContactModel.computeExternalWrench(robot.model, robot.data)
     # Setup Croco OCP and create solver
-    ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=True)
-    # # Warmstart and solve
+    softContactModel.print()
+    ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=False)
+    # # # Warmstart and solve
     # xs_init = [y0 for i in range(self.N_h+1)]
     # fext0 = softContactModel.computeExternalWrench_(self.rmodel, y0[:self.nq], y0[:self.nv])
     # us_init = [pin_utils.get_tau(y0[:self.nq], y0[:self.nv], np.zeros(self.nv), fext0, self.rmodel, np.zeros(self.nq)) for i in range(self.N_h)] #ddp.problem.quasiStatic(xs_init[:-1])
 
-    # # Set ramp force profile
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-    # for k in range(len(list(ddp.problem.runningModels))):
-    #     ddp.problem.runningModels[k].differential.f_des = np.array([0.,0.,k])
-    #     print("set force des = "+str(ddp.problem.runningModels[k].differential.f_des))
-    
     import pinocchio as pin
     for k,m in enumerate(models):
-        print(k/config['N_h'])
-        print(config['N_h'])
-        # m.differential.f_des = np.array([0.,0., max(5,config['frameForceRef'][2]*k/config['N_h'])])
-        m.differential.f_des = np.array([0.,0., config['frameForceRef'][2]])
-        m.differential.cost_ref = pin.LOCAL
-        if(k < 5):
-            m.dt = 0.001
-        else:
-            m.dt = 0.02
-        print("set force des = "+str(m.differential.f_des[2]))
+        m.differential.cost_ref = pin.LOCAL_WORLD_ALIGNED
 
-    ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
+    import time
+    ts = []
+    for i in range(1000):
+        t = time.time()
+        ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
+        ts.append(time.time() - t)
+    import matplotlib.pyplot as plt
+    plt.plot(ts) ; plt.show()
 
+    # werpighewoib
     if(PLOT):
         #  Plot
         ddp_handler = DDPDataHandlerSoftContactAugmented(ddp, softContactModel)

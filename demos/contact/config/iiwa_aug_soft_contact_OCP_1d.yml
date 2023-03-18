@@ -19,10 +19,10 @@ frame_of_interest: 'contact'
 # SOFT CONTACT MODEL
 oPc_offset: [0., 0., -0.00]  # just table
 # oPc_offset: [0., 0., 0.015] # with wood piece
-Kp: [0, 0, 1000] 
-Kv: [0, 0, 100]
+Kp: [1000] 
+Kv: [100]
 pinRefFrame: 'LOCAL_WORLD_ALIGNED' 
-contactType: '3D'    
+contactType: '1Dz'    
 contactPosition: [0.65, 0., 0.]  
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
@@ -34,7 +34,7 @@ WHICH_COSTS: ['force',  'forceRateReg', 'stateReg', 'ctrlRegGrav']
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeight: [0., 0., 0.001] 
 frameForceWeightTerminal: [0., 0., 0.001] 
-frameForceRef: [0., 0., 25, 0., 0., 0.]    
+frameForceRef: [0., 0., 25]    
 frameForceFrameName: 'contact'
 forceCostRefFrame: 'LOCAL_WORLD_ALIGNED'
 forceRateRegWeight: [0., 0., 0.0000001]
