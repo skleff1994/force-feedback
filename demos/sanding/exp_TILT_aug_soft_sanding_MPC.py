@@ -1,27 +1,23 @@
 """
 @package force_feedback
-@file exp_TILT_LPF_sanding_MPC.py
+@file exp_TILT_aug_soft_sanding_MPC.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2021, New York University & LAAS-CNRS
-@date 2021-10-28
-@brief Closed-loop 'LPF torque feedback' MPC for sanding task
+@date 2023-04-03
+@brief Closed-loop 'Augmented Soft Contact Force feedback' MPC for sanding task
 """
 
 '''
 The robot is tasked with exerting a constant normal force with its EE 
 while drawing a circle on the contact surface
 Trajectory optimization using Crocoddyl in closed-loop MPC 
-(feedback from stateLPF y=(q,v,tau), control w = unfiltered torque)
+(feedback from stateSoft y=(q,v,f), control tau = joint torque
 Using PyBullet simulator & GUI for rigid-body dynamics + visualization
 
-The goal of this script is to simulate MPC with torque feedback where
-the actuation dynamics is modeled as a low pass filter (LPF) in the optimization.
-  - The letter y denotes the augmented state of joint positions, velocities
-    and filtered torques while the letter 'w' denotes the unfiltered torque 
-    input to the actuation model. 
-  - We optimize (y*,w*) using Crocoddyl but we send tau* to the simulator (NOT w*)
-  - Simulator = custom actuation model (not LPF) + PyBullet RBD
+The goal of this script is to simulate MPC with force feedback where
+the contact force is modeled as a spring damper
+  - Simulator = custom actuation model + PyBullet RBD
 '''
 
 import sys
@@ -36,8 +32,8 @@ np.set_printoptions(precision=4, linewidth=180)
 
 
 from core_mpc import ocp, path_utils, pin_utils, mpc_utils, misc_utils
-from lpf_mpc.data import DDPDataHandlerLPF, MPCDataHandlerLPF
-from lpf_mpc.ocp import OptimalControlProblemLPF, getJointAndStateIds
+from soft_mpc.aug_data import DDPDataHandlerSoftContactAugmented, MPCDataHandlerSoftContactAugmented
+from soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented 
 
 
 TASK = 'contact_circle'
@@ -65,7 +61,7 @@ def main(robot_name, simulator, PLOT_INIT):
   ### LOAD ROBOT MODEL and SIMU ENV ### 
   # # # # # # # # # # # # # # # # # # # 
   # Read config file
-  config, config_name = path_utils.load_config_file('LPF_sanding_MPC', robot_name)
+  config, config_name = path_utils.load_config_file('aug_soft_sanding_MPC', robot_name)
   # Create a simulation environment & simu-pin wrapper 
   dt_simu = 1./float(config['simu_freq'])  
   q0 = np.asarray(config['q0'])
@@ -105,7 +101,7 @@ def main(robot_name, simulator, PLOT_INIT):
   _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
   n_lpf = len(lpf_joint_names)
   _, nonLpfStateIds = getJointAndStateIds(robot.model, list(set(robot.model.names[1:]) - set(lpf_joint_names)) )
-  ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=False)
+  ddp = OptimalControlProblemSoftContactAugmented(robot, config, lpf_joint_names).initialize(y0, callbacks=False)
 #   ddp = ocp.(robot, config, y0, callbacks=False)
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   RADIUS = config['frameCircleTrajectoryRadius'] 

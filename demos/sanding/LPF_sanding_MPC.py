@@ -98,7 +98,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Create DDP solver + compute warm start torque
   f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
   u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
-  lpf_joint_names = ['A2', 'A3', 'A4'] #robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #  #
+  lpf_joint_names = robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #  #
   _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
   n_lpf = len(lpf_joint_names)
   _, nonLpfStateIds = getJointAndStateIds(robot.model, list(set(robot.model.names[1:]) - set(lpf_joint_names)) )
@@ -107,7 +107,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   logger.debug("Non LPF state ids ")
   logger.debug(nonLpfStateIds)
   y0 = np.concatenate([x0, u0[lpfStateIds]])
-  ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=True)
+  ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=False)
 
   # u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
   # y0 = np.concatenate([x0, u0])

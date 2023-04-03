@@ -482,7 +482,9 @@ class MPCDataHandlerAbstract:
     self.nv = robot.model.nv
     self.nu = self.nq
     self.nx = self.nq + self.nv
-
+    self.dts = [config['dt'] for i in range(config['N_h'])]
+    self.dts.append(0.)
+    
     self.check_config()
 
     # Check 1st contact name & reference frame in config file
