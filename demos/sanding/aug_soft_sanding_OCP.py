@@ -73,8 +73,7 @@ def main(robot_name, PLOT, DISPLAY):
     # Setup Croco OCP and create solver
     softContactModel.print()
     ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=True)
-    # # # Warmstart and solve
-    fext0 = softContactModel.computeExternalWrench(robot.model, robot.data)
+    # Warmstart and solve
     xs_init = [y0 for i in range(config['N_h']+1)]
     fext0 = softContactModel.computeExternalWrench_(robot.model, y0[:nq], y0[:nv])
     us_init = [pin_utils.get_tau(y0[:nq], y0[:nv], np.zeros(nv), fext0, robot.model, np.zeros(nv)) for i in range(config['N_h'])] #ddp.problem.quasiStatic(xs_init[:-1])
@@ -113,7 +112,6 @@ def main(robot_name, PLOT, DISPLAY):
         Mref.translation = p_ee_ref
         # Get joint state from IK
         q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
-        print(softContactModel.computeForce_(robot.model, q_ws, v_ws))
         xs_init.append(np.concatenate([q_ws, v_ws, np.array([softContactModel.computeForce_(robot.model, q_ws, v_ws)])]))
 
     

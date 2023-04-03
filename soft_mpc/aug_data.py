@@ -201,6 +201,7 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     plot_data['pin_model'] = self.rmodel
     self.id_endeff = self.rmodel.getFrameId(frame_of_interest)
     nq = self.nq ; nv = self.nv ; nu = self.nv ; nc = self.nc
+    plot_data['nc'] = nc
     # Control predictions
     plot_data['u_pred'] = self.ctrl_pred
       # Extract 1st prediction
@@ -302,7 +303,7 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
       dt_ctrl = plot_data['dt_ctrl']
       T_h = plot_data['T_h']
       N_h = plot_data['N_h']
-      logger.debug(plot_data['f_ee_ref'])
+      nc = plot_data['nc']
       # Create time spans for X and U + Create figs and subplots
       t_span_simu = np.linspace(0, T_tot, N_simu+1)
       t_span_plan = np.linspace(0, T_tot, N_plan+1)
@@ -310,9 +311,14 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
       # Plot endeff
       xyz = ['x', 'y', 'z']
       for i in range(3):
-
           if(PLOT_PREDICTIONS):
-              f_ee_pred_i = plot_data['f_ee_pred'][:, :, i]
+              if(nc == 1):
+                 if(i == 1 or i == 0):
+                    f_ee_pred_i = np.zeros(plot_data['f_ee_pred'][:, :, 0].shape)
+                 else:
+                    f_ee_pred_i = plot_data['f_ee_pred'][:, :, 0]
+              else:
+                 f_ee_pred_i = plot_data['f_ee_pred'][:, :, i]
               # For each planning step in the trajectory
               for j in range(0, N_plan, pred_plot_sampling):
                   # Receding horizon = [j,j+N_h]
@@ -338,14 +344,24 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
 
         
           # EE linear force
-          ax[i].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i].plot(t_span_ctrl, plot_data['f_ee_des_CTRL'][:,i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
-          # ax[i].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
-          ax[i].plot(t_span_simu, plot_data['f_ee_mea'][:,i], 'r-', label='Measured', linewidth=2, alpha=0.6)
-          # ax[i].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
+          if(nc == 1):
+              if(i == 1 or i == 0):
+                f_ee_des_PLAN = np.zeros(plot_data['f_ee_des_PLAN'][:, 0].shape)
+                f_ee_mea = np.zeros(plot_data['f_ee_mea'][:, 0].shape)
+                f_ee_ref = np.zeros(plot_data['f_ee_ref'][:, 0].shape)
+              else:
+                f_ee_des_PLAN = plot_data['f_ee_des_PLAN'][:, 0]
+                f_ee_mea = plot_data['f_ee_mea'][:, 0]
+                f_ee_ref = plot_data['f_ee_ref'][:, 0]
+          else:
+              f_ee_des_PLAN = plot_data['f_ee_des_PLAN'][:, i]
+              f_ee_mea = plot_data['f_ee_mea'][:, i]
+              f_ee_ref = plot_data['f_ee_ref'][:, i]
+          ax[i].plot(t_span_plan, f_ee_des_PLAN, color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
+          ax[i].plot(t_span_simu, f_ee_mea, 'r-', label='Measured', linewidth=2, alpha=0.6)
           # Plot reference
           if('force' in plot_data['WHICH_COSTS']):
-              ax[i].plot(t_span_plan[:-1], plot_data['f_ee_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', linewidth=2., label='Reference', alpha=0.9)
+              ax[i].plot(t_span_plan[:-1], f_ee_ref, color=[0.,1.,0.,0.], linestyle='-.', linewidth=2., label='Reference', alpha=0.9)
           ax[i].set_ylabel('$\\lambda^{EE}_%s$  (N)'%xyz[i], fontsize=16)
           ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
