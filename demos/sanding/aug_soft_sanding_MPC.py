@@ -223,15 +223,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   N_max = N_ramp + 10
   target_force_traj = np.zeros( (N_total, 3) )
   target_force_traj[0:N_min*config['N_h'], 2] = F_MIN
-  logger.debug(str(N_total))
-  logger.debug(str(N_min*config['N_h']))
-  logger.debug(str(N_ramp*config['N_h']))
-  logger.debug(str(target_force_traj[N_min*config['N_h']:N_ramp*config['N_h'], :].shape))
   target_force_traj[N_min*config['N_h']:N_ramp*config['N_h'], 2] = [F_MIN + (F_MAX - F_MIN)*i/((N_ramp-N_min)*config['N_h']) for i in range((N_ramp-N_min)*config['N_h'])]
   target_force_traj[N_ramp*config['N_h']:, 2] = F_MAX
-  import matplotlib.pyplot as plt
-  plt.plot(target_force_traj)
-  plt.show()
   target_force = np.zeros(config['N_h']+1)
   force_weight = np.asarray(config['frameForceWeight'])
   # Circle trajectory 
@@ -250,9 +243,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                                                         0.]) for i in range(N_circle)]
   target_position_traj[N_circle:, :] = target_position_traj[N_circle-1,:]
   target_velocity_traj[N_circle:, :] = np.zeros(3)
-  plt.plot(target_position_traj)
-  plt.show()
   target_position = np.zeros((config['N_h']+1, 3)) 
+  target_position[:,:] = pdes.copy()
   target_velocity = np.zeros((config['N_h']+1, 3)) 
   anchor_point = pdes.copy()
   q_ws = q0
@@ -311,7 +303,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     pl = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
     pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
-  draw_rate = 200
 
   # # # # # # # # # # # #
   ### SIMULATION LOOP ###
@@ -341,7 +332,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # SIMULATE
   for i in range(sim_data.N_simu): 
-
+      
       if(i%config['log_rate']==0 and config['LOG']): 
         print('')
         logger.info("SIMU step "+str(i)+"/"+str(sim_data.N_simu))
