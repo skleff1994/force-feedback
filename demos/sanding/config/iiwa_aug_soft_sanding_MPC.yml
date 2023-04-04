@@ -4,8 +4,8 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 500       # Control frequency
-plan_freq: 500          # Planning frequency
+ctrl_freq: 1000       # Control frequency
+plan_freq: 1000          # Planning frequency
 T_tot: 10.            # Simu duration (s)
 # Simulation options
 DELAY_SIM: False              # Add delay in reference torques (low-level)
@@ -24,19 +24,19 @@ LOG: True                     # Logs during simulation
 log_rate: 500                 # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['all']
 TILT_SURFACE: False           # Tilt contact surface 
-TILT_PITCH_LOCAL_DEG: -20.
+TILT_PITCH_LOCAL_DEG: -10.
 RICCATI: False 
 
-T_REACH: 2.
-T_TRACK: 4.
-T_CONTACT: 6.
-T_CIRCLE: 8.
+T_REACH: 0.5
+T_TRACK: 1.
+T_CONTACT: 1.5
+T_CIRCLE: 5.
 
 
 # General
 dt: 0.005                                          # OCP integration step 
-N_h: 10                                   # Horizon length in nodes
-maxiter: 5                                         # Max number of iterations in DDP
+N_h: 5                                             # Horizon length in nodes
+maxiter: 10                                         # Max number of iterations in DDP
 q0: [0., 1.0471975511965976, 0., -1.1344640137963142, 0.2,  0.7853981633974483]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.]                         # Initial robot joint velocity
 
@@ -66,14 +66,13 @@ WHICH_COSTS: ['force', 'forceRateReg', 'translation', 'velocity', 'stateReg', 'c
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeight: [0.00001] 
 frameForceWeightTerminal: [0.00001] 
-frameForceRef: [0., 0., 25, 0., 0., 0.]    
+frameForceRef: [0., 0., 50, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 forceCostRefFrame: 'LOCAL_WORLD_ALIGNED'
 forceRateRegWeight: [0.0000001]
 
 
 # 'stateReg' : state regularization  
-# stateRegWeights: [0.1, 0.1, 0.1, 0.1, 10., 6., 0.1, 2., 2., 2., 2., 2., 2., 100.]
 stateRegWeights: [0.2, 0.2, 0.2, 0.1, 0.1, 0.1, 2., 2., 2., 2., 2., 2.]
 stateRegWeight: 0.01 
 stateRegWeightTerminal: 0.01
@@ -126,7 +125,7 @@ coef_ulim: 1
 
 
 # armature
-armature:  [.0, .0, .0, .0, .0, .0] #'DEFAULT'
+armature:  [.0, .0, .0, .0, .0, .0]
 
 
 # # # # # # # # # # # # # # # # # # # # # #

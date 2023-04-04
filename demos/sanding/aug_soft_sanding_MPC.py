@@ -154,25 +154,21 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # simulator_utils.print_dynamics_info(1, 9)
   # EE translation target : contact point + vertical offset (radius of the ee ball)
   contactTranslationTarget = np.asarray(config['contactPosition']) + np.asarray(config['oPc_offset'])
-  logger.debug("contact target = ")
-  logger.debug(str(contactTranslationTarget))
   simulator_utils.display_ball(contactTranslationTarget, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
-  # Display contact surface
+  # Display contact surface + optional tilt
   import pinocchio as pin
   contact_placement = pin.SE3(np.eye(3), np.asarray(config['contactPosition']))
-  contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
-  # Make the contact soft (e.g. tennis ball or sponge on the robot)
-  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
-  # simulator_utils.set_contact_stiffness_and_damping(contactId, 10000, 500)
-  # contact_placement.translation =  contact_placement.act( np.asarray(config['contact_plane_offset']) ) 
-  # Optionally tilt the contact surface
   TILT_RPY = np.zeros(3)
   if(config['TILT_SURFACE']):
     TILT_RPY = [0., config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0.]
     contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
+  contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
+  # Make the contact soft (e.g. tennis ball or sponge on the robot)
+  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
+  # simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000, 100)
+
 
   # Contact model
-    # Contact model anchor point
   oPc = contact_placement.translation + np.asarray(config['oPc_offset'])
   simulator_utils.display_ball(oPc, base_placement, RADIUS=0.01, COLOR=[1.,0.,0.,1.])
   if('1D' in config['contactType']):
@@ -205,7 +201,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   for k,m in enumerate(models):
     m.differential.costs.costs["translation"].active = False
     m.differential.active_contact = False
-    m.differential.f_des = np.zeros(1)
+    m.differential.f_des = np.zeros(softContactModel.nc)
     m.differential.cost_ref = pin.LOCAL_WORLD_ALIGNED
 
   # Setup tracking problem with circle ref EE trajectory + Warm start state = IK of circle trajectory
@@ -218,9 +214,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   F_MIN = 5.
   F_MAX = config['frameForceRef'][2]
   N_total = 10000 # int((config['T_tot'] - config['T_CONTACT'])/config['dt'] + config['N_h'])
-  N_min  = 20
-  N_ramp = N_min + 40
-  N_max = N_ramp + 10
+  N_min  = 5
+  N_ramp = N_min + 10
   target_force_traj = np.zeros( (N_total, 3) )
   target_force_traj[0:N_min*config['N_h'], 2] = F_MIN
   target_force_traj[N_min*config['N_h']:N_ramp*config['N_h'], 2] = [F_MIN + (F_MAX - F_MIN)*i/((N_ramp-N_min)*config['N_h']) for i in range((N_ramp-N_min)*config['N_h'])]
@@ -468,11 +463,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
-      f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, softContactModel.pinRefFrame)
+      # f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, softContactModel.pinRefFrame)
+      f_mea_SIMU = robot_simulator.end_effector_forces(softContactModel.pinRefFrame)[1][0]
+      fz_mea_SIMU = np.array([f_mea_SIMU[2]])
       if(i%100==0): 
-        logger.info("f_mea = "+str(f_mea_SIMU))
+        logger.info("f_mea  = "+str(f_mea_SIMU))
       # Record data (unnoised)
-      y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, f_mea_SIMU[:softContactModel.nc]]).T 
+      y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, fz_mea_SIMU]).T 
       # y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, sim_data.y_pred[-softContactModel.nc:]]).T 
       sim_data.state_mea_no_noise_SIMU[i+1, :] = y_mea_SIMU
       # Sensor model ( simulation state ==> noised / filtered state )
@@ -495,7 +492,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Plot results
   sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
                                       PLOT_PREDICTIONS=True, 
-                                      pred_plot_sampling=int(sim_data.plan_freq/50),
+                                      pred_plot_sampling=int(sim_data.plan_freq/10),
                                       SAVE=False,
                                       SAVE_DIR=save_dir,
                                       SAVE_NAME=save_name,
