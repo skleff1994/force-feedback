@@ -4,9 +4,9 @@
 
 # MPC & sim parameters
 simu_freq: 1000        # Simulation frequency in Hz
-ctrl_freq: 500       # Control frequency
-plan_freq: 500          # Planning frequency
-T_tot: .2            # Simu duration (s)
+ctrl_freq: 100       # Control frequency
+plan_freq: 100          # Planning frequency
+T_tot: 10.            # Simu duration (s)
 # Simulation options
 DELAY_SIM: False              # Add delay in reference torques (low-level)
 DELAY_OCP: False              # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -27,8 +27,10 @@ TILT_SURFACE: False           # Tilt contact surface
 TILT_PITCH_LOCAL_DEG: -20.
 RICCATI: False 
 
-T_REACH: 1.
-T_CONTACT: 4.
+T_REACH: 2.
+T_TRACK: 4.
+T_CONTACT: 6.
+T_CIRCLE: 8.
 
 # General
 dt: 0.005                                          # OCP integration step 
@@ -82,16 +84,14 @@ ctrlRegWeight: 0.0001
 ctrlRegRef: [ -0., -31.123713,  -0.77562 ,  -0.782922,   0.,   0.184399,   0.] #'DEFAULT' # reference not used for 'ctrlRegGrav'
 
  # 'translation' : end-effector frame translation 
-frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 10
-frameTranslationWeightTerminal: 10
+frameTranslationWeights:  [1., 1., 10.]
+frameTranslationWeight: 1
+frameTranslationWeightTerminal: 1
 frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
-frameCircleTrajectoryVelocity: 10 # in rad/s
+frameCircleTrajectoryVelocity: 2 # in rad/s
 numberOfRounds: 1
-# CIRCLE_LOCAL_PLANE: 'YZ'             # LOCAL plane in which the circle lies # x-force
-# CIRCLE_LOCAL_PLANE: 'XZ'             # LOCAL plane in which the circle lies # y-force
 CIRCLE_LOCAL_PLANE: 'XY'
 
 
