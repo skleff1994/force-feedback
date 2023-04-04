@@ -267,7 +267,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       f_ws = np.array([softContactModel.computeForce_(robot.model, q_ws, v_ws)])
       xs_init.append(np.concatenate([q_ws, v_ws, f_ws]))
       if(k<config['N_h']):
-        us_init.append(pin_utils.get_tau(y0[:nq], y0[:nv], np.zeros(nv), f_ext, robot.model, np.zeros(nv)))
+        us_init.append(pin_utils.get_tau(y0[:nq], y0[nq:nq+nv], np.zeros(nv), f_ext, robot.model, np.zeros(nv)))
   # Warmstart and solve
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
