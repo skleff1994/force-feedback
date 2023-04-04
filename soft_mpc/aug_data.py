@@ -28,7 +28,7 @@ class DDPDataHandlerSoftContactAugmented(DDPDataHandlerClassical):
     self.softContactModel = softContactModel
 
   # Temporary patch for augmented soft ddp  --> need to clean it up
-  def extract_data(self, ee_frame_name, ct_frame_name):
+  def extract_data(self, ee_frame_name, ct_frame_name, model):
     '''
     Extract data from DDP solver 
     Patch for augmented soft contact formulation 
@@ -37,9 +37,9 @@ class DDPDataHandlerSoftContactAugmented(DDPDataHandlerClassical):
     Set 0 angular force by default.
     '''
     ddp_data = super().extract_data(ee_frame_name, ct_frame_name)
-    ddp_data['nq'] = 7
-    ddp_data['nv'] = 7
-    ddp_data['nx'] = 14
+    ddp_data['nq'] = model.nq
+    ddp_data['nv'] = model.nv
+    ddp_data['nx'] = model.nq+model.nv
     # Compute the visco-elastic contact force & extract the reference force from DAM
     xs = np.array(ddp_data['xs'])
     nq = ddp_data['nq']

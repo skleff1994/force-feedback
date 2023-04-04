@@ -1,15 +1,15 @@
 """
 @package force_feedback
-@file demos/contact/aug_soft_contact_MPC.py
+@file demos/sanding/aug_soft_sanding_MPC.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2021, New York University & LAAS-CNRS
-@date 2022-08-12
+@date 2023-04-04
 @brief Closed-loop MPC for force task 
 """
 
 '''
-The robot is tasked with exerting a constant normal force  
+The robot is tasked with exerting a constant normal force  while drawing a circle
 Trajectory optimization using Crocoddyl in closed-loop MPC 
 (feedback from state x=(q,v,f), control u = tau) 
 Using PyBullet simulator & GUI for rigid-body dynamics + visualization
@@ -100,7 +100,7 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                     m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                    m[k].differential.costs.costs["translation"].weight = 5.
+                    m[k].differential.costs.costs["translation"].weight = 50.
                     # m[k].differential.costs.costs["velocity"].active = True
                     # m[k].differential.costs.costs["velocity"].cost.residual.reference = pin.Motion(np.concatenate([target_velocity[k], np.zeros(3)]))
                     # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([1., 1., 0., 1., 1., 1.])
@@ -157,15 +157,17 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   simulator_utils.display_ball(contactTranslationTarget, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
   # Display contact surface + optional tilt
   import pinocchio as pin
-  contact_placement = pin.SE3(np.eye(3), np.asarray(config['contactPosition']))
+  contact_placement   = pin.SE3(np.eye(3), np.asarray(config['contactPosition']))
+  contact_placement_0 = contact_placement.copy()
   TILT_RPY = np.zeros(3)
   if(config['TILT_SURFACE']):
-    TILT_RPY = [0., config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0.]
+    # TILT_RPY = [0., config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0.]
+    TILT_RPY = [config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0., 0.]
     contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
   contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
-  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
-  # simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000, 100)
+  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.1)
+  simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
 
 
   # Contact model
@@ -247,7 +249,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   for k,m in enumerate(models):
       # Ref
       t = min(k*config['dt'], 2*np.pi/OMEGA)
-      p_ee_ref = ocp_utils.circle_point_WORLD(t, contact_placement.copy(), 
+      p_ee_ref = ocp_utils.circle_point_WORLD(t, contact_placement_0.copy(), 
                                                  radius=RADIUS,
                                                  omega=OMEGA,
                                                  LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
@@ -257,7 +259,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       m.differential.oPc = p_ee_ref
       # Get ref placement
       p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
-      Mref = contact_placement.copy()
+      Mref = contact_placement_0.copy()
       Mref.translation = p_ee_ref
       # Get corresponding forces at each joint + joint state from IK
       f_ext = pin_utils.get_external_joint_torques(Mref.copy(), config['frameForceRef'], robot)
@@ -273,7 +275,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   if(PLOT_INIT):
     #  Plot
     ddp_handler = DDPDataHandlerSoftContactAugmented(ddp, softContactModel)
-    ddp_data = ddp_handler.extract_data(ee_frame_name=frame_of_interest, ct_frame_name=frame_of_interest)
+    ddp_data = ddp_handler.extract_data(frame_of_interest, frame_of_interest, robot.model)
     _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                         colors=['r'], 
                                                         markers=['.'], 
@@ -295,8 +297,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   nb_points = 20 
   for i in range(nb_points):
     t = (i/nb_points)*2*np.pi/OMEGA
-    pl = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
-    pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
+    # pl = pin_utils.rotate(contact_placement_0, rpy=TILT_RPY)
+    pos = ocp_utils.circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
 
   # # # # # # # # # # # #
