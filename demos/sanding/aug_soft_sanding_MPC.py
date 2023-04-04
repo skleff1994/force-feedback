@@ -28,6 +28,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
+RANDOM_SEED = 1
 
 from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 from core_mpc import ocp as ocp_utils
@@ -186,6 +187,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Get corresponding external torques
   f_ext0 = pin_utils.get_external_joint_torques(contact_placement, f0, robot)   
 
+
+
+
   # # # # # # # # # 
   ### OCP SETUP ###
   # # # # # # # # #
@@ -291,16 +295,18 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   nb_ctrl = 0
   # Additional simulation blocks 
   communicationModel = mpc_utils.CommunicationModel(config)
-  actuationModel     = mpc_utils.ActuationModel(config, nu=nu)
-  sensingModel       = mpc_utils.SensorModel(config, naug=softContactModel.nc)
+  actuationModel     = mpc_utils.ActuationModel(config, nu=nu, SEED=RANDOM_SEED)
+  sensingModel       = mpc_utils.SensorModel(config, naug=softContactModel.nc, SEED=RANDOM_SEED)
   # Display target circle  trajectory (reference)
   nb_points = 20 
   for i in range(nb_points):
     t = (i/nb_points)*2*np.pi/OMEGA
-    # pl = pin_utils.rotate(contact_placement_0, rpy=TILT_RPY)
     pos = ocp_utils.circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
-
+  
+  draw_rate = 200
+  
+  
   # # # # # # # # # # # #
   ### SIMULATION LOOP ###
   # # # # # # # # # # # #
@@ -476,6 +482,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       sim_data.state_mea_no_noise_SIMU[i+1, :] = y_mea_SIMU
       # Sensor model ( simulation state ==> noised / filtered state )
       sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)
+
+      # Display real 
+      if(i%draw_rate==0):
+        pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
+        simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
 
   bench.plot_timer()
   # bench.plot_profiles()

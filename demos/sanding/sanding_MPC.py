@@ -44,7 +44,6 @@ from classical_mpc.ocp import OptimalControlProblemClassical
 
 
 WARM_START_IK      = True
-RESET_ANCHOR_POINT = True
 
 import time
 import pinocchio as pin
@@ -288,8 +287,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   nb_ctrl = 0
   # Additional simulation blocks 
   communicationModel = mpc_utils.CommunicationModel(config)
-  actuationModel     = mpc_utils.ActuationModel(config, nu=nu)
-  sensingModel       = mpc_utils.SensorModel(config)
+  actuationModel     = mpc_utils.ActuationModel(config, nu=nu, SEED=RANDOM_SEED)
+  sensingModel       = mpc_utils.SensorModel(config, SEED=RANDOM_SEED)
   # Display target circle  trajectory (reference)
   nb_points = 20 
   for i in range(nb_points):
@@ -418,7 +417,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           bench.stop_timer(nb_iter=ddp.iter)
           bench.stop_croco_profiler()
           # Record MPC predictions, cost references and solver data 
-          pin.framesForwardKinematics(sim_data.rmodel, sim_data.rdata, q)
+          # pin.framesForwardKinematics(sim_data.rmodel, sim_data.rdata, q)
           sim_data.record_predictions(nb_plan, ddp)
           sim_data.record_cost_references(nb_plan, ddp)
           sim_data.record_solver_data(nb_plan, ddp) 

@@ -58,7 +58,7 @@ class ActuationModel:
         '''
         measured_torque = reference_torque.copy()
         # Affine scaling
-        if(self.SCALE_TORQUES):
+        if(self.SCALE_TORQUES and len(measured_torque) !=0):
           measured_torque = self.alpha * measured_torque + self.beta
         # Filtering (moving average)
         if(self.FILTER_TORQUES and memory is not None):

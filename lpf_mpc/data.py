@@ -352,10 +352,10 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
         id_endeff = self.rmodel.getFrameId(self.contactFrameName)
         if(self.PIN_REF_FRAME == pin.LOCAL):
             self.force_pred[nb_plan, :, :] = \
-                np.array([ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
+                np.array([self.rmodel.frames[id_endeff].placement.actionInverse @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
         elif(self.PIN_REF_FRAME == pin.LOCAL_WORLD_ALIGNED or self.PIN_REF_FRAME == pin.WORLD):
             self.force_pred[nb_plan, :, :] = \
-                np.array([self.rdata.oMf[id_endeff].action @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
+                np.array([self.rdata.oMf[id_endeff].action @ self.rmodel.frames[id_endeff].placement.actionInverse @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
         else:
             logger.error("The Pinocchio reference frame must be in ['LOCAL', LOCAL_WORLD_ALIGNED', 'WORLD']")
         self.f_curr = self.force_pred[nb_plan, 0, :]
