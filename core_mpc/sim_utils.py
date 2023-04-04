@@ -185,8 +185,8 @@ def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIW
     logger.info("Initializing iiwa reduced in PyBullet simulator...")
     print("")
     # HARD CODED !!!
-    controlled_joints = ['A1', 'A2', 'A3', 'A4']
-    qref = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]) 
+    controlled_joints =  ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']
+    qref = np.zeros(7)
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.GUI, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)

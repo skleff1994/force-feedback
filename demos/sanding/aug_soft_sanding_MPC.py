@@ -121,7 +121,6 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
 
 def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
-
   # # # # # # # # # # # # # # # # # # #
   ### LOAD ROBOT MODEL and SIMU ENV ### 
   # # # # # # # # # # # # # # # # # # # 
@@ -137,7 +136,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   x0 = np.concatenate([q0, v0])   
   if(simulator == 'bullet'):
     from core_mpc import sim_utils as simulator_utils
-    env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
+    env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name+'_reduced', dt=dt_simu, x0=x0)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
     from core_mpc import raisim_utils as simulator_utils
@@ -204,9 +203,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Set the force cost reference frame to LWA 
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   for k,m in enumerate(models):
+    m.differential.costs.costs["translation"].active = False
     m.differential.active_contact = False
+    m.differential.f_des = np.zeros(1)
     m.differential.cost_ref = pin.LOCAL_WORLD_ALIGNED
-  MAX_FORCE_WEIGHT = np.array([1.])
 
   # Setup tracking problem with circle ref EE trajectory + Warm start state = IK of circle trajectory
   RADIUS = config['frameCircleTrajectoryRadius'] 
@@ -229,8 +229,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   logger.debug(str(target_force_traj[N_min*config['N_h']:N_ramp*config['N_h'], :].shape))
   target_force_traj[N_min*config['N_h']:N_ramp*config['N_h'], 2] = [F_MIN + (F_MAX - F_MIN)*i/((N_ramp-N_min)*config['N_h']) for i in range((N_ramp-N_min)*config['N_h'])]
   target_force_traj[N_ramp*config['N_h']:, 2] = F_MAX
-  # plt.plot(target_force_traj)
-  # plt.show()
+  import matplotlib.pyplot as plt
+  plt.plot(target_force_traj)
+  plt.show()
   target_force = np.zeros(config['N_h']+1)
   force_weight = np.asarray(config['frameForceWeight'])
   # Circle trajectory 
@@ -241,16 +242,16 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # absolute desired position
   oPc_offset = np.asarray(config['oPc_offset'])
   pdes = np.asarray(config['contactPosition']) + oPc_offset
-  radius = 0.07 ; omega = 4.
-  target_position_traj[0:N_circle, :] = [np.array([pdes[0] + radius * np.sin(i*config['dt']*omega), 
-                                                        pdes[1] + radius * (1-np.cos(i*config['dt']*omega)),
+  target_position_traj[0:N_circle, :] = [np.array([pdes[0] + RADIUS * np.sin(i*config['dt']*OMEGA), 
+                                                        pdes[1] + RADIUS * (1-np.cos(i*config['dt']*OMEGA)),
                                                         pdes[2]]) for i in range(N_circle)]
-  target_velocity_traj[0:N_circle, :] = [np.array([radius * omega * np.cos(i*config['dt']*omega), 
-                                                        radius * omega * np.sin(i*config['dt']*omega),
+  target_velocity_traj[0:N_circle, :] = [np.array([RADIUS * OMEGA * np.cos(i*config['dt']*OMEGA), 
+                                                        RADIUS * OMEGA * np.sin(i*config['dt']*OMEGA),
                                                         0.]) for i in range(N_circle)]
   target_position_traj[N_circle:, :] = target_position_traj[N_circle-1,:]
   target_velocity_traj[N_circle:, :] = np.zeros(3)
-
+  plt.plot(target_position_traj)
+  plt.show()
   target_position = np.zeros((config['N_h']+1, 3)) 
   target_velocity = np.zeros((config['N_h']+1, 3)) 
   anchor_point = pdes.copy()
@@ -272,13 +273,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       Mref = contact_placement.copy()
       Mref.translation = p_ee_ref
       # Get corresponding forces at each joint + joint state from IK
-      f_ext = pin_utils.get_external_joint_torques(Mref.copy(), np.concatenate([config['frameForceRef'], np.zeros(3)]), robot)
+      f_ext = pin_utils.get_external_joint_torques(Mref.copy(), config['frameForceRef'], robot)
       q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
       f_ws = np.array([softContactModel.computeForce_(robot.model, q_ws, v_ws)])
       xs_init.append(np.concatenate([q_ws, v_ws, f_ws]))
       if(k<config['N_h']):
         us_init.append(pin_utils.get_tau(y0[:nq], y0[:nv], np.zeros(nv), f_ext, robot.model, np.zeros(nv)))
-      # print(m.differential.costs.costs['translation'].cost.residual.reference)
   # Warmstart and solve
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
@@ -378,7 +378,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       if(time_to_contact == 0): 
           logger.warning("Entering contact phase ( RESET_ANCHOR = "+str(RESET_ANCHOR_POINT)+" )")
           # Record end-effector position at the time of the contact switch
-          position_at_contact_switch = robot.data.oMf[id_endeff].translation.copy()
+          position_at_contact_switch = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
           target_position[:,:] = position_at_contact_switch.copy()
           # Optionally reset the anchor point to the current position
           if(RESET_ANCHOR_POINT): 
@@ -417,10 +417,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           target_position[:,:2] = target_position_traj[ti:tf,:2] + offset_xy
           # Target in z is fixed to the anchor at switch (equals absolute target if RESET_ANCHOR = False)
           # No position tracking in z : redundant with zero activation weight on z
-          target_position[:,2]  = robot.data.oMf[id_endeff].translation[2].copy()
+          target_position[:,2]  = robot_simulator.pin_robot.data.oMf[id_endeff].translation[2].copy()
           # Reset anchor point (x,y) to the current location of the end-effector to allow lateral motion
           # Redundant with 0 gains on the lateral directions
-          anchor_point[:2] = robot.data.oMf[id_endeff].translation[:2].copy()
+          anchor_point[:2] = robot_simulator.pin_robot.data.oMf[id_endeff].translation[:2].copy()
           # Record target signals                
           target_velocity[:,:2] = target_velocity_traj[ti:tf,:2] 
           target_velocity[:,2]  = 0.
@@ -432,15 +432,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           q = sim_data.state_mea_SIMU[i, :nq]
           v = sim_data.state_mea_SIMU[i, nq:nq+nv]
           f = sim_data.state_mea_SIMU[i, nq+nv:]
-          # ddp.problem.x0 = sim_data.state_mea_SIMU[i, :]
-          # xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-          # xs_init[0] = sim_data.state_mea_SIMU[i, :]
-          # us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
           # Solve OCP 
           bench.start_timer()
           bench.start_croco_profiler()
           solveOCP(q, v, f, ddp, config['maxiter'], node_id_reach, target_position, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
-          # ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
           bench.record_profiles()
           bench.stop_timer(nb_iter=ddp.iter)
           bench.stop_croco_profiler()
