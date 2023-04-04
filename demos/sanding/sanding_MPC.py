@@ -123,6 +123,7 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
         # get predicted force from rigid model (careful : expressed in LOCAL !!!)
         j_wrenchpred = ddp.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].f
         fpred = jMc.actInv(j_wrenchpred).linear
+        # print(fpred)
         problem_formulation_time = time.time()
         t_child_1 =  problem_formulation_time - t
         # Solve OCP 
@@ -417,6 +418,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           bench.stop_timer(nb_iter=ddp.iter)
           bench.stop_croco_profiler()
           # Record MPC predictions, cost references and solver data 
+          pin.framesForwardKinematics(sim_data.rmodel, sim_data.rdata, q)
           sim_data.record_predictions(nb_plan, ddp)
           sim_data.record_cost_references(nb_plan, ddp)
           sim_data.record_solver_data(nb_plan, ddp) 
@@ -467,7 +469,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       #   pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
       #   simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
     
-
+  bench.plot_timer()
   # # # # # # # # # # #
   # PLOT SIM RESULTS  #
   # # # # # # # # # # #

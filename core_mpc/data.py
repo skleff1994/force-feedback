@@ -490,7 +490,7 @@ class MPCDataHandlerAbstract:
     # Check 1st contact name & reference frame in config file
     if(hasattr(self, 'contacts')):
         self.is_contact = True
-        if(self.contacts[0]['contactModelType'] == '6D' or self.contacts[0]['pinocchioReferenceFrame'] == 'LOCAL'):
+        if(self.contacts[0]['pinocchioReferenceFrame'] == 'LOCAL'):
             self.PIN_REF_FRAME = pin.LOCAL
         else:
             self.PIN_REF_FRAME = pin.LOCAL_WORLD_ALIGNED
