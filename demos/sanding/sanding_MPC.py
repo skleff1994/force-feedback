@@ -183,7 +183,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
   simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
-  # simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
+  simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
 
   # # # # # # # # # 
   ### OCP SETUP ###
@@ -202,6 +202,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       m.differential.costs.costs["translation"].active = False
       if(k < config['N_h']):
            m.differential.costs.costs["force"].active = False
+           m.differential.costs.costs["force"].cost.residual.reference = pin.Force.Zero()
       m.differential.contacts.changeContactStatus("contact", False)
 
   # Setup tracking problem with circle ref EE trajectory + Warm start state = IK of circle trajectory
@@ -364,7 +365,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           position_at_contact_switch = robot.data.oMf[id_endeff].translation.copy()
           target_position[:,:] = position_at_contact_switch.copy()
           print("Entering contact phase")
-          # target_position = robot.data.oMf[frameId].translation
       # If contact phase enters horizon start updating models from the the end with contact models
       if(0 <= time_to_contact and time_to_contact <= NH_SIMU):
           TASK_PHASE = 3
@@ -489,7 +489,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                                       SAVE=False,
                                       SAVE_DIR=save_dir,
                                       SAVE_NAME=save_name,
-                                      AUTOSCALE=True)
+                                      AUTOSCALE=False)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)

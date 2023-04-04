@@ -6,7 +6,7 @@
 simu_freq: 1000        # Simulation frequency in Hz
 ctrl_freq: 1000         # Control frequency
 plan_freq: 1000         # Planning frequency
-T_tot: 5.             # Simu duration (s)
+T_tot: 4.             # Simu duration (s)
 # Simulation options
 DELAY_SIM: True              # Add delay in reference torques (low-level)
 DELAY_OCP: True              # Add delay in OCP solution (i.e. ~1ms resolution time)
