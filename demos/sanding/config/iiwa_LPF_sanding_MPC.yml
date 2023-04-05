@@ -6,7 +6,7 @@
 simu_freq: 5000        # Simulation frequency in Hz
 ctrl_freq: 1000       # Control frequency
 plan_freq: 1000          # Planning frequency
-T_tot: 0.6            # Simu duration (s)
+T_tot: 10.            # Simu duration (s)
 # Simulation options
 DELAY_SIM: True              # Add delay in reference torques (low-level)
 DELAY_OCP: True              # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -16,7 +16,7 @@ FILTER_TORQUES: True         # Moving average smoothing of reference torques
 NOISE_STATE: True            # Add Gaussian noise on the measured state 
 TORQUE_TRACKING: True
 FILTER_STATE: True           # Moving average smoothing of reference torques
-SAVE_DATA: False               # Save plot_data to npz
+SAVE_DATA: True               # Save plot_data to npz
 RECORD_SOLVER_DATA: False     # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
 INIT_LOG: True                # Initial logs summarizing parameters
 init_log_display_time: 1      # How long (s) to display the initial logs ?
@@ -28,9 +28,10 @@ TILT_PITCH_LOCAL_DEG: 5.
 RICCATI: False 
 
 T_REACH: 0.5
-T_TRACK: 1000.
-T_CONTACT: 1000
-T_CIRCLE: 1000.
+T_TRACK: 1.
+T_CONTACT: 3.
+T_CIRCLE: 4.
+
 
 
 # General 

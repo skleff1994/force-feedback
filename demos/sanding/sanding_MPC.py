@@ -222,8 +222,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   target_force = np.zeros(config['N_h']+1)
   force_weight = np.asarray(config['frameForceWeight'])
   # Circle trajectory 
-  N_total_pos = int((config['T_tot'] - config['T_REACH'])/config['dt'] + config['N_h'])
-  N_circle = int((config['T_tot'] - config['T_CIRCLE'])/config['dt']) + config['N_h']
+  N_total_pos = 10000 #int((config['T_tot'] - config['T_REACH'])/config['dt'] + config['N_h'])
+  N_circle = 10000 #int((config['T_tot'] - config['T_CIRCLE'])/config['dt']) + config['N_h']
   target_position_traj = np.zeros( (N_total_pos, 3) )
   target_velocity_traj = np.zeros( (N_total_pos, 3) )
   # absolute desired position
