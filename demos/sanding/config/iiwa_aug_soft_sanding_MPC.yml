@@ -64,8 +64,8 @@ WHICH_COSTS: ['force', 'forceRateReg', 'translation', 'velocity', 'stateReg', 'c
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeight: [0.001] 
-frameForceWeightTerminal: [0.001] 
+frameForceWeight: [0.01] 
+frameForceWeightTerminal: [0.01] 
 frameForceRef: [0., 0., 50, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 forceCostRefFrame: 'LOCAL_WORLD_ALIGNED'
@@ -137,7 +137,7 @@ var_aug: [0.1]
 delay_OCP_ms: 1    # in ms
 delay_sim_cycle: 1 # in HF cycles
   # Proportional-integral torque control gains
-Kp_low: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+Kp_low: [1, 1, 1, 1, 1, 1]
 Ki_low: [0., 0., 0., 0., 0., 0.]
 Kd_low: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
 u_avg_filter_length: 4 #8 # in HF cycles

@@ -104,7 +104,7 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 10.
+                m[k].differential.costs.costs["translation"].weight = 50.
                 # m[k].differential.costs.costs["velocity"].active = True
                 # m[k].differential.costs.costs["velocity"].cost.residual.reference = pin.Motion(np.concatenate([target_velocity[k], np.zeros(3)]))
                 # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([1., 1., 0., 1., 1., 1.])
@@ -463,7 +463,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
-      f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, sim_data.PIN_REF_FRAME)
+      # f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, sim_data.PIN_REF_FRAME)
+      f_mea_SIMU = robot_simulator.end_effector_forces(sim_data.PIN_REF_FRAME)[1][0]
       if(i%50==0): 
         logger.info("f_mea = "+str(f_mea_SIMU))
       # Record data (unnoised)

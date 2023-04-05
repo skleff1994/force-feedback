@@ -78,12 +78,12 @@ contactType: '1Dz'
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
 #                           'force', 'friction', 'translation', 'velocity', 'placement', 'rotation'
-WHICH_COSTS: ['force', 'translation', 'rotation', 'stateReg', 'ctrlRegGrav', 'stateLim'] # 'ctrlRegGrav']  
+WHICH_COSTS: ['force', 'translation', 'stateReg', 'ctrlRegGrav', 'stateLim'] # 'ctrlRegGrav']  
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
 frameForceWeights:  [0, 0., 1., 0., 0., 0.]
-frameForceWeight: 50.
+frameForceWeight: 1000.
 # frameForceWeightTerminal: 0.
 frameForceRef: [0., 0., 50, 0., 0., 0.]    
 frameForceFrameName: 'contact'
@@ -104,7 +104,7 @@ ctrlRegRef: 'DEFAULT'  # default 0 if None
 
 # 'wReg' : unfiltered torque regularization
 wRegWeight: 0.0000001
-wRegRef: 'zero'
+wRegRef: 'gravity'
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 0
@@ -112,8 +112,8 @@ wLimWeight: 0
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 1.
-frameTranslationWeightTerminal: 1.
+frameTranslationWeight: 10.
+frameTranslationWeightTerminal: 100.
 frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
 frameCircleTrajectoryRadius: 0.1  # in m
@@ -128,14 +128,6 @@ frameVelocityWeight: 0.5
 frameVelocityWeightTerminal: 1.
 frameVelocityRef: 'DEFAULT'    
 frameVelocityFrameName: 'contact'
-
-
- # 'rotation' : end-effector frame orientation
-frameRotationWeights:  [1., 1., 1.]
-frameRotationWeight: 0.1
-frameRotationWeightTerminal: 0.1
-frameRotationRef: 'DEFAULT'
-frameRotationFrameName: 'contact'
 
 
  # 'stateLim' : state limits
@@ -171,7 +163,7 @@ var_aug: [0, 0, 0, 0, 0, 0, 0] # LPF
 delay_OCP_ms: 1    # in ms
 delay_sim_cycle: 1 # in HF cycles
   # Proportional-integral torque control gains
-Kp_low: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+Kp_low: [1, 1, 1, 1, 1, 1]
 Ki_low: [0., 0., 0., 0., 0., 0.]
 Kd_low: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
 u_avg_filter_length: 4 #8 # in HF cycles

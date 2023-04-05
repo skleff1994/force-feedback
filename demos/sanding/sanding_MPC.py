@@ -107,7 +107,7 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                     m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                    m[k].differential.costs.costs["translation"].weight = 3.
+                    m[k].differential.costs.costs["translation"].weight = 10.
                     # m[k].differential.costs.costs["velocity"].active = True
                     # m[k].differential.costs.costs["velocity"].cost.residual.reference = pin.Motion(np.concatenate([target_velocity[k], np.zeros(3)]))
                     # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([1., 1., 0., 1., 1., 1.])
@@ -297,6 +297,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     pos = ocp_utils.circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
 
+  draw_rate = 200
+
   # # # # # # # # # # # #
   ### SIMULATION LOOP ###
   # # # # # # # # # # # #
@@ -451,7 +453,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
       # f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, softContactModel.pinRefFrame)
-      f_mea_SIMU = robot_simulator.end_effector_forces(pin.LOCAL_WORLD_ALIGNED)[1][0]
+      f_mea_SIMU = robot_simulator.end_effector_forces(sim_data.PIN_REF_FRAME)[1][0]
       fz_mea_SIMU = np.array([f_mea_SIMU[2]])
       if(i%100==0): 
         logger.info("f_mea  = "+str(f_mea_SIMU))
@@ -463,10 +465,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       sim_data.force_mea_SIMU[i, :] = f_mea_SIMU
 
 
-      # # Display real 
-      # if(i%draw_rate==0):
-      #   pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
-      #   simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
+      # Display real 
+      if(i%draw_rate==0):
+        pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
+        simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
     
   bench.plot_timer()
   # # # # # # # # # # #
