@@ -27,6 +27,7 @@ class ActuationModel:
         # PI gains for inner control loop [NOT READY]   
         self.gain_P = self.config['Kp_low']*np.eye(nu)      
         self.gain_I = self.config['Ki_low']*np.eye(nu)
+        # self.gain_D = self.config['Kd_low']*np.eye(nu)
         self.err_I = np.zeros(nu)
         # Delays
         self.delay_sim_cycle = int(self.config['delay_sim_cycle'])       # in simu cycles
@@ -61,7 +62,7 @@ class ActuationModel:
         if(self.SCALE_TORQUES and len(measured_torque) !=0):
           measured_torque = self.alpha * measured_torque + self.beta
         # Filtering (moving average)
-        if(self.FILTER_TORQUES and memory is not None):
+        if(self.FILTER_TORQUES and len(memory)>0):
           n_sum = min(i, self.config['u_avg_filter_length'])
           for k in range(n_sum):
             measured_torque += memory[i-k-1, :]
@@ -74,14 +75,15 @@ class ActuationModel:
           else:                          
             measured_torque = self.buffer_sim.pop(-self.delay_sim_cycle)
         # Optional Gaussian noise on desired torque 
-        if(self.NOISE_TORQUES):
+        if(self.NOISE_TORQUES and len(measured_torque) !=0):
             noise_u = np.random.normal(0., self.var_u, self.nu)
             measured_torque += noise_u
         # Inner PID torque control loop [NOT READY]
-        if(self.TORQUE_TRACKING):
+        if(self.TORQUE_TRACKING and len(measured_torque) !=0):
             self.err_P = measured_torque - reference_torque              
-            self.err_I += measured_torque                             
-            measured_torque = reference_torque - self.gain_P.dot(self.err_P) - self.gain_I.dot(self.err_I)
+            self.err_I += measured_torque    
+            # self.err_D = (measured_torque - memory[-1, :])/5e-3                         
+            measured_torque = reference_torque - self.gain_P.dot(self.err_P) - self.gain_I.dot(self.err_I) #- self.gain_D.dot(self.err_D)
         return measured_torque
 
 
@@ -168,7 +170,7 @@ class SensorModel:
           else:
             measured_state += np.concatenate([noise_q, noise_v]).T
         # Optional filtering on measured state
-        if(self.FILTER_STATE):
+        if(self.FILTER_STATE and len(memory)>0):
           n_sum = min(i, self.config['x_avg_filter_length'])
           for k in range(n_sum):
             measured_state += memory[i-k-1, :]
