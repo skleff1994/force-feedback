@@ -304,7 +304,7 @@ def display_ball(p_des, robot_base_pose=pin.SE3.Identity(), RADIUS=.05, COLOR=[1
                                baseInertialFramePosition=[0.,0.,0.],
                                baseVisualShapeIndex=visualBallId,
                                basePosition=[0.,0.,0.],
-                               useMaximalCoordinates=True)
+                               useMaximalCoordinates=False)
 
     return ballId
 
@@ -343,7 +343,7 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, bullet_endeff_
                                     baseCollisionShapeIndex=collisionShapeId,
                                     baseVisualShapeIndex=visualShapeId,
                                     basePosition=[0.,0.,0.],
-                                    useMaximalCoordinates=True)
+                                    useMaximalCoordinates=False)
                     
       # Desactivate collisions for all links
       for i in range(p.getNumJoints(robotId)):
@@ -360,7 +360,7 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, bullet_endeff_
                         baseInertialFramePosition=[0.,0.,0.],
                         baseVisualShapeIndex=visualShapeId,
                         basePosition=[0.,0.,0.],
-                        useMaximalCoordinates=True)
+                        useMaximalCoordinates=False)
       return contactId
 
 
@@ -370,7 +370,7 @@ def remove_body_from_sim(bodyId):
     Removes bodyfrom sim env
     '''
     logger.info("Removing body "+str(bodyId)+" from simulation !")
-    p.removeBody(int(bodyId))
+    p.removeBody(bodyId)
 
 
 def print_dynamics_info(bodyId, linkId=-1):

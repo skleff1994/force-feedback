@@ -54,7 +54,7 @@ Kp: [1000]
 Kv: [100]
 pinRefFrame: 'LOCAL_WORLD_ALIGNED' 
 contactType: '1Dz'    
-contactPosition: [0.6, 0., 0.05]  
+contactPosition: [0.6, 0., 0.1]  
 
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)

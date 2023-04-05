@@ -6,7 +6,7 @@
 simu_freq: 5000        # Simulation frequency in Hz
 ctrl_freq: 1000       # Control frequency
 plan_freq: 1000          # Planning frequency
-T_tot: 10.            # Simu duration (s)
+T_tot: 0.5            # Simu duration (s)
 # Simulation options
 DELAY_SIM: True              # Add delay in reference torques (low-level)
 DELAY_OCP: True              # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -41,7 +41,7 @@ tau_plus_integration: False
 dt: 0.005                                          # OCP integration step 
 N_h: 10                                             # Horizon length in nodes
 maxiter: 10                                         # Max number of iterations in DDP
-q0: [0., 1.0471975511965976, 0., -1.1344640137963142, 0.2,  0.7853981633974483]               # Initial robot joint configuration
+q0: [0., 0.95, 0., -1.1344640137963142, 0.2,  0.7853981633974483]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.]                         # Initial robot joint velocity
 
 
@@ -62,7 +62,7 @@ contacts:
       contactModelGains: [0, 50.],             # Baumgarte stabilization gains
       active: False                            # Initially active? 
     }
-contactPosition: [0.6, 0., 0.05] # table
+contactPosition: [0.6, 0., 0.1] # table
 oPc_offset: [0., 0., 0.] 
 pinRefFrame: 'LOCAL_WORLD_ALIGNED'
 contactType: '1Dz'
