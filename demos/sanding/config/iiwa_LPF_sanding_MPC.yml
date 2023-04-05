@@ -24,13 +24,13 @@ LOG: True                     # Logs during simulation
 log_rate: 500                 # Display sim status once very 'log_rate' sim cycles
 WHICH_PLOTS: ['f', 'ee', 'y', 'w']
 TILT_SURFACE: True           # Tilt contact surface 
-TILT_PITCH_LOCAL_DEG: 5.
+TILT_PITCH_LOCAL_DEG: 10.
 RICCATI: False 
 
 T_REACH: 0.5
 T_TRACK: 1.
-T_CONTACT: 3.
-T_CIRCLE: 4.
+T_CONTACT: 2.
+T_CIRCLE: 3.
 
 
 
@@ -43,14 +43,6 @@ N_h: 10                                             # Horizon length in nodes
 maxiter: 10                                         # Max number of iterations in DDP
 q0: [0., 1.0471975511965976, 0., -1.1344640137963142, 0.2,  0.7853981633974483]               # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.]                         # Initial robot joint velocity
-
-tau0: [  0., -16.4279,  -0.,  14.4554, -0.6963, 0.027, 0.]           # Initial robot joint torque
-
-# Definition of the contact surface in the simulator
-# It is aligned with the LOCAL contact frame by default
-# User-defined offset expressed in the LOCAL contact frame :
-contact_plane_offset: [0., 0., 0.03348]
-
 
 
 # Pin model frame name of the end-effector 
