@@ -49,12 +49,12 @@ import pinocchio as pin
 WARM_START_IK = True
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [15, 10, 5, 0, -5, -10, -15] 
+TILT_ANGLES_DEG = [10, 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([angle*np.pi/180, 0., 0.])
 N_EXP = len(TILT_RPY)
-SEEDS = [1] #, 2, 3, 4, 5]
+SEEDS = [1, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
 
 
@@ -443,7 +443,7 @@ def main(robot_name):
                 robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
                 # f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, sim_data.PIN_REF_FRAME)
                 f_mea_SIMU = robot_simulator.end_effector_forces(sim_data.PIN_REF_FRAME)[1][0]
-                if(i%500==0): 
+                if(i%config['log_rate']==0): 
                     logger.info("f_mea = "+str(f_mea_SIMU))
                 # Record data (unnoised)
                 y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU[lpfStateIds]]).T 

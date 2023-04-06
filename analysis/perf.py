@@ -38,9 +38,6 @@ N_EXP = len(TILT_RPY)
 SEEDS = [1] #, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
 
-
-
-# def main(FILTER=1, PLOT=False):
   
 position_error_AVG_classical      = np.zeros((2,N_EXP))
 position_error_AVG_NORM_classical = np.zeros(N_EXP)
@@ -64,7 +61,7 @@ FILTER  = 1
 
 for n_exp in range(N_EXP):
 
-
+    logger.debug("Experiment n°"+str(n_exp+1)+"/"+str(N_EXP))
     # Extract data classical
     sd   = load_data(prefix_classical+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED=1.npz')
     data = sd.extract_data(frame_of_interest='contact')

@@ -50,13 +50,14 @@ WARM_START_IK = True
 RESET_ANCHOR_POINT = True
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [15, 10, 5, 0, -5, -10, -15] 
+TILT_ANGLES_DEG = [10, 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([angle*np.pi/180, 0., 0.])
 N_EXP = len(TILT_RPY)
-SEEDS = [1] 
+SEEDS = [1, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
+
 
 def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force):
     t = time.time()
@@ -445,7 +446,7 @@ def main(robot_name):
                 # f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, softContactModel.pinRefFrame)
                 f_mea_SIMU = robot_simulator.end_effector_forces(softContactModel.pinRefFrame)[1][0]
                 fz_mea_SIMU = np.array([f_mea_SIMU[2]])
-                if(i%500==0): 
+                if(i%config['log_rate']==0): 
                     logger.info("f_mea  = "+str(f_mea_SIMU))
                 # Record data (unnoised)
                 y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, fz_mea_SIMU]).T 
