@@ -123,7 +123,7 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
         logger.error("Unknown 'wRegRef' in YAML config. Please select in ['zero', 'tau0', 'gravity']")
       # w_reg_ref = np.asarray(self.wRegRef'])
       log_msg_w_reg = 'constant reference '+self.wRegRef
-    logger.debug("Unfiltered torque regularization w.r.t. "+log_msg_w_reg)
+    logger.warning("Unfiltered torque regularization w.r.t. "+log_msg_w_reg)
 
 
   # Create IAMs

@@ -43,7 +43,8 @@ import core_mpc.sim_utils as simulator_utils
 from classical_mpc.ocp import OptimalControlProblemClassical
 from classical_mpc.data import MPCDataHandlerClassical
 
-TASK = 'contact_circle'
+import time
+import pinocchio as pin
 WARM_START_IK = True
 
 # tilt table of several angles around y-axis
@@ -59,7 +60,94 @@ N_EXP = len(TILT_RPY)
 
 SEEDS = [1, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
-# np.random.seed(1)
+
+jRc = np.eye(3)
+jpc = np.array([0, 0., 0.12])
+jMc = pin.SE3(jRc, jpc)
+
+def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force):
+        t = time.time()
+        x = np.concatenate([q, v])
+        ddp.problem.x0 = x
+        xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
+        xs_init[0] = x
+        us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
+        # Get OCP nodes
+        m = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+        # Update OCP for reaching phase
+        if(TASK_PHASE == 1):
+            # If node id is valid
+            if(node_id_reach <= ddp.problem.T and node_id_reach >= 0):
+                # Updates nodes between node_id and terminal node 
+                for k in range( node_id_reach, ddp.problem.T+1, 1 ):
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+        # Update OCP for "increase weights" phase
+        if(TASK_PHASE == 2):
+            pass
+            # If node id is valid
+            if(node_id_track <= ddp.problem.T and node_id_track >= 0):
+                # Updates nodes between node_id and terminal node 
+                for k in range( node_id_track, ddp.problem.T+1, 1 ):
+                    w = min(1.*(k + 1. - node_id_track) , 3.)
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    m[k].differential.costs.costs["translation"].weight = w
+        # Update OCP for contact phase
+        if(TASK_PHASE == 3):
+            # If node id is valid
+            if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
+                # Updates nodes between node_id and terminal node 
+                for k in range( node_id_contact, ddp.problem.T+1, 1 ):  
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    m[k].differential.costs.costs["translation"].weight = 2.
+                    # activate contact and force cost
+                    m[k].differential.contacts.changeContactStatus("contact", True)
+                    if(k < ddp.problem.T):
+                        fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
+                        m[k].differential.costs.costs["force"].active = True
+                        # print(m[k].differential.costs.costs["force"])
+                        # print(m[k].differential.costs.costs["force"].cost)
+                        # print(m[k].differential.costs.costs["force"].weight)
+                        # m[k].differential.costs.costs["force"].weight = force_weight
+                        m[k].differential.costs.costs["force"].cost.residual.reference = fref
+        # Update OCP for circle phase
+        if(TASK_PHASE == 4):
+            # If node id is valid
+            if(node_id_circle <= ddp.problem.T and node_id_circle >= 0):
+                # Updates nodes between node_id and terminal node
+                for k in range( node_id_circle, ddp.problem.T+1, 1 ):
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
+                    m[k].differential.costs.costs["translation"].weight = 10.
+                    # m[k].differential.costs.costs["velocity"].active = True
+                    # m[k].differential.costs.costs["velocity"].cost.residual.reference = pin.Motion(np.concatenate([target_velocity[k], np.zeros(3)]))
+                    # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([1., 1., 0., 1., 1., 1.])
+                    # m[k].differential.costs.costs["velocity"].weight = 1.
+                    # activate contact and force cost
+                    m[k].differential.contacts.changeContactStatus("contact", True)
+                    if(k < ddp.problem.T):
+                        fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
+                        m[k].differential.costs.costs["force"].active = True
+                        # m[k].differential.costs.costs["force"].weight = force_weight
+                        m[k].differential.costs.costs["force"].cost.residual.reference = fref
+        # get predicted force from rigid model (careful : expressed in LOCAL !!!)
+        j_wrenchpred = ddp.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].f
+        fpred = jMc.actInv(j_wrenchpred).linear
+        # print(fpred)
+        problem_formulation_time = time.time()
+        t_child_1 =  problem_formulation_time - t
+        # Solve OCP 
+        ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
+        # ddp.problem.calcDiff(ddp.xs, ddp.us)
+        # Send solution to parent process + riccati gains
+        solve_time = time.time()
+        ddp_iter = ddp.iter
+        t_child =  solve_time - problem_formulation_time
+        return ddp.us, ddp.xs, ddp.K, t_child, ddp_iter, t_child_1, fpred
+
 
 def main(robot_name, simulator, PLOT_INIT):
 
@@ -291,6 +379,7 @@ def main(robot_name, simulator, PLOT_INIT):
         import time
         time.sleep(1)
         logger.warning("ROBOT = "+str(robot_simulator.robotId))
+
         logger.warning("CONTACT = "+str(contact_surface_bulletId))
         # # Remove table
         simulator_utils.remove_body_from_sim(contact_surface_bulletId)

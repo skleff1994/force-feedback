@@ -409,13 +409,13 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     # Solve OCP if we are in a planning cycle (MPC/planning frequency)
       if(i%int(sim_data.simu_freq/sim_data.plan_freq) == 0):       
           # Reset x0 to measured state + warm-start solution
-          q = sim_data.state_mea_SIMU[i, :nq]
-          v = sim_data.state_mea_SIMU[i, nq:nq+nv]
-          f = sim_data.state_mea_SIMU[i, nq+nv:]
+          q   = sim_data.state_mea_SIMU[i, :nq]
+          v   = sim_data.state_mea_SIMU[i, nq:nq+nv]
+          tau = sim_data.state_mea_SIMU[i, nq+nv:]
           # Solve OCP 
           bench.start_timer()
           bench.start_croco_profiler()
-          solveOCP(q, v, f, ddp, config['maxiter'], node_id_reach, target_position, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
+          solveOCP(q, v, tau, ddp, config['maxiter'], node_id_reach, target_position, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
           bench.record_profiles()
           bench.stop_timer(nb_iter=ddp.iter)
           bench.stop_croco_profiler()

@@ -199,8 +199,6 @@ def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIW
     else:
         q0 = x0[:robot_simulator.pin_robot.model.nq]
         dq0 = x0[robot_simulator.pin_robot.model.nv:]
-    logger.debug(q0)
-    logger.debug(dq0)
     robot_simulator.reset_state(q0, dq0)
     robot_simulator.forward_robot(q0, dq0)
     # To allow collisions with all parts of the robot if there is a contact surface (for contact & sanding tasks)
