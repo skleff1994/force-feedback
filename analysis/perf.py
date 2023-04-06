@@ -25,9 +25,9 @@ import matplotlib.pyplot as plt
 
 
 PREFIX = '/home/skleff/force-feedback/data/soft_contact_article/'
-prefix = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
-# prefix =  PREFIX+'iiwa_contact_circle_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.5_Fc=0.5_Fs2.0'
-# prefix =  PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.5_Fc=0.5_Fs1.0'
+prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
+prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
+prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
 
 
 TILT_ANGLES_DEG = [15, 10, 5, 0, -5, -10, -15] 
@@ -59,16 +59,12 @@ FILTER  = 1
 for n_exp in range(N_EXP):
 
 
-    # Extract data
-    sd   = load_data(prefix+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED=1.npz')
+    # Extract data LPF
+    sd   = load_data(prefix_soft+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED=1.npz')
     data = sd.extract_data(frame_of_interest='contact')
-    # data = data_utils.extract_plot_data_from_npz(prefix+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED=1.npz', LPF=False)    
     # Compute absolute tracking errors |mea - ref|
-    # EE tracking
-    Np = data['N_plan']
-    Ns = data['N_simu']
+    Np = data['N_plan'] ; Ns = data['N_simu']
     N_START = int(data['T_CONTACT']*data['simu_freq'])
-    print("N_start = ", N_START)
     # Duplicate last element
     lin_pos_ee_ref = np.zeros((data['lin_pos_ee_ref'].shape[0]+1, data['lin_pos_ee_ref'].shape[1]))
     lin_pos_ee_ref[:data['lin_pos_ee_ref'].shape[0], :] = data['lin_pos_ee_ref']
@@ -87,21 +83,22 @@ for n_exp in range(N_EXP):
     force_reference = data['frameForceRef'][2] 
     force_error = np.zeros(data['f_ee_mea'].shape[0])
     for i in range( Ns ):
-        force_error[i] = np.abs( data['f_ee_mea'][i,2] - force_reference)
+        # force_error[i] = np.abs( data['f_ee_mea'][i,2] - force_reference)
+        force_error[i] = np.abs( data['f_ee_mea'][i] - force_reference)
     # Maximum (peak) absolute error along x,y,z
     force_error_MAX[n_exp]   = np.max(force_error[N_START:])
     print("max error in z force = ", force_error_MAX[n_exp] )
     # Average absolute error 
     force_error_AVG[n_exp] = np.sum(force_error[N_START:], axis=0) / Ns
 
-    # #  Plot position reference and errors
-    # fig, ax = plt.subplots(2, 1, figsize=(19.2,10.8)) 
-    # tspan = np.linspace(0, data['T_tot'], position_reference.shape[0])
-    # # ax[0].plot(tspan, position_reference[:,0], label='ref_x')
-    # ax[0].plot(tspan, position_error[:,1], label='error_x')
-    # # ax[1].plot(tspan, position_reference[:,1], label='ref_y')
-    # ax[1].plot(tspan, position_error[:,1], label='error_y')
-    # plt.show()
+    #  Plot position reference and errors
+    fig, ax = plt.subplots(2, 1, figsize=(19.2,10.8)) 
+    tspan = np.linspace(0, data['T_tot'], position_reference.shape[0])
+    # ax[0].plot(tspan, position_reference[:,0], label='ref_x')
+    ax[0].plot(tspan, position_error[:,1], label='error_x')
+    # ax[1].plot(tspan, position_reference[:,1], label='ref_y')
+    ax[1].plot(tspan, position_error[:,1], label='error_y')
+    plt.show()
     
     # # Smooth if necessary
     # if(FILTER > 0):

@@ -33,7 +33,6 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
-RANDOM_SEED = 1
 
 from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 from core_mpc import ocp as ocp_utils
@@ -50,20 +49,14 @@ import pinocchio as pin
 WARM_START_IK = True
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [15, 10, 5, 0, -5, -10, -15] #[-20, -15, -10, -5, 0, 5, 10, 15, 20]
-
-# EXPERIMENTS = [TILT_ANGLES_DEG[n_exp] for n_s in range(len(SEEDS)) for n_exp in range(len(TILT_ANGLES_DEG)) ]
-# N_EXP = len(EXPERIMENTS)
-
+TILT_ANGLES_DEG = [15, 10, 5, 0, -5, -10, -15] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([angle*np.pi/180, 0., 0.])
 N_EXP = len(TILT_RPY)
-
 SEEDS = [1] #, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
 
-import pybullet as p
 
 def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force):
     t = time.time()
@@ -169,7 +162,7 @@ def main(robot_name):
     # # # # # # # # # 
     ### OCP SETUP ###
     # # # # # # # # # 
-    # Create DDP solver + compute warm start torque
+    # Initialize lpf ids, states and controls
     f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
     u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
     lpf_joint_names = robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #  #
