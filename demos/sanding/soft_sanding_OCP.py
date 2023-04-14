@@ -1,20 +1,20 @@
 """
 @package force_feedback
-@file soft_sanding_OCP.py
+@file demos/contact/soft_contact_OCP.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
-@date 2020-05-18
-@brief OCP for static EE pose task with the KUKA iiwa 
+@date 2023-04-11
+@brief OCP for sanding task 
 """
 
 '''
 The robot is tasked with exerting a constant normal force at its EE
 while drawing a circle on the contact surface
-Trajectory optimization using Crocoddyl
-The goal of this script is to setup OCP (a.k.a. play with weights)
+Trajectory optimization using Crocoddyl using the DAMSoftcontact where contact force
+is linear visco-elastic (spring damper model) and part of the state 
+The goal of this script is to setup OCP (play with weights)
 '''
-
 
 import sys
 sys.path.append('.')
@@ -28,8 +28,10 @@ np.set_printoptions(precision=4, linewidth=180)
 
 from core_mpc import ocp, path_utils, pin_utils, misc_utils
 
-from classical_mpc.ocp import OptimalControlProblemClassical
-from classical_mpc.data import DDPDataHandlerClassical
+from soft_mpc.ocp import OptimalControlProblemSoftContact
+from soft_mpc.data import DDPDataHandlerSoftContact
+from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
+
 
 WARM_START_IK = True
 
@@ -53,17 +55,20 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     # Update robot model with initial state
     robot.framesForwardKinematics(q0)
     robot.computeJointJacobians(q0)
-    M_ee = robot.data.oMf[id_endeff]
-
-
+    oMf = robot.data.oMf[id_endeff]
+    # Contact model
+    oPc = oMf.translation + np.asarray(config['oPc_offset'])
+    if('1D' in config['contactType']):
+        softContactModel = SoftContactModel1D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff, config['contactType'], config['pinRefFrame'])
+    else:
+        softContactModel = SoftContactModel3D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff, config['pinRefFrame'])
+    softContactModel.print()
 
     # # # # # # # # # 
     ### OCP SETUP ###
     # # # # # # # # # 
-    N_h = config['N_h']
-    dt = config['dt']
     # Setup Croco OCP and create solver
-    ddp = OptimalControlProblemClassical(robot, config).initialize(x0, callbacks=True)
+    ddp = OptimalControlProblemSoftContact(robot, config).initialize(x0, callbacks=True)
     # Setup tracking problem with circle ref EE trajectory
     models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     RADIUS = config['frameCircleTrajectoryRadius'] 

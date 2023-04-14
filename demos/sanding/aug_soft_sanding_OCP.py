@@ -5,11 +5,12 @@
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
 @date 2022-08-12
-@brief OCP for static EE pose task  
+@brief OCP for sanding task  
 """
 
 '''
-The robot is tasked with applying a constant normal force in contact with a wall
+The robot is tasked with exerting a constant normal force at its EE
+while drawing a circle on the contact surface
 Trajectory optimization using Crocoddyl using the DAMSoftcontactAugmented where contact force
 is linear visco-elastic (spring damper model) and part of the state 
 The goal of this script is to setup OCP (play with weights)

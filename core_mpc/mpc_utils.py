@@ -27,7 +27,7 @@ class ActuationModel:
         # PI gains for inner control loop [NOT READY]   
         self.gain_P = self.config['Kp_low']*np.eye(nu)      
         self.gain_I = self.config['Ki_low']*np.eye(nu)
-        # self.gain_D = self.config['Kd_low']*np.eye(nu)
+        self.gain_D = self.config['Kd_low']*np.eye(nu)
         self.err_I = np.zeros(nu)
         # Delays
         self.delay_sim_cycle = int(self.config['delay_sim_cycle'])       # in simu cycles
@@ -43,7 +43,8 @@ class ActuationModel:
         logger.info("Created ActuationModel(DELAY_SIM="+str(self.DELAY_SIM)+
                     ", SCALE_TORQUES="+str(self.SCALE_TORQUES)+
                     ", FILTER_TORQUES="+str(self.FILTER_TORQUES)+
-                    ", NOISE_TORQUES="+str(self.NOISE_TORQUES)+").")
+                    ", NOISE_TORQUES="+str(self.NOISE_TORQUES)+
+                    ", TORQUE_TRACKING="+str(self.TORQUE_TRACKING)+").")
         if(self.SCALE_TORQUES):
           logger.info("Torques scaling : alpha = "+str(self.alpha)+" | beta = "+str(self.beta))
 
@@ -81,9 +82,12 @@ class ActuationModel:
         # Inner PID torque control loop [NOT READY]
         if(self.TORQUE_TRACKING and len(measured_torque) !=0):
             self.err_P = measured_torque - reference_torque              
-            self.err_I += measured_torque    
-            # self.err_D = (measured_torque - memory[-1, :])/5e-3                         
-            measured_torque = reference_torque - self.gain_P.dot(self.err_P) - self.gain_I.dot(self.err_I) #- self.gain_D.dot(self.err_D)
+            self.err_I += measured_torque  
+            self.err_D = (measured_torque - memory[-1, :])/5e-3                           
+            # print("proportional correction =", self.gain_P.dot(self.err_P))
+            # print("integral     correction =", self.gain_I.dot(self.err_I))
+            # print("derivative   correction =", self.gain_D.dot(self.err_D))
+            measured_torque = reference_torque - self.gain_P.dot(self.err_P) - self.gain_I.dot(self.err_I) - self.gain_D.dot(self.err_D)
         return measured_torque
 
 

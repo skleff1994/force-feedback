@@ -188,7 +188,7 @@ def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIW
     controlled_joints =  ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']
     qref = np.zeros(7)
     # Create PyBullet sim environment + initialize sumulator
-    env = BulletEnvWithGround(p.DIRECT, dt=dt)
+    env = BulletEnvWithGround(p.GUI, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
     base_placement = pin.XYZQUATToSE3(pos + list(orn_quat)) 
     robot_simulator = env.add_robot(IiwaReducedRobot(controlled_joints, qref, pos, orn_quat))

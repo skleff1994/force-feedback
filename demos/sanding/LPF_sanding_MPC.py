@@ -43,8 +43,6 @@ from lpf_mpc.data import DDPDataHandlerLPF, MPCDataHandlerLPF
 from lpf_mpc.ocp import OptimalControlProblemLPF, getJointAndStateIds
 
 
-WARM_START_IK = True
-
 import time
 import pinocchio as pin
 
@@ -197,20 +195,18 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   # !!! Deactivate all costs & contact models initially !!!
   for k,m in enumerate(models):
-      m.differential.costs.costs["translation"].active = False
+      m.differential.costs.changeCostStatus("translation", False)
+      m.differential.costs.costs["translation"].cost.residual.reference = oMf.translation.copy()
       if(k < config['N_h']):
-           m.differential.costs.costs["force"].active = False
-           m.differential.costs.costs["force"].cost.residual.reference = pin.Force.Zero()
+          m.differential.costs.costs["force"].cost.residual.reference = pin.Force.Zero()
       m.differential.contacts.changeContactStatus("contact", False)
-      # logger.debug(str(m.differential.costs.active.tolist()))
+      m.differential.costs.changeCostStatus("force", False)
+      # m.differential.costs.active.tolist()
 
 
   # Setup tracking problem with circle ref EE trajectory + Warm start state = IK of circle trajectory
   RADIUS = config['frameCircleTrajectoryRadius'] 
   OMEGA  = config['frameCircleTrajectoryVelocity']
-  xs_init = [] 
-  us_init = []
-
   # Force trajectory
   F_MIN = 5.
   F_MAX = config['frameForceRef'][2]
@@ -242,31 +238,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   target_position = np.zeros((config['N_h']+1, 3)) 
   target_position[:,:] = pdes.copy()
   target_velocity = np.zeros((config['N_h']+1, 3)) 
-  q_ws = q0
-  logger.info("Computing warm-start using Inverse Kinematics...")
-  for k,m in enumerate(models):
-      # Ref
-      t = min(k*config['dt'], 2*np.pi/OMEGA)
-      p_ee_ref = ocp_utils.circle_point_WORLD(t, contact_placement_0.copy(), 
-                                                 radius=RADIUS,
-                                                 omega=OMEGA,
-                                                 LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
-      # Cost translation
-      m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
-      # Contact model 1D update z ref (WORLD frame)
-      m.differential.oPc = p_ee_ref
-      # Get ref placement
-      p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
-      Mref = contact_placement_0.copy()
-      Mref.translation = p_ee_ref
-      # Get corresponding forces at each joint + joint state from IK
-      f_ext = pin_utils.get_external_joint_torques(Mref.copy(), config['frameForceRef'], robot)
-      q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
-      tau_ws = pin_utils.get_tau(q_ws, v_ws, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
-      xs_init.append(np.concatenate([q_ws, v_ws, tau_ws[lpfStateIds]]))
-      if(k<N_h):
-          us_init.append(tau_ws)
   # Warmstart and solve
+  xs_init = [np.concatenate([q0, v0, u0]) for _ in range(config['N_h']+1)]
+  us_init = [u0[lpfStateIds] for _ in range(config['N_h'])]
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 
