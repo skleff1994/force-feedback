@@ -93,7 +93,8 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     '''
     self.state_mea_SIMU                = np.zeros((self.N_simu+1, self.ny))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq )
     self.state_mea_no_noise_SIMU       = np.zeros((self.N_simu+1, self.ny))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq ) without noise
-    self.force_mea_SIMU                = np.zeros((self.N_simu, 6)) 
+    self.tau_mea_SIMU                  = np.zeros((self.N_simu, self.nu))     # Measured torque 
+    self.tau_mea_derivative_SIMU       = np.zeros((self.N_simu, self.nu))     # Measured torque derivative
     self.state_mea_SIMU[0, :]          = y0
     self.state_mea_no_noise_SIMU[0, :] = y0
 
@@ -152,6 +153,23 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     self.f_ee_ref[nb_plan, :self.nc] = m.differential.f_des
 
 
+  def record_simu_cycle_measured(self, nb_simu, y_mea_SIMU, y_mea_no_noise_SIMU, tau_mea_SIMU):
+    '''
+    Records the measurements of state, torque and contact forces at the current simulation cycle
+     Input:
+      nb_simu             : simulation cycle number
+      y_mea_SIMU          : measured position-velocity state from rigid-body physics simulator + measured torque
+      y_mea_no_noise_SIMU :  " " without sensing noise
+    NOTE: this fucntion also computes the derivatives of the joint torques 
+    '''
+    self.state_mea_no_noise_SIMU[nb_simu+1, :] = y_mea_SIMU
+    self.state_mea_SIMU[nb_simu+1, :]          = y_mea_no_noise_SIMU
+    self.tau_mea_SIMU[nb_simu, :]              = tau_mea_SIMU
+    if(nb_simu > 0):
+        self.tau_mea_derivative_SIMU[nb_simu, :] = (tau_mea_SIMU - self.tau_mea_SIMU[nb_simu-1, :])/self.dt_simu
+
+
+
   def record_plan_cycle_desired(self, nb_plan):
     '''
     - Records the planning cycle data (state, control)
@@ -173,17 +191,17 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     self.ctrl_des_CTRL[nb_ctrl, :]    = self.u_curr   
     self.state_des_CTRL[nb_ctrl+1, :] = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)   
   
-  def record_simu_cycle_desired(self, nb_simu):
-    '''
-    - Records the control cycle data (state, control, force)
-    If an interpolation to control frequency is needed, here is the place where to implement it
-    '''
-    self.y_ref_SIMU  = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)
-    self.u_ref_SIMU  = self.u_curr 
-    if(nb_simu==0):
-        self.state_des_SIMU[nb_simu, :] = self.y_curr  
-    self.ctrl_des_SIMU[nb_simu, :]   = self.u_ref_SIMU 
-    self.state_des_SIMU[nb_simu+1, :] = self.y_ref_SIMU 
+  # def record_simu_cycle_desired(self, nb_simu):
+  #   '''
+  #   - Records the control cycle data (state, control, force)
+  #   If an interpolation to control frequency is needed, here is the place where to implement it
+  #   '''
+  #   self.y_ref_SIMU  = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)
+  #   self.u_ref_SIMU  = self.u_curr 
+  #   if(nb_simu==0):
+  #       self.state_des_SIMU[nb_simu, :] = self.y_curr  
+  #   self.ctrl_des_SIMU[nb_simu, :]   = self.u_ref_SIMU 
+  #   self.state_des_SIMU[nb_simu+1, :] = self.y_ref_SIMU 
 
     return 
 
@@ -206,17 +224,11 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     plot_data['u_pred'] = self.ctrl_pred
       # Extract 1st prediction
     plot_data['u_des_PLAN'] = self.ctrl_des_PLAN
-    plot_data['u_des_CTRL'] = self.ctrl_des_CTRL
-    plot_data['u_des_SIMU'] = self.ctrl_des_SIMU
     # State predictions (at PLAN freq)
     plot_data['q_pred']     = self.state_pred[:,:,:nq]
     plot_data['v_pred']     = self.state_pred[:,:,nq:nq+nv]
     plot_data['q_des_PLAN'] = self.state_des_PLAN[:,:nq]
     plot_data['v_des_PLAN'] = self.state_des_PLAN[:,nq:nq+nv] 
-    plot_data['q_des_CTRL'] = self.state_des_CTRL[:,:nq] 
-    plot_data['v_des_CTRL'] = self.state_des_CTRL[:,nq:nq+nv]
-    plot_data['q_des_SIMU'] = self.state_des_SIMU[:,:nq]
-    plot_data['v_des_SIMU'] = self.state_des_SIMU[:,nq:nq+nv]
     # State measurements (at SIMU freq)
     plot_data['q_mea']          = self.state_mea_SIMU[:,:nq]
     plot_data['v_mea']          = self.state_mea_SIMU[:,nq:nq+nv]
@@ -228,10 +240,10 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     plot_data['f_ee_pred']     = self.state_pred[:,:,-nc:]
     plot_data['f_ee_mea']      = self.state_mea_SIMU[:,-nc:]
     plot_data['f_ee_des_PLAN'] = self.state_des_PLAN[:,-nc:]
-    plot_data['f_ee_des_CTRL'] = self.state_des_CTRL[:,-nc:]
-    plot_data['f_ee_des_SIMU'] = self.state_des_SIMU[:,-nc:] 
     # Extract gravity torques
     plot_data['grav'] = np.zeros((self.N_simu+1, nq))
+    # Torque measurements
+    plot_data['u_mea'] = self.tau_mea_SIMU
     # print(plot_data['pin_model'])
     for i in range(plot_data['N_simu']+1):
       plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'], self.armature)
@@ -262,18 +274,9 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
       # Linear
     plot_data['lin_pos_ee_des_PLAN'] = pin_utils.get_p_(plot_data['q_des_PLAN'], self.rmodel, self.id_endeff)
     plot_data['lin_vel_ee_des_PLAN'] = pin_utils.get_v_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], self.rmodel, self.id_endeff)
-    plot_data['lin_pos_ee_des_CTRL'] = pin_utils.get_p_(plot_data['q_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['lin_vel_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['lin_pos_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], self.rmodel, self.id_endeff)
-    plot_data['lin_vel_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], self.rmodel, self.id_endeff)
-      # Angular
+     # Angular
     plot_data['ang_pos_ee_des_PLAN'] = pin_utils.get_rpy_(plot_data['q_des_PLAN'], self.rmodel, self.id_endeff)
     plot_data['ang_vel_ee_des_PLAN'] = pin_utils.get_w_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], self.rmodel, self.id_endeff)
-    plot_data['ang_pos_ee_des_CTRL'] = pin_utils.get_rpy_(plot_data['q_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['ang_vel_ee_des_CTRL'] = pin_utils.get_w_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['ang_pos_ee_des_SIMU'] = pin_utils.get_rpy_(plot_data['q_des_SIMU'], self.rmodel, self.id_endeff)
-    plot_data['ang_vel_ee_des_SIMU'] = pin_utils.get_w_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], self.rmodel, self.id_endeff)
-
     return plot_data
 
   def plot_mpc_force(self, plot_data, PLOT_PREDICTIONS=False, 

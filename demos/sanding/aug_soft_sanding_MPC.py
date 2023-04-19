@@ -197,9 +197,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   u0 = pin_utils.get_tau(q0, v0, np.zeros(nq), f_ext0, robot.model, np.zeros(nq))
   # Setup Croco OCP and create solver
   ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=False) #True)
-    # Warmstart and solve
-  xs_init = [y0 for i in range(config['N_h']+1)]
-  us_init = [u0 for i in range(config['N_h'])] #ddp.problem.quasiStatic(xs_init[:-1])
+
     
   # !!! Deactivate all costs & contact models initially !!!
   # Set the force cost reference frame to LWA 
@@ -229,8 +227,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   target_force = np.zeros(config['N_h']+1)
   force_weight = np.asarray(config['frameForceWeight'])
   # Circle trajectory 
-  N_total_pos = int((config['T_tot'] - config['T_REACH'])/config['dt'] + config['N_h'])
-  N_circle = int((config['T_tot'] - config['T_CIRCLE'])/config['dt']) + config['N_h']
+  N_total_pos = 10000 # int((config['T_tot'] - config['T_REACH'])/config['dt'] + config['N_h'])
+  N_circle = 10000 # int((config['T_tot'] - config['T_CIRCLE'])/config['dt']) + config['N_h']
   target_position_traj = np.zeros( (N_total_pos, 3) )
   target_velocity_traj = np.zeros( (N_total_pos, 3) )
   # absolute desired position
@@ -248,31 +246,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   target_position[:,:] = pdes.copy()
   target_velocity = np.zeros((config['N_h']+1, 3)) 
   anchor_point = pdes.copy()
-  q_ws = q0
-  logger.info("Computing warm-start using Inverse Kinematics...")
-  for k,m in enumerate(models):
-      # Ref
-      t = min(k*config['dt'], 2*np.pi/OMEGA)
-      p_ee_ref = ocp_utils.circle_point_WORLD(t, contact_placement_0.copy(), 
-                                                 radius=RADIUS,
-                                                 omega=OMEGA,
-                                                 LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
-      # Cost translation
-      m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
-      # Contact model 1D update z ref (WORLD frame)
-      m.differential.oPc = p_ee_ref
-      # Get ref placement
-      p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
-      Mref = contact_placement_0.copy()
-      Mref.translation = p_ee_ref
-      # Get corresponding forces at each joint + joint state from IK
-      f_ext = pin_utils.get_external_joint_torques(Mref.copy(), config['frameForceRef'], robot)
-      q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
-      f_ws = np.array([softContactModel.computeForce_(robot.model, q_ws, v_ws)])
-      xs_init.append(np.concatenate([q_ws, v_ws, f_ws]))
-      if(k<config['N_h']):
-        us_init.append(pin_utils.get_tau(y0[:nq], y0[nq:nq+nv], np.zeros(nv), f_ext, robot.model, np.zeros(nv)))
   # Warmstart and solve
+  xs_init = [y0 for i in range(config['N_h']+1)]
+  us_init = [u0 for i in range(config['N_h'])] #ddp.problem.quasiStatic(xs_init[:-1])
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
   
@@ -297,6 +273,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   communicationModel = mpc_utils.CommunicationModel(config)
   actuationModel     = mpc_utils.ActuationModel(config, nu=nu, SEED=RANDOM_SEED)
   sensingModel       = mpc_utils.SensorModel(config, naug=softContactModel.nc, SEED=RANDOM_SEED)
+  torqueController   = mpc_utils.LowLevelTorqueController(config, nu=nu)
+  antiAliasingFilter = mpc_utils.AntiAliasingFilter()
+
   # Display target circle  trajectory (reference)
   nb_points = 20 
   for i in range(nb_points):
@@ -334,6 +313,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   logger.debug("OCP to PLAN time ratio = "+str(OCP_TO_MPC_CYCLES))
 
   # SIMULATE
+  sim_data.tau_mea_SIMU[0,:] = ddp.us[0]
+
   for i in range(sim_data.N_simu): 
       
       if(i%config['log_rate']==0 and config['LOG']): 
@@ -422,10 +403,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
       # Solve OCP if we are in a planning cycle (MPC/planning frequency)
       if(i%int(sim_data.simu_freq/sim_data.plan_freq) == 0):
+          # Anti-aliasing filter for measured state
+          x_filtered = antiAliasingFilter.step(nb_plan, i, sim_data.plan_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
           # Reset x0 to measured state + warm-start solution
-          q = sim_data.state_mea_SIMU[i, :nq]
-          v = sim_data.state_mea_SIMU[i, nq:nq+nv]
-          f = sim_data.state_mea_SIMU[i, nq+nv:]
+          q = x_filtered[:nq]
+          v = x_filtered[nq:nq+nv]
+          f = x_filtered[nq+nv:]
           # Solve OCP 
           bench.start_timer()
           bench.start_croco_profiler()
@@ -443,45 +426,51 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           sim_data.record_plan_cycle_desired(nb_plan)
           # Increment planning counter
           nb_plan += 1
+          torqueController.reset_integral_error()
 
 
-    # If we are in a control cycle select reference torque to send to the actuator (motor driver input frequency)
+
+      # # # # # # # # # #
+      # # Send policy # #
+      # # # # # # # # # #
+      # If we are in a control cycle send reference torque to motor driver and compute the motor torque
       if(i%int(sim_data.simu_freq/sim_data.ctrl_freq) == 0):   
           # Record interpolated desired state, control and force at CTRL frequency
-          sim_data.record_ctrl_cycle_desired(nb_ctrl)     
+          sim_data.record_ctrl_cycle_desired(nb_ctrl) 
+          # Anti-aliasing filter on measured torques (sim-->ctrl)
+          tau_mea_CTRL            = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.tau_mea_SIMU)
+          tau_mea_derivative_CTRL = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.tau_mea_derivative_SIMU)
+          # Select the desired torque 
+          tau_des_CTRL = sim_data.u_curr.copy()
+          # Optionally interpolate to the control frequency using Riccati gains
+          if(config['RICCATI']):
+            y_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
+            tau_des_CTRL += ddp.K[0][:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
+          # Compute the motor torque 
+          tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
           # Increment control counter
           nb_ctrl += 1
+
+
           
-          
-    # Simulate actuation/sensing and step simulator (physics simulation frequency)
-      # Record interpolated desired state, control and force at SIM frequency
-      sim_data.record_simu_cycle_desired(i)
-      # RICCATI GAINS TO INTERPOLATE
-      tau_mea_SIMU = sim_data.u_ref_SIMU
-      if(config['RICCATI']):
-        tau_mea_SIMU += ddp.K[0][:,:nq+nv].dot(sim_data.y_ref_SIMU[:nq+nv] - sim_data.state_mea_SIMU[i,:][:nq+nv])
-        # tau_mea_SIMU += ddp.K[0].dot(sim_data.y_ref_SIMU - sim_data.state_mea_SIMU[i,:])
-      # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
-      tau_mea_SIMU = actuationModel.step(i, tau_mea_SIMU, sim_data.ctrl_des_SIMU)
-      # tau_mea_SIMU = actuationModel.step(i, sim_data.u_ref_SIMU, sim_data.ctrl_des_SIMU) if actuation BEFORE riccati?
-      #  Send output of actuation torque to the RBD simulator 0
+      # Simulate actuation
+      tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL)
+      # Step PyBullet simulator
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()
-      # Measure new state from simulation 
+      # Measure new state + forces from simulation 
       q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
-      # Update pinocchio model
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
-      # f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, softContactModel.pinRefFrame)
       f_mea_SIMU = robot_simulator.end_effector_forces(softContactModel.pinRefFrame)[1][0]
       fz_mea_SIMU = np.array([f_mea_SIMU[2]])
-      if(i%100==0): 
+      if(i%1000==0): 
         logger.info("f_mea  = "+str(f_mea_SIMU))
       # Record data (unnoised)
       y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, fz_mea_SIMU]).T 
-      # y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, sim_data.y_pred[-softContactModel.nc:]]).T 
-      sim_data.state_mea_no_noise_SIMU[i+1, :] = y_mea_SIMU
-      # Sensor model ( simulation state ==> noised / filtered state )
-      sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)
+      # Simulate sensing 
+      y_mea_no_noise_SIMU = sensingModel.step(y_mea_SIMU)
+      # Record measurements of state, torque and forces 
+      sim_data.record_simu_cycle_measured(i, y_mea_SIMU, y_mea_no_noise_SIMU, tau_mea_SIMU)
 
       # Display real 
       if(i%draw_rate==0):
