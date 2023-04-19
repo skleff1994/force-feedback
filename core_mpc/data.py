@@ -530,10 +530,8 @@ class MPCDataHandlerAbstract:
     self.check_attribute('DELAY_OCP')
     self.check_attribute('SCALE_TORQUES')
     self.check_attribute('NOISE_TORQUES')
-    self.check_attribute('FILTER_TORQUES')
     self.check_attribute('TORQUE_TRACKING')
     self.check_attribute('NOISE_STATE')
-    self.check_attribute('FILTER_STATE')
   
     # OCP stuff
     self.check_attribute('dt')
@@ -586,10 +584,6 @@ class MPCDataHandlerAbstract:
       self.gain_P = self.Kp_low*np.eye(self.nq)
       self.gain_I = self.Ki_low*np.eye(self.nq)
       self.gain_D = self.Kd_low*np.eye(self.nq)
-    if(self.FILTER_STATE):
-      self.check_attribute('x_avg_filter_length')
-    if(self.FILTER_TORQUES):
-      self.check_attribute('u_avg_filter_length')
 
   def init_solver_data(self):
     '''
@@ -647,9 +641,7 @@ class MPCDataHandlerAbstract:
       print('    a = '+str(self.alpha)+'')
       print('    b = '+str(self.beta)+'')
     print('- Noise on torques?                    : NOISE_TORQUES   = '+str(self.NOISE_TORQUES))
-    print('- Filter torques?                      : FILTER_TORQUES  = '+str(self.FILTER_TORQUES))
     print('- Noise on state?                      : NOISE_STATE     = '+str(self.NOISE_STATE))
-    print('- Filter state?                        : FILTER_STATE    = '+str(self.FILTER_STATE))
     print('- Low-level torque PI control ?        : TORQUE_TRACKING = '+str(self.TORQUE_TRACKING))
     print("-------------------------------------------------------------------")
     print('')
@@ -829,8 +821,6 @@ class MPCDataHandlerAbstract:
 
           # EE position
           ax[i,0].plot(t_span_plan, plot_data['lin_pos_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i,0].plot(t_span_ctrl, plot_data['lin_pos_ee_des_CTRL'][:,i] , 'g-', label='Desired (CTRL rate)', alpha=0.5)
-          # ax[i,0].plot(t_span_simu, plot_data['lin_pos_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
           ax[i,0].plot(t_span_simu, plot_data['lin_pos_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
           ax[i,0].plot(t_span_simu, plot_data['lin_pos_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
           # Plot reference
@@ -843,8 +833,6 @@ class MPCDataHandlerAbstract:
           
           # EE velocity
           ax[i,1].plot(t_span_plan, plot_data['lin_vel_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i,1].plot(t_span_ctrl, plot_data['lin_vel_ee_des_CTRL'][:,i]-plot_data['lin_vel_ee_ref'][i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
-          # ax[i,1].plot(t_span_simu, plot_data['lin_vel_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
           ax[i,1].plot(t_span_simu, plot_data['lin_vel_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
           ax[i,1].plot(t_span_simu, plot_data['lin_vel_ee_mea_no_noise'][:,i], 'r-', label='Measured', linewidth=2)
           # Plot reference 
@@ -960,8 +948,6 @@ class MPCDataHandlerAbstract:
 
           # EE position
           ax[i,0].plot(t_span_plan, plot_data['ang_pos_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i,0].plot(t_span_ctrl, plot_data['ang_pos_ee_des_CTRL'][:,i]-plot_data['ang_pos_ee_ref'][i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
-          # ax[i,0].plot(t_span_simu, plot_data['ang_pos_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
           ax[i,0].plot(t_span_simu, plot_data['ang_pos_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
           ax[i,0].plot(t_span_simu, plot_data['ang_pos_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
           # Plot reference
@@ -974,8 +960,6 @@ class MPCDataHandlerAbstract:
           
           # EE velocity
           ax[i,1].plot(t_span_plan, plot_data['ang_vel_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i,1].plot(t_span_ctrl, plot_data['ang_vel_ee_des_CTRL'][:,i]-plot_data['lin_vel_ee_ref'][i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
-          # ax[i,1].plot(t_span_simu, plot_data['ang_vel_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
           ax[i,1].plot(t_span_simu, plot_data['ang_vel_ee_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
           ax[i,1].plot(t_span_simu, plot_data['ang_vel_ee_mea_no_noise'][:,i], 'r-', label='Measured', linewidth=2)
           # Plot reference 
@@ -1084,8 +1068,6 @@ class MPCDataHandlerAbstract:
         
           # EE linear force
           ax[i,0].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i,0].plot(t_span_ctrl, plot_data['f_ee_des_CTRL'][:,i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
-          # ax[i,0].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
           ax[i,0].plot(t_span_simu, plot_data['f_ee_mea'][:,i], 'r-', label='Measured', linewidth=2, alpha=0.6)
           # ax[i,0].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
           # Plot reference
@@ -1098,8 +1080,6 @@ class MPCDataHandlerAbstract:
 
           # EE angular force 
           ax[i,1].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,3+i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i,1].plot(t_span_ctrl, plot_data['f_ee_des_CTRL'][:,i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
-          # ax[i,1].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,3+i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
           ax[i,1].plot(t_span_simu, plot_data['f_ee_mea'][:,3+i], 'r-', label='Measured', linewidth=2, alpha=0.6)
           # ax[i,1].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,3+i]-[plot_data['f_ee_ref'][3+i]]*(N_simu+1), 'r-', label='Measured', linewidth=2)
           # Plot reference

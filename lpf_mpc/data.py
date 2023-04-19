@@ -316,7 +316,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     self.dt_ctrl = float(1./self.ctrl_freq)              # Duration of 1 control cycle (s)
     self.dt_plan = float(1./self.plan_freq)              # Duration of 1 planning cycle (s)
     self.dt_simu = float(1./self.simu_freq)              # Duration of 1 simulation cycle (s)
-    self.OCP_TO_PLAN_RATIO = self.dt_plan / self.dt
+    self.OCP_TO_PLAN_RATIO = self.dt_plan / self.dt      # Ratio of replanning interval over OCP interval
     # Init actuation model
     self.init_actuation_model()
     # Cost references 
@@ -338,16 +338,19 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
   def record_predictions(self, nb_plan, ddpSolver):
     '''
-    - Records the MPC prediction of at the current step (state, control and forces if contact is specified)
+    Records the MPC predictions at the current step (state, control and forces if contact is specified)
+    Input:
+      nb_plan   : MPC (a.k.a. replanning) cycle numer
+      ddpSolver : crocoddyl.SolverFDDP object
     '''
-    # logger.debug(str(np.shape(self.state_pred)))
+    # State and control predictions
     self.state_pred[nb_plan, :, :] = np.array(ddpSolver.xs)
     self.ctrl_pred[nb_plan, :, :] = np.array(ddpSolver.us)
-    # Extract relevant predictions for interpolations to MPC frequency
-    self.y_curr = self.state_pred[nb_plan, 0, :]    # y0* = measured state    (q^,  v^ , tau^ )
+    # Extract current state & control + first state prediction
+    self.y_curr = self.state_pred[nb_plan, 0, :]    # y0* = measured state    (q0*, v0*, tau0* ) = (q^mea, v^mea, tau^mea )
     self.y_pred = self.state_pred[nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
-    self.w_curr = self.ctrl_pred[nb_plan, 0, :]     # w0* = optimal control   (w0*) !! UNFILTERED TORQUE !!
-    # Record forces in the right frame
+    self.w_curr = self.ctrl_pred[nb_plan, 0, :]     # w0* = optimal control   !! Unfiltered torque !! 
+    # Record forces predictions in the right frame + extract current & next force
     if(self.is_contact):
         id_endeff = self.rmodel.getFrameId(self.contactFrameName)
         if(self.PIN_REF_FRAME == pin.LOCAL):
@@ -361,10 +364,15 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
         self.f_curr = self.force_pred[nb_plan, 0, :]
         self.f_pred = self.force_pred[nb_plan, 1, :]
   
+
   def record_plan_cycle_desired(self, nb_plan):
     '''
-    - Records the planning cycle data (state, control, force)
-    If an interpolation to planning frequency is needed, here is the place where to implement it
+    Records the desired (state, control, force) at the planning (a.k.a. MPC) frequency
+    - The desired state and force are interpolated bewteen the current (a.k.a. y0*, f0*) 
+      and the predicted (a.k.a. y1*, f1*) ones from the OCP sampling frequency to the MPC (a.k.a. planning) frequency
+    - The desired control is set to the current (a.k.a. last computed w0*) optimal control - NOT interpolated 
+    Input:
+      nb_plan   : mpc (a.k.a. replanning) cycle numer
     '''
     if(nb_plan==0):
         self.state_des_PLAN[nb_plan, :] = self.y_curr  
@@ -375,8 +383,10 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
   def record_ctrl_cycle_desired(self, nb_ctrl):
     '''
-    - Records the control cycle data (state, control, force)
-    If an interpolation to control frequency is needed, here is the place where to implement it
+    Records the desired (state, control, force) at the control frequency (a.k.a. motor board) frequency
+    If interpolation to ctrl freq is needed : implement it here !
+    Input:
+      nb_ctrl   : mpc (a.k.a. control) cycle number
     '''
     # Record stuff
     if(nb_ctrl==0):
@@ -388,8 +398,10 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
   def record_simu_cycle_desired(self, nb_simu):
     '''
-    - Records the control cycle data (state, control, force)
-    If an interpolation to control frequency is needed, here is the place where to implement it
+    Records the desired (state, control, force) at the simulation frequency (a.k.a. motor board) frequency
+    If interpolation to sim freq is needed : implement it here !
+    Input:
+      nb_simu   : mpc (a.k.a. control) cycle number
     '''
     self.y_ref_SIMU  = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)
     self.w_ref_SIMU  = self.w_curr 

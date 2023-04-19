@@ -6,88 +6,172 @@ from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMA
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
+class AntiAliasingFilter:
+  def __init__(self):
+      pass
+  
+  def step(self, nb1, nb2, freq1, freq2, data_at_freq2):
+     '''
+     nb1   : number of cycles elapsed at freq1
+     nb2   : number of cycles elpased at freq2
+     freq1 : low frequency
+     freq2 : high frequency 
+     '''
+     try: 
+        assert(freq1 <= freq2)
+     except:
+        logger.error("freq1 must be <= freq2 !!!")
+     filterSize = min(nb1, int(freq2/freq1))
+     if(filterSize == 0):
+        return data_at_freq2[0]
+     else:
+      data_at_freq1 = self.filter(data_at_freq2[nb2-filterSize:nb2], filterSize)
+      return data_at_freq1[-1]
+
+  def filter(self, input_data, filter_size=1):
+      '''
+      moving average on 1st dimension of some array ((N,n))
+      '''
+      output_data = input_data.copy() 
+      # Filter them with moving average
+      for i in range( output_data.shape[0] ):
+          n_sum = min(i, filter_size)
+          # Sum up over window
+          for k in range(n_sum):
+              output_data[i,:] += input_data[i-k-1, :]
+          #  Divide by number of samples
+          output_data[i,:] = output_data[i,:] / (n_sum + 1)
+      return output_data 
+
+
+
+
+class LowLevelTorqueController:
+    def __init__(self, config, nu):
+      '''
+      Takes in a reference torque (e.g. from MPC) and computes the motor torque 
+      to be sent to the robot's motors, optionally using a PID+ controller
+      '''
+      self.config = config
+      self.nu = nu
+      # Simulate low-level torque control 
+      self.TORQUE_TRACKING   = config['TORQUE_TRACKING']               
+      logger.info("Created ActuationModel(TORQUE_TRACKING="+str(self.TORQUE_TRACKING)+").")
+      # PID gains for inner control loop 
+      self.gain_P = self.config['Kp_low']*np.eye(nu)      
+      self.gain_I = self.config['Ki_low']*np.eye(nu)
+      self.gain_D = self.config['Kd_low']*np.eye(nu)
+      self.err_I  = np.zeros(nu)
+
+    def reset_integral_error(self):
+      '''
+      Reset integral error to 0
+      '''
+      self.err_I = np.zeros(self.nu)
+
+    def step(self, reference_torque, measured_torque, measured_torque_derivative):
+      '''
+      Computes the motor torque
+       Input: 
+        reference_torque           : desired torque computed by e.g. the MPC 
+        measured_torque            : torque measured after actuation effects
+        measured_torque_derivative : derivative of the measured torque
+       Output:
+        motor_torque : torque to be sent to the robot's motor
+      '''
+      # Feedforward 
+      motor_torque = reference_torque.copy()
+      # Optional PID feedback term 
+      if(self.TORQUE_TRACKING and len(measured_torque) !=0):
+          self.err_P = measured_torque - reference_torque              
+          self.err_I += self.err_P
+          self.err_D = measured_torque_derivative                 
+          motor_torque -= self.gain_P.dot(self.err_P) 
+          motor_torque -= self.gain_I.dot(self.err_I)
+          motor_torque -= self.gain_D.dot(self.err_D)
+      return motor_torque
+
+
 
 class ActuationModel:
 
     def __init__(self, config, nu, SEED=1):
         '''
         Actuation model with parameters defined in config YAML file
-        Simulates (optionally) 
-         - affine bias on torques a*tau_ref(i) + b
-         - moving avg filter on tau_ref(i)
-         - delay tau_ref(i) = tau_ref(i-delay)
-         - torque PI control (tau_mea, tau_ref)
+        
+        The actuation model takes in a motor torque as control input and 
+        it computes the combined effects of transmission, noise, friction,
+        uncertainty etc. and it returns as an output the measured joint torque.
+
+        It can simulates, depending on the sim parameters 
+         - delay
+         - noise
+         - affine bias
+         - dry friction
         '''
         np.random.seed(SEED)
         self.config = config
         self.nu = nu
         # Scaling of desired torque
         self.alpha = np.random.uniform(low=self.config['alpha_min'], high=self.config['alpha_max'], size=(nu,))
-        self.beta = np.random.uniform(low=self.config['beta_min'], high=self.config['beta_max'], size=(nu,))
-        # PI gains for inner control loop [NOT READY]   
-        self.gain_P = self.config['Kp_low']*np.eye(nu)      
-        self.gain_I = self.config['Ki_low']*np.eye(nu)
-        self.gain_D = self.config['Kd_low']*np.eye(nu)
-        self.err_I = np.zeros(nu)
-        # Delays
+        self.beta  = np.random.uniform(low=self.config['beta_min'], high=self.config['beta_max'], size=(nu,))
+        # Delays 
         self.delay_sim_cycle = int(self.config['delay_sim_cycle'])       # in simu cycles
-        self.buffer_sim   = []                                           # buffer for measured torque delayed by e.g. actuation and/or sensing 
+        self.buffer_sim      = []                                        # buffer for measured torque delayed by e.g. actuation and/or sensing 
         # Noise
         self.var_u = np.asarray(self.config['var_u'])
         # Actuation model options
-        self.DELAY_SIM         = config['DELAY_SIM']                     # Add delay in reference torques (low-level)
-        self.SCALE_TORQUES     = config['SCALE_TORQUES']                 # Affinescaling of reference torque
-        self.FILTER_TORQUES    = config['FILTER_TORQUES']                # Moving average smoothing of reference torques
-        self.NOISE_TORQUES     = config['NOISE_TORQUES']                # Moving average smoothing of reference torques
-        self.TORQUE_TRACKING   = config['TORQUE_TRACKING']                # NOT READY
+        self.DELAY_SIM         = config['DELAY_SIM']                            # Add delay in reference torques (low-level)
+        self.SCALE_TORQUES     = config['SCALE_TORQUES']                        # Affinescaling of reference torque
+        self.NOISE_TORQUES     = config['NOISE_TORQUES']                        # Moving average smoothing of reference torques
+        self.STATIC_FRICTION   = False #config['STATIC_FRICTION']               # Simulate static friction
         logger.info("Created ActuationModel(DELAY_SIM="+str(self.DELAY_SIM)+
                     ", SCALE_TORQUES="+str(self.SCALE_TORQUES)+
-                    ", FILTER_TORQUES="+str(self.FILTER_TORQUES)+
                     ", NOISE_TORQUES="+str(self.NOISE_TORQUES)+
-                    ", TORQUE_TRACKING="+str(self.TORQUE_TRACKING)+").")
+                    ", STATIC_FRICTION="+str(self.STATIC_FRICTION)+").")
         if(self.SCALE_TORQUES):
           logger.info("Torques scaling : alpha = "+str(self.alpha)+" | beta = "+str(self.beta))
 
-    def step(self, i, reference_torque, memory=None):
+    def step(self, i, motor_torque, memory=None, joint_vel=None):
         '''
-        Transforms reference torque into measured torque
+        Transforms motor torque into a measured torque
+        
+        See the paper https://la.disneyresearch.com/wp-content/uploads/Toward-Controlling-a-KUKA-LBR-IIWA-for-Interactive-Tracking-Paper.pdf
+          1. FRI receives desired torque tau_d (at 1kHz)
+          2. Motor board computes motor torque tau_m = tau_d + PID(tau_d, tau_j)
+          tau_j reflects the combined effects of motor inertia, friction, transmission etc. --> approximated by delay, scaling, noise and filtering
+
         Simulates (optionally) 
-         - affine bias on torques a*tau_ref(i) + b
-         - moving avg filter on tau_ref(i)
-         - delay tau_ref(i) = tau_ref(i-delay)
-         - Gaussian noise on tau_ref(i)
-         - torque PI control (tau_mea, tau_ref)
+         - delay tau_mot(i) = tau_mot(i-delay) due to e.g. transmission
+         - affine bias on torques a*tau_mot(i) + b due to model uncertainty
+         - Gaussian noise on tau_mot(i) due to torque sensor noise
+         - static friction on tau_mot(i) += tanh(a*v)
+        Input: 
+          i            : current simulation cycle number
+          motor_torque : desired torque by motor
+          memory       : memory of the measured torques 
         '''
-        measured_torque = reference_torque.copy()
-        # Affine scaling
-        if(self.SCALE_TORQUES and len(measured_torque) !=0):
-          measured_torque = self.alpha * measured_torque + self.beta
-        # Filtering (moving average)
-        if(self.FILTER_TORQUES and len(memory)>0):
-          n_sum = min(i, self.config['u_avg_filter_length'])
-          for k in range(n_sum):
-            measured_torque += memory[i-k-1, :]
-          measured_torque = measured_torque / (n_sum + 1)
-        # Delay application of torque 
-        if(self.DELAY_SIM):
+        # Perfect actuation if all options = False
+        measured_torque = motor_torque.copy()
+        # Delay of ref  
+        if(self.DELAY_SIM and len(measured_torque) !=0):
           self.buffer_sim.append(measured_torque)            
-          if(len(self.buffer_sim)<self.delay_sim_cycle):    
+          if(len(self.buffer_sim) < self.delay_sim_cycle):    
             pass
           else:                          
             measured_torque = self.buffer_sim.pop(-self.delay_sim_cycle)
-        # Optional Gaussian noise on desired torque 
+        # Affine scaling of ref
+        if(self.SCALE_TORQUES and len(measured_torque) !=0):
+          measured_torque = self.alpha * measured_torque + self.beta
+        # Gaussian noise on ref  
         if(self.NOISE_TORQUES and len(measured_torque) !=0):
             noise_u = np.random.normal(0., self.var_u, self.nu)
             measured_torque += noise_u
-        # Inner PID torque control loop [NOT READY]
-        if(self.TORQUE_TRACKING and len(measured_torque) !=0):
-            self.err_P = measured_torque - reference_torque              
-            self.err_I += measured_torque  
-            self.err_D = (measured_torque - memory[-1, :])/5e-3                           
-            # print("proportional correction =", self.gain_P.dot(self.err_P))
-            # print("integral     correction =", self.gain_I.dot(self.err_I))
-            # print("derivative   correction =", self.gain_D.dot(self.err_D))
-            measured_torque = reference_torque - self.gain_P.dot(self.err_P) - self.gain_I.dot(self.err_I) - self.gain_D.dot(self.err_D)
+        #  Static friction
+        if(self.STATIC_FRICTION and len(measured_torque) !=0):
+           pass
+          #  τf = τv  ̇q + tanh(a  ̇q)
+          # tau_sf = np.tanh(0.1 * )
         return measured_torque
 
 
@@ -139,7 +223,6 @@ class SensorModel:
         Sensing model with parameters defined in config YAML file
         Simulates (optionally)
          - gaussian noise on measured state
-         - moving avg filtering on measured state
          naug : for augmented state (lpf, soft contact, etc..). 0 by default
         '''
         np.random.seed(SEED)
@@ -154,15 +237,13 @@ class SensorModel:
           self.var_aug = np.asarray(self.config['var_aug'])[:naug]
         # Sensing model options
         self.NOISE_STATE       = config['NOISE_STATE']                   # Add Gaussian noise on the measured state 
-        self.FILTER_STATE      = config['FILTER_STATE']                  # Moving average smoothing of reference torques
-        logger.info("Created SensorModel(NOISE_STATE="+str(self.NOISE_STATE)+", FILTER_STATE="+str(self.FILTER_STATE)+").")
+        logger.info("Created SensorModel(NOISE_STATE="+str(self.NOISE_STATE)+").")
 
-    def step(self, i, measured_state, memory):
+    def step(self, measured_state):
         '''
         Transforms simulator state into a measured state
         Simulates (optionally)
          - gaussian noise on measured state
-         - moving avg filtering on measured state
         '''
         # Optional Gaussian noise on measured state 
         if(self.NOISE_STATE):
@@ -173,12 +254,6 @@ class SensorModel:
             measured_state += np.concatenate([noise_q, noise_v, noise_tau]).T
           else:
             measured_state += np.concatenate([noise_q, noise_v]).T
-        # Optional filtering on measured state
-        if(self.FILTER_STATE and len(memory)>0):
-          n_sum = min(i, self.config['x_avg_filter_length'])
-          for k in range(n_sum):
-            measured_state += memory[i-k-1, :]
-          measured_state = measured_state / (n_sum + 1)
         return measured_state
 
 
@@ -204,18 +279,3 @@ class VelocityEstimator:
   # def FD2_estimate(self, q, dt=self.dt):
   #   return q - q_prev
 
-  #   # Moving Average Filter
-  # def moving_average_filter(input_data, filter_size=1):
-  #     '''
-  #     moving average on 1st dimension of some array ((N,n))
-  #     '''
-  #     output_data = input_data.copy() 
-  #     # Filter them with moving average
-  #     for i in range( output_data.shape[0] ):
-  #         n_sum = min(i, filter_size)
-  #         # Sum up over window
-  #         for k in range(n_sum):
-  #             output_data[i,:] += input_data[i-k-1, :]
-  #         #  Divide by number of samples
-  #         output_data[i,:] = output_data[i,:] / (n_sum + 1)
-  #     return output_data 

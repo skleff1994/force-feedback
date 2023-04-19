@@ -2,7 +2,6 @@
 # + PyBullet or Raisim simulation
 
 
-
 # MPC & sim parameters
 simu_freq: 5000                 # Simulation frequency in Hz
 ctrl_freq: 1000                 # Control frequency
@@ -15,7 +14,7 @@ SCALE_TORQUES: True             # Affine scaling of reference torque
 NOISE_TORQUES: True             # Add Gaussian noise on reference torques
 FILTER_TORQUES: True            # Moving average smoothing of reference torques
 NOISE_STATE: True               # Add Gaussian noise on the measured state 
-TORQUE_TRACKING: False           # Low-level torque tracking with a PI controller
+TORQUE_TRACKING: False          # Low-level torque tracking with a PI controller
 FILTER_STATE: True              # Moving average smoothing of reference torques
 SAVE_DATA: True                 # Save plot_data to npz
 RECORD_SOLVER_DATA: False       # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
