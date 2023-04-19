@@ -3,34 +3,33 @@
 
 
 # MPC & sim parameters
-simu_freq: 5000                 # Simulation frequency in Hz
-ctrl_freq: 1000                 # Control frequency
-plan_freq: 1000                 # Planning frequency
-T_tot: 10.                      # Simu duration (s)
+simu_freq: 10000               # Simulation frequency in Hz
+ctrl_freq: 5000                # Control frequency
+plan_freq: 1000                # Planning frequency
+T_tot: 2.                      # Simu duration (s)
 # Simulation options
 DELAY_SIM: True                 # Add delay in reference torques (low-level)
 DELAY_OCP: True                 # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES: True             # Affine scaling of reference torque
 NOISE_TORQUES: True             # Add Gaussian noise on reference torques
-FILTER_TORQUES: True            # Moving average smoothing of reference torques
 NOISE_STATE: True               # Add Gaussian noise on the measured state 
 TORQUE_TRACKING: True           # Low-level torque tracking with a PI controller
-FILTER_STATE: True              # Moving average smoothing of reference torques
 SAVE_DATA: True                 # Save plot_data to npz
 RECORD_SOLVER_DATA: False       # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
 INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 1000                  # Display sim status once very 'log_rate' sim cycles
-WHICH_PLOTS: ['f', 'ee', 'u']   # Which plots to generate after the simulation
+WHICH_PLOTS: ['f', 'y', 'w']   # Which plots to generate after the simulation
 TILT_SURFACE: True              # Tilt contact surface 
 TILT_PITCH_LOCAL_DEG: -10.      # Tilt angle of the contact surface
 RICCATI: False 
 
-T_REACH: 100
-T_TRACK: 100.
-T_CONTACT: 100.
-T_CIRCLE: 100.
+
+T_REACH: 0.5
+T_TRACK: 1.
+T_CONTACT: 2.
+T_CIRCLE: 3.
 
 
 
@@ -155,8 +154,8 @@ var_aug: [0, 0, 0, 0, 0, 0, 0] # LPF
 delay_OCP_ms: 1    # in ms
 delay_sim_cycle: 1 # in HF cycles
   # Proportional-integral torque control gains
-Kp_low: [10, 10, 10, 10, 10, 10]
-Ki_low: [0.0002, 0.0002, 0.0002, 0.0002, 0.0002, 0.0002]
-Kd_low: [0., 0., 0., 0., 0., 0.]
+Kp_low: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+Ki_low: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+Kd_low: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 u_avg_filter_length: 4 #8 # in HF cycles
 x_avg_filter_length: 5  #20 #8 # in HF cycles

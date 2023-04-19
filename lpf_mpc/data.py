@@ -297,9 +297,10 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     '''
     Allocate data for simulation state & force measurements 
     '''
-    self.state_mea_SIMU                = np.zeros((self.N_simu+1, self.ny))            # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq )
+    self.state_mea_SIMU                = np.zeros((self.N_simu+1, self.ny))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq )
     self.state_mea_no_noise_SIMU       = np.zeros((self.N_simu+1, self.ny))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq ) without noise
-    self.force_mea_SIMU                = np.zeros((self.N_simu, 6)) 
+    self.force_mea_SIMU                = np.zeros((self.N_simu, 6))           # Measurec contact forces
+    self.state_mea_derivative_SIMU     = np.zeros((self.N_simu+1, self.ny))   # Measured states derivatives 
     self.state_mea_SIMU[0, :]          = y0
     self.state_mea_no_noise_SIMU[0, :] = y0
 
@@ -365,6 +366,24 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
         self.f_pred = self.force_pred[nb_plan, 1, :]
   
 
+  def record_simu_cycle_measured(self, nb_simu, y_mea_SIMU, y_mea_no_noise_SIMU, f_mea_SIMU):
+    '''
+    Records the measurements of state, torque and contact forces at the current simulation cycle
+     Input:
+      nb_simu             : simulation cycle number
+      y_mea_SIMU          : measured position-velocity state from rigid-body physics simulator + measured torque
+      y_mea_no_noise_SIMU :  " " without sensing noise
+      f_mea_SIMU          : external contact wrench measured from simulator 
+    # NOTE: this fucntion also computes the derivatives of the joint torques 
+    '''
+    self.state_mea_no_noise_SIMU[nb_simu+1, :] = y_mea_SIMU
+    self.state_mea_SIMU[nb_simu+1, :]          = y_mea_no_noise_SIMU
+    self.force_mea_SIMU[nb_simu, :]            = f_mea_SIMU
+    # self.tau_mea_SIMU[nb_simu, :]              = tau_mea_SIMU
+    # if(nb_simu > 0):
+    #     self.tau_mea_derivative_SIMU[nb_simu, :] = (tau_mea_SIMU - self.tau_mea_SIMU[nb_simu-1, :])/self.dt_simu
+
+
   def record_plan_cycle_desired(self, nb_plan):
     '''
     Records the desired (state, control, force) at the planning (a.k.a. MPC) frequency
@@ -396,22 +415,22 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     if(self.is_contact):
         self.force_des_CTRL[nb_ctrl, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)   
 
-  def record_simu_cycle_desired(self, nb_simu):
-    '''
-    Records the desired (state, control, force) at the simulation frequency (a.k.a. motor board) frequency
-    If interpolation to sim freq is needed : implement it here !
-    Input:
-      nb_simu   : mpc (a.k.a. control) cycle number
-    '''
-    self.y_ref_SIMU  = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)
-    self.w_ref_SIMU  = self.w_curr 
-    if(nb_simu==0):
-        self.state_des_SIMU[nb_simu, :] = self.y_curr  
-    self.ctrl_des_SIMU[nb_simu, :]   = self.w_ref_SIMU 
-    self.state_des_SIMU[nb_simu+1, :] = self.y_ref_SIMU 
-    if(self.is_contact):
-        self.force_des_SIMU[nb_simu, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)  
-    return 
+#   def record_simu_cycle_desired(self, nb_simu):
+#     '''
+#     Records the desired (state, control, force) at the simulation frequency (a.k.a. motor board) frequency
+#     If interpolation to sim freq is needed : implement it here !
+#     Input:
+#       nb_simu   : mpc (a.k.a. control) cycle number
+#     '''
+#     self.y_ref_SIMU  = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)
+#     self.w_ref_SIMU  = self.w_curr 
+#     if(nb_simu==0):
+#         self.state_des_SIMU[nb_simu, :] = self.y_curr  
+#     self.ctrl_des_SIMU[nb_simu, :]   = self.w_ref_SIMU 
+#     self.state_des_SIMU[nb_simu+1, :] = self.y_ref_SIMU 
+#     if(self.is_contact):
+#         self.force_des_SIMU[nb_simu, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)  
+#     return 
 
 
   # Extract MPC simu-specific plotting data from sim data
@@ -432,8 +451,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     plot_data['w_pred'] = self.ctrl_pred
       # Extract 1st prediction
     plot_data['w_des_PLAN'] = self.ctrl_des_PLAN
-    plot_data['w_des_CTRL'] = self.ctrl_des_CTRL
-    plot_data['w_des_SIMU'] = self.ctrl_des_SIMU
     # State predictions (at PLAN freq)
     plot_data['q_pred']     = self.state_pred[:,:,:nq]
     plot_data['v_pred']     = self.state_pred[:,:,nq:nq+nv]
@@ -441,12 +458,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     plot_data['q_des_PLAN'] = self.state_des_PLAN[:,:nq]
     plot_data['v_des_PLAN'] = self.state_des_PLAN[:,nq:nq+nv] 
     plot_data['tau_des_PLAN'] = self.state_des_PLAN[:,-nu:]
-    plot_data['q_des_CTRL'] = self.state_des_CTRL[:,:nq] 
-    plot_data['v_des_CTRL'] = self.state_des_CTRL[:,nq:nq+nv]
-    plot_data['tau_des_CTRL'] = self.state_des_CTRL[:,-nu:]
-    plot_data['q_des_SIMU'] = self.state_des_SIMU[:,:nq]
-    plot_data['v_des_SIMU'] = self.state_des_SIMU[:,nq:nq+nv]
-    plot_data['tau_des_SIMU'] = self.state_des_SIMU[:,-nu:] 
     # State measurements (at SIMU freq)
     plot_data['q_mea']          = self.state_mea_SIMU[:,:nq]
     plot_data['v_mea']          = self.state_mea_SIMU[:,nq:nq+nv]
@@ -486,23 +497,13 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
       # Linear
     plot_data['lin_pos_ee_des_PLAN'] = pin_utils.get_p_(plot_data['q_des_PLAN'], self.rmodel, self.id_endeff)
     plot_data['lin_vel_ee_des_PLAN'] = pin_utils.get_v_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], self.rmodel, self.id_endeff)
-    plot_data['lin_pos_ee_des_CTRL'] = pin_utils.get_p_(plot_data['q_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['lin_vel_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['lin_pos_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], self.rmodel, self.id_endeff)
-    plot_data['lin_vel_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], self.rmodel, self.id_endeff)
       # Angular
     plot_data['ang_pos_ee_des_PLAN'] = pin_utils.get_rpy_(plot_data['q_des_PLAN'], self.rmodel, self.id_endeff)
     plot_data['ang_vel_ee_des_PLAN'] = pin_utils.get_w_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], self.rmodel, self.id_endeff)
-    plot_data['ang_pos_ee_des_CTRL'] = pin_utils.get_rpy_(plot_data['q_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['ang_vel_ee_des_CTRL'] = pin_utils.get_w_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['ang_pos_ee_des_SIMU'] = pin_utils.get_rpy_(plot_data['q_des_SIMU'], self.rmodel, self.id_endeff)
-    plot_data['ang_vel_ee_des_SIMU'] = pin_utils.get_w_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], self.rmodel, self.id_endeff)
     # Extract EE force
-    plot_data['f_ee_pred'] = self.force_pred
-    plot_data['f_ee_mea'] = self.force_mea_SIMU
+    plot_data['f_ee_pred']     = self.force_pred
+    plot_data['f_ee_mea']      = self.force_mea_SIMU
     plot_data['f_ee_des_PLAN'] = self.force_des_PLAN
-    plot_data['f_ee_des_CTRL'] = self.force_des_CTRL
-    plot_data['f_ee_des_SIMU'] = self.force_des_SIMU
 
     # Solver data (optional)
     if(self.RECORD_SOLVER_DATA):
@@ -716,8 +717,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
           # Joint position
           ax[i,0].plot(t_span_plan, plot_data['q_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i,0].plot(t_span_ctrl, plot_data['q_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Desired (CTRL rate)', alpha=0.3)
-          # ax[i,0].plot(t_span_simu, plot_data['q_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
           ax[i,0].plot(t_span_simu, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
           ax[i,0].plot(t_span_simu, plot_data['q_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
           if('stateReg' in plot_data['WHICH_COSTS']):
@@ -729,8 +728,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
           
           # Joint velocity 
           ax[i,1].plot(t_span_plan, plot_data['v_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i,1].plot(t_span_ctrl, plot_data['v_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Desired (CTRL)', alpha=0.3)
-          # ax[i,1].plot(t_span_simu, plot_data['v_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU)', alpha=0.5)
           ax[i,1].plot(t_span_simu, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
           ax[i,1].plot(t_span_simu, plot_data['v_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
           if('stateReg' in plot_data['WHICH_COSTS']):
@@ -742,8 +739,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
           # Joint torques
           ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i,2].plot(t_span_ctrl, plot_data['tau_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Desired (CTRL rate)', alpha=0.3)
-          # ax[i,2].plot(t_span_simu, plot_data['tau_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
           ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
           ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
           if('ctrlReg' in plot_data['WHICH_COSTS'] or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
@@ -856,8 +851,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
           # Joint torques
           ax[i].plot(t_span_plan, plot_data['w_pred'][:,0,i], color='r', marker=None, linestyle='-', label='Optimal control w0*', alpha=0.6)
           ax[i].plot(t_span_plan, plot_data['w_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.1)
-          # ax[i].plot(t_span_ctrl, plot_data['w_des_CTRL'][:,i], color='g', marker=None, linestyle='-', label='Prediction (CTRL)', alpha=0.6)
-          # ax[i].plot(t_span_simu, plot_data['w_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Prediction (SIMU)', alpha=0.6)
           ax[i].plot(t_span_simu, plot_data['grav'][:-1,i], color=[0.,1.,0.,0.], marker=None, linestyle='-.', label='Reg reference (grav)', alpha=0.9)
           ax[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
           ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))

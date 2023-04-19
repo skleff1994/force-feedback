@@ -437,9 +437,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
             x_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
             tau_des_CTRL += ddp.K[0].dot(ddp.problem.x0 - x_filtered)
           # Compute the motor torque 
-          tau_mot_CTRL = torqueController.step(sim_data.u_curr, tau_mea_CTRL, tau_mea_derivative_CTRL)
+          tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
           # Increment control counter
           nb_ctrl += 1
+
 
       # Simulate actuation 
       tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL)
