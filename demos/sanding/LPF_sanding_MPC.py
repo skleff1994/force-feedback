@@ -65,18 +65,14 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
             for k in range( node_id_reach, ddp.problem.T+1, 1 ):
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                # print(m[k].differential.costs.costs["translation"].weight)
     # Update OCP for "increase weights" phase
     if(TASK_PHASE == 2):
         # If node id is valid
         if(node_id_track <= ddp.problem.T and node_id_track >= 0):
             # Updates nodes between node_id and terminal node 
             for k in range( node_id_track, ddp.problem.T+1, 1 ):
-                # w = min(2.*(k + 1. - node_id_track) , 10.)
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                # m[k].differential.costs.costs["translation"].weight = 20.
-                # print(m[k].differential.costs.costs["translation"].weight)
     # Update OCP for contact phase
     if(TASK_PHASE == 3):
         # If node id is valid
@@ -102,11 +98,7 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 50.
-                # m[k].differential.costs.costs["velocity"].active = True
-                # m[k].differential.costs.costs["velocity"].cost.residual.reference = pin.Motion(np.concatenate([target_velocity[k], np.zeros(3)]))
-                # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([1., 1., 0., 1., 1., 1.])
-                # m[k].differential.costs.costs["velocity"].weight = 1.
+                m[k].differential.costs.costs["translation"].weight = 10.
                 # activate contact and force cost
                 m[k].differential.contacts.changeContactStatus("contact", True)
                 if(k!=ddp.problem.T):
@@ -176,11 +168,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # 
   ### OCP SETUP ###
   # # # # # # # # # 
-  N_h = config['N_h']
-  dt = config['dt']
   # Create DDP solver + compute warm start torque
-  f_ext = pin_utils.get_external_joint_torques(contact_placement.copy(), config['frameForceRef'], robot)
-  u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
+  u0 = pin_utils.get_u_grav(q0, robot.model, config['armature'])
   lpf_joint_names = robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #  #
   _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
   n_lpf = len(lpf_joint_names)
@@ -195,13 +184,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
   # !!! Deactivate all costs & contact models initially !!!
   for k,m in enumerate(models):
-      m.differential.costs.changeCostStatus("translation", False)
-      m.differential.costs.costs["translation"].cost.residual.reference = oMf.translation.copy()
+      m.differential.costs.costs["translation"].active = False
       if(k < config['N_h']):
+          m.differential.costs.costs["force"].active = False
           m.differential.costs.costs["force"].cost.residual.reference = pin.Force.Zero()
       m.differential.contacts.changeContactStatus("contact", False)
-      m.differential.costs.changeCostStatus("force", False)
-      # m.differential.costs.active.tolist()
 
 
   # Setup tracking problem with circle ref EE trajectory + Warm start state = IK of circle trajectory
@@ -239,7 +226,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   target_position[:,:] = pdes.copy()
   target_velocity = np.zeros((config['N_h']+1, 3)) 
   # Warmstart and solve
-  xs_init = [np.concatenate([q0, v0, u0]) for _ in range(config['N_h']+1)]
+  xs_init = [y0 for _ in range(config['N_h']+1)]
   us_init = [u0[lpfStateIds] for _ in range(config['N_h'])]
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
@@ -273,7 +260,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     pos = ocp_utils.circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
   
-  draw_rate = 200
+  draw_rate = 1000
 
 
   # # # # # # # # # # # #
@@ -421,16 +408,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # # # # # # # # # #
       # If we are in a control cycle send reference torque to motor driver and compute the motor torque
       if(i%int(sim_data.simu_freq/sim_data.ctrl_freq) == 0):   
-          # Record interpolated desired state, control and force at CTRL frequency
-          sim_data.record_ctrl_cycle_desired(nb_ctrl) 
           # Anti-aliasing filter on measured torques (sim-->ctrl)
           tau_mea_CTRL            = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU[:,-n_lpf:])
-          tau_mea_derivative_CTRL = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_derivative_SIMU[:,-n_lpf:])
+          tau_mea_derivative_CTRL = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.tau_mea_derivative_SIMU[:,-n_lpf:])
           # Select the desired torque as interpolation between current and prediction
           tau_des_CTRL = sim_data.y_curr[-n_lpf:] + sim_data.OCP_TO_PLAN_RATIO * (sim_data.y_pred[-n_lpf:]  - sim_data.y_curr[-n_lpf:] )
           # Optionally interpolate to the control frequency using Riccati gains
           if(config['RICCATI']):
-            y_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU[:,-n_lpf:])
+            y_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
             alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
             Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*ddp.K[0]
             # Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
@@ -467,7 +452,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
         pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
         simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
   
-  bench.plot_timer()
+  # bench.plot_timer()
   # # # # # # # # # # #
   # PLOT SIM RESULTS  #
   # # # # # # # # # # #

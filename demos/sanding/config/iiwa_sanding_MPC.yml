@@ -3,10 +3,10 @@
 
 
 # MPC & sim parameters
-simu_freq: 10000               # Simulation frequency in Hz
-ctrl_freq: 5000                # Control frequency
+simu_freq: 5000               # Simulation frequency in Hz
+ctrl_freq: 2000                # Control frequency
 plan_freq: 1000                # Planning frequency
-T_tot: 2.                      # Simu duration (s)
+T_tot: 10.                           # Simu duration (s)
 # Simulation options
 DELAY_SIM: True                 # Add delay in reference torques (low-level)
 DELAY_OCP: True                 # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -22,8 +22,7 @@ INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 1000                  # Display sim status once very 'log_rate' sim cycles
-# WHICH_PLOTS: [f', 'x', 'u', 'ee']   # Which plots to generate after the simulation
-WHICH_PLOTS: ['u']   # Which plots to generate after the simulation
+WHICH_PLOTS: ['f', 'x', 'u', 'ee']   # Which plots to generate after the simulation
 TILT_SURFACE: True              # Tilt contact surface 
 TILT_PITCH_LOCAL_DEG: -10.      # Tilt angle of the contact surface
 RICCATI: False 
@@ -138,8 +137,8 @@ armature:  [.0, .0, .0, .0, .0, .0]
 # Low-level simulation (actuation model)  #
 # # # # # # # # # # # # # # # # # # # # # #
   # Scaling of desired torque
-alpha_min: 0.95
-alpha_max: 1.05
+alpha_min: 0.9
+alpha_max: 1.1
 beta_min: -0.1
 beta_max: 0.1
   # White noise on desired torque and measured state
@@ -150,8 +149,8 @@ var_v: 0.001
 delay_OCP_ms: 5    
 delay_sim_cycle: 1 
   # Static & viscous friction
-static_friction_max_torque: 2.
-viscous_friction_slope: 0.1 
+static_friction_max_torque: 5.
+viscous_friction_slope: 0.5
   # Proportional-integral torque control gains
 Kp_low: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
 Ki_low: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]

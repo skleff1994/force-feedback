@@ -189,7 +189,7 @@ class ActuationModel:
             measured_torque += noise_u
         #  Static friction
         if(self.STATIC_FRICTION and len(measured_torque) !=0):
-           sf_torque = self.tau_sf_max*np.tanh(100*joint_vel) 
+           sf_torque = self.tau_sf_max*np.tanh(10*joint_vel) 
           #  print("static friction = ", sf_torque)
            measured_torque -= sf_torque
         if(self.VISCOUS_FRICTION and len(measured_torque) !=0):

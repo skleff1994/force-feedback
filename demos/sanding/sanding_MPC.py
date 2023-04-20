@@ -309,7 +309,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # SIMULATE
   sim_data.tau_mea_SIMU[0,:] = ddp.us[0]
   x_filtered = x0
-  tau_mea_CTRL = ddp.us[0]
 
   for i in range(sim_data.N_simu): 
 
@@ -470,7 +469,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
         pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
         simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
     
-  bench.plot_timer()
+  # bench.plot_timer()
   # # # # # # # # # # #
   # PLOT SIM RESULTS  #
   # # # # # # # # # # #

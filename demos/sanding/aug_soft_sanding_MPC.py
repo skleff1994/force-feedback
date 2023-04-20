@@ -283,7 +283,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     pos = ocp_utils.circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
   
-  draw_rate = 200
+  draw_rate = 1000
   
   
   # # # # # # # # # # # #
@@ -435,8 +435,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # # # # # # # # # #
       # If we are in a control cycle send reference torque to motor driver and compute the motor torque
       if(i%int(sim_data.simu_freq/sim_data.ctrl_freq) == 0):   
-          # Record interpolated desired state, control and force at CTRL frequency
-          sim_data.record_ctrl_cycle_desired(nb_ctrl) 
           # Anti-aliasing filter on measured torques (sim-->ctrl)
           tau_mea_CTRL            = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.tau_mea_SIMU)
           tau_mea_derivative_CTRL = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.tau_mea_derivative_SIMU)

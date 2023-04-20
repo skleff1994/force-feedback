@@ -3,8 +3,8 @@
 
 
 # MPC & sim parameters
-simu_freq: 10000               # Simulation frequency in Hz
-ctrl_freq: 5000                # Control frequency
+simu_freq: 5000               # Simulation frequency in Hz
+ctrl_freq: 2000                # Control frequency
 plan_freq: 1000                # Planning frequency
 T_tot: 10.                           # Simu duration (s)
 # Simulation options
@@ -126,21 +126,22 @@ armature:  [.0, .0, .0, .0, .0, .0]
 # Low-level simulation (actuation model)  #
 # # # # # # # # # # # # # # # # # # # # # #
   # Scaling of desired torque
-alpha_min: 0.95
-alpha_max: 1.05
+alpha_min: 0.9
+alpha_max: 1.1
 beta_min: -0.1
 beta_max: 0.1
   # White noise on desired torque and measured state
-var_u: [3.0, 3.0, 2.0, 2.0, 1.0, 0.1]
-var_q: 0.028 #x10
-var_v: 0.028 #x10
-var_aug: [0.1]
+var_u: [0.03, 0.03, 0.02, 0.02, 0.01, 0.01]
+var_q: 0.001 
+var_v: 0.001 
+var_aug: [0.01]
   # Buffer for torque delay
-delay_OCP_ms: 1    # in ms
-delay_sim_cycle: 1 # in HF cycles
+delay_OCP_ms: 5    
+delay_sim_cycle: 1 
+  # Static & viscous friction
+static_friction_max_torque: 5.
+viscous_friction_slope: 0.5
   # Proportional-integral torque control gains
 Kp_low: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
 Ki_low: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-Kd_low: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-u_avg_filter_length: 4 #8 # in HF cycles
-x_avg_filter_length: 5  #20 #8 # in HF cycles
+Kd_low: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]

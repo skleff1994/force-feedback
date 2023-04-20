@@ -683,10 +683,10 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
           # Joint position
           ax[i,0].plot(t_span_plan, plot_data['q_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          ax[i,0].plot(t_span_simu, plot_data['q_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-          ax[i,0].plot(t_span_simu, plot_data['q_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
+        #   ax[i,0].plot(t_span_simu, plot_data['q_mea'][:,i], 'r', label='Measured', linewidth=1, alpha=0.1)
+          ax[i,0].plot(t_span_simu, plot_data['q_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured (no noise)', alpha=0.6)
           if('stateReg' in plot_data['WHICH_COSTS']):
-              ax[i,0].plot(t_span_plan[:-1], plot_data['state_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='Reference', alpha=0.9)
+              ax[i,0].plot(t_span_plan[:-1], plot_data['state_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='stateRegRef', alpha=0.9)
           ax[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
           ax[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -694,10 +694,10 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
           
           # Joint velocity 
           ax[i,1].plot(t_span_plan, plot_data['v_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          ax[i,1].plot(t_span_simu, plot_data['v_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-          ax[i,1].plot(t_span_simu, plot_data['v_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
+        #   ax[i,1].plot(t_span_simu, plot_data['v_mea'][:,i], 'r', label='Measured', linewidth=1, alpha=0.1)
+          ax[i,1].plot(t_span_simu, plot_data['v_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured (no noise)', alpha=0.6)
           if('stateReg' in plot_data['WHICH_COSTS']):
-              ax[i,1].plot(t_span_plan[:-1], plot_data['state_ref'][:,i+nq], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='Reference', alpha=0.9)
+              ax[i,1].plot(t_span_plan[:-1], plot_data['state_ref'][:,i+nq], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='stateRegRef', alpha=0.9)
           ax[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
           ax[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -705,10 +705,10 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
           # Joint torques
           ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r-', label='Measured (WITH noise)', linewidth=1, alpha=0.3)
-          ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured', alpha=0.6)
+        #   ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r', label='Measured', linewidth=1, alpha=0.1)
+          ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured (no noise)', alpha=0.6)
           if('ctrlReg' in plot_data['WHICH_COSTS'] or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
-              ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='Reference', alpha=0.9)
+              ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='stateRegRef', alpha=0.9)
           # ax[i,2].plot(t_span_simu, plot_data['grav'][:,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
           ax[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
           ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))
@@ -815,9 +815,9 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
                   ax[i].scatter(tspan_u_pred, u_pred_i[j,:], s=10, zorder=1, c=cm(np.r_[np.linspace(0.1, 1, N_h-1), 1] ), cmap=matplotlib.cm.Greys) #c='black' 
 
           # Joint torques
-          ax[i].plot(t_span_plan, plot_data['w_pred'][:,0,i], color='r', marker=None, linestyle='-', label='Optimal control w0*', alpha=0.6)
-          ax[i].plot(t_span_plan, plot_data['w_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.1)
-          ax[i].plot(t_span_simu, plot_data['grav'][:-1,i], color=[0.,1.,0.,0.], marker=None, linestyle='-.', label='Reg reference (grav)', alpha=0.9)
+          ax[i].plot(t_span_plan, plot_data['w_pred'][:,0,i], color='b', marker='.', linestyle='-', label='Optimal control w0*', alpha=0.6)
+        #   ax[i].plot(t_span_plan, plot_data['w_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Predicted (PLAN)', alpha=0.1)
+          ax[i].plot(t_span_simu, plot_data['grav'][:-1,i], linestyle='-.', color='k', marker=None, label='wReg_ref', alpha=0.5)
           ax[i].set_ylabel('$u_{}$'.format(i), fontsize=12)
           ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
