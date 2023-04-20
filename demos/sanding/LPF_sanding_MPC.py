@@ -443,7 +443,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
 
       # Simulate actuation
-      tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL)
+      tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL, joint_vel=sim_data.state_mea_SIMU[i,nq:nq+nv])
       # Step PyBullet simulator
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()

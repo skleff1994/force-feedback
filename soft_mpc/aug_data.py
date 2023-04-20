@@ -180,30 +180,6 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     self.ctrl_des_PLAN[nb_plan, :]      = self.u_curr   
     self.state_des_PLAN[nb_plan+1, :]   = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)    
 
-  def record_ctrl_cycle_desired(self, nb_ctrl):
-    '''
-    - Records the control cycle data (state, control, force)
-    If an interpolation to control frequency is needed, here is the place where to implement it
-    '''
-    # Record stuff
-    if(nb_ctrl==0):
-        self.state_des_CTRL[nb_ctrl, :]   = self.y_curr  
-    self.ctrl_des_CTRL[nb_ctrl, :]    = self.u_curr   
-    self.state_des_CTRL[nb_ctrl+1, :] = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)   
-  
-  # def record_simu_cycle_desired(self, nb_simu):
-  #   '''
-  #   - Records the control cycle data (state, control, force)
-  #   If an interpolation to control frequency is needed, here is the place where to implement it
-  #   '''
-  #   self.y_ref_SIMU  = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)
-  #   self.u_ref_SIMU  = self.u_curr 
-  #   if(nb_simu==0):
-  #       self.state_des_SIMU[nb_simu, :] = self.y_curr  
-  #   self.ctrl_des_SIMU[nb_simu, :]   = self.u_ref_SIMU 
-  #   self.state_des_SIMU[nb_simu+1, :] = self.y_ref_SIMU 
-
-    return 
 
   # Extract MPC simu-specific plotting data from sim data
   def extract_data(self, frame_of_interest):

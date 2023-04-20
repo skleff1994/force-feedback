@@ -277,7 +277,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     pos = ocp_utils.circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
 
-  draw_rate = 200
+  draw_rate = 1000
 
   # # # # # # # # # # # #
   ### SIMULATION LOOP ###
@@ -308,6 +308,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # SIMULATE
   sim_data.tau_mea_SIMU[0,:] = ddp.us[0]
+  x_filtered = x0
+  tau_mea_CTRL = ddp.us[0]
 
   for i in range(sim_data.N_simu): 
 
@@ -397,6 +399,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       if(i%int(sim_data.simu_freq/sim_data.plan_freq) == 0):    
           # Anti-aliasing filter for measured state
           x_filtered = antiAliasingFilter.step(nb_plan, i, sim_data.plan_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
+          # x_filtered = antiAliasingFilter.iir(x_filtered, sim_data.state_mea_SIMU[i], fc=10, fs=sim_data.plan_freq)
           # Reset x0 to measured state + warm-start solution
           q = x_filtered[:nq]
           v = x_filtered[nq:nq+nv]
@@ -417,7 +420,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           sim_data.record_plan_cycle_desired(nb_plan)
           # Increment planning counter
           nb_plan += 1
-          torqueController.reset_integral_error()
+          # torqueController.reset_integral_error()
 
 
       # # # # # # # # # #
@@ -425,16 +428,16 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # # # # # # # # # #
       # If we are in a control cycle send reference torque to motor driver and compute the motor torque
       if(i%int(sim_data.simu_freq/sim_data.ctrl_freq) == 0):   
-          # Record interpolated desired state, control and force at CTRL frequency
-          sim_data.record_ctrl_cycle_desired(nb_ctrl) 
           # Anti-aliasing filter on measured torques (sim-->ctrl)
           tau_mea_CTRL            = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.tau_mea_SIMU)
           tau_mea_derivative_CTRL = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.tau_mea_derivative_SIMU)
+          # print(tau_mea_derivative_CTRL)
           # Select the desired torque 
           tau_des_CTRL = sim_data.u_curr.copy()
           # Optionally interpolate to the control frequency using Riccati gains
           if(config['RICCATI']):
-            x_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
+            # x_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
+            x_filtered = antiAliasingFilter.iir(x_filtered, sim_data.state_mea_SIMU[i], 0.5)
             tau_des_CTRL += ddp.K[0].dot(ddp.problem.x0 - x_filtered)
           # Compute the motor torque 
           tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
@@ -443,7 +446,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
 
       # Simulate actuation 
-      tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL)
+      tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL, joint_vel=sim_data.state_mea_SIMU[i,nq:nq+nv])
       # Step PyBullet simulator
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()
@@ -451,7 +454,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
       f_mea_SIMU = robot_simulator.end_effector_forces(sim_data.PIN_REF_FRAME)[1][0]
-      fz_mea_SIMU = np.array([f_mea_SIMU[2]])
+      # fz_mea_SIMU = np.array([f_mea_SIMU[2]])
       if(i%1000==0): 
         logger.info("f_mea  = "+str(f_mea_SIMU))
       # Record data (unnoised)

@@ -300,7 +300,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     self.state_mea_SIMU                = np.zeros((self.N_simu+1, self.ny))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq )
     self.state_mea_no_noise_SIMU       = np.zeros((self.N_simu+1, self.ny))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq ) without noise
     self.force_mea_SIMU                = np.zeros((self.N_simu, 6))           # Measurec contact forces
-    self.state_mea_derivative_SIMU     = np.zeros((self.N_simu+1, self.ny))   # Measured states derivatives 
+    self.tau_mea_derivative_SIMU       = np.zeros((self.N_simu+1, self.n_lpf))   # Measured joint torque derivatives 
     self.state_mea_SIMU[0, :]          = y0
     self.state_mea_no_noise_SIMU[0, :] = y0
 
@@ -379,9 +379,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     self.state_mea_no_noise_SIMU[nb_simu+1, :] = y_mea_SIMU
     self.state_mea_SIMU[nb_simu+1, :]          = y_mea_no_noise_SIMU
     self.force_mea_SIMU[nb_simu, :]            = f_mea_SIMU
-    # self.tau_mea_SIMU[nb_simu, :]              = tau_mea_SIMU
-    # if(nb_simu > 0):
-    #     self.tau_mea_derivative_SIMU[nb_simu, :] = (tau_mea_SIMU - self.tau_mea_SIMU[nb_simu-1, :])/self.dt_simu
+    self.tau_mea_derivative_SIMU[nb_simu, :]   = (y_mea_no_noise_SIMU[self.nx:] - self.state_mea_no_noise_SIMU[nb_simu, self.nx:])/self.dt_simu
 
 
   def record_plan_cycle_desired(self, nb_plan):
@@ -399,38 +397,6 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     self.state_des_PLAN[nb_plan+1, :]   = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)    
     if(self.is_contact):
         self.force_des_PLAN[nb_plan, :] = self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)    
-
-  def record_ctrl_cycle_desired(self, nb_ctrl):
-    '''
-    Records the desired (state, control, force) at the control frequency (a.k.a. motor board) frequency
-    If interpolation to ctrl freq is needed : implement it here !
-    Input:
-      nb_ctrl   : mpc (a.k.a. control) cycle number
-    '''
-    # Record stuff
-    if(nb_ctrl==0):
-        self.state_des_CTRL[nb_ctrl, :]   = self.y_curr  
-    self.ctrl_des_CTRL[nb_ctrl, :]    = self.w_curr   
-    self.state_des_CTRL[nb_ctrl+1, :] = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)   
-    if(self.is_contact):
-        self.force_des_CTRL[nb_ctrl, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)   
-
-#   def record_simu_cycle_desired(self, nb_simu):
-#     '''
-#     Records the desired (state, control, force) at the simulation frequency (a.k.a. motor board) frequency
-#     If interpolation to sim freq is needed : implement it here !
-#     Input:
-#       nb_simu   : mpc (a.k.a. control) cycle number
-#     '''
-#     self.y_ref_SIMU  = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)
-#     self.w_ref_SIMU  = self.w_curr 
-#     if(nb_simu==0):
-#         self.state_des_SIMU[nb_simu, :] = self.y_curr  
-#     self.ctrl_des_SIMU[nb_simu, :]   = self.w_ref_SIMU 
-#     self.state_des_SIMU[nb_simu+1, :] = self.y_ref_SIMU 
-#     if(self.is_contact):
-#         self.force_des_SIMU[nb_simu, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)  
-#     return 
 
 
   # Extract MPC simu-specific plotting data from sim data

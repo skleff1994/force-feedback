@@ -385,21 +385,6 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     if(self.is_contact):
         self.force_des_PLAN[nb_plan, :] = self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)    
 
-  def record_ctrl_cycle_desired(self, nb_ctrl):
-    '''
-    Records the desired (state, control, force) at the control frequency (a.k.a. motor board) frequency
-    If interpolation to ctrl freq is needed : implement it here !
-    Input:
-      nb_ctrl   : mpc (a.k.a. control) cycle number
-    '''
-    # Record stuff
-    if(nb_ctrl==0):
-        self.state_des_CTRL[nb_ctrl, :]   = self.x_curr  
-    self.ctrl_des_CTRL[nb_ctrl, :]    = self.u_curr   
-    self.state_des_CTRL[nb_ctrl+1, :] = self.x_curr + self.OCP_TO_PLAN_RATIO * (self.x_pred - self.x_curr)   
-    if(self.is_contact):
-        self.force_des_CTRL[nb_ctrl, :] =  self.f_curr + self.OCP_TO_PLAN_RATIO * (self.f_pred - self.f_curr)   
-
 
   # Extract MPC simu-specific plotting data from sim data
   def extract_data(self, frame_of_interest):

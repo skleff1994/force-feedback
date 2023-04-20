@@ -1,5 +1,4 @@
 
-from curses import noqiflush
 import numpy as np
 
 from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
@@ -7,28 +6,45 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 class AntiAliasingFilter:
-  def __init__(self):
-      pass
-  
-  def step(self, nb1, nb2, freq1, freq2, data_at_freq2):
-     '''
-     nb1   : number of cycles elapsed at freq1
-     nb2   : number of cycles elpased at freq2
-     freq1 : low frequency
-     freq2 : high frequency 
-     '''
-     try: 
-        assert(freq1 <= freq2)
-     except:
-        logger.error("freq1 must be <= freq2 !!!")
-     filterSize = min(nb1, int(freq2/freq1))
-     if(filterSize == 0):
-        return data_at_freq2[0]
-     else:
-      data_at_freq1 = self.filter(data_at_freq2[nb2-filterSize:nb2], filterSize)
-      return data_at_freq1[-1]
+  def __init__(self, filter_type='iir'):
+      supported_filter_types = ["iir", "moving_average"]
+      try: assert(filter_type in supported_filter_types)
+      except: logger.error("AntiAliasingFilter type should be in "+str(supported_filter_types))
+      self.filter_type = filter_type
+      logger.info("Created AntiAliasingFilter of type "+str(self.filter_type))
 
-  def filter(self, input_data, filter_size=1):
+  def iir(self, last_output, input_data, fc=100, fs=1000):
+      '''
+       Infinite Impulse Response (IIR) filter 
+        output = g*last_output + (1-g)*input_data
+        cutoff frequency say 1kHz
+        exp(- 2 pi f 1/5000)
+      '''
+      gamma = np.exp(-2*np.pi*fc/fs)
+      return gamma*last_output + (1-gamma)*input_data
+      
+     
+  def step(self, nb1, nb2, freq1, freq2, data_at_freq2):
+      '''
+      nb1   : number of cycles elapsed at freq1
+      nb2   : number of cycles elpased at freq2
+      freq1 : low frequency
+      freq2 : high frequency 
+      '''
+      # Using moving average
+
+      try: 
+          assert(freq1 <= freq2)
+      except:
+          logger.error("freq1 must be <= freq2 !!!")
+      filterSize = min(nb1, int(freq2/freq1))
+      if(filterSize == 0):
+          return data_at_freq2[0]
+      else:
+        data_at_freq1 = self.moving_average(data_at_freq2[nb2-filterSize:nb2], filterSize)
+        return data_at_freq1[-1]     
+      
+  def moving_average(self, input_data, filter_size=1):
       '''
       moving average on 1st dimension of some array ((N,n))
       '''
@@ -39,7 +55,7 @@ class AntiAliasingFilter:
           # Sum up over window
           for k in range(n_sum):
               output_data[i,:] += input_data[i-k-1, :]
-          #  Divide by number of samples
+          # Divide by number of samples
           output_data[i,:] = output_data[i,:] / (n_sum + 1)
       return output_data 
 
@@ -86,9 +102,9 @@ class LowLevelTorqueController:
           self.err_P = measured_torque - reference_torque              
           self.err_I += self.err_P
           self.err_D = measured_torque_derivative                 
-          motor_torque -= self.gain_P.dot(self.err_P) 
-          motor_torque -= self.gain_I.dot(self.err_I)
-          motor_torque -= self.gain_D.dot(self.err_D)
+          motor_torque -= 0.1*self.gain_P.dot(self.err_P) 
+          motor_torque -= 0.1*self.gain_I.dot(self.err_I)
+          motor_torque -= 0.0001*self.gain_D.dot(self.err_D)
       return motor_torque
 
 
@@ -124,11 +140,15 @@ class ActuationModel:
         self.DELAY_SIM         = config['DELAY_SIM']                            # Add delay in reference torques (low-level)
         self.SCALE_TORQUES     = config['SCALE_TORQUES']                        # Affinescaling of reference torque
         self.NOISE_TORQUES     = config['NOISE_TORQUES']                        # Moving average smoothing of reference torques
-        self.STATIC_FRICTION   = False #config['STATIC_FRICTION']               # Simulate static friction
+        self.STATIC_FRICTION   = config['STATIC_FRICTION']                      # Simulate static friction
+        self.VISCOUS_FRICTION  = config['VISCOUS_FRICTION']                     # Simulate viscous friction
+        self.tau_sf_max        = config['static_friction_max_torque']           # Max. static friction torque
+        self.tau_vf_slope      = config['viscous_friction_slope']               # Slope of the viscous friction torque w.r.t. velocity
         logger.info("Created ActuationModel(DELAY_SIM="+str(self.DELAY_SIM)+
                     ", SCALE_TORQUES="+str(self.SCALE_TORQUES)+
                     ", NOISE_TORQUES="+str(self.NOISE_TORQUES)+
-                    ", STATIC_FRICTION="+str(self.STATIC_FRICTION)+").")
+                    ", STATIC_FRICTION="+str(self.STATIC_FRICTION)+
+                    ", VISCOUS_FRICTION="+str(self.VISCOUS_FRICTION)+").")
         if(self.SCALE_TORQUES):
           logger.info("Torques scaling : alpha = "+str(self.alpha)+" | beta = "+str(self.beta))
 
@@ -169,9 +189,13 @@ class ActuationModel:
             measured_torque += noise_u
         #  Static friction
         if(self.STATIC_FRICTION and len(measured_torque) !=0):
-           pass
-          #  τf = τv  ̇q + tanh(a  ̇q)
-          # tau_sf = np.tanh(0.1 * )
+           sf_torque = self.tau_sf_max*np.tanh(100*joint_vel) 
+          #  print("static friction = ", sf_torque)
+           measured_torque -= sf_torque
+        if(self.VISCOUS_FRICTION and len(measured_torque) !=0):
+           vf_torque = self.tau_vf_slope * joint_vel
+          #  print("viscous friction = ", vf_torque)
+           measured_torque -= vf_torque
         return measured_torque
 
 
