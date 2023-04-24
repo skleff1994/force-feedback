@@ -24,18 +24,31 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-PREFIX = '/home/skleff/force-feedback/data/soft_contact_article/'
-prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
-prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
-prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
+
+PREFIX = '/home/skleff/force-feedback/data/soft_contact_article/dataset2/'
+# prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
+# prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
+# prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
+prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
+prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
+prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
+
+# # tilt table of several angles around y-axis
+# TILT_ANGLES_DEG = [10, 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
+# TILT_RPY = []
+# for angle in TILT_ANGLES_DEG:
+#     TILT_RPY.append([angle*np.pi/180, 0., 0.])
+# N_EXP = len(TILT_RPY)
+# SEEDS = [1, 2, 3, 4, 5]
+# N_SEEDS = len(SEEDS)
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [10, 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
+TILT_ANGLES_DEG = [6, 4] #, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([angle*np.pi/180, 0., 0.])
 N_EXP = len(TILT_RPY)
-SEEDS = [1, 2, 3, 4, 5]
+SEEDS = [1, 2] #, 3, 4, 5]
 N_SEEDS = len(SEEDS)
 
   

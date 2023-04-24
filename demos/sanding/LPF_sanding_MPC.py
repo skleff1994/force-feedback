@@ -65,29 +65,23 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
             for k in range( node_id_reach, ddp.problem.T+1, 1 ):
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-    # Update OCP for "increase weights" phase
-    if(TASK_PHASE == 2):
-        # If node id is valid
-        if(node_id_track <= ddp.problem.T and node_id_track >= 0):
-            # Updates nodes between node_id and terminal node 
-            for k in range( node_id_track, ddp.problem.T+1, 1 ):
-                m[k].differential.costs.costs["translation"].active = True
-                m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
     # Update OCP for contact phase
     if(TASK_PHASE == 3):
         # If node id is valid
         if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
             # Updates nodes between node_id and terminal node 
             for k in range( node_id_contact, ddp.problem.T+1, 1 ):  
+                wf = min(1.*(k + 1. - node_id_contact) , force_weight)
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                m[k].differential.costs.costs["translation"].weight = 1.
+                m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
+                # m[k].differential.costs.costs["translation"].weight = 1.
                 # activate contact and force cost
                 m[k].differential.contacts.changeContactStatus("contact", True)
                 if(k!=ddp.problem.T):
                     fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                     m[k].differential.costs.costs["force"].active = True
-                    # m[k].differential.costs.costs["force"].weight = force_weight
+                    m[k].differential.costs.costs["force"].weight = wf
                     m[k].differential.costs.costs["force"].cost.residual.reference = fref
     # Update OCP for circle phase
     if(TASK_PHASE == 4):
@@ -95,16 +89,19 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
         if(node_id_circle <= ddp.problem.T and node_id_circle >= 0):
             # Updates nodes between node_id and terminal node
             for k in range( node_id_circle, ddp.problem.T+1, 1 ):
+                # wf = force_weight
                 m[k].differential.costs.costs["translation"].active = True
+                m[k].differential.costs.costs["velocity"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 10.
+                m[k].differential.costs.costs["translation"].weight = 100.
                 # activate contact and force cost
                 m[k].differential.contacts.changeContactStatus("contact", True)
                 if(k!=ddp.problem.T):
                     fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                     m[k].differential.costs.costs["force"].active = True
-                    # m[k].differential.costs.costs["force"].weight = force_weight
+                    # print(m[k].differential.costs.costs["force"].weight)
+                    m[k].differential.costs.costs["force"].weight = 100
                     m[k].differential.costs.costs["force"].cost.residual.reference = fref
     # Solve OCP 
     ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
@@ -160,8 +157,6 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
   simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
   simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
-
-
 
 
 
@@ -277,14 +272,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   TASK_PHASE      = 0
   NH_SIMU   = int(config['N_h']*sim_data.dt/sim_data.dt_simu)
   T_REACH   = int(config['T_REACH']/sim_data.dt_simu)
-  T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
+  # T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
   T_CONTACT = int(config['T_CONTACT']/sim_data.dt_simu)
   T_CIRCLE   = int(config['T_CIRCLE']/sim_data.dt_simu)
   OCP_TO_MPC_CYCLES = 1./(sim_data.dt_plan / config['dt'])
   OCP_TO_SIMU_CYCLES = 1./(sim_data.dt_simu / config['dt'])
   logger.debug("Size of MPC horizon in simu cycles     = "+str(NH_SIMU))
   logger.debug("Start of reaching phase in simu cycles = "+str(T_REACH))
-  logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
+  # logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
   logger.debug("Start of contact phase in simu cycles  = "+str(T_CONTACT))
   logger.debug("Start of circle phase in simu cycles   = "+str(T_CIRCLE))
   logger.debug("OCP to PLAN time ratio = "+str(OCP_TO_MPC_CYCLES))
@@ -304,7 +299,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # # Update OCP  #
       # # # # # # # # # 
       time_to_reach   = int(i - T_REACH)
-      time_to_track   = int(i - T_TRACK)
+      # time_to_track   = int(i - T_TRACK)
       time_to_contact = int(i - T_CONTACT)
       time_to_circle  = int(i - T_CIRCLE)
 
@@ -318,15 +313,15 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
               # Select IAM
               node_id_reach = config['N_h'] - int(time_to_reach/OCP_TO_SIMU_CYCLES)
 
-      if(time_to_track == 0): 
-          logger.warning("Entering tracking phase")
-      # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
-      if(0 <= time_to_track and time_to_track <= NH_SIMU):
-          TASK_PHASE = 2
-          # If current time matches an OCP node 
-          if(time_to_track%OCP_TO_SIMU_CYCLES == 0):
-              # Select IAM
-              node_id_track = config['N_h'] - int(time_to_track/OCP_TO_SIMU_CYCLES)
+      # if(time_to_track == 0): 
+      #     logger.warning("Entering tracking phase")
+      # # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
+      # if(0 <= time_to_track and time_to_track <= NH_SIMU):
+      #     TASK_PHASE = 2
+      #     # If current time matches an OCP node 
+      #     if(time_to_track%OCP_TO_SIMU_CYCLES == 0):
+      #         # Select IAM
+      #         node_id_track = config['N_h'] - int(time_to_track/OCP_TO_SIMU_CYCLES)
 
       if(time_to_contact == 0): 
           logger.warning("Entering contact phase")
@@ -400,7 +395,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           sim_data.record_plan_cycle_desired(nb_plan)
           # Increment planning counter
           nb_plan += 1
-          torqueController.reset_integral_error()
+          # torqueController.reset_integral_error()
 
 
       # # # # # # # # # #
@@ -419,8 +414,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
             alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
             Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*ddp.K[0]
             # Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
-            tau_des_CTRL += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
-            # tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])     # torques
+            # tau_des_CTRL += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
+            tau_des_CTRL += Ktilde.dot(ddp.problem.x0 - y_filtered)     # torques
           # Compute the motor torque 
           tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
           # Increment control counter

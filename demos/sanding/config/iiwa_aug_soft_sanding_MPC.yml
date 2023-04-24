@@ -6,7 +6,7 @@
 simu_freq: 5000               # Simulation frequency in Hz
 ctrl_freq: 2000                # Control frequency
 plan_freq: 1000                # Planning frequency
-T_tot: 10.                           # Simu duration (s)
+T_tot: 6.                           # Simu duration (s)
 # Simulation options
 DELAY_SIM: True                 # Add delay in reference torques (low-level)
 DELAY_OCP: True                 # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -22,18 +22,16 @@ INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 1000                  # Display sim status once very 'log_rate' sim cycles
-WHICH_PLOTS: ['f', 'x', 'u', 'ee']   # Which plots to generate after the simulation
+WHICH_PLOTS: ['f', 'y', 'ee', 'u']   # Which plots to generate after the simulation
 TILT_SURFACE: True              # Tilt contact surface 
-TILT_PITCH_LOCAL_DEG: -10.      # Tilt angle of the contact surface
+TILT_PITCH_LOCAL_DEG: 6.      # Tilt angle of the contact surface
 RICCATI: False 
 
 
-T_REACH: 0.5
-T_TRACK: 1.
+T_REACH: 0.
+# T_TRACK: 1.
 T_CONTACT: 2.
 T_CIRCLE: 3.
-
-
 
 # General
 dt: 0.005                                          # OCP integration step 
@@ -87,8 +85,8 @@ ctrlRegRef: 'DEFAULT'
 
  # 'translation' : end-effector frame translation 
 frameTranslationWeights:  [1., 1., 1.]
-frameTranslationWeight: 10 #65.
-frameTranslationWeightTerminal: 50.
+frameTranslationWeight: 50 #65.
+frameTranslationWeightTerminal: 100.
 alpha_quadflatlog: 0.01
 frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
@@ -100,8 +98,8 @@ CIRCLE_LOCAL_PLANE: 'XY'
 
  # 'velocity' : end-effector frame velocity (translation + rotation)
 frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
-frameVelocityWeight: 0.05
-frameVelocityWeightTerminal: 1
+frameVelocityWeight: 0.01
+frameVelocityWeightTerminal: 100
 frameVelocityRef: 'DEFAULT'    
 frameVelocityFrameName: 'contact'
 

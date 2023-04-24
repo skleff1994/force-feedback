@@ -50,12 +50,12 @@ import pinocchio as pin
 WARM_START_IK = True
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [10, 0, -10] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
+TILT_ANGLES_DEG = [6, 4, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([angle*np.pi/180, 0., 0.])
 N_EXP = len(TILT_RPY)
-SEEDS = [1, 2] #, 3, 4, 5]
+SEEDS = [1, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
 
 jRc = np.eye(3)
@@ -284,14 +284,14 @@ def main(robot_name):
             TASK_PHASE      = 0
             NH_SIMU   = int(config['N_h']*sim_data.dt/sim_data.dt_simu)
             T_REACH   = int(config['T_REACH']/sim_data.dt_simu)
-            T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
+            # T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
             T_CONTACT = int(config['T_CONTACT']/sim_data.dt_simu)
             T_CIRCLE   = int(config['T_CIRCLE']/sim_data.dt_simu)
             OCP_TO_MPC_CYCLES = 1./(sim_data.dt_plan / config['dt'])
             OCP_TO_SIMU_CYCLES = 1./(sim_data.dt_simu / config['dt'])
             logger.debug("Size of MPC horizon in simu cycles     = "+str(NH_SIMU))
             logger.debug("Start of reaching phase in simu cycles = "+str(T_REACH))
-            logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
+            # logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
             logger.debug("Start of contact phase in simu cycles  = "+str(T_CONTACT))
             logger.debug("Start of circle phase in simu cycles   = "+str(T_CIRCLE))
             logger.debug("OCP to PLAN time ratio = "+str(OCP_TO_MPC_CYCLES))
@@ -312,7 +312,7 @@ def main(robot_name):
                 # # Update OCP  #
                 # # # # # # # # # 
                 time_to_reach   = int(i - T_REACH)
-                time_to_track   = int(i - T_TRACK)
+                # time_to_track   = int(i - T_TRACK)
                 time_to_contact = int(i - T_CONTACT)
                 time_to_circle  = int(i - T_CIRCLE)
 
@@ -326,15 +326,15 @@ def main(robot_name):
                         # Select IAM
                         node_id_reach = config['N_h'] - int(time_to_reach/OCP_TO_SIMU_CYCLES)
 
-                if(time_to_track == 0): 
-                    logger.warning("Entering tracking phase")
-                # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
-                if(0 <= time_to_track and time_to_track <= NH_SIMU):
-                    TASK_PHASE = 2
-                    # If current time matches an OCP node 
-                    if(time_to_track%OCP_TO_SIMU_CYCLES == 0):
-                        # Select IAM
-                        node_id_track = config['N_h'] - int(time_to_track/OCP_TO_SIMU_CYCLES)
+                # if(time_to_track == 0): 
+                #     logger.warning("Entering tracking phase")
+                # # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
+                # if(0 <= time_to_track and time_to_track <= NH_SIMU):
+                #     TASK_PHASE = 2
+                #     # If current time matches an OCP node 
+                #     if(time_to_track%OCP_TO_SIMU_CYCLES == 0):
+                #         # Select IAM
+                #         node_id_track = config['N_h'] - int(time_to_track/OCP_TO_SIMU_CYCLES)
 
                 if(time_to_contact == 0): 
                     # Record end-effector position at the time of the contact switch

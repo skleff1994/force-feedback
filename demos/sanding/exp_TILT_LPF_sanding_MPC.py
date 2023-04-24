@@ -49,7 +49,7 @@ import pinocchio as pin
 WARM_START_IK = True
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [10, 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
+TILT_ANGLES_DEG = [6, 4, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([angle*np.pi/180, 0., 0.])
@@ -76,33 +76,23 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
             for k in range( node_id_reach, ddp.problem.T+1, 1 ):
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                # print(m[k].differential.costs.costs["translation"].weight)
-    # Update OCP for "increase weights" phase
-    if(TASK_PHASE == 2):
-        # If node id is valid
-        if(node_id_track <= ddp.problem.T and node_id_track >= 0):
-            # Updates nodes between node_id and terminal node 
-            for k in range( node_id_track, ddp.problem.T+1, 1 ):
-                # w = min(2.*(k + 1. - node_id_track) , 10.)
-                m[k].differential.costs.costs["translation"].active = True
-                m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                # m[k].differential.costs.costs["translation"].weight = 20.
-                # print(m[k].differential.costs.costs["translation"].weight)
     # Update OCP for contact phase
     if(TASK_PHASE == 3):
         # If node id is valid
         if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
             # Updates nodes between node_id and terminal node 
             for k in range( node_id_contact, ddp.problem.T+1, 1 ):  
+                wf = min(1.*(k + 1. - node_id_contact) , force_weight)
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                m[k].differential.costs.costs["translation"].weight = 1.
+                m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
+                # m[k].differential.costs.costs["translation"].weight = 1.
                 # activate contact and force cost
                 m[k].differential.contacts.changeContactStatus("contact", True)
                 if(k!=ddp.problem.T):
                     fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                     m[k].differential.costs.costs["force"].active = True
-                    # m[k].differential.costs.costs["force"].weight = force_weight
+                    m[k].differential.costs.costs["force"].weight = wf
                     m[k].differential.costs.costs["force"].cost.residual.reference = fref
     # Update OCP for circle phase
     if(TASK_PHASE == 4):
@@ -110,20 +100,19 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
         if(node_id_circle <= ddp.problem.T and node_id_circle >= 0):
             # Updates nodes between node_id and terminal node
             for k in range( node_id_circle, ddp.problem.T+1, 1 ):
+                # wf = force_weight
                 m[k].differential.costs.costs["translation"].active = True
+                m[k].differential.costs.costs["velocity"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 50.
-                # m[k].differential.costs.costs["velocity"].active = True
-                # m[k].differential.costs.costs["velocity"].cost.residual.reference = pin.Motion(np.concatenate([target_velocity[k], np.zeros(3)]))
-                # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([1., 1., 0., 1., 1., 1.])
-                # m[k].differential.costs.costs["velocity"].weight = 1.
+                m[k].differential.costs.costs["translation"].weight = 100.
                 # activate contact and force cost
                 m[k].differential.contacts.changeContactStatus("contact", True)
                 if(k!=ddp.problem.T):
                     fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                     m[k].differential.costs.costs["force"].active = True
-                    # m[k].differential.costs.costs["force"].weight = force_weight
+                    # print(m[k].differential.costs.costs["force"].weight)
+                    m[k].differential.costs.costs["force"].weight = 100
                     m[k].differential.costs.costs["force"].cost.residual.reference = fref
     # Solve OCP 
     ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
@@ -267,7 +256,8 @@ def main(robot_name):
             communicationModel = mpc_utils.CommunicationModel(config)
             actuationModel     = mpc_utils.ActuationModel(config, nu, SEED=SEEDS[n_seed])
             sensingModel       = mpc_utils.SensorModel(config, naug=n_lpf, SEED=SEEDS[n_seed])
-
+            torqueController   = mpc_utils.LowLevelTorqueController(config, nu=nu)
+            antiAliasingFilter = mpc_utils.AntiAliasingFilter()
             
 
             # # # # # # # # # # # #
@@ -284,14 +274,14 @@ def main(robot_name):
             TASK_PHASE      = 0
             NH_SIMU   = int(config['N_h']*sim_data.dt/sim_data.dt_simu)
             T_REACH   = int(config['T_REACH']/sim_data.dt_simu)
-            T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
+            # T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
             T_CONTACT = int(config['T_CONTACT']/sim_data.dt_simu)
             T_CIRCLE   = int(config['T_CIRCLE']/sim_data.dt_simu)
             OCP_TO_MPC_CYCLES = 1./(sim_data.dt_plan / config['dt'])
             OCP_TO_SIMU_CYCLES = 1./(sim_data.dt_simu / config['dt'])
             logger.debug("Size of MPC horizon in simu cycles     = "+str(NH_SIMU))
             logger.debug("Start of reaching phase in simu cycles = "+str(T_REACH))
-            logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
+            # logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
             logger.debug("Start of contact phase in simu cycles  = "+str(T_CONTACT))
             logger.debug("Start of circle phase in simu cycles   = "+str(T_CIRCLE))
             logger.debug("OCP to PLAN time ratio = "+str(OCP_TO_MPC_CYCLES))
@@ -314,7 +304,7 @@ def main(robot_name):
                 # # Update OCP  #
                 # # # # # # # # # 
                 time_to_reach   = int(i - T_REACH)
-                time_to_track   = int(i - T_TRACK)
+                # time_to_track   = int(i - T_TRACK)
                 time_to_contact = int(i - T_CONTACT)
                 time_to_circle  = int(i - T_CIRCLE)
 
@@ -328,15 +318,15 @@ def main(robot_name):
                         # Select IAM
                         node_id_reach = config['N_h'] - int(time_to_reach/OCP_TO_SIMU_CYCLES)
 
-                if(time_to_track == 0): 
-                    logger.warning("Entering tracking phase")
-                # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
-                if(0 <= time_to_track and time_to_track <= NH_SIMU):
-                    TASK_PHASE = 2
-                    # If current time matches an OCP node 
-                    if(time_to_track%OCP_TO_SIMU_CYCLES == 0):
-                        # Select IAM
-                        node_id_track = config['N_h'] - int(time_to_track/OCP_TO_SIMU_CYCLES)
+                # if(time_to_track == 0): 
+                #     logger.warning("Entering tracking phase")
+                # # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
+                # if(0 <= time_to_track and time_to_track <= NH_SIMU):
+                #     TASK_PHASE = 2
+                #     # If current time matches an OCP node 
+                #     if(time_to_track%OCP_TO_SIMU_CYCLES == 0):
+                #         # Select IAM
+                #         node_id_track = config['N_h'] - int(time_to_track/OCP_TO_SIMU_CYCLES)
 
                 if(time_to_contact == 0): 
                     logger.warning("Entering contact phase")
@@ -385,9 +375,10 @@ def main(robot_name):
                 # Solve OCP if we are in a planning cycle (MPC/planning frequency)
                 if(i%int(sim_data.simu_freq/sim_data.plan_freq) == 0):       
                     # Reset x0 to measured state + warm-start solution
-                    q   = sim_data.state_mea_SIMU[i, :nq]
-                    v   = sim_data.state_mea_SIMU[i, nq:nq+nv]
-                    tau = sim_data.state_mea_SIMU[i, nq+nv:]
+                    x_filtered = antiAliasingFilter.step(nb_plan, i, sim_data.plan_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
+                    q   = x_filtered[:nq]
+                    v   = x_filtered[nq:nq+nv]
+                    tau = x_filtered[nq+nv:]
                     # Solve OCP 
                     bench.start_timer()
                     bench.start_croco_profiler()
@@ -409,48 +400,48 @@ def main(robot_name):
                     nb_plan += 1
 
 
-                # If we are in a control cycle select reference torque to send to the actuator (motor driver input frequency)
-                if(i%int(sim_data.simu_freq/sim_data.ctrl_freq) == 0):        
-                    sim_data.record_ctrl_cycle_desired(nb_ctrl)
+                # # # # # # # # # #
+                # # Send policy # #
+                # # # # # # # # # #
+                # If we are in a control cycle send reference torque to motor driver and compute the motor torque
+                if(i%int(sim_data.simu_freq/sim_data.ctrl_freq) == 0):   
+                    # Anti-aliasing filter on measured torques (sim-->ctrl)
+                    tau_mea_CTRL            = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU[:,-n_lpf:])
+                    tau_mea_derivative_CTRL = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.tau_mea_derivative_SIMU[:,-n_lpf:])
+                    # Select the desired torque as interpolation between current and prediction
+                    tau_des_CTRL = sim_data.y_curr[-n_lpf:] + sim_data.OCP_TO_PLAN_RATIO * (sim_data.y_pred[-n_lpf:]  - sim_data.y_curr[-n_lpf:] )
+                    # Optionally interpolate to the control frequency using Riccati gains
+                    if(config['RICCATI']):
+                        y_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
+                        alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
+                        Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*ddp.K[0]
+                        # Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
+                        tau_des_CTRL += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
+                        # tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])     # torques
+                    # Compute the motor torque 
+                    tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
+                    # Increment control counter
                     nb_ctrl += 1
-                    
-                # Simulate actuation/sensing and step simulator (physics simulation frequency)
-                # Record interpolated desired state, control and force at SIM frequency
-                sim_data.record_simu_cycle_desired(i)
-                # Torque applied by motor on actuator : interpolate current torque and predicted torque 
-                tau_ref_SIMU =  sim_data.y_ref_SIMU[-n_lpf:] 
-                # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU ) 
-                    # Simulate imperfect actuation (for dimensions that are assumed perfectly actuated by the MPC)
-                    #  sim_data.w_ref_SIMU, sim_data.ctrl_des_SIMU 
-                tau_mea_SIMU = sim_data.w_ref_SIMU 
-                tau_mea_SIMU[nonLpfStateIds] = actuationModel.step(i, sim_data.w_ref_SIMU[nonLpfStateIds], sim_data.ctrl_des_SIMU[nonLpfStateIds]) 
-                    # Simulate imperfect actuation (for dimensions that are asssumed to be LPF-actuated by the MPC)
-                tau_mea_SIMU[lpfStateIds] = actuationModel.step(i, tau_ref_SIMU, sim_data.state_mea_SIMU[:,-n_lpf:])   
-                # RICCATI GAINS TO INTERPOLATE
-                if(config['RICCATI']):
-                    K = ddp.K[0]
-                    alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
-                    Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*K
-                    # Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
-                    tau_mea_SIMU += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - sim_data.state_mea_SIMU[i,:nq+nv]) #position vel
-                    # tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])       # torques
-                #  Send output of actuation torque to the RBD simulator 
+
+
+                # Simulate actuation
+                tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL, joint_vel=sim_data.state_mea_SIMU[i,nq:nq+nv])
+                # Step PyBullet simulator
                 robot_simulator.send_joint_command(tau_mea_SIMU)
                 env.step()
-                # Measure new state from simulation 
+                # Measure new state + forces from simulation 
                 q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
-                # Update pinocchio model
                 robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
-                # f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff, sim_data.PIN_REF_FRAME)
                 f_mea_SIMU = robot_simulator.end_effector_forces(sim_data.PIN_REF_FRAME)[1][0]
-                if(i%config['log_rate']==0): 
-                    logger.info("f_mea = "+str(f_mea_SIMU))
+                fz_mea_SIMU = np.array([f_mea_SIMU[2]])
+                if(i%1000==0): 
+                    logger.info("f_mea  = "+str(f_mea_SIMU))
                 # Record data (unnoised)
                 y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU[lpfStateIds]]).T 
-                sim_data.state_mea_no_noise_SIMU[i+1, :] = y_mea_SIMU
-                # Sensor model ( simulation state ==> noised / filtered state )
-                sim_data.state_mea_SIMU[i+1, :] = sensingModel.step(i, y_mea_SIMU, sim_data.state_mea_SIMU)
-                sim_data.force_mea_SIMU[i, :] = f_mea_SIMU
+                # Simulate sensing 
+                y_mea_no_noise_SIMU = sensingModel.step(y_mea_SIMU)
+                # Record measurements of state, torque and forces 
+                sim_data.record_simu_cycle_measured(i, y_mea_SIMU, y_mea_no_noise_SIMU, f_mea_SIMU)
 
             
                 # Display real 
