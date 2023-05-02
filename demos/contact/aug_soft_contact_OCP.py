@@ -85,7 +85,7 @@ def main(robot_name, PLOT, DISPLAY):
 
     import time
     ts = []
-    for i in range(1000):
+    for i in range(50000):
         t = time.time()
         ddp.solve(ddp.xs, ddp.us, maxiter=config['maxiter'], isFeasible=False)
         ts.append(time.time() - t)

@@ -515,6 +515,45 @@ class OptimalControlProblemAbstract:
     return collisionCost
     
 
+  def create_state_constraint(self, state, actuation):
+    '''
+    Create state box constraint model 
+    '''
+    # Check attributes 
+    clip_state_min = -np.array([np.inf]*state.nx)
+    clip_state_max = np.array([np.inf]*state.nx)
+    xBoxCstr = crocoddyl.StateConstraintModel(state, actuation.nu, clip_state_min, clip_state_max)  
+    return xBoxCstr
+
+  def create_ctrl_constraint(self, state, actuation):
+    '''
+    Create control box constraint model 
+    '''
+    # Check attributes 
+    clip_ctrl = np.array([np.inf, 40 , np.inf, np.inf, np.inf, np.inf , np.inf] )
+    uBoxCstr = crocoddyl.ControlConstraintModel(state, actuation.nu,  -clip_ctrl, clip_ctrl)
+    return uBoxCstr
+  
+  def create_translation_constraint(self, state, actuation):
+    '''
+    Create end-effector position box constraint model 
+    '''
+    # Check attributes 
+    endeff_translation = np.array([0.7, 0, 1.1]) # move endeff +30 cm along x in WORLD frame
+    lmin = np.array([-np.inf, endeff_translation[1], endeff_translation[2]])
+    lmax =  np.array([np.inf, endeff_translation[1], endeff_translation[2]])
+    fid = self.rmodel.getFrameId('contact')
+    eeBoxCstr = crocoddyl.FrameTranslationConstraintModel(state, actuation.nu, fid, lmin, lmax)
+    return eeBoxCstr
+
+  def create_no_constraint(self, state, actuation):
+    '''
+    Returns void constraint
+    '''
+    return crocoddyl.NoConstraintModel(state, actuation.nu)
+
+
+
 
 
 
