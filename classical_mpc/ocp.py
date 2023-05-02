@@ -533,7 +533,7 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
     constraintModels = [runningConstraintModel]*(self.N_h) + [terminalConstraintModel] 
     logger.warning("Constraint models = \n")
     logger.warning(constraintModels)
-    
+
     logger.info("Created IAMs.")  
 
 
@@ -544,14 +544,24 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
   # Creating the DDP solver 
     ddp = crocoddyl.SolverFADMM(problem, constraintModels)
 
-  # Callbacks
-    if(callbacks):
-      ddp.setCallbacks([crocoddyl.CallbackLogger(),
-                        crocoddyl.CallbackVerbose()])
+  # Callbacks & solver parameters
+    self.check_attribute('with_callbacks')
+    self.check_attribute('use_filter_ls')
+    self.check_attribute('filter_size')
+    self.check_attribute('warm_start')
+    self.check_attribute('termination_tol')
+    self.check_attribute('max_qp_iters')
+    ddp.with_callbacks = self.with_callbacks
+    ddp.use_filter_ls = self.use_filter_ls
+    ddp.filter_size = self.filter_size
+    ddp.warm_start = self.warm_start
+    ddp.termination_tol = self.termination_tol
+    ddp.max_qp_iters = self.max_qp_iters
   
   # Finish
     logger.info("OCP is ready")
-    logger.info("    COSTS   = "+str(self.WHICH_COSTS))
+    logger.info("    COSTS         = "+str(self.WHICH_COSTS))
+    logger.info("    CONSTRAINTS   = "+str(self.WHICH_CONSTRAINTS))
     if(self.nb_contacts > 0):
       logger.info("    self.nb_contacts = "+str(self.nb_contacts))
       for ct in self.contacts:
