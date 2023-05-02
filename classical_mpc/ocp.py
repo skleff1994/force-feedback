@@ -411,8 +411,11 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
         constraint_models_stack_list = []
         # State limits
         if('stateBox' in self.WHICH_CONSTRAINTS):
-          stateBoxConstraint = self.create_state_constraint(state, actuation)   
-          nc += stateBoxConstraint.nc
+          if(i == 0):
+            stateBoxConstraint = self.create_no_constraint(state, actuation)
+          else:
+            stateBoxConstraint = self.create_state_constraint(state, actuation)   
+            nc += stateBoxConstraint.nc
           constraint_models_stack_list.append(stateBoxConstraint)
         # Control limits
         if('ctrlBox' in self.WHICH_CONSTRAINTS):
@@ -421,8 +424,11 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
           constraint_models_stack_list.append(ctrlBoxConstraint)
         # End-effector position limits
         if('translationBox' in self.WHICH_CONSTRAINTS):
-          translationBoxConstraint = self.create_translation_constraint(state, actuation)
-          nc += translationBoxConstraint.nc
+          if(i == 0):
+            translationBoxConstraint = self.create_no_constraint(state, actuation)
+          else:
+            translationBoxConstraint = self.create_translation_constraint(state, actuation)
+            nc += translationBoxConstraint.nc
           constraint_models_stack_list.append(translationBoxConstraint)
         # No constraints
         if('None' in self.WHICH_CONSTRAINTS):
@@ -542,7 +548,11 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
     problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
   
   # Creating the DDP solver 
-    ddp = crocoddyl.SolverFADMM(problem, constraintModels)
+    self.check_attribute('USE_PROXQP')
+    if(self.USE_PROXQP):
+      ddp = crocoddyl.SolverPROXQP(problem, constraintModels) 
+    else:
+      ddp = crocoddyl.SolverFADMM(problem, constraintModels)
 
   # Callbacks & solver parameters
     self.check_attribute('with_callbacks')
