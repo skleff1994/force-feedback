@@ -28,7 +28,7 @@ class DDPDataHandlerSoftContactAugmented(DDPDataHandlerClassical):
     self.softContactModel = softContactModel
 
   # Temporary patch for augmented soft ddp  --> need to clean it up
-  def extract_data(self, ee_frame_name, ct_frame_name):
+  def extract_data(self, ee_frame_name, ct_frame_name, model):
     '''
     Extract data from DDP solver 
     Patch for augmented soft contact formulation 
@@ -37,9 +37,9 @@ class DDPDataHandlerSoftContactAugmented(DDPDataHandlerClassical):
     Set 0 angular force by default.
     '''
     ddp_data = super().extract_data(ee_frame_name, ct_frame_name)
-    ddp_data['nq'] = 7
-    ddp_data['nv'] = 7
-    ddp_data['nx'] = 14
+    ddp_data['nq'] = model.nq
+    ddp_data['nv'] = model.nv
+    ddp_data['nx'] = model.nq+model.nv
     # Compute the visco-elastic contact force & extract the reference force from DAM
     xs = np.array(ddp_data['xs'])
     nq = ddp_data['nq']
@@ -93,7 +93,8 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     '''
     self.state_mea_SIMU                = np.zeros((self.N_simu+1, self.ny))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq )
     self.state_mea_no_noise_SIMU       = np.zeros((self.N_simu+1, self.ny))   # Measured states ( x^mea = (q, v) from actuator & PyB at SIMU freq ) without noise
-    self.force_mea_SIMU                = np.zeros((self.N_simu, 6)) 
+    self.tau_mea_SIMU                  = np.zeros((self.N_simu, self.nu))     # Measured torque 
+    self.tau_mea_derivative_SIMU       = np.zeros((self.N_simu, self.nu))     # Measured torque derivative
     self.state_mea_SIMU[0, :]          = y0
     self.state_mea_no_noise_SIMU[0, :] = y0
 
@@ -152,6 +153,23 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     self.f_ee_ref[nb_plan, :self.nc] = m.differential.f_des
 
 
+  def record_simu_cycle_measured(self, nb_simu, y_mea_SIMU, y_mea_no_noise_SIMU, tau_mea_SIMU):
+    '''
+    Records the measurements of state, torque and contact forces at the current simulation cycle
+     Input:
+      nb_simu             : simulation cycle number
+      y_mea_SIMU          : measured position-velocity state from rigid-body physics simulator + measured torque
+      y_mea_no_noise_SIMU :  " " without sensing noise
+    NOTE: this fucntion also computes the derivatives of the joint torques 
+    '''
+    self.state_mea_no_noise_SIMU[nb_simu+1, :] = y_mea_SIMU
+    self.state_mea_SIMU[nb_simu+1, :]          = y_mea_no_noise_SIMU
+    self.tau_mea_SIMU[nb_simu, :]              = tau_mea_SIMU
+    if(nb_simu > 0):
+        self.tau_mea_derivative_SIMU[nb_simu, :] = (tau_mea_SIMU - self.tau_mea_SIMU[nb_simu-1, :])/self.dt_simu
+
+
+
   def record_plan_cycle_desired(self, nb_plan):
     '''
     - Records the planning cycle data (state, control)
@@ -162,30 +180,6 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     self.ctrl_des_PLAN[nb_plan, :]      = self.u_curr   
     self.state_des_PLAN[nb_plan+1, :]   = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)    
 
-  def record_ctrl_cycle_desired(self, nb_ctrl):
-    '''
-    - Records the control cycle data (state, control, force)
-    If an interpolation to control frequency is needed, here is the place where to implement it
-    '''
-    # Record stuff
-    if(nb_ctrl==0):
-        self.state_des_CTRL[nb_ctrl, :]   = self.y_curr  
-    self.ctrl_des_CTRL[nb_ctrl, :]    = self.u_curr   
-    self.state_des_CTRL[nb_ctrl+1, :] = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)   
-  
-  def record_simu_cycle_desired(self, nb_simu):
-    '''
-    - Records the control cycle data (state, control, force)
-    If an interpolation to control frequency is needed, here is the place where to implement it
-    '''
-    self.y_ref_SIMU  = self.y_curr + self.OCP_TO_PLAN_RATIO * (self.y_pred - self.y_curr)
-    self.u_ref_SIMU  = self.u_curr 
-    if(nb_simu==0):
-        self.state_des_SIMU[nb_simu, :] = self.y_curr  
-    self.ctrl_des_SIMU[nb_simu, :]   = self.u_ref_SIMU 
-    self.state_des_SIMU[nb_simu+1, :] = self.y_ref_SIMU 
-
-    return 
 
   # Extract MPC simu-specific plotting data from sim data
   def extract_data(self, frame_of_interest):
@@ -201,21 +195,16 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     plot_data['pin_model'] = self.rmodel
     self.id_endeff = self.rmodel.getFrameId(frame_of_interest)
     nq = self.nq ; nv = self.nv ; nu = self.nv ; nc = self.nc
+    plot_data['nc'] = nc
     # Control predictions
     plot_data['u_pred'] = self.ctrl_pred
       # Extract 1st prediction
     plot_data['u_des_PLAN'] = self.ctrl_des_PLAN
-    plot_data['u_des_CTRL'] = self.ctrl_des_CTRL
-    plot_data['u_des_SIMU'] = self.ctrl_des_SIMU
     # State predictions (at PLAN freq)
     plot_data['q_pred']     = self.state_pred[:,:,:nq]
     plot_data['v_pred']     = self.state_pred[:,:,nq:nq+nv]
     plot_data['q_des_PLAN'] = self.state_des_PLAN[:,:nq]
     plot_data['v_des_PLAN'] = self.state_des_PLAN[:,nq:nq+nv] 
-    plot_data['q_des_CTRL'] = self.state_des_CTRL[:,:nq] 
-    plot_data['v_des_CTRL'] = self.state_des_CTRL[:,nq:nq+nv]
-    plot_data['q_des_SIMU'] = self.state_des_SIMU[:,:nq]
-    plot_data['v_des_SIMU'] = self.state_des_SIMU[:,nq:nq+nv]
     # State measurements (at SIMU freq)
     plot_data['q_mea']          = self.state_mea_SIMU[:,:nq]
     plot_data['v_mea']          = self.state_mea_SIMU[:,nq:nq+nv]
@@ -227,10 +216,10 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     plot_data['f_ee_pred']     = self.state_pred[:,:,-nc:]
     plot_data['f_ee_mea']      = self.state_mea_SIMU[:,-nc:]
     plot_data['f_ee_des_PLAN'] = self.state_des_PLAN[:,-nc:]
-    plot_data['f_ee_des_CTRL'] = self.state_des_CTRL[:,-nc:]
-    plot_data['f_ee_des_SIMU'] = self.state_des_SIMU[:,-nc:] 
     # Extract gravity torques
     plot_data['grav'] = np.zeros((self.N_simu+1, nq))
+    # Torque measurements
+    plot_data['u_mea'] = self.tau_mea_SIMU
     # print(plot_data['pin_model'])
     for i in range(plot_data['N_simu']+1):
       plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'], self.armature)
@@ -261,18 +250,9 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
       # Linear
     plot_data['lin_pos_ee_des_PLAN'] = pin_utils.get_p_(plot_data['q_des_PLAN'], self.rmodel, self.id_endeff)
     plot_data['lin_vel_ee_des_PLAN'] = pin_utils.get_v_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], self.rmodel, self.id_endeff)
-    plot_data['lin_pos_ee_des_CTRL'] = pin_utils.get_p_(plot_data['q_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['lin_vel_ee_des_CTRL'] = pin_utils.get_v_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['lin_pos_ee_des_SIMU'] = pin_utils.get_p_(plot_data['q_des_SIMU'], self.rmodel, self.id_endeff)
-    plot_data['lin_vel_ee_des_SIMU'] = pin_utils.get_v_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], self.rmodel, self.id_endeff)
-      # Angular
+     # Angular
     plot_data['ang_pos_ee_des_PLAN'] = pin_utils.get_rpy_(plot_data['q_des_PLAN'], self.rmodel, self.id_endeff)
     plot_data['ang_vel_ee_des_PLAN'] = pin_utils.get_w_(plot_data['q_des_PLAN'], plot_data['v_des_PLAN'], self.rmodel, self.id_endeff)
-    plot_data['ang_pos_ee_des_CTRL'] = pin_utils.get_rpy_(plot_data['q_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['ang_vel_ee_des_CTRL'] = pin_utils.get_w_(plot_data['q_des_CTRL'], plot_data['v_des_CTRL'], self.rmodel, self.id_endeff)
-    plot_data['ang_pos_ee_des_SIMU'] = pin_utils.get_rpy_(plot_data['q_des_SIMU'], self.rmodel, self.id_endeff)
-    plot_data['ang_vel_ee_des_SIMU'] = pin_utils.get_w_(plot_data['q_des_SIMU'], plot_data['v_des_SIMU'], self.rmodel, self.id_endeff)
-
     return plot_data
 
   def plot_mpc_force(self, plot_data, PLOT_PREDICTIONS=False, 
@@ -302,7 +282,7 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
       dt_ctrl = plot_data['dt_ctrl']
       T_h = plot_data['T_h']
       N_h = plot_data['N_h']
-      logger.debug(plot_data['f_ee_ref'])
+      nc = plot_data['nc']
       # Create time spans for X and U + Create figs and subplots
       t_span_simu = np.linspace(0, T_tot, N_simu+1)
       t_span_plan = np.linspace(0, T_tot, N_plan+1)
@@ -310,9 +290,14 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
       # Plot endeff
       xyz = ['x', 'y', 'z']
       for i in range(3):
-
           if(PLOT_PREDICTIONS):
-              f_ee_pred_i = plot_data['f_ee_pred'][:, :, i]
+              if(nc == 1):
+                 if(i == 1 or i == 0):
+                    f_ee_pred_i = np.zeros(plot_data['f_ee_pred'][:, :, 0].shape)
+                 else:
+                    f_ee_pred_i = plot_data['f_ee_pred'][:, :, 0]
+              else:
+                 f_ee_pred_i = plot_data['f_ee_pred'][:, :, i]
               # For each planning step in the trajectory
               for j in range(0, N_plan, pred_plot_sampling):
                   # Receding horizon = [j,j+N_h]
@@ -338,14 +323,24 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
 
         
           # EE linear force
-          ax[i].plot(t_span_plan, plot_data['f_ee_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
-          # ax[i].plot(t_span_ctrl, plot_data['f_ee_des_CTRL'][:,i], 'g-', label='Desired (CTRL rate)', alpha=0.5)
-          # ax[i].plot(t_span_simu, plot_data['f_ee_des_SIMU'][:,i], color='y', linestyle='-', marker='.', label='Desired (SIMU rate)', alpha=0.5)
-          ax[i].plot(t_span_simu, plot_data['f_ee_mea'][:,i], 'r-', label='Measured', linewidth=2, alpha=0.6)
-          # ax[i].plot(t_span_simu, plot_data['f_ee_mea_no_noise'][:,i], 'r-', label='measured', linewidth=2)
+          if(nc == 1):
+              if(i == 1 or i == 0):
+                f_ee_des_PLAN = np.zeros(plot_data['f_ee_des_PLAN'][:, 0].shape)
+                f_ee_mea = np.zeros(plot_data['f_ee_mea'][:, 0].shape)
+                f_ee_ref = np.zeros(plot_data['f_ee_ref'][:, 0].shape)
+              else:
+                f_ee_des_PLAN = plot_data['f_ee_des_PLAN'][:, 0]
+                f_ee_mea = plot_data['f_ee_mea'][:, 0]
+                f_ee_ref = plot_data['f_ee_ref'][:, 0]
+          else:
+              f_ee_des_PLAN = plot_data['f_ee_des_PLAN'][:, i]
+              f_ee_mea = plot_data['f_ee_mea'][:, i]
+              f_ee_ref = plot_data['f_ee_ref'][:, i]
+          ax[i].plot(t_span_plan, f_ee_des_PLAN, color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
+          ax[i].plot(t_span_simu, f_ee_mea, 'r-', label='Measured', linewidth=2, alpha=0.6)
           # Plot reference
           if('force' in plot_data['WHICH_COSTS']):
-              ax[i].plot(t_span_plan[:-1], plot_data['f_ee_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', linewidth=2., label='Reference', alpha=0.9)
+              ax[i].plot(t_span_plan[:-1], f_ee_ref, color=[0.,1.,0.,0.], linestyle='-.', linewidth=2., label='Reference', alpha=0.9)
           ax[i].set_ylabel('$\\lambda^{EE}_%s$  (N)'%xyz[i], fontsize=16)
           ax[i].yaxis.set_major_locator(plt.MaxNLocator(2))
           ax[i].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))

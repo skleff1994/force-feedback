@@ -1,6 +1,6 @@
 """
 @package force_feedback
-@file contact_circle_MPC.py
+@file exp_TILT_sanding_MPC.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2021, New York University & LAAS-CNRS
@@ -9,7 +9,7 @@
 """
 
 '''
-The robot is tasked with exerting a constant normal force with its EE 
+The robot_simulator.pin_robot is tasked with exerting a constant normal force with its EE 
 while drawing a circle on the contact surface
 Trajectory optimization using Crocoddyl in closed-loop MPC 
 (feedback from stateLPF y=(q,v,tau), control w = unfiltered torque)
@@ -28,7 +28,7 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 import sys
 sys.path.append('.')
 
-from utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
@@ -36,313 +36,449 @@ np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
 
-from utils import path_utils, ocp_utils, pin_utils, data_utils, mpc_utils, misc_utils
+from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
+from core_mpc import ocp as ocp_utils
+from core_mpc import sim_utils as simulator_utils
 
 
+from classical_mpc.ocp import OptimalControlProblemClassical
+from classical_mpc.data import MPCDataHandlerClassical
 
+import time
+import pinocchio as pin
 
-TASK = 'contact_circle'
 WARM_START_IK = True
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [-20, -15, -10, -5, 0, 5, 10, 15, 20] 
-
-# EXPERIMENTS = [TILT_ANGLES_DEG[n_exp] for n_s in range(len(SEEDS)) for n_exp in range(len(TILT_ANGLES_DEG)) ]
-# N_EXP = len(EXPERIMENTS)
-
+TILT_ANGLES_DEG = [6, 4, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
-    TILT_RPY.append([0., angle*np.pi/180, 0.])
+    TILT_RPY.append([angle*np.pi/180, 0., 0.])
 N_EXP = len(TILT_RPY)
-
 SEEDS = [1, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
-# np.random.seed(1)
 
-def main(robot_name, simulator, PLOT_INIT):
+jRc = np.eye(3)
+jpc = np.array([0, 0., 0.12])
+jMc = pin.SE3(jRc, jpc)
+
+def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force):
+        t = time.time()
+        x = np.concatenate([q, v])
+        ddp.problem.x0 = x
+        xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
+        xs_init[0] = x
+        us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
+        # Get OCP nodes
+        m = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+        # Update OCP for reaching phase
+        if(TASK_PHASE == 1):
+            # If node id is valid
+            if(node_id_reach <= ddp.problem.T and node_id_reach >= 0):
+                # Updates nodes between node_id and terminal node 
+                for k in range( node_id_reach, ddp.problem.T+1, 1 ):
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+        # Update OCP for "increase weights" phase
+        if(TASK_PHASE == 2):
+            pass
+            # If node id is valid
+            if(node_id_track <= ddp.problem.T and node_id_track >= 0):
+                # Updates nodes between node_id and terminal node 
+                for k in range( node_id_track, ddp.problem.T+1, 1 ):
+                    w = min(1.*(k + 1. - node_id_track) , 3.)
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    m[k].differential.costs.costs["translation"].weight = w
+        # Update OCP for contact phase
+        if(TASK_PHASE == 3):
+            # If node id is valid
+            if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
+                # Updates nodes between node_id and terminal node 
+                for k in range( node_id_contact, ddp.problem.T+1, 1 ):  
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    m[k].differential.costs.costs["translation"].weight = 2.
+                    # activate contact and force cost
+                    m[k].differential.contacts.changeContactStatus("contact", True)
+                    if(k < ddp.problem.T):
+                        fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
+                        m[k].differential.costs.costs["force"].active = True
+                        # print(m[k].differential.costs.costs["force"])
+                        # print(m[k].differential.costs.costs["force"].cost)
+                        # print(m[k].differential.costs.costs["force"].weight)
+                        # m[k].differential.costs.costs["force"].weight = force_weight
+                        m[k].differential.costs.costs["force"].cost.residual.reference = fref
+        # Update OCP for circle phase
+        if(TASK_PHASE == 4):
+            # If node id is valid
+            if(node_id_circle <= ddp.problem.T and node_id_circle >= 0):
+                # Updates nodes between node_id and terminal node
+                for k in range( node_id_circle, ddp.problem.T+1, 1 ):
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
+                    m[k].differential.costs.costs["translation"].weight = 10.
+                    # m[k].differential.costs.costs["velocity"].active = True
+                    # m[k].differential.costs.costs["velocity"].cost.residual.reference = pin.Motion(np.concatenate([target_velocity[k], np.zeros(3)]))
+                    # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([1., 1., 0., 1., 1., 1.])
+                    # m[k].differential.costs.costs["velocity"].weight = 1.
+                    # activate contact and force cost
+                    m[k].differential.contacts.changeContactStatus("contact", True)
+                    if(k < ddp.problem.T):
+                        fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
+                        m[k].differential.costs.costs["force"].active = True
+                        # m[k].differential.costs.costs["force"].weight = force_weight
+                        m[k].differential.costs.costs["force"].cost.residual.reference = fref
+        # get predicted force from rigid model (careful : expressed in LOCAL !!!)
+        j_wrenchpred = ddp.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].f
+        fpred = jMc.actInv(j_wrenchpred).linear
+        # print(fpred)
+        problem_formulation_time = time.time()
+        t_child_1 =  problem_formulation_time - t
+        # Solve OCP 
+        ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
+        # Send solution to parent process + riccati gains
+        solve_time = time.time()
+        ddp_iter = ddp.iter
+        t_child =  solve_time - problem_formulation_time
+        return ddp.us, ddp.xs, ddp.K, t_child, ddp_iter, t_child_1, fpred
 
 
-  # # # # # # # # # # # # # # # # # # #
-  ### LOAD ROBOT MODEL and SIMU ENV ### 
-  # # # # # # # # # # # # # # # # # # # 
-  # Read config file
-  config, config_name = path_utils.load_config_file('sanding_MPC', robot_name)
-  # Create a simulation environment & simu-pin wrapper 
-  dt_simu = 1./float(config['simu_freq'])  
-  q0 = np.asarray(config['q0'])
-  v0 = np.asarray(config['dq0'])
-  x0 = np.concatenate([q0, v0])   
-  if(simulator == 'bullet'):
-    from utils import sim_utils as simulator_utils
-    env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name, dt=dt_simu, x0=x0)
+def main(robot_name):
+
+    # # # # # # # # # # # # # # # # # # #
+    ### LOAD ROBOT MODEL and SIMU ENV ### 
+    # # # # # # # # # # # # # # # # # # # 
+    # Read config file
+    config, config_name = path_utils.load_config_file('sanding_MPC', robot_name)
+    # Create a simulation environment & simu-pin wrapper 
+    dt_simu = 1./float(config['simu_freq'])  
+    q0 = np.asarray(config['q0'])
+    v0 = np.asarray(config['dq0'])
+    x0 = np.concatenate([q0, v0])   
+    env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name+'_reduced', dt=dt_simu, x0=x0)
     robot = robot_simulator.pin_robot
-  elif(simulator == 'raisim'):
-    from utils import raisim_utils as simulator_utils
-    env, robot_simulator, _ = simulator_utils.init_raisim_simulation(robot_name, dt=dt_simu, x0=x0)  
-    robot = robot_simulator
-  else:
-    logger.error('Please choose a simulator from ["bullet", "raisim"] !')
-  # Get dimensions 
-  nq, nv = robot.model.nq, robot.model.nv; nu = nq
-  # Initial placement
-  id_endeff = robot.model.getFrameId(config['frame_of_interest'])
-  ee_frame_placement = robot.data.oMf[id_endeff].copy()
+    # Get dimensions 
+    nq, nv = robot.model.nq, robot.model.nv; nu = nq
+    # Placement of LOCAL end-effector frame w.r.t. WORLD frame
+    frame_of_interest = config['frame_of_interest']
+    id_endeff = robot.model.getFrameId(frame_of_interest)
+    oMf = robot.data.oMf[id_endeff].copy()
+    import pinocchio as pin
+    contact_placement   = pin.SE3(np.eye(3), np.asarray(config['contactPosition']))
+    contact_placement_0 = contact_placement.copy()
+    # EE translation target : contact point + vertical offset (radius of the ee ball)
+    contactTranslationTarget = np.asarray(config['contactPosition']) + np.asarray(config['oPc_offset'])
+    targetId = simulator_utils.display_ball(contactTranslationTarget, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
 
 
-
-  # # # # # # # # # 
-  ### OCP SETUP ###
-  # # # # # # # # # 
-  # Init shooting problem and solver
-  ddp = ocp_utils.init_DDP(robot, config, x0, callbacks=False) 
-  # Setup tracking problem with circle ref EE trajectory
-  models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-  RADIUS = config['frameCircleTrajectoryRadius'] 
-  OMEGA  = config['frameCircleTrajectoryVelocity']
-  for k,m in enumerate(models):
-      # Ref
-      t = min(k*config['dt'], config['numberOfRounds']*2*np.pi/OMEGA)
-      p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement, 
-                                                radius=RADIUS,
-                                                omega=OMEGA,
-                                                LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
-      # Cost translation
-      m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
-      # Contact model 1D update z ref (WORLD frame)
-      m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
-      
-  # Warm start state = IK of circle trajectory
-  if(WARM_START_IK):
-      logger.info("Computing warm-start using Inverse Kinematics...")
-      xs_init = [] 
-      us_init = []
-      q_ws = q0
-      for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
-          # Get ref placement
-          p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
-          Mref = ee_frame_placement.copy()
-          Mref.translation = p_ee_ref
-          q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
-          xs_init.append(np.concatenate([q_ws, v_ws]))
-      us_init = [pin_utils.get_u_grav(xs_init[i][:nq], robot.model, config['armature']) for i in range(config['N_h'])]
-  # Classical warm start using initial config
-  else:
-      ug  = pin_utils.get_u_grav(q0, robot.model, config['armature'])
-      xs_init = [x0 for i in range(config['N_h']+1)]
-      us_init = [ug for i in range(config['N_h'])]
-
-  # solve
-  ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
-
-
-
-  for n_seed in range(N_SEEDS):
-    
-    print("Set Random Seed to "+str(SEEDS[n_seed]) + " ("+str(n_seed)+"/"+str(N_SEEDS)+")")
-    np.random.seed(SEEDS[n_seed])
-
-    for n_exp in range(N_EXP):
+    for n_seed in range(N_SEEDS):
         
-        print("   Set angle to "+str(TILT_ANGLES_DEG[n_exp]) + " ("+str(n_exp)+"/"+str(N_EXP)+")")
-        # Reset robot to initial state and set table
-        robot_simulator.reset_state(q0, v0)
-        robot_simulator.forward_robot(q0, v0)
-        contact_placement = robot.data.oMf[id_endeff].copy()
-        offset = 0.03348 
-        contact_placement.translation = contact_placement.act(np.array([0., 0., offset])) 
-        # Optionally tilt the contact surface
-        contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY[n_exp])
-        # Create the contact surface in PyBullet simulator 
-        contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement.copy(), bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
-        # Set lateral friction coefficient of the contact surface
-        simulator_utils.set_friction_coef(contact_surface_bulletId, 0.5)
-        # Display target circle  trajectory (reference)
-        nb_points = 20 
-        ballsIdTarget = np.zeros(nb_points, dtype=int)
-        for i in range(nb_points):
-            t = (i/nb_points)*2*np.pi/OMEGA
-            pl = ee_frame_placement.copy() #pin_utils.rotate(ee_frame_placement, rpy=TILT_RPY[n_exp])
-            pos = ocp_utils.circle_point_WORLD(t, pl, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
-            ballsIdTarget[i] = simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
-        draw_rate = 200
-        ballsIdReal = []
+        print("Set Random Seed to "+str(SEEDS[n_seed]) + " ("+str(n_seed)+"/"+str(N_SEEDS)+")")
+        np.random.seed(SEEDS[n_seed])
 
-        # # # # # # # # # # #
-        ### INIT MPC SIMU ###
-        # # # # # # # # # # #
-        sim_data = data_utils.init_sim_data(config, robot, x0)
-            # Get frequencies
-        freq_PLAN = sim_data['plan_freq']
-        freq_CTRL = sim_data['ctrl_freq']
-        freq_SIMU = sim_data['simu_freq']
-            # Replan & control counters
-        nb_plan = 0
-        nb_ctrl = 0
-            # Sim options
-        dt_ocp            = config['dt']                            # OCP sampling rate 
-        dt_mpc            = float(1./sim_data['plan_freq'])         # planning rate
-        OCP_TO_PLAN_RATIO  = dt_mpc / dt_ocp                         # ratio
-        PLAN_TO_SIMU_RATIO = dt_simu / dt_mpc                        # Must be an integer !!!!
-        OCP_TO_SIMU_RATIO  = dt_simu / dt_ocp                        # Must be an integer !!!!
-        if(1./PLAN_TO_SIMU_RATIO%1 != 0):
-            logger.warning("SIMU->MPC ratio not an integer ! (1./PLAN_TO_SIMU_RATIO = "+str(1./PLAN_TO_SIMU_RATIO)+")")
-        if(1./OCP_TO_SIMU_RATIO%1 != 0):
-            logger.warning("SIMU->OCP ratio not an integer ! (1./OCP_TO_SIMU_RATIO  = "+str(1./OCP_TO_SIMU_RATIO)+")")
-
-
-
-
-        # Additional simulation blocks 
-        communication = mpc_utils.CommunicationModel(config)
-        actuation     = mpc_utils.ActuationModel(config, nu, SEED=SEEDS[n_seed])
-        sensing       = mpc_utils.SensorModel(config, SEED=SEEDS[n_seed])
-
-
-        # # # # # # # # # # # #
-        ### SIMULATION LOOP ###
-        # # # # # # # # # # # #
-
-        for i in range(sim_data['N_simu']): 
-
-            if(i%config['log_rate']==0 and config['LOG']): 
-                print('')
-                logger.info("SIMU step "+str(i)+"/"+str(sim_data['N_simu']))
-                print('')
+        for n_exp in range(N_EXP):
             
+            # Construct target force and position trajectories + OCP warm-start
+            RADIUS = config['frameCircleTrajectoryRadius'] 
+            OMEGA  = config['frameCircleTrajectoryVelocity']
+            # Force trajectory
+            F_MIN = 5.
+            F_MAX = config['frameForceRef'][2]
+            N_total = 10000 # int((config['T_tot'] - config['T_CONTACT'])/config['dt'] + config['N_h'])
+            N_min  = 5
+            N_ramp = N_min + 10
+            target_force_traj = np.zeros( (N_total, 3) )
+            target_force_traj[0:N_min*config['N_h'], 2] = F_MIN
+            target_force_traj[N_min*config['N_h']:N_ramp*config['N_h'], 2] = [F_MIN + (F_MAX - F_MIN)*i/((N_ramp-N_min)*config['N_h']) for i in range((N_ramp-N_min)*config['N_h'])]
+            target_force_traj[N_ramp*config['N_h']:, 2] = F_MAX
+            target_force = np.zeros(config['N_h']+1)
+            force_weight = np.asarray(config['frameForceWeight'])
+            # Circle trajectory 
+            N_total_pos = 10000 # int((config['T_tot'] - config['T_REACH'])/config['dt'] + config['N_h'])
+            N_circle = 10000 # int((config['T_tot'] - config['T_CIRCLE'])/config['dt']) + config['N_h']
+            target_position_traj = np.zeros( (N_total_pos, 3) )
+            target_velocity_traj = np.zeros( (N_total_pos, 3) )
+            # absolute desired position
+            oPc_offset = np.asarray(config['oPc_offset'])
+            pdes = np.asarray(config['contactPosition']) + oPc_offset
+            target_position_traj[0:N_circle, :] = [np.array([pdes[0] + RADIUS * np.sin(i*config['dt']*OMEGA), 
+                                                                    pdes[1] + RADIUS * (1-np.cos(i*config['dt']*OMEGA)),
+                                                                    pdes[2]]) for i in range(N_circle)]
+            target_velocity_traj[0:N_circle, :] = [np.array([RADIUS * OMEGA * np.cos(i*config['dt']*OMEGA), 
+                                                                    RADIUS * OMEGA * np.sin(i*config['dt']*OMEGA),
+                                                                    0.]) for i in range(N_circle)]
+            target_position_traj[N_circle:, :] = target_position_traj[N_circle-1,:]
+            target_velocity_traj[N_circle:, :] = np.zeros(3)
+            target_position = np.zeros((config['N_h']+1, 3)) 
+            target_position[:,:] = pdes.copy()
+            target_velocity = np.zeros((config['N_h']+1, 3)) 
 
-            # Solve OCP if we are in a planning cycle (MPC/planning frequency)
-            if(i%int(freq_SIMU/freq_PLAN) == 0):
-                # Current simulation time
-                t_simu = i*dt_simu 
-                # Setup tracking problem with circle ref EE trajectory
-                # Circle defined w.r.t. NON-tilted surface (controller thinks it's all flat)
-                models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-                for k,m in enumerate(models):
-                    # Ref
-                    t = min(t_simu + k*dt_ocp, config['numberOfRounds']*2*np.pi/OMEGA)
-                    p_ee_ref = ocp_utils.circle_point_WORLD(t, ee_frame_placement.copy(), 
-                                                                radius=RADIUS,
-                                                                omega=OMEGA,
-                                                                LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
-                    # Cost translation
-                    m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
-                    # Contact model
-                    m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
-                # Reset x0 to measured state + warm-start solution
-                ddp.problem.x0 = sim_data['state_mea_SIMU'][i, :]
-                xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-                xs_init[0] = sim_data['state_mea_SIMU'][i, :]
-                us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
-                # Solve OCP & record MPC predictions
-                ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
-                sim_data['state_pred'][nb_plan, :, :] = np.array(ddp.xs)
-                sim_data['ctrl_pred'][nb_plan, :, :] = np.array(ddp.us)
-                sim_data ['force_pred'][nb_plan, :, :] = np.array([ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector for i in range(config['N_h'])])
-                # Extract relevant predictions for interpolations
-                x_curr = sim_data['state_pred'][nb_plan, 0, :]    # x0* = measured state    (q^,  v^ , tau^ )
-                x_pred = sim_data['state_pred'][nb_plan, 1, :]    # x1* = predicted state   (q1*, v1*, tau1*) 
-                u_curr = sim_data['ctrl_pred'][nb_plan, 0, :]    # u0* = optimal control   
-                f_curr = sim_data['force_pred'][nb_plan, 0, :]
-                f_pred = sim_data['force_pred'][nb_plan, 1, :]
-                # Record cost references
-                data_utils.record_cost_references(ddp, sim_data, nb_plan)
-                # Record solver data (optional)
-                if(config['RECORD_SOLVER_DATA']):
-                    data_utils.record_solver_data(ddp, sim_data, nb_plan)   
-                # Model communication between computer --> robot
-                x_pred, u_curr = communication.step(x_pred, u_curr)
-                # Select reference control and state for the current PLAN cycle
-                x_ref_PLAN  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-                u_ref_PLAN  = u_curr #u_pred_prev + OCP_TO_PLAN_RATIO * (u_curr - u_pred_prev)
-                f_ref_PLAN  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
-                if(nb_plan==0):
-                    sim_data['state_des_PLAN'][nb_plan, :] = x_curr  
-                sim_data['ctrl_des_PLAN'][nb_plan, :]   = u_ref_PLAN   
-                sim_data['state_des_PLAN'][nb_plan+1, :] = x_ref_PLAN    
-                sim_data['force_des_PLAN'][nb_plan, :] = f_ref_PLAN    
-                
-                # Increment planning counter
-                nb_plan += 1
+            # Initialize Optimal Control Problem
+            ddp = OptimalControlProblemClassical(robot, config).initialize(x0, callbacks=False)
+            # !!! Deactivate all costs & contact models initially !!!
+            models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+            for k,m in enumerate(models):
+                # logger.debug(str(m.differential.costs.active.tolist()))
+                m.differential.costs.costs["translation"].active = False
+                if(k < config['N_h']):
+                    m.differential.costs.costs["force"].active = False
+                    m.differential.costs.costs["force"].cost.residual.reference = pin.Force.Zero()
+                m.differential.contacts.changeContactStatus("contact", False)
 
-            # If we are in a control cycle select reference torque to send to the actuator (motor driver input frequency)
-            if(i%int(freq_SIMU/freq_CTRL) == 0):        
-                # Select reference control and state for the current CTRL cycle
-                x_ref_CTRL = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-                u_ref_CTRL = u_curr
-                f_ref_CTRL = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
-                # First prediction = measurement = initialization of MPC
-                if(nb_ctrl==0):
-                    sim_data['state_des_CTRL'][nb_ctrl, :] = x_curr  
-                sim_data['ctrl_des_CTRL'][nb_ctrl, :]   = u_ref_CTRL  
-                sim_data['state_des_CTRL'][nb_ctrl+1, :] = x_ref_CTRL   
-                sim_data['force_des_CTRL'][nb_ctrl, :] = f_ref_CTRL   
-                # Increment control counter
-                nb_ctrl += 1
-
-            # Simulate actuation/sensing and step simulator (physics simulation frequency)
-
-            # Select reference control and state for the current SIMU cycle
-            x_ref_SIMU  = x_curr + OCP_TO_PLAN_RATIO * (x_pred - x_curr)
-            u_ref_SIMU  = u_curr 
-            f_ref_SIMU  = f_curr + OCP_TO_PLAN_RATIO * (f_pred - f_curr)
-
-            # First prediction = measurement = initialization of MPC
-            if(i==0):
-                sim_data['state_des_SIMU'][i, :] = x_curr  
-            sim_data['ctrl_des_SIMU'][i, :]   = u_ref_SIMU  
-            sim_data['state_des_SIMU'][i+1, :] = x_ref_SIMU 
-            sim_data['force_des_SIMU'][i, :] = f_ref_SIMU 
-
-            # Actuation model ( tau_ref_SIMU ==> tau_mea_SIMU )    
-            tau_mea_SIMU = actuation.step(i, u_ref_SIMU, sim_data['ctrl_des_SIMU'])  
-            #  Send output of actuation torque to the RBD simulator 
-            robot_simulator.send_joint_command(tau_mea_SIMU)
-            env.step()
-            # Measure new state from simulation 
-            q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
-            # Update pinocchio model
-            robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
-            f_mea_SIMU = simulator_utils.get_contact_wrench(robot_simulator, id_endeff)
-            if(i%100==0): 
-                print(f_mea_SIMU)
-            # Record data (unnoised)
-            x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
-            sim_data['state_mea_no_noise_SIMU'][i+1, :] = x_mea_SIMU
-            # Sensor model (optional noise + filtering)
-            sim_data['state_mea_SIMU'][i+1, :] = sensing.step(i, x_mea_SIMU, sim_data['state_mea_SIMU'])
-            sim_data['force_mea_SIMU'][i, :] = f_mea_SIMU
+            # Warmstart and solve
+            xs_init = [x0 for _ in range(config['N_h']+1)]
+            us_init = ddp.problem.quasiStatic(xs_init[:-1])
+            ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 
-            # Display real 
-            if(i%draw_rate==0):
-                pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
-                ballId = simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
-                ballsIdReal.append(ballId)
+            # Reset robot to initial state and set table
+            robot_simulator.reset_state(q0, v0)
+            robot_simulator.forward_robot(q0, v0)
+            # Display contact surface + optional tilt
+            contact_placement        = pin.SE3(np.eye(3), np.asarray(config['contactPosition']))
+            contact_placement_0      = contact_placement.copy()
+            contact_placement        = pin_utils.rotate(contact_placement, rpy=TILT_RPY[n_exp])
+            contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
+            # Make the contact soft (e.g. tennis ball or sponge on the robot)
+            simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
+            simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
+            # Display target circle  trajectory (reference)
+            nb_points = 20 
+            ballsIdTarget = np.zeros(nb_points, dtype=int)
+            ballsIdReal = []
+            for i in range(nb_points):
+                t = (i/nb_points)*2*np.pi/OMEGA
+                pos = ocp_utils.circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
+                ballsIdTarget[i] = simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
+            draw_rate = 1000
+            
+            # # # # # # # # # # #
+            ### INIT MPC SIMU ###
+            # # # # # # # # # # #
+            sim_data = MPCDataHandlerClassical(config, robot_simulator.pin_robot)
+            sim_data.init_sim_data(x0)
+                # Replan & control counters
+            nb_plan = 0
+            nb_ctrl = 0
+            # Additional simulation blocks 
+            communicationModel = mpc_utils.CommunicationModel(config)
+            actuationModel     = mpc_utils.ActuationModel(config, nu=nu, SEED=SEEDS[n_seed])
+            sensingModel       = mpc_utils.SensorModel(config, SEED=SEEDS[n_seed])
+            torqueController   = mpc_utils.LowLevelTorqueController(config, nu=nu)
+            antiAliasingFilter = mpc_utils.AntiAliasingFilter()
 
-        # Remove table
-        simulator_utils.remove_body_from_sim(contact_surface_bulletId)
-        for ballId in ballsIdTarget:
-            simulator_utils.remove_body_from_sim(ballId)
-        for ballId in ballsIdReal:
-            simulator_utils.remove_body_from_sim(ballId)
 
-        # # # # # # # # # # #
-        # PLOT SIM RESULTS  #
-        # # # # # # # # # # #
-        save_dir = '/tmp'
-        save_name = config_name+'_bullet_'+\
-                                '_BIAS='+str(config['SCALE_TORQUES'])+\
-                                '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
-                                '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
-                                '_Fp='+str(freq_PLAN/1000)+'_Fc='+str(freq_CTRL/1000)+'_Fs'+str(freq_SIMU/1000)+\
-                                '_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+\
-                                '_SEED='+str(SEEDS[n_seed])
+            # # # # # # # # # # # #
+            ### SIMULATION LOOP ###
+            # # # # # # # # # # # #
+            from core_mpc.analysis_utils import MPCBenchmark
+            bench = MPCBenchmark()
 
-        # Save optionally
-        if(config['SAVE_DATA']):
-            data_utils.save_data(sim_data, save_name=save_name, save_dir=save_dir)
+            # Horizon in simu cycles
+            node_id_reach   = -1
+            node_id_contact = -1
+            node_id_track   = -1
+            node_id_circle  = -1
+            TASK_PHASE      = 0
+            NH_SIMU   = int(config['N_h']*sim_data.dt/sim_data.dt_simu)
+            T_REACH   = int(config['T_REACH']/sim_data.dt_simu)
+            # T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
+            T_CONTACT = int(config['T_CONTACT']/sim_data.dt_simu)
+            T_CIRCLE   = int(config['T_CIRCLE']/sim_data.dt_simu)
+            OCP_TO_MPC_CYCLES = 1./(sim_data.dt_plan / config['dt'])
+            OCP_TO_SIMU_CYCLES = 1./(sim_data.dt_simu / config['dt'])
+            logger.debug("Size of MPC horizon in simu cycles     = "+str(NH_SIMU))
+            logger.debug("Start of reaching phase in simu cycles = "+str(T_REACH))
+            # logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
+            logger.debug("Start of contact phase in simu cycles  = "+str(T_CONTACT))
+            logger.debug("Start of circle phase in simu cycles   = "+str(T_CIRCLE))
+            logger.debug("OCP to PLAN time ratio = "+str(OCP_TO_MPC_CYCLES))
+
+
+            # SIMULATE
+            sim_data.tau_mea_SIMU[0,:] = ddp.us[0]
+            x_filtered = x0
+
+            for i in range(sim_data.N_simu): 
+
+                if(i%config['log_rate']==0 and config['LOG']): 
+                    print('')
+                    logger.info("SIMU step "+str(i)+"/"+str(sim_data.N_simu))
+                    print('')
+
+                # # # # # # # # # 
+                # # Update OCP  #
+                # # # # # # # # # 
+                time_to_reach   = int(i - T_REACH)
+                # time_to_track   = int(i - T_TRACK)
+                time_to_contact = int(i - T_CONTACT)
+                time_to_circle  = int(i - T_CIRCLE)
+
+                if(time_to_reach == 0): 
+                    logger.warning("Entering reaching phase")
+                # If tracking phase enters the MPC horizon, start updating models from the end with tracking models      
+                if(0 <= time_to_reach and time_to_reach <= NH_SIMU):
+                    TASK_PHASE = 1
+                    # If current time matches an OCP node 
+                    if(time_to_reach%OCP_TO_SIMU_CYCLES == 0):
+                        # Select IAM
+                        node_id_reach = config['N_h'] - int(time_to_reach/OCP_TO_SIMU_CYCLES)
+
+                # if(time_to_track == 0): 
+                #     logger.warning("Entering tracking phase")
+                # # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
+                # if(0 <= time_to_track and time_to_track <= NH_SIMU):
+                #     TASK_PHASE = 2
+                #     # If current time matches an OCP node 
+                #     if(time_to_track%OCP_TO_SIMU_CYCLES == 0):
+                #         # Select IAM
+                #         node_id_track = config['N_h'] - int(time_to_track/OCP_TO_SIMU_CYCLES)
+
+                if(time_to_contact == 0): 
+                    # Record end-effector position at the time of the contact switch
+                    position_at_contact_switch = robot.data.oMf[id_endeff].translation.copy()
+                    target_position[:,:] = position_at_contact_switch.copy()
+                    print("Entering contact phase")
+                # If contact phase enters horizon start updating models from the the end with contact models
+                if(0 <= time_to_contact and time_to_contact <= NH_SIMU):
+                    TASK_PHASE = 3
+                    # If current time matches an OCP node 
+                    if(time_to_contact%OCP_TO_SIMU_CYCLES == 0):
+                        # Select IAM
+                        node_id_contact = config['N_h'] - int(time_to_contact/OCP_TO_SIMU_CYCLES)
+
+                if(0 <= time_to_contact and time_to_contact%OCP_TO_SIMU_CYCLES == 0):
+                    ti  = int(time_to_contact/OCP_TO_SIMU_CYCLES)
+                    tf  = ti + config['N_h']+1
+                    target_force = target_force_traj[ti:tf,2]
+
+                if(time_to_circle == 0): 
+                    logger.warning("Entering circle phase")
+                # If circle tracking phase enters the MPC horizon, start updating models from the end with tracking models      
+                if(0 <= time_to_circle and time_to_circle <= NH_SIMU):
+                    TASK_PHASE = 4
+                    # If current time matches an OCP node 
+                    if(time_to_circle%OCP_TO_SIMU_CYCLES == 0):
+                        # Select IAM
+                        node_id_circle = config['N_h'] - int(time_to_circle/OCP_TO_SIMU_CYCLES)
+
+                if(0 <= time_to_circle and time_to_circle%OCP_TO_SIMU_CYCLES == 0):
+                    # set position refs over current horizon
+                    ti  = int(time_to_circle/OCP_TO_SIMU_CYCLES)
+                    tf  = ti + config['N_h']+1
+                    # Target in (x,y)  = circle trajectory + offset to start from current position instead of absolute target
+                    offset_xy = position_at_contact_switch[:2] - pdes[:2]
+                    target_position[:,:2] = target_position_traj[ti:tf,:2] + offset_xy
+                    # Target in z is fixed to the anchor at switch (equals absolute target if RESET_ANCHOR = False)
+                    # No position tracking in z : redundant with zero activation weight on z
+                    target_position[:,2]  = robot_simulator.pin_robot.data.oMf[id_endeff].translation[2].copy()
+                    # Record target signals                
+                    target_velocity[:,:2] = target_velocity_traj[ti:tf,:2] 
+                    target_velocity[:,2]  = 0.
+
+
+
+
+                # Solve OCP if we are in a planning cycle (MPC/planning frequency)
+                if(i%int(sim_data.simu_freq/sim_data.plan_freq) == 0):    
+                    # Anti-aliasing filter for measured state
+                    x_filtered = antiAliasingFilter.step(nb_plan, i, sim_data.plan_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
+                    # x_filtered = antiAliasingFilter.iir(x_filtered, sim_data.state_mea_SIMU[i], fc=10, fs=sim_data.plan_freq)
+                    # Reset x0 to measured state + warm-start solution
+                    q = x_filtered[:nq]
+                    v = x_filtered[nq:nq+nv]
+                    # Solve OCP 
+                    bench.start_timer()
+                    bench.start_croco_profiler()
+                    solveOCP(q, v, ddp, config['maxiter'], node_id_reach, target_position, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
+                    bench.record_profiles()
+                    bench.stop_timer(nb_iter=ddp.iter)
+                    bench.stop_croco_profiler()
+                    # Record MPC predictions, cost references and solver data 
+                    sim_data.record_predictions(nb_plan, ddp)
+                    sim_data.record_cost_references(nb_plan, ddp)
+                    sim_data.record_solver_data(nb_plan, ddp) 
+                    # Model communication delay between computer & robot (buffered OCP solution)
+                    communicationModel.step(sim_data.x_pred, sim_data.u_curr)
+                    # Record interpolated desired state, control and force at MPC frequency
+                    sim_data.record_plan_cycle_desired(nb_plan)
+                    # Increment planning counter
+                    nb_plan += 1
+                    # torqueController.reset_integral_error()
+
+                # # # # # # # # # #
+                # # Send policy # #
+                # # # # # # # # # #
+                # If we are in a control cycle send reference torque to motor driver and compute the motor torque
+                if(i%int(sim_data.simu_freq/sim_data.ctrl_freq) == 0):   
+                    # Anti-aliasing filter on measured torques (sim-->ctrl)
+                    tau_mea_CTRL            = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.tau_mea_SIMU)
+                    tau_mea_derivative_CTRL = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.tau_mea_derivative_SIMU)
+                    # print(tau_mea_derivative_CTRL)
+                    # Select the desired torque 
+                    tau_des_CTRL = sim_data.u_curr.copy()
+                    # Optionally interpolate to the control frequency using Riccati gains
+                    if(config['RICCATI']):
+                        # x_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
+                        x_filtered = antiAliasingFilter.iir(x_filtered, sim_data.state_mea_SIMU[i], 0.5)
+                        tau_des_CTRL += ddp.K[0].dot(ddp.problem.x0 - x_filtered)
+                    # Compute the motor torque 
+                    tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
+                    # Increment control counter
+                    nb_ctrl += 1
+
+
+                # Simulate actuation 
+                tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL, joint_vel=sim_data.state_mea_SIMU[i,nq:nq+nv])
+                # Step PyBullet simulator
+                robot_simulator.send_joint_command(tau_mea_SIMU)
+                env.step()
+                # Measure new state + forces from simulation 
+                q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
+                robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
+                f_mea_SIMU = robot_simulator.end_effector_forces(sim_data.PIN_REF_FRAME)[1][0]
+                # fz_mea_SIMU = np.array([f_mea_SIMU[2]])
+                if(i%1000==0): 
+                    logger.info("f_mea  = "+str(f_mea_SIMU))
+                # Record data (unnoised)
+                x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
+                # Simulate sensing 
+                x_mea_no_noise_SIMU = sensingModel.step(x_mea_SIMU)
+                # Record measurements of state, torque and forces 
+                sim_data.record_simu_cycle_measured(i, x_mea_SIMU, x_mea_no_noise_SIMU, tau_mea_SIMU, f_mea_SIMU)
+
+                # Display real 
+                if(i%draw_rate==0):
+                    pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
+                    ballId = simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
+                    ballsIdReal.append(ballId)
+            
+            # # Remove table
+            simulator_utils.remove_body_from_sim(contact_surface_bulletId)
+            for ballId in ballsIdTarget:
+                simulator_utils.remove_body_from_sim(ballId)
+            for ballId in ballsIdReal:
+                simulator_utils.remove_body_from_sim(ballId)
+
+            # # # # # # # # # # #
+            # PLOT SIM RESULTS  #
+            # # # # # # # # # # #
+            save_dir = '/tmp'
+            save_name = config_name+'_bullet_'+\
+                                    '_BIAS='+str(config['SCALE_TORQUES'])+\
+                                    '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
+                                    '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
+                                    '_Fp='+str(sim_data.plan_freq/1000)+'_Fc='+str(sim_data.ctrl_freq/1000)+'_Fs'+str(sim_data.simu_freq/1000)+\
+                                    '_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+\
+                                    '_SEED='+str(SEEDS[n_seed])
+
+            # Save optionally
+            if(config['SAVE_DATA']):
+                sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)
 
 
 if __name__=='__main__':
     args = misc_utils.parse_MPC_script(sys.argv[1:])
-    main(args.robot_name, args.simulator, args.PLOT_INIT)
+    main(args.robot_name)

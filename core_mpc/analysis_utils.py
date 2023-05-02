@@ -286,10 +286,12 @@ def linear_interpolation_demo():
         data[i] = i**2
     N = 5
     logger.info("Input data = \n")
-    logger.info(data)
+    logger.info(data.shape)
     # Interpolate
     logger.info("Interpolate with "+str(N)+" intermediate knots")
     interp = linear_interpolation(data, N)
+    logger.info("Output data = \n")
+    logger.info(interp.shape)
     # Plot
     import matplotlib.pyplot as plt
     input, = plt.plot(np.linspace(0, 1, data.shape[0]), data[:,1], 'ro', label='input data')

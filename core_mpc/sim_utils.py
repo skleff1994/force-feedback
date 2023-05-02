@@ -151,7 +151,7 @@ def init_talos_reduced_bullet(dt=1e3, x0=None, pos=TALOS_REDUCED_DEFAULT_BASE_PO
     logger.info("Initializing TALOS reduced model in PyBullet simulator...")
     print("")
     # Create PyBullet sim environment + initialize sumulator
-    env = BulletEnvWithGround(p.GUI, dt=dt)
+    env = BulletEnvWithGround(p.DIRECT, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
     base_placement = pin.XYZQUATToSE3(pos + list(orn_quat)) 
     robot_simulator = env.add_robot(TalosReducedRobot(pos, orn_quat))
@@ -185,8 +185,8 @@ def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIW
     logger.info("Initializing iiwa reduced in PyBullet simulator...")
     print("")
     # HARD CODED !!!
-    controlled_joints = ['A1', 'A2', 'A3', 'A4']
-    qref = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]) 
+    controlled_joints =  ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']
+    qref = np.zeros(7)
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.GUI, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
@@ -199,8 +199,6 @@ def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIW
     else:
         q0 = x0[:robot_simulator.pin_robot.model.nq]
         dq0 = x0[robot_simulator.pin_robot.model.nv:]
-    logger.debug(q0)
-    logger.debug(dq0)
     robot_simulator.reset_state(q0, dq0)
     robot_simulator.forward_robot(q0, dq0)
     # To allow collisions with all parts of the robot if there is a contact surface (for contact & sanding tasks)
@@ -304,7 +302,7 @@ def display_ball(p_des, robot_base_pose=pin.SE3.Identity(), RADIUS=.05, COLOR=[1
                                baseInertialFramePosition=[0.,0.,0.],
                                baseVisualShapeIndex=visualBallId,
                                basePosition=[0.,0.,0.],
-                               useMaximalCoordinates=True)
+                               useMaximalCoordinates=False)
 
     return ballId
 
@@ -343,7 +341,7 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, bullet_endeff_
                                     baseCollisionShapeIndex=collisionShapeId,
                                     baseVisualShapeIndex=visualShapeId,
                                     basePosition=[0.,0.,0.],
-                                    useMaximalCoordinates=True)
+                                    useMaximalCoordinates=False)
                     
       # Desactivate collisions for all links
       for i in range(p.getNumJoints(robotId)):
@@ -360,7 +358,7 @@ def display_contact_surface(M, robotId=1, radius=.25, length=0.0, bullet_endeff_
                         baseInertialFramePosition=[0.,0.,0.],
                         baseVisualShapeIndex=visualShapeId,
                         basePosition=[0.,0.,0.],
-                        useMaximalCoordinates=True)
+                        useMaximalCoordinates=False)
       return contactId
 
 
@@ -370,7 +368,7 @@ def remove_body_from_sim(bodyId):
     Removes bodyfrom sim env
     '''
     logger.info("Removing body "+str(bodyId)+" from simulation !")
-    p.removeBody(int(bodyId))
+    p.removeBody(bodyId)
 
 
 def print_dynamics_info(bodyId, linkId=-1):
