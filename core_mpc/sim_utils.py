@@ -26,9 +26,18 @@ else:
     logger.error('You need to install robot_properties_kuka ( https://github.com/machines-in-motion/robot_properties_kuka )')
 
 if(FOUND_ROB_PROP_TALOS_PKG):
-    from robot_properties_talos.talosArmWrapper import TalosArmRobot
-    from robot_properties_talos.talosReducedWrapper import TalosReducedRobot
-    from robot_properties_talos.talosFullWrapper import TalosFullRobot
+    try:
+        from robot_properties_talos.talosArmWrapper import TalosArmRobot
+    except:
+        logger.warning("no talos arm found.")
+    try:
+        from robot_properties_talos.talosReducedWrapper import TalosReducedRobot
+    except:
+        logger.warning("no reduced talos found.")
+    try:
+        from robot_properties_talos.talosFullWrapper import TalosFullRobot
+    except:
+        logger.warning("no full talos found.")
 else:
     logger.error('You need to install robot_properties_talos ( https://github.com/machines-in-motion/robot_properties_talos )')
 
