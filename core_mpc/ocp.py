@@ -520,8 +520,22 @@ class OptimalControlProblemAbstract:
     Create state box constraint model 
     '''
     # Check attributes 
-    clip_state_min = -np.array([np.inf]*state.nx)
-    clip_state_max = np.array([np.inf]*state.nx)
+    self.check_attribute('stateLowerLimit')
+    self.check_attribute('stateUpperLimit')
+    # Lower
+    if(self.stateLowerLimit == 'None'):
+      clip_state_min = -np.array([np.inf]*state.nx)
+    elif(self.stateLowerLimit == 'DEFAULT'):
+      clip_state_min = state.lb 
+    else:
+      clip_state_min = np.asarray(self.stateLowerLimit)
+    # Upper
+    if(self.stateUpperLimit == 'None'):
+      clip_state_max = np.array([np.inf]*state.nx)
+    elif(self.stateUpperLimit == 'DEFAULT'):
+      clip_state_max = state.ub 
+    else:
+      clip_state_max = np.asarray(self.stateUpperLimit)
     xBoxCstr = crocoddyl.StateConstraintModel(state, actuation.nu, clip_state_min, clip_state_max)  
     return xBoxCstr
 
@@ -530,20 +544,37 @@ class OptimalControlProblemAbstract:
     Create control box constraint model 
     '''
     # Check attributes 
-    clip_ctrl = np.array([np.inf, 40 , np.inf, np.inf, np.inf, np.inf , np.inf] )
+    self.check_attribute('ctrlLimit')
+    if(self.ctrlLimit == 'None'):
+      clip_ctrl = np.array([np.inf]*actuation.nu)
+    elif(self.ctrlLimit == 'DEFAULT'):
+      clip_ctrl = state.pinocchio.effortLimit
+    else:
+      clip_ctrl = np.asarray(self.ctrlLimit)
     uBoxCstr = crocoddyl.ControlConstraintModel(state, actuation.nu,  -clip_ctrl, clip_ctrl)
     return uBoxCstr
   
+
   def create_translation_constraint(self, state, actuation):
     '''
     Create end-effector position box constraint model 
     '''
     # Check attributes 
-    endeff_translation = np.array([0.7, 0, 1.1]) # move endeff +30 cm along x in WORLD frame
-    lmin = np.array([-np.inf, endeff_translation[1], endeff_translation[2]])
-    lmax =  np.array([np.inf, endeff_translation[1], endeff_translation[2]])
-    fid = self.rmodel.getFrameId('contact')
-    eeBoxCstr = crocoddyl.FrameTranslationConstraintModel(state, actuation.nu, fid, lmin, lmax)
+    self.check_attribute('eeLowerLimit')
+    self.check_attribute('eeUpperLimit')
+    self.check_attribute('eeConstraintFrameName')
+    # Lower
+    if(self.eeLowerLimit == 'None'):
+      lmin = -np.array([np.inf]*actuation.nu)
+    else:
+      lmin = np.asarray(self.eeLowerLimit)
+    # upper
+    if(self.eeUpperLimit == 'None'):
+      lmax = np.array([np.inf]*actuation.nu)
+    else:
+      lmax = np.asarray(self.eeUpperLimit)
+    fid = self.rmodel.getFrameId(self.eeConstraintFrameName)
+    eeBoxCstr = crocoddyl.EndEffConstraintModel(state, actuation.nu, fid, lmin, lmax)
     return eeBoxCstr
 
   def create_no_constraint(self, state, actuation):
@@ -551,6 +582,7 @@ class OptimalControlProblemAbstract:
     Returns void constraint
     '''
     return crocoddyl.NoConstraintModel(state, actuation.nu)
+
 
 
 
