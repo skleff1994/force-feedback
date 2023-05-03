@@ -309,7 +309,7 @@ class OptimalControlProblemAbstract:
       frameTranslationRef = self.rdata.oMf[frameTranslationFrameId].translation.copy()
     else:
       frameTranslationRef = np.asarray(self.frameTranslationRef)
-      logger.debug(str(frameTranslationRef))
+      # logger.debug(str(frameTranslationRef))
     if(hasattr(self, 'frameTranslationWeights')): 
       frameTranslationWeights = np.asarray(self.frameTranslationWeights)
       frameTranslationActivation = crocoddyl.ActivationModelWeightedQuad(frameTranslationWeights**2)
@@ -485,7 +485,7 @@ class OptimalControlProblemAbstract:
     parentJointId = self.rmodel.frames[collisionFrameId].parent
     geom_model = pin.GeometryModel()
     se3_pose = self.rmodel.frames[collisionFrameId].placement
-    logger.debug(str(se3_pose))
+    # logger.debug(str(se3_pose))
     # se3_pose.translation = np.zeros(3) #np.array([-0,0.,0])
     ig_arm = geom_model.addGeometryObject(pin.GeometryObject("simple_arm", 
                                           collisionFrameId, 
@@ -515,7 +515,7 @@ class OptimalControlProblemAbstract:
     return collisionCost
     
 
-  def create_state_constraint(self, state, actuation):
+  def create_state_constraint(self, state, name, actuation):
     '''
     Create state box constraint model 
     '''
@@ -536,10 +536,10 @@ class OptimalControlProblemAbstract:
       clip_state_max = state.ub 
     else:
       clip_state_max = np.asarray(self.stateUpperLimit)
-    xBoxCstr = crocoddyl.StateConstraintModel(state, actuation.nu, clip_state_min, clip_state_max)  
+    xBoxCstr = crocoddyl.StateConstraintModel(state, actuation.nu, clip_state_min, clip_state_max, name)  
     return xBoxCstr
 
-  def create_ctrl_constraint(self, state, actuation):
+  def create_ctrl_constraint(self, state, name, actuation):
     '''
     Create control box constraint model 
     '''
@@ -551,11 +551,11 @@ class OptimalControlProblemAbstract:
       clip_ctrl = state.pinocchio.effortLimit
     else:
       clip_ctrl = np.asarray(self.ctrlLimit)
-    uBoxCstr = crocoddyl.ControlConstraintModel(state, actuation.nu,  -clip_ctrl, clip_ctrl)
+    uBoxCstr = crocoddyl.ControlConstraintModel(state, actuation.nu,  -clip_ctrl, clip_ctrl, name)
     return uBoxCstr
   
 
-  def create_translation_constraint(self, state, actuation):
+  def create_translation_constraint(self, state, name, actuation):
     '''
     Create end-effector position box constraint model 
     '''
@@ -574,14 +574,14 @@ class OptimalControlProblemAbstract:
     else:
       lmax = np.asarray(self.eeUpperLimit)
     fid = self.rmodel.getFrameId(self.eeConstraintFrameName)
-    eeBoxCstr = crocoddyl.EndEffConstraintModel(state, actuation.nu, fid, lmin, lmax)
+    eeBoxCstr = crocoddyl.EndEffConstraintModel(state, actuation.nu, fid, lmin, lmax, name)
     return eeBoxCstr
 
-  def create_no_constraint(self, state, actuation):
+  def create_no_constraint(self, state, name, actuation):
     '''
     Returns void constraint
     '''
-    return crocoddyl.NoConstraintModel(state, actuation.nu)
+    return crocoddyl.NoConstraintModel(state, actuation.nu, name)
 
 
 

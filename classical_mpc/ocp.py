@@ -412,31 +412,31 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
         # State limits
         if('stateBox' in self.WHICH_CONSTRAINTS):
           if(i == 0):
-            stateBoxConstraint = self.create_no_constraint(state, actuation)
+            stateBoxConstraint = self.create_no_constraint(state, 'None', actuation)
           else:
-            stateBoxConstraint = self.create_state_constraint(state, actuation)   
+            stateBoxConstraint = self.create_state_constraint(state, 'stateBox', actuation)   
             nc += stateBoxConstraint.nc
           constraint_models_stack_list.append(stateBoxConstraint)
         # Control limits
         if('ctrlBox' in self.WHICH_CONSTRAINTS):
-          ctrlBoxConstraint = self.create_ctrl_constraint(state, actuation)
+          ctrlBoxConstraint = self.create_ctrl_constraint(state, 'ctrlBox', actuation)
           nc += ctrlBoxConstraint.nc
           constraint_models_stack_list.append(ctrlBoxConstraint)
         # End-effector position limits
         if('translationBox' in self.WHICH_CONSTRAINTS):
           if(i == 0):
-            translationBoxConstraint = self.create_no_constraint(state, actuation)
+            translationBoxConstraint = self.create_no_constraint(state, 'None', actuation)
           else:
-            translationBoxConstraint = self.create_translation_constraint(state, actuation)
+            translationBoxConstraint = self.create_translation_constraint(state, 'translationBox', actuation)
             nc += translationBoxConstraint.nc
           constraint_models_stack_list.append(translationBoxConstraint)
         # No constraints
         if('None' in self.WHICH_CONSTRAINTS):
-          noConstraintModel = self.create_no_constraint(state, actuation)
+          noConstraintModel = self.create_no_constraint(state, 'None', actuation)
           constraint_models_stack_list.append(noConstraintModel)
 
         # Running constraint model stack
-        runningConstraintModel = crocoddyl.ConstraintStack(constraint_models_stack_list, state, nc, actuation.nu)
+        runningConstraintModel = crocoddyl.ConstraintStack(constraint_models_stack_list, state, nc, actuation.nu, 'constraint_'+str(i))
 
 
 
@@ -514,31 +514,31 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
     constraint_models_stack_list_terminal = []
     # State limits
     if('stateBox' in self.WHICH_CONSTRAINTS):
-      stateBoxConstraint = self.create_state_constraint(state, actuation) 
+      stateBoxConstraint = self.create_state_constraint(state, 'stateBox', actuation) 
       nc += stateBoxConstraint.nc 
       constraint_models_stack_list_terminal.append(stateBoxConstraint)
     # Control limits
     if('ctrlBox' in self.WHICH_CONSTRAINTS):
-      ctrlBoxConstraint = self.create_ctrl_constraint(state, actuation)
+      ctrlBoxConstraint = self.create_ctrl_constraint(state, 'ctrlBox', actuation)
       nc += ctrlBoxConstraint.nc
       constraint_models_stack_list_terminal.append(ctrlBoxConstraint)
     # End-effector position limits
     if('translationBox' in self.WHICH_CONSTRAINTS):
-      translationBoxConstraint = self.create_translation_constraint(state, actuation)
+      translationBoxConstraint = self.create_translation_constraint(state, 'translationBox', actuation)
       nc += translationBoxConstraint.nc
       constraint_models_stack_list_terminal.append(translationBoxConstraint)
     # No constraint
     if('None' in self.WHICH_CONSTRAINTS):
-      noConstraintModel = self.create_no_constraint(state, actuation)
+      noConstraintModel = self.create_no_constraint(state, 'None', actuation)
       constraint_models_stack_list_terminal.append(noConstraintModel)
 
     # Terminal constraint model stack
-    terminalConstraintModel = crocoddyl.ConstraintStack(constraint_models_stack_list_terminal, state, nc, actuation.nu)
+    terminalConstraintModel = crocoddyl.ConstraintStack(constraint_models_stack_list_terminal, state, nc, actuation.nu, 'constraint_terminal')
     
 
     constraintModels = [runningConstraintModel]*(self.N_h) + [terminalConstraintModel] 
-    logger.warning("Constraint models = \n")
-    logger.warning(constraintModels)
+    # logger.warning("Constraint models = \n")
+    # logger.warning(constraintModels)
 
     logger.info("Created IAMs.")  
 
@@ -550,8 +550,10 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
   # Creating the DDP solver 
     self.check_attribute('USE_PROXQP')
     if(self.USE_PROXQP):
+      logger.warning('Using PROXQP solver')
       ddp = crocoddyl.SolverPROXQP(problem, constraintModels) 
     else:
+      logger.warning('Using FADMM solver')
       ddp = crocoddyl.SolverFADMM(problem, constraintModels)
 
   # Callbacks & solver parameters
@@ -561,12 +563,16 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
     self.check_attribute('warm_start')
     self.check_attribute('termination_tol')
     self.check_attribute('max_qp_iters')
+    self.check_attribute('qp_termination_tol_abs')
+    self.check_attribute('qp_termination_tol_rel')
     ddp.with_callbacks = self.with_callbacks
     ddp.use_filter_ls = self.use_filter_ls
     ddp.filter_size = self.filter_size
     ddp.warm_start = self.warm_start
     ddp.termination_tol = self.termination_tol
     ddp.max_qp_iters = self.max_qp_iters
+    ddp.eps_abs = self.qp_termination_tol_abs
+    ddp.eps_rel = self.qp_termination_tol_rel
   
   # Finish
     logger.info("OCP is ready")
