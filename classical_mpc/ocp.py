@@ -565,6 +565,8 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
     self.check_attribute('max_qp_iters')
     self.check_attribute('qp_termination_tol_abs')
     self.check_attribute('qp_termination_tol_rel')
+    self.check_attribute('warm_start_y')
+    self.check_attribute('reset_rho')
     ddp.with_callbacks = self.with_callbacks
     ddp.use_filter_ls = self.use_filter_ls
     ddp.filter_size = self.filter_size
@@ -573,6 +575,8 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
     ddp.max_qp_iters = self.max_qp_iters
     ddp.eps_abs = self.qp_termination_tol_abs
     ddp.eps_rel = self.qp_termination_tol_rel
+    ddp.warm_start_y = self.warm_start_y
+    ddp.reset_rho = self.reset_rho
   
   # Finish
     logger.info("OCP is ready")

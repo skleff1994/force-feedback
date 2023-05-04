@@ -574,7 +574,7 @@ class OptimalControlProblemAbstract:
     else:
       lmax = np.asarray(self.eeUpperLimit)
     fid = self.rmodel.getFrameId(self.eeConstraintFrameName)
-    eeBoxCstr = crocoddyl.EndEffConstraintModel(state, actuation.nu, fid, lmin, lmax, name)
+    eeBoxCstr = crocoddyl.FrameTranslationConstraintModel(state, actuation.nu, fid, lmin, lmax, name)
     return eeBoxCstr
 
   def create_no_constraint(self, state, name, actuation):
