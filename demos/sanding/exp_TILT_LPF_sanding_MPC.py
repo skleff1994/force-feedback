@@ -416,8 +416,8 @@ def main(robot_name):
                         alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
                         Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*ddp.K[0]
                         # Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
-                        tau_des_CTRL += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
-                        # tau_mea_SIMU += Ktilde[:,:-nq].dot(ddp.problem.x0[:-nq] - sim_data.state_mea_SIMU[i,:-nq])     # torques
+                        # tau_des_CTRL += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
+                        tau_des_CTRL += Ktilde.dot(ddp.problem.x0 - y_filtered) # pos vel torques
                     # Compute the motor torque 
                     tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
                     # Increment control counter

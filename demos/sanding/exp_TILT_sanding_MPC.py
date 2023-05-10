@@ -421,8 +421,8 @@ def main(robot_name):
                     tau_des_CTRL = sim_data.u_curr.copy()
                     # Optionally interpolate to the control frequency using Riccati gains
                     if(config['RICCATI']):
-                        # x_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
-                        x_filtered = antiAliasingFilter.iir(x_filtered, sim_data.state_mea_SIMU[i], 0.5)
+                        x_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
+                        # x_filtered = antiAliasingFilter.iir(x_filtered, sim_data.state_mea_SIMU[i], 0.5)
                         tau_des_CTRL += ddp.K[0].dot(ddp.problem.x0 - x_filtered)
                     # Compute the motor torque 
                     tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
