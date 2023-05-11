@@ -623,8 +623,8 @@ class OptimalControlProblemAbstract:
       forceBoxCstr = Force1DConstraintModel(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame, self.forceConstraintMask)
     else:
       logger.error("Force constraint should be of type 1d, 3d or 6d !")
-    # forceBoxCstr.ref = pin.LOCAL_WORLD_ALIGNED
-    # forceBoxCstr.contact_dynamics_ref = pin.LOCAL_WORLD_ALIGNED
+    # forceBoxCstr.ref = pin.LOCAL
+    forceBoxCstr.contact_dynamics_ref = pin.LOCAL
     print(forceBoxCstr.ref)
     print(forceBoxCstr.contact_dynamics_ref)
     return forceBoxCstr 
