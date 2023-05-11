@@ -347,8 +347,6 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
                 np.array([self.rdata.oMf[id_endeff].action @ self.rmodel.frames[id_endeff].placement.actionInverse @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
         else:
             logger.error("The Pinocchio reference frame must be in ['LOCAL', LOCAL_WORLD_ALIGNED', 'WORLD']")
-        logger.warning("predicted force in frame "+str(self.PIN_REF_FRAME))
-        logger.warning(str(self.force_pred[nb_plan, :]))
         self.f_curr = self.force_pred[nb_plan, 0, :]
         self.f_pred = self.force_pred[nb_plan, 1, :]
 

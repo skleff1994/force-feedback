@@ -596,7 +596,7 @@ class OptimalControlProblemAbstract:
       logger.error('forceConstraintReferenceFrame must be in [LOCAL, WORLD, LOCAL_WORLD_ALIGNED]')
     if(self.forceConstraintType == '6D'):
       nc= 6
-    elif(self.forceContraintType == '3D'):
+    elif(self.forceConstraintType == '3D'):
       nc=3
     elif(self.forceConstraintType == '1D'):
       nc=1
@@ -623,8 +623,8 @@ class OptimalControlProblemAbstract:
       forceBoxCstr = Force1DConstraintModel(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame, self.forceConstraintMask)
     else:
       logger.error("Force constraint should be of type 1d, 3d or 6d !")
-    forceBoxCstr.ref = pin.LOCAL_WORLD_ALIGNED
-    forceBoxCstr.contact_dynamics_ref = pin.LOCAL_WORLD_ALIGNED
+    # forceBoxCstr.ref = pin.LOCAL_WORLD_ALIGNED
+    # forceBoxCstr.contact_dynamics_ref = pin.LOCAL_WORLD_ALIGNED
     print(forceBoxCstr.ref)
     print(forceBoxCstr.contact_dynamics_ref)
     return forceBoxCstr 

@@ -57,6 +57,11 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, f
                 for k in range( node_id_reach, ddp.problem.T+1, 1 ):
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    # if(k != ddp.problem.T):
+                    #     # import pdb
+                    #     # pdb.set_trace()
+                    #     ddp.cmodels[k].lb = np.array([-np.inf]*6)
+                    #     ddp.cmodels[k].ub = np.array([+np.inf]*6)
                     # print("target reach = ", target_reach[k])
         # Update OCP for contact phase
         if(TASK_PHASE == 2):
@@ -71,7 +76,9 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, f
                         fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                         m[k].differential.costs.costs["force"].active = True
                         m[k].differential.costs.costs["force"].cost.residual.reference = fref
-                        # print(fref)
+                        # ddp.cmodels[k].lb = np.array([-np.inf, -np.inf, -40, -np.inf, -np.inf, -np.inf])
+                        # ddp.cmodels[k].ub = np.array([+np.inf, +np.inf, 0, +np.inf, +np.inf, +np.inf])
+
         # get predicted force from rigid model (careful : expressed in LOCAL !!!)
         j_wrenchpred = ddp.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].f
         fpred = jMc.actInv(j_wrenchpred).linear
@@ -140,8 +147,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### OCP SETUP ###
   # # # # # # # # # 
   # Init shooting problem and solver
-  ddp = OptimalControlProblemClassical(robot, config).initialize(x0, callbacks=False)
-#   ddp = OptimalControlProblemClassicalWithConstraints(robot, config).initialize(x0, callbacks=False)
+#   ddp = OptimalControlProblemClassical(robot, config).initialize(x0, callbacks=False)
+  ddp = OptimalControlProblemClassicalWithConstraints(robot, config).initialize(x0, callbacks=False)
     # Warmstart and solve
   models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
     
