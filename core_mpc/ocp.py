@@ -515,6 +515,8 @@ class OptimalControlProblemAbstract:
     return collisionCost
     
 
+
+
   def create_state_constraint(self, state, name, actuation):
     '''
     Create state box constraint model 
@@ -554,7 +556,6 @@ class OptimalControlProblemAbstract:
     uBoxCstr = crocoddyl.ControlConstraintModel(state, actuation.nu,  -clip_ctrl, clip_ctrl, name)
     return uBoxCstr
   
-
   def create_translation_constraint(self, state, name, actuation):
     '''
     Create end-effector position box constraint model 
@@ -565,23 +566,171 @@ class OptimalControlProblemAbstract:
     self.check_attribute('eeConstraintFrameName')
     # Lower
     if(self.eeLowerLimit == 'None'):
-      lmin = -np.array([np.inf]*actuation.nu)
+      lmin = -np.array([np.inf]*3)
     else:
       lmin = np.asarray(self.eeLowerLimit)
     # upper
     if(self.eeUpperLimit == 'None'):
-      lmax = np.array([np.inf]*actuation.nu)
+      lmax = np.array([np.inf]*3)
     else:
       lmax = np.asarray(self.eeUpperLimit)
     fid = self.rmodel.getFrameId(self.eeConstraintFrameName)
     eeBoxCstr = crocoddyl.FrameTranslationConstraintModel(state, actuation.nu, fid, lmin, lmax, name)
     return eeBoxCstr
 
+  def create_force_constraint(self, state, name, actuation):
+    '''
+    Create contact force box constraint model 
+    '''
+    # Check attributes 
+    self.check_attribute('forceLowerLimit')
+    self.check_attribute('forceUpperLimit')
+    self.check_attribute('forceConstraintFrameName')
+    self.check_attribute('forceConstraintReferenceFrame')
+    self.check_attribute('forceConstraintType')
+    if(self.forceConstraintReferenceFrame == 'LOCAL'):
+      pinRefFrame = pin.LOCAL
+    elif(self.forceConstraintReferenceFrame == 'LOCAL_WORLD_ALIGNED' or self.forceConstraintReferenceFrame == 'WORLD'):
+      pinRefFrame = pin.LOCAL_WORLD_ALIGNED
+    else:
+      logger.error('forceConstraintReferenceFrame must be in [LOCAL, WORLD, LOCAL_WORLD_ALIGNED]')
+    if(self.forceConstraintType == '6D'):
+      nc= 6
+    elif(self.forceContraintType == '3D'):
+      nc=3
+    elif(self.forceConstraintType == '1D'):
+      nc=1
+    else:
+      logger.error("Force constraint type must be in [1D, 3D, 6D]")
+    # Lower
+    if(self.forceLowerLimit == 'None'):
+      lmin = -np.array([np.inf]*nc)
+    else:
+      lmin = np.asarray(self.forceLowerLimit)
+    # upper
+    if(self.forceUpperLimit == 'None'):
+      lmax = np.array([np.inf]*nc)
+    else:
+      lmax = np.asarray(self.forceUpperLimit)
+    fid = self.rmodel.getFrameId(self.forceConstraintFrameName)
+    if(nc==6):
+      # forceBoxCstr = Force6DConstraintModel(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame)
+      forceBoxCstr = crocoddyl.ContactForceConstraintModel6D(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame)
+    elif(nc==3):
+      forceBoxCstr = Force3DConstraintModel(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame)
+    elif(nc==1):
+      self.check_attribute('forceConstraintMask')
+      forceBoxCstr = Force1DConstraintModel(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame, self.forceConstraintMask)
+    else:
+      logger.error("Force constraint should be of type 1d, 3d or 6d !")
+    forceBoxCstr.ref = pin.LOCAL_WORLD_ALIGNED
+    forceBoxCstr.contact_dynamics_ref = pin.LOCAL_WORLD_ALIGNED
+    print(forceBoxCstr.ref)
+    print(forceBoxCstr.contact_dynamics_ref)
+    return forceBoxCstr 
+
+
   def create_no_constraint(self, state, name, actuation):
     '''
     Returns void constraint
     '''
     return crocoddyl.NoConstraintModel(state, actuation.nu, name)
+
+
+
+
+
+
+class Force6DConstraintModel(crocoddyl.ConstraintModelAbstract):
+    '''
+    6D Contact force constraint Fmin <= f <= Fmax
+    '''
+    def __init__(self, state, nu, fid, Fmin, Fmax, name, pinRefFrame):
+        # crocoddyl.ConstraintModelAbstract.__init__(self, state, 6, nu, Fmin, Fmax, name)
+        self.pin_robot = state.pinocchio
+        self.frame_id = fid
+        self.nc = 6
+        self.Cu = np.zeros((6, nu))
+        self.Cx = np.zeros((6, state.nx))
+
+    def calc(self, cdata, data, x, u=None): 
+        print("Lambda_c = ")
+        print(data.differential.pinocchio.lambda_c)
+        print("contact.f = ")
+        print(data.differential.multibody.contacts.contacts['contact'].f)
+        cdata.c = data.differential.pinocchio.lambda_c
+
+    def calcDiff(self, cdata, data, x, u=None):
+        print("Lambda_c = ")
+        print(data.differential.pinocchio.lambda_c)
+        print("contact.f = ")
+        print(data.differential.multibody.contacts.contacts['contact'].f)
+        cdata.Cx = data.differential.df_dx
+        cdata.Cu = data.differential.df_du
+
+
+class Force3DConstraintModel(crocoddyl.ConstraintModelAbstract):
+    '''
+    3D Contact force constraint Fmin <= f <= Fmax
+    '''
+    def __init__(self, state, nu, fid, Fmin, Fmax, name, pinRefFrame):
+        crocoddyl.ConstraintModelAbstract.__init__(self, state, 3, nu, Fmin, Fmax, name)
+
+    def calc(self, cdata, data, x, u=None): 
+        cdata.c = data.differential.pinocchio.lambda_c[:3]
+
+    def calcDiff(self, cdata, data, x, u=None):
+        cdata.Cx = data.differential.df_dx[:3]
+        cdata.Cu = data.differential.df_du[:3]
+
+
+class Force1DConstraintModel(crocoddyl.ConstraintModelAbstract):
+    '''
+    1D Contact force constraint Fmin <= f <= Fmax
+    '''
+    def __init__(self, state, nu, fid, Fmin, Fmax, name, pinRefFrame, mask):
+        crocoddyl.ConstraintModelAbstract.__init__(self, state, 1, nu, Fmin, Fmax, name)
+        if('x' in mask):
+          self.constrainedAxis = 0 #sobec.sobec_pywrap.Vector3MaskType.x
+        elif('y' in mask):
+          self.constrainedAxis = 1 #sobec.sobec_pywrap.Vector3MaskType.y
+        elif('z' in mask):
+          self.constrainedAxis = 2 #sobec.sobec_pywrap.Vector3MaskType.z
+        else: logger.error('Unknown 1D contact model. Please select 1D contactModelType in {1Dx, 1Dy, 1Dz} !')
+
+    def calc(self, cdata, data, x, u=None): 
+        cdata.c = data.differential.pinocchio.lambda_c
+
+    def calcDiff(self, cdata, data, x, u=None):
+        cdata.Cx = data.differential.df_dx[self.constrainedAxis]
+        cdata.Cu = data.differential.df_du[self.constrainedAxis]
+
+
+# class LocalCone(crocoddyl.ConstraintModelAbstract):
+#     def __init__(self, mu, nc, nx, nu):
+#         crocoddyl.ConstraintModelAbstract.__init__(self, nc, nx, nu)
+#         self.lmin = np.array([0.])
+#         self.lmax = np.array([np.inf])
+#         self.mu = mu
+#         self.dcone_df = np.zeros((1, 3))
+
+#         self.nc = nc 
+#         assert nc == 1 
+
+#     def calc(self, cdata, data, x, u=None): 
+#         F = data.differential.pinocchio.lambda_c[:3]
+#         cdata.c = - self.mu * F[2] - np.sqrt(F[0]**2 + F[1]**2)
+
+#     def calcDiff(self, cdata, data, x, u=None):
+#         F = data.differential.pinocchio.lambda_c[:3]
+#         Fx = data.differential.df_dx[:3]
+#         Fu = data.differential.df_du[:3]
+
+#         self.dcone_df[0, 0] = - F[0] / np.sqrt(F[0]**2 + F[1]**2)
+#         self.dcone_df[0, 1] = - F[1] / np.sqrt(F[0]**2 + F[1]**2)
+#         self.dcone_df[0, 2] = - self.mu
+#         cdata.Cx = self.dcone_df @ data.differential.df_dx[:3]
+#         cdata.Cu = self.dcone_df @ data.differential.df_du[:3]
 
 
 

@@ -430,6 +430,13 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
             translationBoxConstraint = self.create_translation_constraint(state, 'translationBox', actuation)
             nc += translationBoxConstraint.nc
           constraint_models_stack_list.append(translationBoxConstraint)
+        if('forceBox' in self.WHICH_CONSTRAINTS):
+          if(i==0):
+            forceBoxConstraint = self.create_no_constraint(state, 'None', actuation)
+          else:
+            forceBoxConstraint = self.create_force_constraint(state, 'forceBox', actuation)
+            nc += forceBoxConstraint.nc
+          constraint_models_stack_list.append(forceBoxConstraint)
         # No constraints
         if('None' in self.WHICH_CONSTRAINTS):
           noConstraintModel = self.create_no_constraint(state, 'None', actuation)

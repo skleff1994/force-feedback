@@ -66,7 +66,7 @@ class DDPDataHandlerClassical(DDPDataHandlerAbstract):
                       fig_ee_ang, ax_ee_ang = self.plot_ddp_endeff_angular(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
               if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                   if('fs' in data.keys()):
-                      fig_f, ax_f = self.plot_ddp_force(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                      fig_f, ax_f = self.plot_ddp_force(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False, AUTOSCALE=True)
           else:
               if(k%sampling_plot==0):
                   if('x' in which_plots or which_plots =='all' or 'all' in which_plots):
@@ -80,7 +80,7 @@ class DDPDataHandlerClassical(DDPDataHandlerAbstract):
                           self.plot_ddp_endeff_linear(data, fig=fig_ee_lin, ax=ax_ee_lin, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                   if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                       if('fs' in data.keys()):
-                          self.plot_ddp_force(data, fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                          self.plot_ddp_force(data, fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False, AUTOSCALE=True)
       if(SHOW):
           plt.show()
       
