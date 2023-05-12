@@ -69,7 +69,7 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, f
             if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
                 # Updates nodes between node_id and terminal node 
                 for k in range( node_id_contact, ddp.problem.T+1, 1 ):  
-                    m[k].differential.costs.costs["translation"].active = False
+                    m[k].differential.costs.costs["translation"].active = True
                     # activate contact and force cost
                     m[k].differential.contacts.changeContactStatus("contact", True)
                     if(k < ddp.problem.T):

@@ -52,7 +52,7 @@ contacts:
   - {
       contactModelFrameName: 'contact',     # frame name in pinocchio model
       pinocchioReferenceFrame: 'LOCAL_WORLD_ALIGNED',     # LOCAL, WORLD, LOCAL_WORLD_ALIGNED
-      contactModelType: '3D',               # 1Dx, 1Dy, 1Dz, 3D, 6D
+      contactModelType: '1Dz',               # 1Dx, 1Dy, 1Dz, 3D, 6D
       contactModelTranslationRef: '', #[0.7, 0.0, 0.0],       # 3d vector
       contactModelRotationRef: '',          # 3d matrix
       contactModelGains: [0, 50],           # Baumgarte stabilization gains
@@ -63,11 +63,11 @@ oPc_offset: [0., 0., 0.]
 
 # Constraints 
 WHICH_CONSTRAINTS: ['forceBox']
-forceConstraintType: '3D'
-forceLowerLimit: [-10000, -10000, -25, -10000, -10000, -10000]
-forceUpperLimit: [10000, 10000, 0, 10000, 10000, 10000]
+forceConstraintType: '1Dz'
+forceLowerLimit: [-10000, -10000, 0, -10000, -10000, -10000]
+forceUpperLimit: [10000, 10000, 25, 10000, 10000, 10000]
 forceConstraintFrameName: 'contact'
-forceConstraintReferenceFrame: 'LOCAL'
+forceConstraintReferenceFrame: 'LOCAL_WORLD_ALIGNED'
 
 # FADMM solver parameters
 USE_PROXQP: False

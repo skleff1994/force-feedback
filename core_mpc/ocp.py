@@ -598,10 +598,14 @@ class OptimalControlProblemAbstract:
       nc= 6
     elif(self.forceConstraintType == '3D'):
       nc=3
-    elif(self.forceConstraintType == '1D'):
+    elif('1D' in self.forceConstraintType):
       nc=1
+      if('x' in self.forceConstraintType): mask = 0
+      elif('y' in self.forceConstraintType): mask = 1
+      elif('z' in self.forceConstraintType): mask = 2
+      else: logger.error("Force constraint 1D must be in [1Dx, 1Dy, 1Dz]")
     else:
-      logger.error("Force constraint type must be in [1D, 3D, 6D]")
+      logger.error("Force constraint type must be in [1Dx, 1Dy, 1Dz, 3D, 6D]")
     # Lower
     if(self.forceLowerLimit == 'None'):
       lmin = -np.array([np.inf]*nc)
@@ -616,18 +620,18 @@ class OptimalControlProblemAbstract:
     if(nc==6):
       forceBoxCstr = crocoddyl.ContactForceConstraintModel6D(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame)
     elif(nc==3):
-      forceBoxCstr = crocoddyl.ContactForceConstraintModel3D(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame)
+      lmin3d = lmin[:3]
+      lmax3d = lmax[:3]
+      forceBoxCstr = crocoddyl.ContactForceConstraintModel3D(state, actuation.nu, fid, lmin3d, lmax3d, name, pinRefFrame)
     elif(nc==1):
-      self.check_attribute('forceConstraintMask')
-      forceBoxCstr = Force1DConstraintModel(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame, self.forceConstraintMask)
+      logger.warning("mask = "+str(mask))
+      lmin1d = np.array([lmin[mask]])
+      lmax1d = np.array([lmax[mask]])
+      forceBoxCstr = crocoddyl.ContactForceConstraintModel1D(state, actuation.nu, fid, lmin1d, lmax1d, name, pinRefFrame, mask)
     else:
       logger.error("Force constraint should be of type 1d, 3d or 6d !")
-    # forceBoxCstr.ref = pin.LOCAL
-    forceBoxCstr.contact_dynamics_ref = pin.LOCAL_WORLD_ALIGNED
-    print(forceBoxCstr.ref)
-    print(forceBoxCstr.contact_dynamics_ref)
     return forceBoxCstr 
-
+  
   def create_no_constraint(self, state, name, actuation):
     '''
     Returns void constraint
