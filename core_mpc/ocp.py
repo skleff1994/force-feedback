@@ -614,21 +614,19 @@ class OptimalControlProblemAbstract:
       lmax = np.asarray(self.forceUpperLimit)
     fid = self.rmodel.getFrameId(self.forceConstraintFrameName)
     if(nc==6):
-      # forceBoxCstr = Force6DConstraintModel(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame)
       forceBoxCstr = crocoddyl.ContactForceConstraintModel6D(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame)
     elif(nc==3):
-      forceBoxCstr = Force3DConstraintModel(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame)
+      forceBoxCstr = crocoddyl.ContactForceConstraintModel3D(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame)
     elif(nc==1):
       self.check_attribute('forceConstraintMask')
       forceBoxCstr = Force1DConstraintModel(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame, self.forceConstraintMask)
     else:
       logger.error("Force constraint should be of type 1d, 3d or 6d !")
     # forceBoxCstr.ref = pin.LOCAL
-    forceBoxCstr.contact_dynamics_ref = pin.LOCAL
+    forceBoxCstr.contact_dynamics_ref = pin.LOCAL_WORLD_ALIGNED
     print(forceBoxCstr.ref)
     print(forceBoxCstr.contact_dynamics_ref)
     return forceBoxCstr 
-
 
   def create_no_constraint(self, state, name, actuation):
     '''
