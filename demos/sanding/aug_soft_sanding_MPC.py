@@ -89,12 +89,12 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 fref = np.array([target_force[k]])
                 m[k].differential.active_contact = True
                 m[k].differential.f_des = fref.copy()
-                m[k].differential.f_weight = np.array([0.05]) #force_weight
+                m[k].differential.f_weight = np.array([0.06]) #force_weight
                 m[k].differential.oPc = anchor_point
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 50.
+                m[k].differential.costs.costs["translation"].weight = 100.
                 m[k].differential.costs.costs["velocity"].active = False
                 # m[k].differential.costs.costs["velocity"].cost.residual.reference = pin.Motion(np.concatenate([target_velocity[k], np.zeros(3)]))
                 # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([1., 1., 0., 1., 1., 1.])
@@ -283,8 +283,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # # #
   ### SIMULATION LOOP ###
   # # # # # # # # # # # #
-  from core_mpc.analysis_utils import MPCBenchmark
-  bench = MPCBenchmark()
+  # from core_mpc.analysis_utils import MPCBenchmark
+  # bench = MPCBenchmark()
 
   # Horizon in simu cycles
   node_id_reach   = -1
@@ -404,12 +404,12 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           v = x_filtered[nq:nq+nv]
           f = x_filtered[nq+nv:]
           # Solve OCP 
-          bench.start_timer()
-          bench.start_croco_profiler()
+          # bench.start_timer()
+          # bench.start_croco_profiler()
           solveOCP(q, v, f, ddp, config['maxiter'], node_id_reach, target_position, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
-          bench.record_profiles()
-          bench.stop_timer(nb_iter=ddp.iter)
-          bench.stop_croco_profiler()
+          # bench.record_profiles()
+          # bench.stop_timer(nb_iter=ddp.iter)
+          # bench.stop_croco_profiler()
           # Record MPC predictions, cost references and solver data 
           sim_data.record_predictions(nb_plan, ddp)
           sim_data.record_cost_references(nb_plan, ddp)

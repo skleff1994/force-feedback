@@ -275,8 +275,8 @@ def main(robot_name):
             # # # # # # # # # # # #
             ### SIMULATION LOOP ###
             # # # # # # # # # # # #
-            from core_mpc.analysis_utils import MPCBenchmark
-            bench = MPCBenchmark()
+            # from core_mpc.analysis_utils import MPCBenchmark
+            # bench = MPCBenchmark()
 
             # Horizon in simu cycles
             node_id_reach   = -1
@@ -393,12 +393,12 @@ def main(robot_name):
                     v = x_filtered[nq:nq+nv]
                     f = x_filtered[nq+nv:]
                     # Solve OCP 
-                    bench.start_timer()
-                    bench.start_croco_profiler()
+                    # bench.start_timer()
+                    # bench.start_croco_profiler()
                     solveOCP(q, v, f, ddp, config['maxiter'], node_id_reach, target_position, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
-                    bench.record_profiles()
-                    bench.stop_timer(nb_iter=ddp.iter)
-                    bench.stop_croco_profiler()
+                    # bench.record_profiles()
+                    # bench.stop_timer(nb_iter=ddp.iter)
+                    # bench.stop_croco_profiler()
                     # Record MPC predictions, cost references and solver data 
                     sim_data.record_predictions(nb_plan, ddp)
                     sim_data.record_cost_references(nb_plan, ddp)

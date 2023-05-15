@@ -263,8 +263,8 @@ def main(robot_name):
             # # # # # # # # # # # #
             ### SIMULATION LOOP ###
             # # # # # # # # # # # #
-            from core_mpc.analysis_utils import MPCBenchmark
-            bench = MPCBenchmark()
+            # from core_mpc.analysis_utils import MPCBenchmark
+            # bench = MPCBenchmark()
 
             # Horizon in simu cycles
             node_id_reach   = -1
@@ -380,14 +380,14 @@ def main(robot_name):
                     v   = x_filtered[nq:nq+nv]
                     tau = x_filtered[nq+nv:]
                     # Solve OCP 
-                    bench.start_timer()
-                    bench.start_croco_profiler()
+                    # bench.start_timer()
+                    # bench.start_croco_profiler()
                     solveOCP(q, v, tau, ddp, config['maxiter'], node_id_reach, target_position, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
                     # if(n_exp==1):
                     #     print("u* = ", ddp.us[0])
-                    bench.record_profiles()
-                    bench.stop_timer(nb_iter=ddp.iter)
-                    bench.stop_croco_profiler()
+                    # bench.record_profiles()
+                    # bench.stop_timer(nb_iter=ddp.iter)
+                    # bench.stop_croco_profiler()
                     # Record MPC predictions, cost references and solver data 
                     sim_data.record_predictions(nb_plan, ddp)
                     sim_data.record_cost_references(nb_plan, ddp)
@@ -415,9 +415,9 @@ def main(robot_name):
                         y_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
                         alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
                         Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*ddp.K[0]
-                        # Ktilde[:,2*nq:3*nq] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nq) # only for torques
+                        Ktilde[:,-nv:] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nv) # only for torques
                         # tau_des_CTRL += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
-                        tau_des_CTRL += Ktilde.dot(ddp.problem.x0 - y_filtered) # pos vel torques
+                        tau_des_CTRL += Ktilde.dot(ddp.problem.x0 - y_filtered)     # position, vel, torques
                     # Compute the motor torque 
                     tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
                     # Increment control counter

@@ -68,20 +68,25 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
                 for k in range( node_id_reach, ddp.problem.T+1, 1 ):
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    m[k].differential.costs.costs["velocity"].active = True
+                    m[k].differential.costs.costs["velocity"].weight = 0.06
         # Update OCP for contact phase
         if(TASK_PHASE == 3):
             # If node id is valid
             if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
                 # Updates nodes between node_id and terminal node 
-                for k in range( node_id_contact, ddp.problem.T+1, 1 ):  
+                for k in range( node_id_contact, ddp.problem.T+1, 1 ):
+                    wf = min(1.*(k + 1. - node_id_contact) , force_weight)  
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                    m[k].differential.costs.costs["translation"].weight = 2.
+                    m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
+                    m[k].differential.costs.costs["velocity"].active = True
                     # activate contact and force cost
                     m[k].differential.contacts.changeContactStatus("contact", True)
                     if(k < ddp.problem.T):
                         fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                         m[k].differential.costs.costs["force"].active = True
+                        m[k].differential.costs.costs["force"].weight = wf
                         m[k].differential.costs.costs["force"].cost.residual.reference = fref
         # Update OCP for circle phase
         if(TASK_PHASE == 4):
@@ -93,12 +98,13 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                     m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
                     m[k].differential.costs.costs["translation"].weight = 50.
+                    m[k].differential.costs.costs["velocity"].active = False
                     # activate contact and force cost
                     m[k].differential.contacts.changeContactStatus("contact", True)
                     if(k < ddp.problem.T):
                         fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                         m[k].differential.costs.costs["force"].active = True
-                        # m[k].differential.costs.costs["force"].weight = force_weight
+                        m[k].differential.costs.costs["force"].weight = 1000
                         m[k].differential.costs.costs["force"].cost.residual.reference = fref
         # get predicted force from rigid model (careful : expressed in LOCAL !!!)
         j_wrenchpred = ddp.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].f
@@ -161,7 +167,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
   contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
-  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
+  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.1)
   simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
 
   # # # # # # # # # 
@@ -263,8 +269,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # # #
   ### SIMULATION LOOP ###
   # # # # # # # # # # # #
-  from core_mpc.analysis_utils import MPCBenchmark
-  bench = MPCBenchmark()
+  # from core_mpc.analysis_utils import MPCBenchmark
+  # bench = MPCBenchmark()
 
   # Horizon in simu cycles
   node_id_reach   = -1
@@ -416,8 +422,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           tau_des_CTRL = sim_data.u_curr.copy()
           # Optionally interpolate to the control frequency using Riccati gains
           if(config['RICCATI']):
-            # x_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
-            x_filtered = antiAliasingFilter.iir(x_filtered, sim_data.state_mea_SIMU[i], 0.5)
+            x_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
+            # x_filtered = antiAliasingFilter.iir(x_filtered, sim_data.state_mea_SIMU[i], 0.5)
             tau_des_CTRL += ddp.K[0].dot(ddp.problem.x0 - x_filtered)
           # Compute the motor torque 
           tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
@@ -434,7 +440,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
       robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
       f_mea_SIMU = robot_simulator.end_effector_forces(sim_data.PIN_REF_FRAME)[1][0]
-      # fz_mea_SIMU = np.array([f_mea_SIMU[2]])
+      fz_mea_SIMU = np.array([f_mea_SIMU[2]])
       if(i%1000==0): 
         logger.info("f_mea  = "+str(f_mea_SIMU))
       # Record data (unnoised)

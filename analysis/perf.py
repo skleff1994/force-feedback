@@ -25,7 +25,12 @@ import matplotlib.pyplot as plt
 
 
 
+<<<<<<< Updated upstream
 PREFIX = '/home/skleff/force-feedback/data/soft_contact_article/dataset2/no_torque_tracking/'
+=======
+# PREFIX = '/home/skleff/force-feedback/data/soft_contact_article/dataset2/'
+PREFIX = '/home/skleff/Desktop/soft_contact_sim_exp/'
+>>>>>>> Stashed changes
 # prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
 # prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
 # prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'

@@ -11,7 +11,7 @@ T_tot: 6.                           # Simu duration (s)n (s)
 DELAY_SIM: True                 # Add delay in reference torques (low-level)
 DELAY_OCP: True                 # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES: True             # Affine scaling of reference torque
-NOISE_TORQUES: True             # Add Gaussian noise on reference torques
+NOISE_TORQUES: False             # Add Gaussian noise on reference torques
 NOISE_STATE: True               # Add Gaussian noise on the measured state 
 STATIC_FRICTION: True           # Simulate static friction torque
 VISCOUS_FRICTION: True          # Simulate viscous friction torque
@@ -93,13 +93,13 @@ stateRegRef: 'DEFAULT'
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.0001
-ctrlRegWeightTerminal: 0.0001
+ctrlRegWeight: 0.000
+ctrlRegWeightTerminal: 0.000
 ctrlRegRef: 'DEFAULT'  # default 0 if None
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.000000
-wRegRef: 'zero'
+wRegWeight: 0.00001
+wRegRef: 'gravity'
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 0
@@ -148,8 +148,8 @@ armature:  [.0, .0, .0, .0, .0, 0.]
   # Scaling of desired torque
 alpha_min: 0.9
 alpha_max: 1.1
-beta_min: -0.1
-beta_max: 0.1
+beta_min: 0.
+beta_max: 0.
   # White noise on desired torque and measured state
 var_u: [0.03, 0.03, 0.02, 0.02, 0.01, 0.01]
 var_q: 0.001 
