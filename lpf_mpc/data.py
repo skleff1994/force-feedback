@@ -354,12 +354,14 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     # Record forces predictions in the right frame + extract current & next force
     if(self.is_contact):
         id_endeff = self.rmodel.getFrameId(self.contactFrameName)
+        jMf = self.rmodel.frames[id_endeff].placement
+        lwaMf = pin.SE3(self.rdata.oMf[id_endeff].rotation, np.zeros(3))
         if(self.PIN_REF_FRAME == pin.LOCAL):
             self.force_pred[nb_plan, :, :] = \
-                np.array([self.rmodel.frames[id_endeff].placement.actionInverse @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
+                np.array([jMf.actInv(ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f).vector for i in range(self.N_h)])
         elif(self.PIN_REF_FRAME == pin.LOCAL_WORLD_ALIGNED or self.PIN_REF_FRAME == pin.WORLD):
             self.force_pred[nb_plan, :, :] = \
-                np.array([self.rdata.oMf[id_endeff].action @ self.rmodel.frames[id_endeff].placement.actionInverse @ ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
+                np.array([lwaMf.act(jMf.actInv(ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f)).vector for i in range(self.N_h)])
         else:
             logger.error("The Pinocchio reference frame must be in ['LOCAL', LOCAL_WORLD_ALIGNED', 'WORLD']")
         self.f_curr = self.force_pred[nb_plan, 0, :]
