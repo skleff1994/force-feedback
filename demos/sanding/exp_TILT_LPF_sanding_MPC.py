@@ -76,6 +76,9 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
             for k in range( node_id_reach, ddp.problem.T+1, 1 ):
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                m[k].differential.costs.costs["velocity"].active = True
+                m[k].differential.costs.costs["velocity"].weight = 0.1
+                
     # Update OCP for contact phase
     if(TASK_PHASE == 3):
         # If node id is valid
@@ -86,7 +89,7 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                # m[k].differential.costs.costs["translation"].weight = 1.
+                m[k].differential.costs.costs["velocity"].active = True
                 # activate contact and force cost
                 m[k].differential.contacts.changeContactStatus("contact", True)
                 if(k!=ddp.problem.T):
@@ -102,7 +105,7 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
             for k in range( node_id_circle, ddp.problem.T+1, 1 ):
                 # wf = force_weight
                 m[k].differential.costs.costs["translation"].active = True
-                m[k].differential.costs.costs["velocity"].active = True
+                m[k].differential.costs.costs["velocity"].active = False
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
                 m[k].differential.costs.costs["translation"].weight = 100.
@@ -111,14 +114,14 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 if(k!=ddp.problem.T):
                     fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                     m[k].differential.costs.costs["force"].active = True
-                    # print(m[k].differential.costs.costs["force"].weight)
-                    m[k].differential.costs.costs["force"].weight = 100
+                    m[k].differential.costs.costs["force"].weight = 1000
                     m[k].differential.costs.costs["force"].cost.residual.reference = fref
+                    
     # Solve OCP 
     ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
     # Send solution to parent process + riccati gains
     t_child = time.time() - t
-    return ddp.us, ddp.xs, ddp.K, t_child   
+    return ddp.us, ddp.xs, ddp.K, t_child    
 
 
 def main(robot_name):
@@ -415,7 +418,7 @@ def main(robot_name):
                         y_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
                         alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
                         Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*ddp.K[0]
-                        Ktilde[:,-nv:] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nv) # only for torques
+                        Ktilde[:,-n_lpf:] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(n_lpf) # only for torques
                         # tau_des_CTRL += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
                         tau_des_CTRL += Ktilde.dot(ddp.problem.x0 - y_filtered)     # position, vel, torques
                     # Compute the motor torque 
@@ -460,7 +463,7 @@ def main(robot_name):
             # # # # # # # # # # #
             # PLOT SIM RESULTS  #
             # # # # # # # # # # #
-            save_dir = '/tmp'
+            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset2_with_tracking' # '/tmp'
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

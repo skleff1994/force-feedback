@@ -6,7 +6,7 @@
 simu_freq: 5000               # Simulation frequency in Hz
 ctrl_freq: 2000                # Control frequency
 plan_freq: 1000                # Planning frequency
-T_tot: 6.                           # Simu duration (s)n (s)
+T_tot: 12.                           # Simu duration (s)n (s)
 # Simulation options
 DELAY_SIM: True                 # Add delay in reference torques (low-level)
 DELAY_OCP: True                 # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -93,13 +93,13 @@ stateRegRef: 'DEFAULT'
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.000
-ctrlRegWeightTerminal: 0.000
+ctrlRegWeight: 0.0001
+ctrlRegWeightTerminal: 0.0001
 ctrlRegRef: 'DEFAULT'  # default 0 if None
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.00001
-wRegRef: 'gravity'
+wRegWeight: 0.000001
+wRegRef: 'zero'
 
 # 'wLim' : unfiltered torque limit
 wLimWeight: 0
@@ -159,7 +159,7 @@ var_aug: [0, 0, 0, 0, 0, 0, 0] # LPF
 delay_OCP_ms: 5    
 delay_sim_cycle: 1 
   # Static & viscous friction
-static_friction_max_torque: 5.
+static_friction_max_torque: 1. 
 viscous_friction_slope: 0.5 
   # Proportional-integral torque control gains
 Kp_low: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]

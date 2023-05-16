@@ -103,10 +103,8 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 if(k!=ddp.problem.T):
                     fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                     m[k].differential.costs.costs["force"].active = True
-                    # print(m[k].differential.costs.costs["force"].weight)
-                    m[k].differential.costs.costs["force"].weight = 10000
+                    m[k].differential.costs.costs["force"].weight = 1000
                     m[k].differential.costs.costs["force"].cost.residual.reference = fref
-                    # m[k].differential.costs.costs["ctrlRegGrav"].weight = 0.00001
                     
     # Solve OCP 
     ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
@@ -288,7 +286,8 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   logger.debug("Start of contact phase in simu cycles  = "+str(T_CONTACT))
   logger.debug("Start of circle phase in simu cycles   = "+str(T_CIRCLE))
   logger.debug("OCP to PLAN time ratio = "+str(OCP_TO_MPC_CYCLES))
- 
+  # logger.debug("OCP to PLAN time ratio = "+str(sim_data.OCP_TO_PLAN_RATIO))
+
   # SIMULATE
   # sim_data.state[0,:] = ddp.xs[-n_lpf:]
   
@@ -418,7 +417,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
             y_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
             alpha = np.exp(-2*np.pi*config['f_c']*config['dt'])
             Ktilde  = (1-alpha)*sim_data.OCP_TO_PLAN_RATIO*ddp.K[0]
-            Ktilde[:,-nv:] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(nv) # only for torques
+            Ktilde[:,-n_lpf:] += ( 1 - (1-alpha)*sim_data.OCP_TO_PLAN_RATIO )*np.eye(n_lpf) # only for torques
             # tau_des_CTRL += Ktilde[:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
             tau_des_CTRL += Ktilde.dot(ddp.problem.x0 - y_filtered)     # position, vel, torques
           # Compute the motor torque 

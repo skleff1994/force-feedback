@@ -60,6 +60,8 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
             for k in range( node_id_reach, ddp.problem.T+1, 1 ):
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                m[k].differential.costs.costs["velocity"].active = True
+                m[k].differential.costs.costs["velocity"].weight = 0.1  
     # Update OCP for contact phase
     if(TASK_PHASE == 3):
         # If node id is valid
@@ -96,11 +98,7 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
                 m[k].differential.costs.costs["translation"].weight = 100.
                 m[k].differential.costs.costs["velocity"].active = False
-                # m[k].differential.costs.costs["velocity"].cost.residual.reference = pin.Motion(np.concatenate([target_velocity[k], np.zeros(3)]))
-                # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([1., 1., 0., 1., 1., 1.])
-                # m[k].differential.costs.costs["velocity"].weight = 1.
-                # print(m[k].differential.costs.costs["velocity"].cost.residual.reference)
-                # print(m[k].differential.costs.costs["velocity"].cost.residual.type)
+
     problem_formulation_time = time.time()
     t_child_1 =  problem_formulation_time - t
     # Solve OCP 

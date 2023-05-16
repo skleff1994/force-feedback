@@ -79,35 +79,25 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
                 for k in range( node_id_reach, ddp.problem.T+1, 1 ):
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-        # Update OCP for "increase weights" phase
-        if(TASK_PHASE == 2):
-            pass
-            # If node id is valid
-            if(node_id_track <= ddp.problem.T and node_id_track >= 0):
-                # Updates nodes between node_id and terminal node 
-                for k in range( node_id_track, ddp.problem.T+1, 1 ):
-                    w = min(1.*(k + 1. - node_id_track) , 3.)
-                    m[k].differential.costs.costs["translation"].active = True
-                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                    m[k].differential.costs.costs["translation"].weight = w
+                    m[k].differential.costs.costs["velocity"].active = True
+                    m[k].differential.costs.costs["velocity"].weight = 0.06
         # Update OCP for contact phase
         if(TASK_PHASE == 3):
             # If node id is valid
             if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
                 # Updates nodes between node_id and terminal node 
-                for k in range( node_id_contact, ddp.problem.T+1, 1 ):  
+                for k in range( node_id_contact, ddp.problem.T+1, 1 ):
+                    wf = min(1.*(k + 1. - node_id_contact) , force_weight)  
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                    m[k].differential.costs.costs["translation"].weight = 2.
+                    m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
+                    m[k].differential.costs.costs["velocity"].active = True
                     # activate contact and force cost
                     m[k].differential.contacts.changeContactStatus("contact", True)
                     if(k < ddp.problem.T):
                         fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                         m[k].differential.costs.costs["force"].active = True
-                        # print(m[k].differential.costs.costs["force"])
-                        # print(m[k].differential.costs.costs["force"].cost)
-                        # print(m[k].differential.costs.costs["force"].weight)
-                        # m[k].differential.costs.costs["force"].weight = force_weight
+                        m[k].differential.costs.costs["force"].weight = wf
                         m[k].differential.costs.costs["force"].cost.residual.reference = fref
         # Update OCP for circle phase
         if(TASK_PHASE == 4):
@@ -118,17 +108,14 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                     m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                    m[k].differential.costs.costs["translation"].weight = 10.
-                    # m[k].differential.costs.costs["velocity"].active = True
-                    # m[k].differential.costs.costs["velocity"].cost.residual.reference = pin.Motion(np.concatenate([target_velocity[k], np.zeros(3)]))
-                    # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([1., 1., 0., 1., 1., 1.])
-                    # m[k].differential.costs.costs["velocity"].weight = 1.
+                    m[k].differential.costs.costs["translation"].weight = 50.
+                    m[k].differential.costs.costs["velocity"].active = False
                     # activate contact and force cost
                     m[k].differential.contacts.changeContactStatus("contact", True)
                     if(k < ddp.problem.T):
                         fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                         m[k].differential.costs.costs["force"].active = True
-                        # m[k].differential.costs.costs["force"].weight = force_weight
+                        m[k].differential.costs.costs["force"].weight = 1000
                         m[k].differential.costs.costs["force"].cost.residual.reference = fref
         # get predicted force from rigid model (careful : expressed in LOCAL !!!)
         j_wrenchpred = ddp.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].f
@@ -465,7 +452,7 @@ def main(robot_name):
             # # # # # # # # # # #
             # PLOT SIM RESULTS  #
             # # # # # # # # # # #
-            save_dir = '/tmp'
+            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset2_with_tracking' # '/tmp'
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

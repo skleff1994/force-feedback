@@ -139,7 +139,7 @@ var_aug: [0.01]
 delay_OCP_ms: 5    
 delay_sim_cycle: 1 
   # Static & viscous friction
-static_friction_max_torque: 5.
+static_friction_max_torque: 1.
 viscous_friction_slope: 0.5
   # Proportional-integral torque control gains
 Kp_low: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]

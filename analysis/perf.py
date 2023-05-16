@@ -25,12 +25,8 @@ import matplotlib.pyplot as plt
 
 
 
-<<<<<<< Updated upstream
-PREFIX = '/home/skleff/force-feedback/data/soft_contact_article/dataset2/no_torque_tracking/'
-=======
 # PREFIX = '/home/skleff/force-feedback/data/soft_contact_article/dataset2/'
-PREFIX = '/home/skleff/Desktop/soft_contact_sim_exp/'
->>>>>>> Stashed changes
+PREFIX = '/home/skleff/Desktop/soft_contact_sim_exp/dataset2_with_tracking/'
 # prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
 # prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
 # prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
@@ -88,7 +84,7 @@ for n_seed in range(N_SEEDS):
         data = sd.extract_data(frame_of_interest='contact')
         # Compute absolute tracking errors |mea - ref|
         Np = data['N_plan'] ; Ns = data['N_simu']
-        N_START = int(data['T_CONTACT']*data['simu_freq'])
+        N_START = int(data['T_CIRCLE']*data['simu_freq'])
         # Duplicate last element
         lin_pos_ee_ref = np.zeros((data['lin_pos_ee_ref'].shape[0]+1, data['lin_pos_ee_ref'].shape[1]))
         lin_pos_ee_ref[:data['lin_pos_ee_ref'].shape[0], :] = data['lin_pos_ee_ref']
@@ -120,7 +116,7 @@ for n_seed in range(N_SEEDS):
         data = sd.extract_data(frame_of_interest='contact')
         # Compute absolute tracking errors |mea - ref|
         Np = data['N_plan'] ; Ns = data['N_simu']
-        N_START = int(data['T_CONTACT']*data['simu_freq'])
+        N_START = int(data['T_CIRCLE']*data['simu_freq'])
         # Duplicate last element
         lin_pos_ee_ref = np.zeros((data['lin_pos_ee_ref'].shape[0]+1, data['lin_pos_ee_ref'].shape[1]))
         lin_pos_ee_ref[:data['lin_pos_ee_ref'].shape[0], :] = data['lin_pos_ee_ref']
@@ -152,7 +148,7 @@ for n_seed in range(N_SEEDS):
         data = sd.extract_data(frame_of_interest='contact')
         # Compute absolute tracking errors |mea - ref|
         Np = data['N_plan'] ; Ns = data['N_simu']
-        N_START = int(data['T_CONTACT']*data['simu_freq'])
+        N_START = int(data['T_CIRCLE']*data['simu_freq'])
         # Duplicate last element
         lin_pos_ee_ref = np.zeros((data['lin_pos_ee_ref'].shape[0]+1, data['lin_pos_ee_ref'].shape[1]))
         lin_pos_ee_ref[:data['lin_pos_ee_ref'].shape[0], :] = data['lin_pos_ee_ref']
@@ -312,9 +308,9 @@ fig2.legend(handles2, labels2, loc='upper right', prop={'size': 26})
 handles3, labels3 = ax3.get_legend_handles_labels()
 fig3.legend(handles3, labels3, loc='upper right', prop={'size': 26})
 # Save, show , clean
-fig1.savefig(PREFIX+'pos_err_test.png')
-fig2.savefig(PREFIX+'force_err_test.png')
-fig3.savefig(PREFIX+'contact_timings_test.png')
+fig1.savefig(PREFIX+'pos_err_test_T_CIRCLE.png')
+fig2.savefig(PREFIX+'force_err_test_T_CIRCLE.png')
+fig3.savefig(PREFIX+'contact_timings_test_T_CIRCLE.png')
 plt.show()
 plt.close('all')
 
