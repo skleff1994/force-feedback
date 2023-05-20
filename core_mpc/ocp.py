@@ -49,7 +49,8 @@ class OptimalControlProblemAbstract:
     assert(type(attribute)==str), "Attribute to be checked must be a string"
     if(not hasattr(self, attribute)):
       logger.error("The OCP config parameter : "+str(attribute)+ " has not been defined ! Please correct the yaml config file.")
-
+    return True
+  
   def check_config(self):
     self.check_attribute('dt')
     self.check_attribute('N_h')
@@ -640,99 +641,6 @@ class OptimalControlProblemAbstract:
 
 
 
-
-
-
-class Force6DConstraintModel(crocoddyl.ConstraintModelAbstract):
-    '''
-    6D Contact force constraint Fmin <= f <= Fmax
-    '''
-    def __init__(self, state, nu, fid, Fmin, Fmax, name, pinRefFrame):
-        # crocoddyl.ConstraintModelAbstract.__init__(self, state, 6, nu, Fmin, Fmax, name)
-        self.pin_robot = state.pinocchio
-        self.frame_id = fid
-        self.nc = 6
-        self.Cu = np.zeros((6, nu))
-        self.Cx = np.zeros((6, state.nx))
-
-    def calc(self, cdata, data, x, u=None): 
-        print("Lambda_c = ")
-        print(data.differential.pinocchio.lambda_c)
-        print("contact.f = ")
-        print(data.differential.multibody.contacts.contacts['contact'].f)
-        cdata.c = data.differential.pinocchio.lambda_c
-
-    def calcDiff(self, cdata, data, x, u=None):
-        print("Lambda_c = ")
-        print(data.differential.pinocchio.lambda_c)
-        print("contact.f = ")
-        print(data.differential.multibody.contacts.contacts['contact'].f)
-        cdata.Cx = data.differential.df_dx
-        cdata.Cu = data.differential.df_du
-
-
-class Force3DConstraintModel(crocoddyl.ConstraintModelAbstract):
-    '''
-    3D Contact force constraint Fmin <= f <= Fmax
-    '''
-    def __init__(self, state, nu, fid, Fmin, Fmax, name, pinRefFrame):
-        crocoddyl.ConstraintModelAbstract.__init__(self, state, 3, nu, Fmin, Fmax, name)
-
-    def calc(self, cdata, data, x, u=None): 
-        cdata.c = data.differential.pinocchio.lambda_c[:3]
-
-    def calcDiff(self, cdata, data, x, u=None):
-        cdata.Cx = data.differential.df_dx[:3]
-        cdata.Cu = data.differential.df_du[:3]
-
-
-class Force1DConstraintModel(crocoddyl.ConstraintModelAbstract):
-    '''
-    1D Contact force constraint Fmin <= f <= Fmax
-    '''
-    def __init__(self, state, nu, fid, Fmin, Fmax, name, pinRefFrame, mask):
-        crocoddyl.ConstraintModelAbstract.__init__(self, state, 1, nu, Fmin, Fmax, name)
-        if('x' in mask):
-          self.constrainedAxis = 0 #sobec.sobec_pywrap.Vector3MaskType.x
-        elif('y' in mask):
-          self.constrainedAxis = 1 #sobec.sobec_pywrap.Vector3MaskType.y
-        elif('z' in mask):
-          self.constrainedAxis = 2 #sobec.sobec_pywrap.Vector3MaskType.z
-        else: logger.error('Unknown 1D contact model. Please select 1D contactModelType in {1Dx, 1Dy, 1Dz} !')
-
-    def calc(self, cdata, data, x, u=None): 
-        cdata.c = data.differential.pinocchio.lambda_c
-
-    def calcDiff(self, cdata, data, x, u=None):
-        cdata.Cx = data.differential.df_dx[self.constrainedAxis]
-        cdata.Cu = data.differential.df_du[self.constrainedAxis]
-
-
-# class LocalCone(crocoddyl.ConstraintModelAbstract):
-#     def __init__(self, mu, nc, nx, nu):
-#         crocoddyl.ConstraintModelAbstract.__init__(self, nc, nx, nu)
-#         self.lmin = np.array([0.])
-#         self.lmax = np.array([np.inf])
-#         self.mu = mu
-#         self.dcone_df = np.zeros((1, 3))
-
-#         self.nc = nc 
-#         assert nc == 1 
-
-#     def calc(self, cdata, data, x, u=None): 
-#         F = data.differential.pinocchio.lambda_c[:3]
-#         cdata.c = - self.mu * F[2] - np.sqrt(F[0]**2 + F[1]**2)
-
-#     def calcDiff(self, cdata, data, x, u=None):
-#         F = data.differential.pinocchio.lambda_c[:3]
-#         Fx = data.differential.df_dx[:3]
-#         Fu = data.differential.df_du[:3]
-
-#         self.dcone_df[0, 0] = - F[0] / np.sqrt(F[0]**2 + F[1]**2)
-#         self.dcone_df[0, 1] = - F[1] / np.sqrt(F[0]**2 + F[1]**2)
-#         self.dcone_df[0, 2] = - self.mu
-#         cdata.Cx = self.dcone_df @ data.differential.df_dx[:3]
-#         cdata.Cu = self.dcone_df @ data.differential.df_du[:3]
 
 
 

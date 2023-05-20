@@ -20,6 +20,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 # USE_SOBEC_BINDINGS = True
 # if(USE_SOBEC_BINDINGS):
 from sobec import DAMSoftContact3DAugmentedFwdDynamics as DAMSoft3DAugmented
+from sobec import DAMSoftContact3DAugmentedFrictionFwdDynamics as DAMSoft3DAugmentedFriction
 from sobec import DAMSoftContact1DAugmentedFwdDynamics as DAMSoft1DAugmented
 from sobec import IAMSoftContactAugmented as IAMSoftAugmented
 # else:
@@ -78,14 +79,28 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
     for i in range(self.N_h):  
         # Create DAMContactDyn     
         if(softContactModel.nc == 3):
-          dam = DAMSoft3DAugmented(state, 
-                                  actuation, 
-                                  crocoddyl.CostModelSum(state, nu=actuation.nu),
-                                  softContactModel.frameId, 
-                                  softContactModel.Kp,
-                                  softContactModel.Kv,
-                                  softContactModel.oPc,
-                                  softContactModel.pinRefFrame )
+          if(self.check_attribute('mu')):
+            self.check_attribute('eps')
+            logger.warning("Simulate dynamic friction for lateral forces : mu="+str(self.mu)+", eps="+str(self.eps))
+            dam = DAMSoft3DAugmentedFriction(state, 
+                                    actuation, 
+                                    crocoddyl.CostModelSum(state, nu=actuation.nu),
+                                    softContactModel.frameId, 
+                                    softContactModel.Kp,
+                                    softContactModel.Kv,
+                                    softContactModel.oPc,
+                                    softContactModel.pinRefFrame )
+            dam.mu = self.mu
+            dam.eps = self.eps
+          else:
+            dam = DAMSoft3DAugmented(state, 
+                                    actuation, 
+                                    crocoddyl.CostModelSum(state, nu=actuation.nu),
+                                    softContactModel.frameId, 
+                                    softContactModel.Kp,
+                                    softContactModel.Kv,
+                                    softContactModel.oPc,
+                                    softContactModel.pinRefFrame )
         elif(softContactModel.nc == 1):
           dam = DAMSoft1DAugmented(state, 
                                   actuation, 
@@ -162,7 +177,9 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
   # Terminal DAM (Contact or FreeFwd)
     # Create terminal DAMContactDyn
     if(softContactModel.nc == 3):
-      dam_t = DAMSoft3DAugmented(state, 
+      if(self.check_attribute('mu')):
+        self.check_attribute('eps')
+        dam_t = DAMSoft3DAugmentedFriction(state, 
                                 actuation, 
                                 crocoddyl.CostModelSum(state, nu=actuation.nu),
                                 softContactModel.frameId, 
@@ -170,6 +187,17 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
                                 softContactModel.Kv,
                                 softContactModel.oPc,
                                 softContactModel.pinRefFrame )
+        dam_t.mu = self.mu
+        dam_t.eps = self.eps
+      else:
+        dam_t = DAMSoft3DAugmented(state, 
+                                  actuation, 
+                                  crocoddyl.CostModelSum(state, nu=actuation.nu),
+                                  softContactModel.frameId, 
+                                  softContactModel.Kp,
+                                  softContactModel.Kv,
+                                  softContactModel.oPc,
+                                  softContactModel.pinRefFrame )
     elif(softContactModel.nc == 1):
       dam_t = DAMSoft1DAugmented(state, 
                                 actuation, 
