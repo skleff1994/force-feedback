@@ -6,7 +6,7 @@
 simu_freq: 5000               # Simulation frequency in Hz
 ctrl_freq: 2000                # Control frequency
 plan_freq: 1000                # Planning frequency
-T_tot: 12.                           # Simu duration (s)n (s)
+T_tot: 10                           # Simu duration (s)
 # Simulation options
 DELAY_SIM: True                 # Add delay in reference torques (low-level)
 DELAY_OCP: True                 # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -22,10 +22,9 @@ INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 1000                  # Display sim status once very 'log_rate' sim cycles
-# WHICH_PLOTS: ['w', 'f', 'ee', 'y']   # Which plots to generate after the simulation
-WHICH_PLOTS: ['f', 'ee']   # Which plots to generate after the simulation
+WHICH_PLOTS: ['f', 'u']   # Which plots to generate after the simulation
 TILT_SURFACE: True              # Tilt contact surface 
-TILT_PITCH_LOCAL_DEG: 0.      # Tilt angle of the contact surface
+TILT_PITCH_LOCAL_DEG: 6.      # Tilt angle of the contact surface
 RICCATI: True 
 
 
@@ -33,7 +32,6 @@ T_REACH: 0.
 # T_TRACK: 1.
 T_CONTACT: 2.
 T_CIRCLE: 3.
-
 
 # General
 dt: 0.005                                          # OCP integration step 
@@ -51,12 +49,15 @@ frame_of_interest: 'contact'
 # SOFT CONTACT MODEL
 oPc_offset: [0., 0., -0.00]  # just table
 # oPc_offset: [0., 0., 0.015] # with wood piece
-Kp: [1000] 
-Kv: [100]
+Kp: [0., 0., 1000] 
+Kv: [0., 0., 100]
 pinRefFrame: 'LOCAL_WORLD_ALIGNED' 
-contactType: '1Dz'    
+contactType: '3D'    
 contactPosition: [0.6, 0., 0.1]  
 
+# Lateral model : dynamic friction
+mu: 0.5               # Dynamic friction coefficient
+eps: 1                  # Sharpness parameter for the tanh approximation of sign function
 
 # Cost function composition (a.k.a which terms will be actually used in the OCP)
 # to select from the list : 'stateReg', 'ctrlReg', 'ctrlRegGrav', 'stateLim', 'ctrlLim'
@@ -66,12 +67,12 @@ WHICH_COSTS: ['force', 'forceRateReg', 'translation', 'velocity', 'stateReg', 'c
 
 # Cost function weights and activations
  # 'force' : end-effector frame force (translation + rotation)
-frameForceWeight: [0.001] 
-frameForceWeightTerminal: [0.001] 
+frameForceWeight: [0., 0., 0.001] 
+frameForceWeightTerminal: [0., 0., 0.001] 
 frameForceRef: [0., 0., 50, 0., 0., 0.]    
 frameForceFrameName: 'contact'
 forceCostRefFrame: 'LOCAL_WORLD_ALIGNED'
-forceRateRegWeight: [0.0000001]
+forceRateRegWeight: [0., 0., 0.0000001]
 
 
 # 'stateReg' : state regularization  
@@ -128,8 +129,8 @@ armature:  [.0, .0, .0, .0, .0, .0]
   # Scaling of desired torque
 alpha_min: 0.9
 alpha_max: 1.1
-beta_min: 0.
-beta_max: 0.
+beta_min: -0.1
+beta_max: 0.1
   # White noise on desired torque and measured state
 var_u: [0.03, 0.03, 0.02, 0.02, 0.01, 0.01]
 var_q: 0.001 
@@ -139,7 +140,7 @@ var_aug: [0.01]
 delay_OCP_ms: 5    
 delay_sim_cycle: 1 
   # Static & viscous friction
-static_friction_max_torque: 1.
+static_friction_max_torque: 5.
 viscous_friction_slope: 0.5
   # Proportional-integral torque control gains
 Kp_low: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
