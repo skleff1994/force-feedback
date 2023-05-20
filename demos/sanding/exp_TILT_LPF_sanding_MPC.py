@@ -235,7 +235,7 @@ def main(robot_name):
             contact_placement        = pin_utils.rotate(contact_placement, rpy=TILT_RPY[n_exp])
             contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
             # Make the contact soft (e.g. tennis ball or sponge on the robot)
-            simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
+            simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.1)
             simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
             # Display target circle  trajectory (reference)
             nb_points = 20 
@@ -463,7 +463,7 @@ def main(robot_name):
             # # # # # # # # # # #
             # PLOT SIM RESULTS  #
             # # # # # # # # # # #
-            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset2_with_tracking' # '/tmp'
+            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset2_no_tracking' # '/tmp'
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

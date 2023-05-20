@@ -103,7 +103,7 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 if(k!=ddp.problem.T):
                     fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                     m[k].differential.costs.costs["force"].active = True
-                    m[k].differential.costs.costs["force"].weight = 1000
+                    m[k].differential.costs.costs["force"].weight = 100000
                     m[k].differential.costs.costs["force"].cost.residual.reference = fref
                     
     # Solve OCP 
@@ -158,7 +158,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
   contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
-  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.1)
+  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.)
   simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
 
 

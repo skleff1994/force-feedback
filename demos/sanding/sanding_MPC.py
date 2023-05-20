@@ -97,7 +97,7 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                     m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                    m[k].differential.costs.costs["translation"].weight = 50.
+                    m[k].differential.costs.costs["translation"].weight = 100.
                     m[k].differential.costs.costs["velocity"].active = False
                     # activate contact and force cost
                     m[k].differential.contacts.changeContactStatus("contact", True)

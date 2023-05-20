@@ -197,7 +197,7 @@ def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIW
     controlled_joints =  ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']
     qref = np.zeros(7)
     # Create PyBullet sim environment + initialize sumulator
-    env = BulletEnvWithGround(p.GUI, dt=dt)
+    env = BulletEnvWithGround(p.DIRECT, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
     base_placement = pin.XYZQUATToSE3(pos + list(orn_quat)) 
     robot_simulator = env.add_robot(IiwaReducedRobot(controlled_joints, qref, pos, orn_quat))
@@ -410,9 +410,8 @@ def set_lateral_friction(bodyId, coef, linkId=-1):
     linkId : linkId . Default : -1 (base link)
     coef   : friction coefficient in (0,1)
   '''
-  p.changeDynamics(bodyId, linkId, lateralFriction=coef) 
+  p.changeDynamics(bodyId, linkId, lateralFriction=coef, rollingFriction=0., spinningFriction=0.) 
   logger.info("Set friction of body n°"+str(bodyId)+" (link n°"+str(linkId)+") to "+str(coef)) 
-
 
 # Set contact stiffness coefficient to PyBullet body
 def set_contact_stiffness_and_damping(bodyId, Ks, Kd, linkId=-1):
