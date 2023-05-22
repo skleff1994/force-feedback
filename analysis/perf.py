@@ -34,7 +34,7 @@ prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DEL
 prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
 prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
 
-CUTOFF = 2. # in seconds
+CUTOFF = 3. # in seconds
 
 # tilt table of several angles around y-axis
 TILT_ANGLES_DEG = [6] #, 4, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
@@ -81,17 +81,9 @@ for n_seed in range(N_SEEDS):
         N_START_PLAN = int(CUTOFF*data['plan_freq'])
         Np = data['N_plan'] - N_START_PLAN
         Ns = data['N_simu'] - N_START_SIMU
-        # Truncate position traj ref 
-        data['lin_pos_ee_ref'] = data['lin_pos_ee_ref'][N_START_PLAN:]
-        # Duplicate last element
-        lin_pos_ee_ref = np.zeros((data['lin_pos_ee_ref'].shape[0]+1, data['lin_pos_ee_ref'].shape[1]))
-        lin_pos_ee_ref[:data['lin_pos_ee_ref'].shape[0], :] = data['lin_pos_ee_ref']
-        lin_pos_ee_ref[-1,:] = data['lin_pos_ee_ref'][-1,:]
         position_error = 0.
-        # Truncate position traj mea
-        data['lin_pos_ee_mea'] = data['lin_pos_ee_mea'][N_START_SIMU:]
-        for i in range( lin_pos_ee_ref.shape[0] ):
-            position_error += np.linalg.norm( data['lin_pos_ee_mea'][i,:2] - lin_pos_ee_ref[int(i*Np/Ns),:2])
+        for i in range( Ns ):
+            position_error += np.linalg.norm( data['lin_pos_ee_mea'][i+N_START_SIMU,:2] - data['lin_pos_ee_ref'][int(i*Np/Ns)+N_START_PLAN,:2])
         # Average absolute error 
         position_error_AVG_NORM_classical[n_seed, n_exp] = position_error / Ns 
         print("Ns = ", Ns)
@@ -122,17 +114,9 @@ for n_seed in range(N_SEEDS):
         N_START_PLAN = int(CUTOFF*data['plan_freq'])
         Np = data['N_plan'] - N_START_PLAN
         Ns = data['N_simu'] - N_START_SIMU
-        # Truncate position traj ref 
-        data['lin_pos_ee_ref'] = data['lin_pos_ee_ref'][N_START_PLAN:]
-        # Duplicate last element
-        lin_pos_ee_ref = np.zeros((data['lin_pos_ee_ref'].shape[0]+1, data['lin_pos_ee_ref'].shape[1]))
-        lin_pos_ee_ref[:data['lin_pos_ee_ref'].shape[0], :] = data['lin_pos_ee_ref']
-        lin_pos_ee_ref[-1,:] = data['lin_pos_ee_ref'][-1,:]
         position_error = 0.
-        # Truncate position traj mea
-        data['lin_pos_ee_mea'] = data['lin_pos_ee_mea'][N_START_SIMU:]
-        for i in range( lin_pos_ee_ref.shape[0] ):
-            position_error += np.linalg.norm( data['lin_pos_ee_mea'][i,:2] - lin_pos_ee_ref[int(i*Np/Ns),:2])
+        for i in range( Ns ):
+            position_error += np.linalg.norm( data['lin_pos_ee_mea'][i+N_START_SIMU,:2] - data['lin_pos_ee_ref'][int(i*Np/Ns)+N_START_PLAN,:2])
         # Average absolute error 
         position_error_AVG_NORM_lpf[n_seed, n_exp] = position_error / Ns 
         print("Ns = ", Ns)
@@ -163,17 +147,9 @@ for n_seed in range(N_SEEDS):
         N_START_PLAN = int(CUTOFF*data['plan_freq'])
         Np = data['N_plan'] - N_START_PLAN
         Ns = data['N_simu'] - N_START_SIMU
-        # Truncate position traj ref 
-        data['lin_pos_ee_ref'] = data['lin_pos_ee_ref'][N_START_PLAN:]
-        # Duplicate last element
-        lin_pos_ee_ref = np.zeros((data['lin_pos_ee_ref'].shape[0]+1, data['lin_pos_ee_ref'].shape[1]))
-        lin_pos_ee_ref[:data['lin_pos_ee_ref'].shape[0], :] = data['lin_pos_ee_ref']
-        lin_pos_ee_ref[-1,:] = data['lin_pos_ee_ref'][-1,:]
         position_error = 0.
-        # Truncate position traj mea
-        data['lin_pos_ee_mea'] = data['lin_pos_ee_mea'][N_START_SIMU:]
-        for i in range( lin_pos_ee_ref.shape[0] ):
-            position_error += np.linalg.norm( data['lin_pos_ee_mea'][i,:2] - lin_pos_ee_ref[int(i*Np/Ns),:2])
+        for i in range( Ns ):
+            position_error += np.linalg.norm( data['lin_pos_ee_mea'][i+N_START_SIMU,:2] - data['lin_pos_ee_ref'][int(i*Np/Ns)+N_START_PLAN,:2])
         # Average absolute error 
         position_error_AVG_NORM_soft[n_seed, n_exp] = position_error / Ns
         # Force tracking

@@ -61,7 +61,7 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["velocity"].active = True
-                m[k].differential.costs.costs["velocity"].weight = 0.1  
+                m[k].differential.costs.costs["velocity"].weight = 0.01  
     # Update OCP for contact phase
     if(TASK_PHASE == 3):
         # If node id is valid
@@ -91,7 +91,7 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 fref = np.array([target_force[k]])
                 m[k].differential.active_contact = True
                 m[k].differential.f_des = fref.copy()
-                m[k].differential.f_weight = np.array([0.06]) #force_weight
+                m[k].differential.f_weight = np.array([0.1]) #force_weight
                 m[k].differential.oPc = anchor_point
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
