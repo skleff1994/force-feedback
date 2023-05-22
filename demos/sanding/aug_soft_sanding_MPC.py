@@ -78,15 +78,12 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 m[k].differential.costs.costs["translation"].active = False
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].weight = 0.
-                # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([10., 10., 1., 1., 1., 1.])
     # Update OCP for circle phase
     if(TASK_PHASE == 4):
         # If node id is valid
         if(node_id_circle <= ddp.problem.T and node_id_circle >= 0):
             # Updates nodes between node_id and terminal node
             for k in range( node_id_circle, ddp.problem.T+1, 1 ):
-                # wf = min(0.0001*(k + 1. - node_id_circle) , force_weight)
-                # fref = np.array([0., 0.,  target_force[k]]) 
                 fref = np.array([target_force[k]])
                 m[k].differential.active_contact = True
                 m[k].differential.f_des = fref.copy()
