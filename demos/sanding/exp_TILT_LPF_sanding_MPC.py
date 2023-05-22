@@ -46,7 +46,6 @@ from lpf_mpc.ocp import OptimalControlProblemLPF, getJointAndStateIds
 import time
 import pinocchio as pin
 
-WARM_START_IK = True
 
 # tilt table of several angles around y-axis
 TILT_ANGLES_DEG = [6, 4, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
@@ -77,8 +76,7 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["velocity"].active = True
-                m[k].differential.costs.costs["velocity"].weight = 0.1
-                
+                m[k].differential.costs.costs["velocity"].weight = 0.1            
     # Update OCP for contact phase
     if(TASK_PHASE == 3):
         # If node id is valid
@@ -108,7 +106,7 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 m[k].differential.costs.costs["velocity"].active = False
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 100.
+                m[k].differential.costs.costs["translation"].weight = 150.
                 # activate contact and force cost
                 m[k].differential.contacts.changeContactStatus("contact", True)
                 if(k!=ddp.problem.T):
@@ -121,7 +119,7 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
     ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
     # Send solution to parent process + riccati gains
     t_child = time.time() - t
-    return ddp.us, ddp.xs, ddp.K, t_child    
+    return ddp.us, ddp.xs, ddp.K, t_child     
 
 
 def main(robot_name):
@@ -463,7 +461,7 @@ def main(robot_name):
             # # # # # # # # # # #
             # PLOT SIM RESULTS  #
             # # # # # # # # # # #
-            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset2_no_tracking' # '/tmp'
+            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset3_no_tracking' # '/tmp'
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

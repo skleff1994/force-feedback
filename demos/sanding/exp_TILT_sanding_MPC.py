@@ -5,23 +5,18 @@
 @license License BSD-3-Clause
 @copyright Copyright (c) 2021, New York University & LAAS-CNRS
 @date 2021-10-28
-@brief Closed-loop 'LPF torque feedback' MPC for sanding task
+@brief Closed-loop classical MPC for sanding task
 """
 
 '''
 The robot_simulator.pin_robot is tasked with exerting a constant normal force with its EE 
 while drawing a circle on the contact surface
 Trajectory optimization using Crocoddyl in closed-loop MPC 
-(feedback from stateLPF y=(q,v,tau), control w = unfiltered torque)
+(feedback from state x=(q,v), control u = tau)
 Using PyBullet simulator & GUI for rigid-body dynamics + visualization
 
-The goal of this script is to simulate MPC with torque feedback where
-the actuation dynamics is modeled as a low pass filter (LPF) in the optimization.
-  - The letter y denotes the augmented state of joint positions, velocities
-    and filtered torques while the letter 'w' denotes the unfiltered torque 
-    input to the actuation model. 
-  - We optimize (y*,w*) using Crocoddyl but we send tau* to the simulator (NOT w*)
-  - Simulator = custom actuation model (not LPF) + PyBullet RBD
+The goal of this script is to simulate MPC with state feedback, optionally
+imperfect actuation (bias, noise, delays) at higher frequency
 '''
 
 
@@ -47,7 +42,6 @@ from classical_mpc.data import MPCDataHandlerClassical
 import time
 import pinocchio as pin
 
-WARM_START_IK = True
 
 # tilt table of several angles around y-axis
 TILT_ANGLES_DEG = [6, 4, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
@@ -57,6 +51,7 @@ for angle in TILT_ANGLES_DEG:
 N_EXP = len(TILT_RPY)
 SEEDS = [1, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
+
 
 jRc = np.eye(3)
 jpc = np.array([0, 0., 0.12])
@@ -452,7 +447,7 @@ def main(robot_name):
             # # # # # # # # # # #
             # PLOT SIM RESULTS  #
             # # # # # # # # # # #
-            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset2_no_tracking' # '/tmp'
+            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset3_no_tracking' # '/tmp'
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

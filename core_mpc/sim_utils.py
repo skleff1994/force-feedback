@@ -100,7 +100,7 @@ def init_iiwa_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIWA_DEFAUL
     logger.info("Initializing KUKA iiwa in PyBullet simulator...")
     print("")
     # Create PyBullet sim environment + initialize sumulator
-    env = BulletEnvWithGround(p.GUI, dt=dt)
+    env = BulletEnvWithGround(p.DIRECT, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
     base_placement = pin.XYZQUATToSE3(pos + list(orn_quat))
     robot_simulator = env.add_robot(IiwaRobot(pos, orn_quat))

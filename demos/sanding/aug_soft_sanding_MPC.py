@@ -1,11 +1,11 @@
 """
 @package force_feedback
-@file demos/sanding/aug_soft_sanding_MPC.py
+@file aug_soft_sanding_MPC.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2021, New York University & LAAS-CNRS
 @date 2023-04-04
-@brief Closed-loop MPC for force task 
+@brief Closed-loop 'augmented soft contact' MPC for sanding task 
 """
 
 '''
@@ -96,7 +96,7 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 100.
+                m[k].differential.costs.costs["translation"].weight = 1000.
                 m[k].differential.costs.costs["velocity"].active = False
 
     problem_formulation_time = time.time()
@@ -306,7 +306,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # SIMULATE
   sim_data.tau_mea_SIMU[0,:] = ddp.us[0]
-
+  err_fz = 0
+  err_p = 0
+  count = 0
+  
   for i in range(sim_data.N_simu): 
       
       if(i%config['log_rate']==0 and config['LOG']): 
@@ -456,6 +459,15 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       fz_mea_SIMU = np.array([f_mea_SIMU[2]])
       if(i%1000==0): 
         logger.info("f_mea  = "+str(f_mea_SIMU))
+        
+      # Compute force and position errors
+      if(i >= T_CIRCLE):
+        count+=1
+        f0 = target_force[0]
+        err_fz += np.linalg.norm(fz_mea_SIMU - f0)
+        p0 = target_position[0][:2] #ddp.problem.runningModels[0].differential.costs.costs['translation'].cost.residual.reference[:2]
+        err_p += np.linalg.norm(robot_simulator.pin_robot.data.oMf[id_endeff].translation[:2] - p0)
+        
       # Record data (unnoised)
       y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, fz_mea_SIMU]).T 
       # Simulate sensing 
@@ -474,22 +486,26 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   # PLOT SIM RESULTS  #
   # # # # # # # # # # #
+  logger.warning("Force error = "+str(err_fz/count))
+  logger.warning("Position error = "+str(err_p/count))
+  logger.warning("count = "+str(count))
+  
   save_dir = '/tmp'
   save_name = config_name+'_'+simulator+'_'+\
                           '_BIAS='+str(config['SCALE_TORQUES'])+\
                           '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
                           '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
                           '_Fp='+str(sim_data.plan_freq/1000)+'_Fc='+str(sim_data.ctrl_freq/1000)+'_Fs'+str(sim_data.simu_freq/1000)
-  # Extract plot data from sim data
-  plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
-  # Plot results
-  sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
-                                      PLOT_PREDICTIONS=True, 
-                                      pred_plot_sampling=int(sim_data.plan_freq/10),
-                                      SAVE=False,
-                                      SAVE_DIR=save_dir,
-                                      SAVE_NAME=save_name,
-                                      AUTOSCALE=False)
+  # # Extract plot data from sim data
+  # plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
+  # # Plot results
+  # sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
+  #                                     PLOT_PREDICTIONS=True, 
+  #                                     pred_plot_sampling=int(sim_data.plan_freq/10),
+  #                                     SAVE=False,
+  #                                     SAVE_DIR=save_dir,
+  #                                     SAVE_NAME=save_name,
+  #                                     AUTOSCALE=False)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)

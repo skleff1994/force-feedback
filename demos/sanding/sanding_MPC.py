@@ -1,11 +1,11 @@
 """
 @package force_feedback
-@file contact_circle_MPC.py
+@file sanding_MPC.py
 @author Sebastien Kleff
 @license License BSD-3-Clause
 @copyright Copyright (c) 2021, New York University & LAAS-CNRS
 @date 2021-10-28
-@brief Closed-loop 'LPF torque feedback' MPC for sanding task
+@brief Closed-loop classical MPC for sanding task
 """
 
 '''
@@ -167,7 +167,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
   contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
-  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.1)
+  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
   simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
 
   # # # # # # # # # 
@@ -295,8 +295,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # SIMULATE
   sim_data.tau_mea_SIMU[0,:] = ddp.us[0]
-  x_filtered = x0
-
+  # x_filtered = x0
+  err_fz = 0
+  err_p = 0
+  count=0
+  
   for i in range(sim_data.N_simu): 
 
       if(i%config['log_rate']==0 and config['LOG']): 
@@ -407,7 +410,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           # Increment planning counter
           nb_plan += 1
           # torqueController.reset_integral_error()
-
+          # count_pos=0
 
       # # # # # # # # # #
       # # Send policy # #
@@ -443,6 +446,18 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       fz_mea_SIMU = np.array([f_mea_SIMU[2]])
       if(i%1000==0): 
         logger.info("f_mea  = "+str(f_mea_SIMU))
+
+      # Compute force and position errors
+      if(i >= T_CIRCLE):
+        count+=1
+        f0 = target_force[0] #ddp.problem.runningModels[0].differential.costs.costs['force'].cost.residual.reference.vector[2]
+        err_fz += np.linalg.norm(fz_mea_SIMU - f0)
+        p0 = target_position[0][:2] #ddp.problem.runningModels[0].differential.costs.costs['translation'].cost.residual.reference[:2]
+        # p1 = ddp.problem.runningModels[1].differential.costs.costs['translation'].cost.residual.reference[:2]
+        # ptar = p0 + sim_data.plan_freq/sim_data.simu_freq*count_pos*(p1 - p0)
+        # count_pos+=1
+        err_p += np.linalg.norm(robot_simulator.pin_robot.data.oMf[id_endeff].translation[:2] - p0)
+        
       # Record data (unnoised)
       x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
       # Simulate sensing 
@@ -460,6 +475,10 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # # # # # # # # # # #
   # PLOT SIM RESULTS  #
   # # # # # # # # # # #
+  logger.warning("Force error = "+str(err_fz/count))
+  logger.warning("Position error = "+str(err_p/count))
+  logger.warning("count = "+str(count))
+
   save_dir = '/tmp'
   save_name = config_name+'_bullet_'+\
                           '_BIAS='+str(config['SCALE_TORQUES'])+\
@@ -467,16 +486,16 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                           '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
                           '_Fp='+str(sim_data.plan_freq/1000)+'_Fc='+str(sim_data.ctrl_freq/1000)+'_Fs'+str(sim_data.simu_freq/1000)
 
-  # Extract plot data from sim data
-  plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
-  # Plot results
-  sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
-                                      PLOT_PREDICTIONS=True, 
-                                      pred_plot_sampling=int(sim_data.plan_freq/10),
-                                      SAVE=False,
-                                      SAVE_DIR=save_dir,
-                                      SAVE_NAME=save_name,
-                                      AUTOSCALE=False)
+  # # Extract plot data from sim data
+  # plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
+  # # Plot results
+  # sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
+  #                                     PLOT_PREDICTIONS=True, 
+  #                                     pred_plot_sampling=int(sim_data.plan_freq/10),
+  #                                     SAVE=False,
+  #                                     SAVE_DIR=save_dir,
+  #                                     SAVE_NAME=save_name,
+  #                                     AUTOSCALE=False)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)

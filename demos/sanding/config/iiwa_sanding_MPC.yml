@@ -24,7 +24,7 @@ log_rate: 1000                  # Display sim status once very 'log_rate' sim cy
 # WHICH_PLOTS: ['w', 'f', 'ee', 'y']   # Which plots to generate after the simulation
 WHICH_PLOTS: ['f', 'ee']   # Which plots to generate after the simulation
 TILT_SURFACE: True              # Tilt contact surface 
-TILT_PITCH_LOCAL_DEG: 0.      # Tilt angle of the contact surface
+TILT_PITCH_LOCAL_DEG: 6.      # Tilt angle of the contact surface
 RICCATI: True
 
 T_REACH: 0.

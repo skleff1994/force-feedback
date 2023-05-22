@@ -41,12 +41,10 @@ from soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented
 from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
 
 
-WARM_START_IK = True
 
 import time
 import pinocchio as pin
 
-WARM_START_IK = True
 RESET_ANCHOR_POINT = True
 
 # tilt table of several angles around y-axis
@@ -111,7 +109,7 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 100.
+                m[k].differential.costs.costs["translation"].weight = 1000.
                 m[k].differential.costs.costs["velocity"].active = False
 
     problem_formulation_time = time.time()
@@ -466,7 +464,7 @@ def main(robot_name):
             # # # # # # # # # # #
             # PLOT SIM RESULTS  #
             # # # # # # # # # # #
-            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset2_no_tracking' # '/tmp'
+            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset3_no_tracking' # '/tmp'
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

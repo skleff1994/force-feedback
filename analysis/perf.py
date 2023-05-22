@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 
 
 # PREFIX = '/home/skleff/force-feedback/data/soft_contact_article/dataset2/'
-PREFIX = '/home/skleff/Desktop/soft_contact_sim_exp/dataset2_no_tracking/'
+PREFIX = '/tmp/' #'/home/skleff/Desktop/soft_contact_sim_exp/dataset3_no_tracking/'
 # prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
 # prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
 # prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
@@ -34,22 +34,15 @@ prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DEL
 prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
 prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
 
-# # tilt table of several angles around y-axis
-# TILT_ANGLES_DEG = [10, 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
-# TILT_RPY = []
-# for angle in TILT_ANGLES_DEG:
-#     TILT_RPY.append([angle*np.pi/180, 0., 0.])
-# N_EXP = len(TILT_RPY)
-# SEEDS = [1, 2, 3, 4, 5]
-# N_SEEDS = len(SEEDS)
+CUTOFF = 2. # in seconds
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [6, 4, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
+TILT_ANGLES_DEG = [6] #, 4, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([angle*np.pi/180, 0., 0.])
 N_EXP = len(TILT_RPY)
-SEEDS = [1, 2, 3, 4, 5]
+SEEDS = [1] # 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
 
   
@@ -80,100 +73,127 @@ for n_seed in range(N_SEEDS):
 
         logger.debug("Experiment n°"+str(n_exp+1)+"/"+str(N_EXP))
         # Extract data classical
-        sd   = load_data(prefix_classical+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
+        # sd   = load_data(prefix_classical+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
+        sd   = load_data(prefix_classical+'.npz')
         data = sd.extract_data(frame_of_interest='contact')
         # Compute absolute tracking errors |mea - ref|
-        Np = data['N_plan'] ; Ns = data['N_simu']
-        N_START = int(data['T_CIRCLE']*data['simu_freq'])
+        N_START_SIMU = int(CUTOFF*data['simu_freq'])
+        N_START_PLAN = int(CUTOFF*data['plan_freq'])
+        Np = data['N_plan'] - N_START_PLAN
+        Ns = data['N_simu'] - N_START_SIMU
+        # Truncate position traj ref 
+        data['lin_pos_ee_ref'] = data['lin_pos_ee_ref'][N_START_PLAN:]
         # Duplicate last element
         lin_pos_ee_ref = np.zeros((data['lin_pos_ee_ref'].shape[0]+1, data['lin_pos_ee_ref'].shape[1]))
         lin_pos_ee_ref[:data['lin_pos_ee_ref'].shape[0], :] = data['lin_pos_ee_ref']
         lin_pos_ee_ref[-1,:] = data['lin_pos_ee_ref'][-1,:]
-        position_reference = analysis_utils.linear_interpolation(lin_pos_ee_ref, int(Ns/Np))
-        position_error = np.zeros( (position_reference.shape[0], 2) )
-        for i in range( position_reference.shape[0] ):
-            position_error[i,:] = np.abs( data['lin_pos_ee_mea'][i,:2] - position_reference[i,:2])
+        position_error = 0.
+        # Truncate position traj mea
+        data['lin_pos_ee_mea'] = data['lin_pos_ee_mea'][N_START_SIMU:]
+        for i in range( lin_pos_ee_ref.shape[0] ):
+            position_error += np.linalg.norm( data['lin_pos_ee_mea'][i,:2] - lin_pos_ee_ref[int(i*Np/Ns),:2])
         # Average absolute error 
-        position_error_AVG_NORM_classical[n_seed, n_exp] = np.linalg.norm( np.sum(position_error, axis=0) / Ns )
+        position_error_AVG_NORM_classical[n_seed, n_exp] = position_error / Ns 
+        print("Ns = ", Ns)
         # Force tracking
-        Np = data['N_plan'] ; Ns = data['N_simu']
         force_reference = data['frameForceRef'][2] 
-        force_error = np.zeros(data['f_ee_mea'].shape[0])
+        force_error = np.zeros(Ns)
         for i in range( Ns ):
-            force_error[i] = np.abs( data['f_ee_mea'][i,2] - force_reference)
+            force_error[i] = np.linalg.norm( data['f_ee_mea'][i+N_START_SIMU,2] - force_reference)
         # Maximum (peak) absolute error along x,y,z
-        force_error_MAX_classical[n_seed, n_exp]   = np.max(force_error[N_START:])
+        force_error_MAX_classical[n_seed, n_exp] = np.max(force_error)
         # Average absolute error 
-        force_error_AVG_classical[n_seed, n_exp] = np.sum(force_error[N_START:], axis=0) / Ns
+        force_error_AVG_classical[n_seed, n_exp] = np.sum(force_error, axis=0) / Ns
         # Is in contact
-        bool_contact = np.isclose(data['f_ee_mea'][N_START:,2], np.zeros(data['f_ee_mea'][N_START:,2].shape), rtol=1e-3)
+        bool_contact = np.isclose(data['f_ee_mea'][N_START_SIMU:,2], np.zeros(data['f_ee_mea'][N_START_SIMU:,2].shape), rtol=1e-3)
         cycles_not_in_contact_classical[n_seed, n_exp] = (100.*np.count_nonzero(bool_contact))/Ns
-        # print(cycles_not_in_contact_classical )
-       
-       
+        logger.warning("Classical MPC avg position error  = "+str(position_error_AVG_NORM_classical[n_seed, n_exp] ))
+        logger.warning("Classical MPC avg force error     = "+str(force_error_AVG_classical[n_seed, n_exp] ))
+        logger.warning("Classical MPC max force           = "+str(force_error_MAX_classical[n_seed, n_exp] ))
+        logger.warning("Classical MPC not-in-contact rate = "+str(cycles_not_in_contact_classical[n_seed, n_exp] ))
+
+
         # Extract LPF
-        sd   = load_data(prefix_lpf+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
+        # sd   = load_data(prefix_lpf+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
+        sd   = load_data(prefix_lpf+'.npz')
         data = sd.extract_data(frame_of_interest='contact')
         # Compute absolute tracking errors |mea - ref|
-        Np = data['N_plan'] ; Ns = data['N_simu']
-        N_START = int(data['T_CIRCLE']*data['simu_freq'])
+        N_START_SIMU = int(CUTOFF*data['simu_freq'])
+        N_START_PLAN = int(CUTOFF*data['plan_freq'])
+        Np = data['N_plan'] - N_START_PLAN
+        Ns = data['N_simu'] - N_START_SIMU
+        # Truncate position traj ref 
+        data['lin_pos_ee_ref'] = data['lin_pos_ee_ref'][N_START_PLAN:]
         # Duplicate last element
         lin_pos_ee_ref = np.zeros((data['lin_pos_ee_ref'].shape[0]+1, data['lin_pos_ee_ref'].shape[1]))
         lin_pos_ee_ref[:data['lin_pos_ee_ref'].shape[0], :] = data['lin_pos_ee_ref']
         lin_pos_ee_ref[-1,:] = data['lin_pos_ee_ref'][-1,:]
-        position_reference = analysis_utils.linear_interpolation(lin_pos_ee_ref, int(Ns/Np))
-        position_error = np.zeros( (position_reference.shape[0], 2) )
-        for i in range( position_reference.shape[0] ):
-            position_error[i,:] = np.abs( data['lin_pos_ee_mea'][i,:2] - position_reference[i,:2])
+        position_error = 0.
+        # Truncate position traj mea
+        data['lin_pos_ee_mea'] = data['lin_pos_ee_mea'][N_START_SIMU:]
+        for i in range( lin_pos_ee_ref.shape[0] ):
+            position_error += np.linalg.norm( data['lin_pos_ee_mea'][i,:2] - lin_pos_ee_ref[int(i*Np/Ns),:2])
         # Average absolute error 
-        position_error_AVG_NORM_lpf[n_seed, n_exp] = np.linalg.norm( np.sum(position_error, axis=0) / Ns )
+        position_error_AVG_NORM_lpf[n_seed, n_exp] = position_error / Ns 
+        print("Ns = ", Ns)
         # Force tracking
-        Np = data['N_plan'] ; Ns = data['N_simu']
         force_reference = data['frameForceRef'][2] 
-        force_error = np.zeros(data['f_ee_mea'].shape[0])
+        force_error = np.zeros(Ns)
         for i in range( Ns ):
-            force_error[i] = np.abs( data['f_ee_mea'][i,2] - force_reference)
+            force_error[i] = np.abs( data['f_ee_mea'][i+N_START_SIMU,2] - force_reference)
         # Maximum (peak) absolute error along x,y,z
-        force_error_MAX_lpf[n_seed, n_exp]   = np.max(force_error[N_START:])
+        force_error_MAX_lpf[n_seed, n_exp]   = np.max(force_error)
         # Average absolute error 
-        force_error_AVG_lpf[n_seed, n_exp] = np.sum(force_error[N_START:], axis=0) / Ns
+        force_error_AVG_lpf[n_seed, n_exp] = np.sum(force_error, axis=0) / Ns
         # Is in contact
-        bool_contact = np.isclose(data['f_ee_mea'][N_START:,2], np.zeros(data['f_ee_mea'][N_START:,2].shape), rtol=1e-3)
+        bool_contact = np.isclose(data['f_ee_mea'][N_START_SIMU:,2], np.zeros(data['f_ee_mea'][N_START_SIMU:,2].shape), rtol=1e-3)
         cycles_not_in_contact_lpf[n_seed, n_exp] = (100.*np.count_nonzero(bool_contact))/Ns
-        # print(cycles_not_in_contact_lpf)
-
-
+        logger.warning("LPF MPC avg position error  = "+str(position_error_AVG_NORM_lpf[n_seed, n_exp] ))
+        logger.warning("LPF MPC avg force error     = "+str(force_error_AVG_lpf[n_seed, n_exp] ))
+        logger.warning("LPF MPC max force           = "+str(force_error_MAX_lpf[n_seed, n_exp] ))
+        logger.warning("LPF MPC not-in-contact rate = "+str(cycles_not_in_contact_lpf[n_seed, n_exp] ))     
+        
+        # slfdibfd
         # Extract soft 
-        sd   = load_data(prefix_soft+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
+        # sd   = load_data(prefix_soft+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
+        sd   = load_data(prefix_soft+'.npz')
         data = sd.extract_data(frame_of_interest='contact')
         # Compute absolute tracking errors |mea - ref|
-        Np = data['N_plan'] ; Ns = data['N_simu']
-        N_START = int(data['T_CIRCLE']*data['simu_freq'])
+        N_START_SIMU = int(CUTOFF*data['simu_freq'])
+        N_START_PLAN = int(CUTOFF*data['plan_freq'])
+        Np = data['N_plan'] - N_START_PLAN
+        Ns = data['N_simu'] - N_START_SIMU
+        # Truncate position traj ref 
+        data['lin_pos_ee_ref'] = data['lin_pos_ee_ref'][N_START_PLAN:]
         # Duplicate last element
         lin_pos_ee_ref = np.zeros((data['lin_pos_ee_ref'].shape[0]+1, data['lin_pos_ee_ref'].shape[1]))
         lin_pos_ee_ref[:data['lin_pos_ee_ref'].shape[0], :] = data['lin_pos_ee_ref']
         lin_pos_ee_ref[-1,:] = data['lin_pos_ee_ref'][-1,:]
-        position_reference = analysis_utils.linear_interpolation(lin_pos_ee_ref, int(Ns/Np))
-        position_error = np.zeros( (position_reference.shape[0], 2) )
-        for i in range( position_reference.shape[0] ):
-            position_error[i,:] = np.abs( data['lin_pos_ee_mea'][i,:2] - position_reference[i,:2])
+        position_error = 0.
+        # Truncate position traj mea
+        data['lin_pos_ee_mea'] = data['lin_pos_ee_mea'][N_START_SIMU:]
+        for i in range( lin_pos_ee_ref.shape[0] ):
+            position_error += np.linalg.norm( data['lin_pos_ee_mea'][i,:2] - lin_pos_ee_ref[int(i*Np/Ns),:2])
         # Average absolute error 
-        position_error_AVG_NORM_soft[n_seed, n_exp] = np.linalg.norm( np.sum(position_error, axis=0) / Ns )
+        position_error_AVG_NORM_soft[n_seed, n_exp] = position_error / Ns
         # Force tracking
-        Np = data['N_plan'] ; Ns = data['N_simu']
         force_reference = data['frameForceRef'][2] 
-        force_error = np.zeros(data['f_ee_mea'].shape[0])
+        force_error = np.zeros( Ns )
         for i in range( Ns ):
-            force_error[i] = np.abs( data['f_ee_mea'][i] - force_reference)
+            force_error[i] = np.linalg.norm( data['f_ee_mea'][i+N_START_SIMU] - force_reference)
         # Maximum (peak) absolute error along x,y,z
-        force_error_MAX_soft[n_seed, n_exp]   = np.max(force_error[N_START:])
+        force_error_MAX_soft[n_seed, n_exp]   = np.max(force_error)
         # Average absolute error 
-        force_error_AVG_soft[n_seed, n_exp] = np.sum(force_error[N_START:], axis=0) / Ns
+        force_error_AVG_soft[n_seed, n_exp] = np.sum(force_error, axis=0) / Ns
         # Is in contact
-        bool_contact = np.isclose(data['f_ee_mea'][N_START:], np.zeros(data['f_ee_mea'][N_START:].shape), rtol=1e-3)
+        bool_contact = np.isclose(data['f_ee_mea'][N_START_SIMU:], np.zeros(data['f_ee_mea'][N_START_SIMU:].shape), rtol=1e-3)
         cycles_not_in_contact_soft[n_seed, n_exp] = (100.*np.count_nonzero(bool_contact))/Ns
         # print(cycles_not_in_contact_soft)
-
+        logger.warning("Soft MPC avg position error  = "+str(position_error_AVG_NORM_soft[n_seed, n_exp] ))
+        logger.warning("Soft MPC avg force error     = "+str(force_error_AVG_soft[n_seed, n_exp] ))
+        logger.warning("Soft MPC max force           = "+str(force_error_MAX_soft[n_seed, n_exp] ))
+        logger.warning("Soft MPC not-in-contact rate = "+str(cycles_not_in_contact_soft[n_seed, n_exp] ))    
+        
         # #  Plot position reference and errors
         # fig, ax = plt.subplots(2, 1, figsize=(19.2,10.8)) 
         # tspan = np.linspace(0, data['T_tot'], position_reference.shape[0])
@@ -308,9 +328,9 @@ fig2.legend(handles2, labels2, loc='upper right', prop={'size': 26})
 handles3, labels3 = ax3.get_legend_handles_labels()
 fig3.legend(handles3, labels3, loc='upper right', prop={'size': 26})
 # Save, show , clean
-fig1.savefig(PREFIX+'pos_err_test_T_CIRCLE.png')
-fig2.savefig(PREFIX+'force_err_test_T_CIRCLE.png')
-fig3.savefig(PREFIX+'contact_timings_test_T_CIRCLE.png')
+fig1.savefig(PREFIX+'pos_err_test_T_CONTACT.png')
+fig2.savefig(PREFIX+'force_err_test_T_CONTACT.png')
+fig3.savefig(PREFIX+'contact_timings_test_T_CONTACT.png')
 plt.show()
 plt.close('all')
 
