@@ -76,7 +76,7 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["velocity"].active = True
-                m[k].differential.costs.costs["velocity"].weight = 0.1            
+                m[k].differential.costs.costs["velocity"].weight = 0.01            
     # Update OCP for contact phase
     if(TASK_PHASE == 3):
         # If node id is valid
@@ -106,20 +106,20 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 m[k].differential.costs.costs["velocity"].active = False
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 150.
+                m[k].differential.costs.costs["translation"].weight = 150 #10000.
                 # activate contact and force cost
                 m[k].differential.contacts.changeContactStatus("contact", True)
                 if(k!=ddp.problem.T):
                     fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                     m[k].differential.costs.costs["force"].active = True
-                    m[k].differential.costs.costs["force"].weight = 1000
+                    m[k].differential.costs.costs["force"].weight = 1000 # 10000
                     m[k].differential.costs.costs["force"].cost.residual.reference = fref
                     
     # Solve OCP 
     ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
     # Send solution to parent process + riccati gains
     t_child = time.time() - t
-    return ddp.us, ddp.xs, ddp.K, t_child     
+    return ddp.us, ddp.xs, ddp.K, t_child   
 
 
 def main(robot_name):
@@ -291,7 +291,9 @@ def main(robot_name):
             # # # # # # # # # # # #
             ### SIMULATION LOOP ###
             # # # # # # # # # # # #
-
+            err_fz = 0
+            err_p = 0
+            count = 0
             # SIMULATE
             for i in range(sim_data.N_simu): 
                 
@@ -437,6 +439,15 @@ def main(robot_name):
                 fz_mea_SIMU = np.array([f_mea_SIMU[2]])
                 if(i%1000==0): 
                     logger.info("f_mea  = "+str(f_mea_SIMU))
+                    
+                # Compute force and position errors
+                if(i >= T_CIRCLE):
+                    count+=1
+                    f0 = target_force[0]
+                    err_fz += np.linalg.norm(fz_mea_SIMU - f0)
+                    p0 = target_position[0][:2] #ddp.problem.runningModels[0].differential.costs.costs['translation'].cost.residual.reference[:2]
+                    err_p += np.linalg.norm(robot_simulator.pin_robot.data.oMf[id_endeff].translation[:2] - p0)
+                
                 # Record data (unnoised)
                 y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, tau_mea_SIMU[lpfStateIds]]).T 
                 # Simulate sensing 
@@ -461,7 +472,11 @@ def main(robot_name):
             # # # # # # # # # # #
             # PLOT SIM RESULTS  #
             # # # # # # # # # # #
-            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset3_no_tracking' # '/tmp'
+            logger.warning("Force error = "+str(err_fz/count))
+            logger.warning("Position error = "+str(err_p/count))
+            logger.warning("count = "+str(count))
+            
+            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset3_with_tracking' # '/tmp'
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

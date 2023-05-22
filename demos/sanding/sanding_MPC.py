@@ -99,14 +99,14 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                     m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                    m[k].differential.costs.costs["translation"].weight = 150.
+                    m[k].differential.costs.costs["translation"].weight = 150. # 10000
                     m[k].differential.costs.costs["velocity"].active = False
                     # activate contact and force cost
                     m[k].differential.contacts.changeContactStatus("contact", True)
                     if(k < ddp.problem.T):
                         fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                         m[k].differential.costs.costs["force"].active = True
-                        m[k].differential.costs.costs["force"].weight = 1000
+                        m[k].differential.costs.costs["force"].weight = 1000 # 1000
                         m[k].differential.costs.costs["force"].cost.residual.reference = fref
         # get predicted force from rigid model (careful : expressed in LOCAL !!!)
         j_wrenchpred = ddp.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].f

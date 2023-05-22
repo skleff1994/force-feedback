@@ -25,11 +25,7 @@ import matplotlib.pyplot as plt
 
 
 
-# PREFIX = '/home/skleff/force-feedback/data/soft_contact_article/dataset2/'
 PREFIX = '/tmp/' #'/home/skleff/Desktop/soft_contact_sim_exp/dataset3_no_tracking/'
-# prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
-# prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
-# prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=1.0_Fs5.0'
 prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
 prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
 prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
@@ -42,7 +38,7 @@ TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([angle*np.pi/180, 0., 0.])
 N_EXP = len(TILT_RPY)
-SEEDS = [1] # 2, 3, 4, 5]
+SEEDS = [1] #, 2, 3, 4, 5]
 N_SEEDS = len(SEEDS)
 
   
@@ -304,9 +300,9 @@ fig2.legend(handles2, labels2, loc='upper right', prop={'size': 26})
 handles3, labels3 = ax3.get_legend_handles_labels()
 fig3.legend(handles3, labels3, loc='upper right', prop={'size': 26})
 # Save, show , clean
-fig1.savefig(PREFIX+'pos_err_test_T_CONTACT.png')
-fig2.savefig(PREFIX+'force_err_test_T_CONTACT.png')
-fig3.savefig(PREFIX+'contact_timings_test_T_CONTACT.png')
+fig1.savefig(PREFIX+'pos_err_test_'+str(CUTOFF)+'_new.png')
+fig2.savefig(PREFIX+'force_err_test_'+str(CUTOFF)+'_new.png')
+fig3.savefig(PREFIX+'contact_timings_test_'+str(CUTOFF)+'_new.png')
 plt.show()
 plt.close('all')
 

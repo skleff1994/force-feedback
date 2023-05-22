@@ -75,14 +75,14 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                     m[k].differential.costs.costs["velocity"].active = True
-                    m[k].differential.costs.costs["velocity"].weight = 0.06
+                    m[k].differential.costs.costs["velocity"].weight = 0.01
         # Update OCP for contact phase
         if(TASK_PHASE == 3):
             # If node id is valid
             if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
                 # Updates nodes between node_id and terminal node 
                 for k in range( node_id_contact, ddp.problem.T+1, 1 ):
-                    wf = min(1.*(k + 1. - node_id_contact) , force_weight)  
+                    # wf = min(1.*(k + 1. - node_id_contact) , force_weight)  
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                     m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
@@ -92,7 +92,9 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
                     if(k < ddp.problem.T):
                         fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                         m[k].differential.costs.costs["force"].active = True
-                        m[k].differential.costs.costs["force"].weight = wf
+                        # print(m[k].differential.costs.costs["force"].weight)
+                        # print(wf)
+                        # m[k].differential.costs.costs["force"].weight = wf
                         m[k].differential.costs.costs["force"].cost.residual.reference = fref
         # Update OCP for circle phase
         if(TASK_PHASE == 4):
@@ -103,14 +105,14 @@ def solveOCP(q, v, ddp, nb_iter, node_id_reach, target_reach, node_id_contact, n
                     m[k].differential.costs.costs["translation"].active = True
                     m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                     m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                    m[k].differential.costs.costs["translation"].weight = 100.
+                    m[k].differential.costs.costs["translation"].weight = 150. # 10000
                     m[k].differential.costs.costs["velocity"].active = False
                     # activate contact and force cost
                     m[k].differential.contacts.changeContactStatus("contact", True)
                     if(k < ddp.problem.T):
                         fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                         m[k].differential.costs.costs["force"].active = True
-                        m[k].differential.costs.costs["force"].weight = 1000
+                        m[k].differential.costs.costs["force"].weight = 1000 # 1000
                         m[k].differential.costs.costs["force"].cost.residual.reference = fref
         # get predicted force from rigid model (careful : expressed in LOCAL !!!)
         j_wrenchpred = ddp.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].f
@@ -282,7 +284,10 @@ def main(robot_name):
             # SIMULATE
             sim_data.tau_mea_SIMU[0,:] = ddp.us[0]
             x_filtered = x0
-
+            err_fz = 0
+            err_p = 0
+            count = 0
+            
             for i in range(sim_data.N_simu): 
 
                 if(i%config['log_rate']==0 and config['LOG']): 
@@ -421,9 +426,18 @@ def main(robot_name):
                 q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
                 robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
                 f_mea_SIMU = robot_simulator.end_effector_forces(sim_data.PIN_REF_FRAME)[1][0]
-                # fz_mea_SIMU = np.array([f_mea_SIMU[2]])
+                fz_mea_SIMU = np.array([f_mea_SIMU[2]])
                 if(i%1000==0): 
                     logger.info("f_mea  = "+str(f_mea_SIMU))
+
+                # Compute force and position errors
+                if(i >= T_CIRCLE):
+                    count+=1
+                    f0 = target_force[0]
+                    err_fz += np.linalg.norm(fz_mea_SIMU - f0)
+                    p0 = target_position[0][:2] #ddp.problem.runningModels[0].differential.costs.costs['translation'].cost.residual.reference[:2]
+                    err_p += np.linalg.norm(robot_simulator.pin_robot.data.oMf[id_endeff].translation[:2] - p0)
+                
                 # Record data (unnoised)
                 x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
                 # Simulate sensing 
@@ -447,7 +461,10 @@ def main(robot_name):
             # # # # # # # # # # #
             # PLOT SIM RESULTS  #
             # # # # # # # # # # #
-            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset3_no_tracking' # '/tmp'
+            logger.warning("Force error = "+str(err_fz/count))
+            logger.warning("Position error = "+str(err_p/count))
+            logger.warning("count = "+str(count))
+            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset3_with_tracking' # '/tmp'
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

@@ -15,7 +15,7 @@ NOISE_TORQUES: False             # Add Gaussian noise on reference torques
 NOISE_STATE: True               # Add Gaussian noise on the measured state 
 STATIC_FRICTION: True           # Simulate static friction torque
 VISCOUS_FRICTION: True          # Simulate viscous friction torque
-TORQUE_TRACKING: False           # Low-level torque tracking with a PI controller
+TORQUE_TRACKING: True           # Low-level torque tracking with a PI controller
 SAVE_DATA: True                 # Save plot_data to npz
 RECORD_SOLVER_DATA: False       # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
 INIT_LOG: True                  # Initial logs summarizing parameters
@@ -37,7 +37,7 @@ T_CIRCLE: 3.
 
 # General 
 LPF_TYPE: 0
-f_c: 10                                             # Low-pass filter cut-off frequency (10Hz without PID, 5Hz with PID)
+f_c: 5                                             # Low-pass filter cut-off frequency (10Hz without PID, 5Hz with PID)
 tau_plus_integration: False
 dt: 0.003                                          # OCP integration step 
 N_h: 10                                            # Horizon length in nodes

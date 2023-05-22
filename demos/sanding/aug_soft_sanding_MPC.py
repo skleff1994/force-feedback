@@ -38,7 +38,6 @@ from soft_mpc.aug_data import DDPDataHandlerSoftContactAugmented, MPCDataHandler
 from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
 
 
-WARM_START_IK      = True
 RESET_ANCHOR_POINT = True
 
 import time
@@ -91,12 +90,12 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 fref = np.array([target_force[k]])
                 m[k].differential.active_contact = True
                 m[k].differential.f_des = fref.copy()
-                m[k].differential.f_weight = np.array([0.1]) #force_weight
+                m[k].differential.f_weight = np.array([0.1]) # 0.5 ok
                 m[k].differential.oPc = anchor_point
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 1000.
+                m[k].differential.costs.costs["translation"].weight = 2000. #100000 ok
                 m[k].differential.costs.costs["velocity"].active = False
 
     problem_formulation_time = time.time()
