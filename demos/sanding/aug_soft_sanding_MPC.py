@@ -28,7 +28,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
-RANDOM_SEED = 1
+RANDOM_SEED = 654
 
 from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 from core_mpc import ocp as ocp_utils
@@ -73,11 +73,11 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 m[k].differential.active_contact = True
                 m[k].differential.f_des = fref.copy()
                 m[k].differential.f_weight = np.array([wf]) #force_weight
-                m[k].differential.f_rate_reg_weight = np.array([0.00001]) #force_weight
+                m[k].differential.f_rate_reg_weight = np.array([0.00000002]) #force_weight
                 m[k].differential.oPc = anchor_point
-                m[k].differential.costs.costs["translation"].active = False
+                # m[k].differential.costs.costs["translation"].active = False
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                m[k].differential.costs.costs["translation"].weight = 0.
+                m[k].differential.costs.costs["translation"].weight = 100.
     # Update OCP for circle phase
     if(TASK_PHASE == 4):
         # If node id is valid
@@ -87,12 +87,12 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 fref = np.array([target_force[k]])
                 m[k].differential.active_contact = True
                 m[k].differential.f_des = fref.copy()
-                m[k].differential.f_weight = np.array([0.1]) # 0.5 ok
+                m[k].differential.f_weight = np.array([0.001]) # 00008 0.5 ok
                 m[k].differential.oPc = anchor_point
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 2000. #100000 ok
+                m[k].differential.costs.costs["translation"].weight = 50. #100000 ok
                 m[k].differential.costs.costs["velocity"].active = False
 
     problem_formulation_time = time.time()
@@ -155,8 +155,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
   simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
-  simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
-
+  simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1e6, 1e3)
 
 
   # Contact model

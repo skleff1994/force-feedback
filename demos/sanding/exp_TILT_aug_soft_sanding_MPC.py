@@ -41,87 +41,19 @@ from soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented
 from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
 
 
-
-import time
-import pinocchio as pin
-
 RESET_ANCHOR_POINT = True
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [6, 4, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
+TILT_ANGLES_DEG = [6, 4, 2, 0, -2, -4, -6] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([angle*np.pi/180, 0., 0.])
 N_EXP = len(TILT_RPY)
-SEEDS = [1, 2, 3, 4, 5]
+SEEDS = [19, 71, 89, 83, 41, 73, 17, 47, 29, 7]
 N_SEEDS = len(SEEDS)
 
-def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force):
-    t = time.time()
-    x = np.concatenate([q, v, f])
-    ddp.problem.x0 = x
-    xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-    xs_init[0] = x
-    us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
-    # Get OCP nodes
-    m = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-    # Update OCP for reaching phase
-    if(TASK_PHASE == 1):
-        # If node id is valid
-        if(node_id_reach <= ddp.problem.T and node_id_reach >= 0):
-            # Updates nodes between node_id and terminal node 
-            for k in range( node_id_reach, ddp.problem.T+1, 1 ):
-                m[k].differential.costs.costs["translation"].active = True
-                m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                m[k].differential.costs.costs["velocity"].active = True
-                m[k].differential.costs.costs["velocity"].weight = 0.01  
-    # Update OCP for contact phase
-    if(TASK_PHASE == 3):
-        # If node id is valid
-        if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
-            # Updates nodes between node_id and terminal node
-            for k in range( node_id_contact, ddp.problem.T+1, 1 ):
-                # fref = np.array([0., 0., target_force[k]]) 
-                wf = min(0.0001*(k + 1. - node_id_contact) , force_weight)
-                fref = np.array([target_force[k]])
-                m[k].differential.active_contact = True
-                m[k].differential.f_des = fref.copy()
-                m[k].differential.f_weight = np.array([wf]) #force_weight
-                m[k].differential.f_rate_reg_weight = np.array([0.00001]) #force_weight
-                m[k].differential.oPc = anchor_point
-                m[k].differential.costs.costs["translation"].active = False
-                m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                m[k].differential.costs.costs["translation"].weight = 0.
-                # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([10., 10., 1., 1., 1., 1.])
-    # Update OCP for circle phase
-    if(TASK_PHASE == 4):
-        # If node id is valid
-        if(node_id_circle <= ddp.problem.T and node_id_circle >= 0):
-            # Updates nodes between node_id and terminal node
-            for k in range( node_id_circle, ddp.problem.T+1, 1 ):
-                # wf = min(0.0001*(k + 1. - node_id_circle) , force_weight)
-                # fref = np.array([0., 0.,  target_force[k]]) 
-                fref = np.array([target_force[k]])
-                m[k].differential.active_contact = True
-                m[k].differential.f_des = fref.copy()
-                m[k].differential.f_weight = np.array([0.1]) # 0.5 ok
-                m[k].differential.oPc = anchor_point
-                m[k].differential.costs.costs["translation"].active = True
-                m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 2000. #100000 ok
-                m[k].differential.costs.costs["velocity"].active = False
 
-    problem_formulation_time = time.time()
-    t_child_1 =  problem_formulation_time - t
-    # Solve OCP 
-    ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
-    # ddp.problem.calcDiff(ddp.xs, ddp.us)
-    # Send solution to parent process + riccati gains
-    solve_time = time.time()
-    ddp_iter = ddp.iter
-    t_child =  solve_time - problem_formulation_time
-    return ddp.us, ddp.xs, ddp.K, t_child, ddp_iter, t_child_1
+from aug_soft_sanding_MPC import solveOCP
 
 
 def main(robot_name):
@@ -238,8 +170,8 @@ def main(robot_name):
             contact_placement        = pin_utils.rotate(contact_placement, rpy=TILT_RPY[n_exp])
             contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
             # Make the contact soft (e.g. tennis ball or sponge on the robot)
-            simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.1)
-            simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
+            simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
+            simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1e6, 1e3)
             # Display target circle  trajectory (reference)
             nb_points = 20 
             ballsIdTarget = np.zeros(nb_points, dtype=int)
@@ -480,7 +412,7 @@ def main(robot_name):
             logger.warning("Position error = "+str(err_p/count))
             logger.warning("count = "+str(count))
             
-            save_dir = '/home/skleff/Desktop/soft_contact_sim_exp/dataset3_with_tracking' # '/tmp'
+            save_dir = '/home/skleff/force-feedback/data/soft_contact_article/dataset4_no_tracking' # '/tmp'
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

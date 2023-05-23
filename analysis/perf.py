@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 
 
 
-PREFIX = '/tmp/' #'/home/skleff/Desktop/soft_contact_sim_exp/dataset3_no_tracking/'
+PREFIX = '/home/skleff/force-feedback/data/soft_contact_article/dataset4_no_tracking/' #'/home/skleff/Desktop/soft_contact_sim_exp/dataset3_no_tracking/'
 prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
 prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
 prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
@@ -33,14 +33,13 @@ prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=T
 CUTOFF = 3. # in seconds
 
 # tilt table of several angles around y-axis
-TILT_ANGLES_DEG = [6] #, 4, 2, 0, -2, -4, -6] # 8, 6, 4, 2, 0, -2, -4, -6, -8, -10] 
+TILT_ANGLES_DEG = [6, 4, 2, 0, -2, -4, -6] 
 TILT_RPY = []
 for angle in TILT_ANGLES_DEG:
     TILT_RPY.append([angle*np.pi/180, 0., 0.])
 N_EXP = len(TILT_RPY)
-SEEDS = [1] #, 2, 3, 4, 5]
+SEEDS = [19, 71, 89, 83, 41, 73, 17, 47, 29, 7]
 N_SEEDS = len(SEEDS)
-
   
 position_error_AVG_NORM_classical = np.zeros((N_SEEDS, N_EXP))
 force_error_AVG_classical         = np.zeros((N_SEEDS, N_EXP))
@@ -59,7 +58,7 @@ cycles_not_in_contact_soft   = np.zeros((N_SEEDS, N_EXP))
 
 
 # Compute errors 
-FILTER  = 1
+FILTER  = 10
 
 for n_seed in range(N_SEEDS):
 
@@ -69,9 +68,13 @@ for n_seed in range(N_SEEDS):
 
         logger.debug("Experiment n°"+str(n_exp+1)+"/"+str(N_EXP))
         # Extract data classical
-        # sd   = load_data(prefix_classical+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
-        sd   = load_data(prefix_classical+'.npz')
+        sd   = load_data(prefix_classical+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
+        # sd   = load_data(prefix_classical+'.npz')
         data = sd.extract_data(frame_of_interest='contact')
+        # Smooth if necessary
+        if(FILTER > 0):
+            data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
+            data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
         # Compute absolute tracking errors |mea - ref|
         N_START_SIMU = int(CUTOFF*data['simu_freq'])
         N_START_PLAN = int(CUTOFF*data['plan_freq'])
@@ -102,9 +105,13 @@ for n_seed in range(N_SEEDS):
 
 
         # Extract LPF
-        # sd   = load_data(prefix_lpf+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
-        sd   = load_data(prefix_lpf+'.npz')
+        sd   = load_data(prefix_lpf+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
+        # sd   = load_data(prefix_lpf+'.npz')
         data = sd.extract_data(frame_of_interest='contact')
+        # Smooth if necessary
+        if(FILTER > 0):
+            data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
+            data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
         # Compute absolute tracking errors |mea - ref|
         N_START_SIMU = int(CUTOFF*data['simu_freq'])
         N_START_PLAN = int(CUTOFF*data['plan_freq'])
@@ -135,9 +142,13 @@ for n_seed in range(N_SEEDS):
         
         # slfdibfd
         # Extract soft 
-        # sd   = load_data(prefix_soft+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
-        sd   = load_data(prefix_soft+'.npz')
+        sd   = load_data(prefix_soft+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
+        # sd   = load_data(prefix_soft+'.npz')
         data = sd.extract_data(frame_of_interest='contact')
+        # Smooth if necessary
+        if(FILTER > 0):
+            data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
+            data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
         # Compute absolute tracking errors |mea - ref|
         N_START_SIMU = int(CUTOFF*data['simu_freq'])
         N_START_PLAN = int(CUTOFF*data['plan_freq'])
@@ -174,16 +185,6 @@ for n_seed in range(N_SEEDS):
         # # ax[1].plot(tspan, position_reference[:,1], label='ref_y')
         # ax[1].plot(tspan, position_error[:,1], label='error_y')
         # plt.show()
-        
-        # # Smooth if necessary
-        # if(FILTER > 0):
-        #     data['q_mea'] = analysis_utils.moving_average_filter(data['q_mea'].copy(), FILTER)
-        #     data['v_mea'] = analysis_utils.moving_average_filter(data['v_mea'].copy(), FILTER)
-        #     data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
-        #     data['ang_pos_ee_mea'] = analysis_utils.moving_average_filter(data['ang_pos_ee_mea'].copy(), FILTER)
-        #     data['lin_vel_ee_mea'] = analysis_utils.moving_average_filter(data['lin_vel_ee_mea'].copy(), FILTER)
-        #     data['ang_vel_ee_mea'] = analysis_utils.moving_average_filter(data['ang_vel_ee_mea'].copy(), FILTER)
-        #     data['f_ee_mea']   = analysis_utils.moving_average_filter(data['f_ee_mea'].copy(), FILTER) 
 
 
 # Plot 
@@ -225,7 +226,7 @@ cycles_not_in_contact  = [cycles_not_in_contact_classical, cycles_not_in_contact
 
 for i in range(3):
     # Plot average lines
-    if(n_seed == 0 and n_exp ==0):
+    if(n_seed == N_SEEDS-1 and n_exp == N_EXP-1):
         lab = labels[i]
     else:
         lab = None

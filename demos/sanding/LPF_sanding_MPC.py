@@ -34,7 +34,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
-RANDOM_SEED = 1
+RANDOM_SEED = 3
 
 from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 from core_mpc import ocp as ocp_utils
@@ -97,7 +97,7 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 m[k].differential.costs.costs["velocity"].active = False
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 150 #10000.
+                m[k].differential.costs.costs["translation"].weight = 10 #10000.
                 # activate contact and force cost
                 m[k].differential.contacts.changeContactStatus("contact", True)
                 if(k!=ddp.problem.T):
@@ -159,7 +159,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
   simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
-  simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1000000, 2000)
+  simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1e6, 1e3)
 
 
   # # # # # # # # # 
