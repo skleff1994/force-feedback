@@ -22,9 +22,9 @@ init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 1000                  # Display sim status once very 'log_rate' sim cycles
 # WHICH_PLOTS: ['w', 'f', 'ee', 'y']   # Which plots to generate after the simulation
-WHICH_PLOTS: ['f', 'ee']   # Which plots to generate after the simulation
+WHICH_PLOTS: ['f']   # Which plots to generate after the simulation
 TILT_SURFACE: True              # Tilt contact surface 
-TILT_PITCH_LOCAL_DEG: 6.      # Tilt angle of the contact surface
+TILT_PITCH_LOCAL_DEG: 0.      # Tilt angle of the contact surface
 RICCATI: True
 
 T_REACH: 0.
@@ -90,12 +90,12 @@ stateRegRef: 'DEFAULT'
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
 ctrlRegWeights: [1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.00001
-ctrlRegWeightTerminal: 0.00001
+ctrlRegWeight: 0.00002
+ctrlRegWeightTerminal: 0.00002
 ctrlRegRef: 'DEFAULT'  # default 0 if None
 
 # 'wReg' : unfiltered torque regularization
-wRegWeight: 0.0000000
+wRegWeight: 0.0000001
 wRegRef: 'zero'
 
 # 'wLim' : unfiltered torque limit

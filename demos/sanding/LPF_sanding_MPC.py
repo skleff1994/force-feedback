@@ -34,7 +34,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
-RANDOM_SEED = 3
+RANDOM_SEED = 89
 
 from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
 from core_mpc import ocp as ocp_utils
@@ -97,13 +97,13 @@ def solveOCP(q, v, tau, ddp, nb_iter, node_id_reach, target_reach, node_id_conta
                 m[k].differential.costs.costs["velocity"].active = False
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 10 #10000.
+                m[k].differential.costs.costs["translation"].weight = 10 #10.
                 # activate contact and force cost
                 m[k].differential.contacts.changeContactStatus("contact", True)
                 if(k!=ddp.problem.T):
                     fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                     m[k].differential.costs.costs["force"].active = True
-                    m[k].differential.costs.costs["force"].weight = 1000 # 10000
+                    m[k].differential.costs.costs["force"].weight = 0.001 # 1000
                     m[k].differential.costs.costs["force"].cost.residual.reference = fref
                     
     # Solve OCP 
@@ -476,16 +476,16 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                           '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
                           '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
                           '_Fp='+str(sim_data.plan_freq/1000)+'_Fc='+str(sim_data.ctrl_freq/1000)+'_Fs'+str(sim_data.simu_freq/1000)
-  # #  Extract plot data from sim data
-  # plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
-  # #  Plot results
-  # sim_data.plot_mpc_results(plot_data, which_plots=config['WHICH_PLOTS'],
-  #                                 PLOT_PREDICTIONS=True, 
-  #                                 pred_plot_sampling=int(sim_data.plan_freq/10),
-  #                                 SAVE=False,
-  #                                 SAVE_DIR=save_dir,
-  #                                 SAVE_NAME=save_name,
-  #                                 AUTOSCALE=False)
+  #  Extract plot data from sim data
+  plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
+  #  Plot results
+  sim_data.plot_mpc_results(plot_data, which_plots=config['WHICH_PLOTS'],
+                                  PLOT_PREDICTIONS=True, 
+                                  pred_plot_sampling=int(sim_data.plan_freq/10),
+                                  SAVE=False,
+                                  SAVE_DIR=save_dir,
+                                  SAVE_NAME=save_name,
+                                  AUTOSCALE=False)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)

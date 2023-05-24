@@ -58,7 +58,7 @@ cycles_not_in_contact_soft   = np.zeros((N_SEEDS, N_EXP))
 
 
 # Compute errors 
-FILTER  = 10
+FILTER  = 20
 
 for n_seed in range(N_SEEDS):
 
