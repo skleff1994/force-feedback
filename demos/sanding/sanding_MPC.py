@@ -487,16 +487,16 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                           '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
                           '_Fp='+str(sim_data.plan_freq/1000)+'_Fc='+str(sim_data.ctrl_freq/1000)+'_Fs'+str(sim_data.simu_freq/1000)
 
-  # # Extract plot data from sim data
-  # plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
-  # # Plot results
-  # sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
-  #                                     PLOT_PREDICTIONS=True, 
-  #                                     pred_plot_sampling=int(sim_data.plan_freq/10),
-  #                                     SAVE=False,
-  #                                     SAVE_DIR=save_dir,
-  #                                     SAVE_NAME=save_name,
-  #                                     AUTOSCALE=False)
+  # Extract plot data from sim data
+  plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
+  # Plot results
+  sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
+                                      PLOT_PREDICTIONS=True, 
+                                      pred_plot_sampling=int(sim_data.plan_freq/10),
+                                      SAVE=False,
+                                      SAVE_DIR=save_dir,
+                                      SAVE_NAME=save_name,
+                                      AUTOSCALE=False)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)

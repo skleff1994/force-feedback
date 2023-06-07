@@ -42,6 +42,92 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
     '''
     super().check_config()
 
+  def init_running_cost_model(self, state, actuation, runningModel):
+    '''
+    Populate running cost model
+    '''
+  # Create and add cost function terms to current IAM
+    # State regularization 
+    if('stateReg' in self.WHICH_COSTS):
+      xRegCost = self.create_state_reg_cost(state, actuation)
+      runningModel.differential.costs.addCost("stateReg", xRegCost, self.stateRegWeight)
+    # Control regularization
+    if('ctrlReg' in self.WHICH_COSTS):
+      uRegCost = self.create_ctrl_reg_cost(state)
+      runningModel.differential.costs.addCost("ctrlReg", uRegCost, self.ctrlRegWeight)
+    # Control regularization (gravity)
+    if('ctrlRegGrav' in self.WHICH_COSTS):
+      uRegGravCost = self.create_ctrl_reg_grav_cost(state)
+      runningModel.differential.costs.addCost("ctrlRegGrav", uRegGravCost, self.ctrlRegWeight)
+    # State limits penalization
+    if('stateLim' in self.WHICH_COSTS):
+      xLimitCost = self.create_state_limit_cost(state, actuation)
+      runningModel.differential.costs.addCost("stateLim", xLimitCost, self.stateLimWeight)
+    # Control limits penalization
+    if('ctrlLim' in self.WHICH_COSTS):
+      uLimitCost = self.create_ctrl_limit_cost(state)
+      runningModel.differential.costs.addCost("ctrlLim", uLimitCost, self.ctrlLimWeight)
+    # End-effector placement 
+    if('placement' in self.WHICH_COSTS):
+      framePlacementCost = self.create_frame_placement_cost(state, actuation)
+      runningModel.differential.costs.addCost("placement", framePlacementCost, self.framePlacementWeight)
+    # End-effector velocity
+    if('velocity' in self.WHICH_COSTS): 
+      frameVelocityCost = self.create_frame_velocity_cost(state, actuation)
+      runningModel.differential.costs.addCost("velocity", frameVelocityCost, self.frameVelocityWeight)
+    # Frame translation cost
+    if('translation' in self.WHICH_COSTS):
+      frameTranslationCost = self.create_frame_translation_cost(state, actuation)
+      runningModel.differential.costs.addCost("translation", frameTranslationCost, self.frameTranslationWeight)
+    # End-effector orientation 
+    if('rotation' in self.WHICH_COSTS):
+      frameRotationCost = self.create_frame_rotation_cost(state, actuation)
+      runningModel.differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeight)
+    # Frame force cost
+    if('force' in self.WHICH_COSTS):
+      frameForceCost = self.create_frame_force_cost(state, actuation)
+      runningModel.differential.costs.addCost("force", frameForceCost, self.frameForceWeight)
+    # Friction cone 
+    if('friction' in self.WHICH_COSTS):
+      frictionConeCost = self.create_friction_force_cost(state, actuation)
+      runningModel.differential.costs.addCost("friction", frictionConeCost, self.frictionConeWeight)
+    if('collision' in self.WHICH_COSTS):
+      collisionCost = self.create_collision_cost(state, actuation)
+      runningModel.differential.costs.addCost("collision", collisionCost, self.collisionCostWeight)
+
+  def init_terminal_cost_model(self, state, actuation, terminalModel):
+    ''' 
+    Populate terminal cost model
+    '''
+    # State regularization
+    if('stateReg' in self.WHICH_COSTS):
+      xRegCost = self.create_state_reg_cost(state, actuation)
+      terminalModel.differential.costs.addCost("stateReg", xRegCost, self.stateRegWeightTerminal*self.dt)
+    # State limits
+    if('stateLim' in self.WHICH_COSTS):
+      xLimitCost = self.create_state_limit_cost(state, actuation)
+      terminalModel.differential.costs.addCost("stateLim", xLimitCost, self.stateLimWeightTerminal*self.dt)
+    # EE placement
+    if('placement' in self.WHICH_COSTS):
+      framePlacementCost = self.create_frame_placement_cost(state, actuation)
+      terminalModel.differential.costs.addCost("placement", framePlacementCost, self.framePlacementWeightTerminal*self.dt)
+    # EE velocity
+    if('velocity' in self.WHICH_COSTS):
+      frameVelocityCost = self.create_frame_velocity_cost(state, actuation)
+      terminalModel.differential.costs.addCost("velocity", frameVelocityCost, self.frameVelocityWeightTerminal*self.dt)
+    # EE translation
+    if('translation' in self.WHICH_COSTS):
+      frameTranslationCost = self.create_frame_translation_cost(state, actuation)
+      terminalModel.differential.costs.addCost("translation", frameTranslationCost, self.frameTranslationWeightTerminal*self.dt)
+    # End-effector orientation 
+    if('rotation' in self.WHICH_COSTS):
+      frameRotationCost = self.create_frame_rotation_cost(state, actuation)
+      terminalModel.differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeightTerminal*self.dt)
+    # End-effector orientation 
+    if('collision' in self.WHICH_COSTS):
+      collisionCost = self.create_collision_cost(state, actuation)
+      terminalModel.differential.costs.addCost("collision", collisionCost, self.collisionCostWeightTerminal*self.dt)
+
   def initialize(self, x0, callbacks=False, USE_GNMS=False):
     '''
     Initializes OCP and FDDP solver from config parameters and initial state
@@ -106,53 +192,7 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
         runningModels.append(crocoddyl.IntegratedActionModelEuler(dam, stepTime=self.dt))
         
       # Create and add cost function terms to current IAM
-        # State regularization 
-        if('stateReg' in self.WHICH_COSTS):
-          xRegCost = self.create_state_reg_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("stateReg", xRegCost, self.stateRegWeight)
-        # Control regularization
-        if('ctrlReg' in self.WHICH_COSTS):
-          uRegCost = self.create_ctrl_reg_cost(state)
-          runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, self.ctrlRegWeight)
-        # Control regularization (gravity)
-        if('ctrlRegGrav' in self.WHICH_COSTS):
-          uRegGravCost = self.create_ctrl_reg_grav_cost(state)
-          runningModels[i].differential.costs.addCost("ctrlRegGrav", uRegGravCost, self.ctrlRegWeight)
-        # State limits penalization
-        if('stateLim' in self.WHICH_COSTS):
-          xLimitCost = self.create_state_limit_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("stateLim", xLimitCost, self.stateLimWeight)
-        # Control limits penalization
-        if('ctrlLim' in self.WHICH_COSTS):
-          uLimitCost = self.create_ctrl_limit_cost(state)
-          runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, self.ctrlLimWeight)
-        # End-effector placement 
-        if('placement' in self.WHICH_COSTS):
-          framePlacementCost = self.create_frame_placement_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("placement", framePlacementCost, self.framePlacementWeight)
-        # End-effector velocity
-        if('velocity' in self.WHICH_COSTS): 
-          frameVelocityCost = self.create_frame_velocity_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, self.frameVelocityWeight)
-        # Frame translation cost
-        if('translation' in self.WHICH_COSTS):
-          frameTranslationCost = self.create_frame_translation_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("translation", frameTranslationCost, self.frameTranslationWeight)
-        # End-effector orientation 
-        if('rotation' in self.WHICH_COSTS):
-          frameRotationCost = self.create_frame_rotation_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeight)
-        # Frame force cost
-        if('force' in self.WHICH_COSTS):
-          frameForceCost = self.create_frame_force_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("force", frameForceCost, self.frameForceWeight)
-        # Friction cone 
-        if('friction' in self.WHICH_COSTS):
-          frictionConeCost = self.create_friction_force_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("friction", frictionConeCost, self.frictionConeWeight)
-        if('collision' in self.WHICH_COSTS):
-          collisionCost = self.create_collision_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("collision", collisionCost, self.collisionCostWeight)
+        self.init_running_cost_model(state, actuation, runningModels[i])
 
       # Armature 
         # Add armature to current IAM
@@ -197,34 +237,8 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
     terminalModel = crocoddyl.IntegratedActionModelEuler( dam_t, stepTime=0. )
 
   # Create and add terminal cost models to terminal IAM
-    # State regularization
-    if('stateReg' in self.WHICH_COSTS):
-      xRegCost = self.create_state_reg_cost(state, actuation)
-      terminalModel.differential.costs.addCost("stateReg", xRegCost, self.stateRegWeightTerminal*self.dt)
-    # State limits
-    if('stateLim' in self.WHICH_COSTS):
-      xLimitCost = self.create_state_limit_cost(state, actuation)
-      terminalModel.differential.costs.addCost("stateLim", xLimitCost, self.stateLimWeightTerminal*self.dt)
-    # EE placement
-    if('placement' in self.WHICH_COSTS):
-      framePlacementCost = self.create_frame_placement_cost(state, actuation)
-      terminalModel.differential.costs.addCost("placement", framePlacementCost, self.framePlacementWeightTerminal*self.dt)
-    # EE velocity
-    if('velocity' in self.WHICH_COSTS):
-      frameVelocityCost = self.create_frame_velocity_cost(state, actuation)
-      terminalModel.differential.costs.addCost("velocity", frameVelocityCost, self.frameVelocityWeightTerminal*self.dt)
-    # EE translation
-    if('translation' in self.WHICH_COSTS):
-      frameTranslationCost = self.create_frame_translation_cost(state, actuation)
-      terminalModel.differential.costs.addCost("translation", frameTranslationCost, self.frameTranslationWeightTerminal*self.dt)
-    # End-effector orientation 
-    if('rotation' in self.WHICH_COSTS):
-      frameRotationCost = self.create_frame_rotation_cost(state, actuation)
-      terminalModel.differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeightTerminal*self.dt)
-    # End-effector orientation 
-    if('collision' in self.WHICH_COSTS):
-      collisionCost = self.create_collision_cost(state, actuation)
-      terminalModel.differential.costs.addCost("collision", collisionCost, self.collisionCostWeightTerminal*self.dt)
+    self.init_terminal_cost_model(state, actuation, terminalModel)
+
 
   # Add armature
     terminalModel.differential.armature = np.asarray(self.armature)   

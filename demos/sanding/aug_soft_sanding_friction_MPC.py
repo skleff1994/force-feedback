@@ -88,7 +88,7 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
                 fref = np.array([0., 0.,  target_force[k]]) 
                 m[k].differential.active_contact = True
                 m[k].differential.f_des = fref.copy()
-                m[k].differential.f_weight = np.array([0., 0., 0.005]) #force_weight
+                m[k].differential.f_weight = np.array([0., 0., 0.0005]) #force_weight
                 m[k].differential.oPc = anchor_point
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]

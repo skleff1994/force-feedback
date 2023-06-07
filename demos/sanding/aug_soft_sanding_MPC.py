@@ -42,69 +42,86 @@ RESET_ANCHOR_POINT = True
 
 import time
 
-def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force):
-    t = time.time()
-    x = np.concatenate([q, v, f])
-    ddp.problem.x0 = x
-    xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
-    xs_init[0] = x
-    us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
-    # Get OCP nodes
-    m = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
-    # Update OCP for reaching phase
-    if(TASK_PHASE == 1):
-        # If node id is valid
-        if(node_id_reach <= ddp.problem.T and node_id_reach >= 0):
-            # Updates nodes between node_id and terminal node 
-            for k in range( node_id_reach, ddp.problem.T+1, 1 ):
-                m[k].differential.costs.costs["translation"].active = True
-                m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                m[k].differential.costs.costs["velocity"].active = True
-                m[k].differential.costs.costs["velocity"].weight = 0.01  
-    # Update OCP for contact phase
-    if(TASK_PHASE == 3):
-        # If node id is valid
-        if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
-            # Updates nodes between node_id and terminal node
-            for k in range( node_id_contact, ddp.problem.T+1, 1 ):
-                # fref = np.array([0., 0., target_force[k]]) 
-                wf = min(0.0001*(k + 1. - node_id_contact) , force_weight)
-                fref = np.array([target_force[k]])
-                m[k].differential.active_contact = True
-                m[k].differential.f_des = fref.copy()
-                m[k].differential.f_weight = np.array([wf]) #force_weight
-                m[k].differential.f_rate_reg_weight = np.array([0.00000002]) #force_weight
-                m[k].differential.oPc = anchor_point
-                # m[k].differential.costs.costs["translation"].active = False
-                m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                m[k].differential.costs.costs["translation"].weight = 100.
-    # Update OCP for circle phase
-    if(TASK_PHASE == 4):
-        # If node id is valid
-        if(node_id_circle <= ddp.problem.T and node_id_circle >= 0):
-            # Updates nodes between node_id and terminal node
-            for k in range( node_id_circle, ddp.problem.T+1, 1 ):
-                fref = np.array([target_force[k]])
-                m[k].differential.active_contact = True
-                m[k].differential.f_des = fref.copy()
-                m[k].differential.f_weight = np.array([0.001]) # 00008 0.5 ok
-                m[k].differential.oPc = anchor_point
-                m[k].differential.costs.costs["translation"].active = True
-                m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
-                m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
-                m[k].differential.costs.costs["translation"].weight = 50. #100000 ok
-                m[k].differential.costs.costs["velocity"].active = False
-
-    problem_formulation_time = time.time()
-    t_child_1 =  problem_formulation_time - t
-    # Solve OCP 
-    ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
-    # ddp.problem.calcDiff(ddp.xs, ddp.us)
-    # Send solution to parent process + riccati gains
-    solve_time = time.time()
-    ddp_iter = ddp.iter
-    t_child =  solve_time - problem_formulation_time
-    return ddp.us, ddp.xs, ddp.K, t_child, ddp_iter, t_child_1
+def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force, target_joint5):
+        t = time.time()
+        # Nullify the (x,y) forces in WORLD to yield a 1D contact model
+        # f_ = f.copy()
+        # f_[0] = 0.  # 1Dz contact
+        # f_[1] = 0.  # 1Dz contact
+        # # Update initial state + warm-start
+        # x = np.concatenate([q, v, np.array([f_[2]])]) # 1Dz contact
+        x = np.concatenate([q, v, f])                # 3D contact
+        ddp.problem.x0 = x
+        xs_init = list(ddp.xs[1:]) + [ddp.xs[-1]]
+        xs_init[0] = x
+        us_init = list(ddp.us[1:]) + [ddp.us[-1]] 
+        # Get OCP nodes
+        m = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+        # Update OCP for reaching phase
+        if(TASK_PHASE == 1):
+            # If node id is valid
+            if(node_id_reach <= ddp.problem.T and node_id_reach >= 0):
+                # Updates nodes between node_id and terminal node 
+                for k in range( node_id_reach, ddp.problem.T+1, 1 ):
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+        # Update OCP for "increase weights" phase
+        if(TASK_PHASE == 2):
+            # If node id is valid
+            if(node_id_track <= ddp.problem.T and node_id_track >= 0):
+                # Updates nodes between node_id and terminal node 
+                for k in range( node_id_track, ddp.problem.T+1, 1 ):
+                    w = min(1.*(k + 1. - node_id_track) , 3.)
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    m[k].differential.costs.costs["translation"].weight = w
+        # Update OCP for contact phase
+        if(TASK_PHASE == 3):
+            # If node id is valid
+            if(node_id_contact <= ddp.problem.T and node_id_contact >= 0):
+                # Updates nodes between node_id and terminal node                
+                for k in range( node_id_contact, ddp.problem.T+1, 1 ):
+                    # fref = np.array([0., 0., target_force[k]])  # 3D contact
+                    fref = np.array([target_force[k]])        # 1Dz contact
+                    m[k].differential.active_contact = True
+                    m[k].differential.f_des = fref.copy()
+                    m[k].differential.f_weight = np.array([force_weight])
+                    m[k].differential.oPc = anchor_point
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    m[k].differential.costs.costs["translation"].weight = 5.
+                    # m[k].differential.costs.costs["velocity"].cost.activation.weights = np.array([10., 10., 1., 1., 1., 1.])
+        # Update OCP for circle phase
+        if(TASK_PHASE == 4):
+            # If node id is valid
+            if(node_id_circle <= ddp.problem.T and node_id_circle >= 0):
+                # Updates nodes between node_id and terminal node
+                for k in range( node_id_circle, ddp.problem.T+1, 1 ):
+                    # fref = np.array([0., 0.,  target_force[k]])  # 3D contact
+                    fref = np.array([target_force[k]])         # 1Dz contact
+                    m[k].differential.active_contact = True
+                    m[k].differential.f_des = fref.copy()
+                    m[k].differential.f_weight = np.array([force_weight])
+                    m[k].differential.oPc = anchor_point
+                    m[k].differential.costs.costs["translation"].active = True
+                    m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
+                    m[k].differential.costs.costs["translation"].cost.activation.weights = np.array([1., 1., 0.])
+                    m[k].differential.costs.costs["translation"].weight = 10. #4.
+                    # # Rotate joint 5
+                    # q0_new = np.array([0., 1.0471975511965976, 0., -1.1344640137963142, 0.2,  0.7853981633974483])
+                    # q0_new[4] = target_joint5[k]
+                    # x0_new = np.concatenate([q0_new, np.zeros(6)])
+                    # m[k].differential.costs.costs["stateReg"].cost.residual.reference = x0_new
+        problem_formulation_time = time.time()
+        t_child_1 =  problem_formulation_time - t
+        # Solve OCP 
+        ddp.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
+        # ddp.problem.calcDiff(ddp.xs, ddp.us)
+        # Send solution to parent process + riccati gains
+        solve_time = time.time()
+        ddp_iter = ddp.iter
+        t_child =  solve_time - problem_formulation_time
+        return ddp.us, ddp.xs, ddp.K, t_child, ddp_iter, t_child_1
 
 
 def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
@@ -154,7 +171,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
     contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
   contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
   # Make the contact soft (e.g. tennis ball or sponge on the robot)
-  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
+  simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.)
   simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1e6, 1e3)
 
 
@@ -218,6 +235,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   N_circle = 10000 # int((config['T_tot'] - config['T_CIRCLE'])/config['dt']) + config['N_h']
   target_position_traj = np.zeros( (N_total_pos, 3) )
   target_velocity_traj = np.zeros( (N_total_pos, 3) )
+  joint5_traj = np.zeros(N_total_pos)
   # absolute desired position
   oPc_offset = np.asarray(config['oPc_offset'])
   pdes = np.asarray(config['contactPosition']) + oPc_offset
@@ -227,12 +245,15 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   target_velocity_traj[0:N_circle, :] = [np.array([RADIUS * OMEGA * np.cos(i*config['dt']*OMEGA), 
                                                         RADIUS * OMEGA * np.sin(i*config['dt']*OMEGA),
                                                         0.]) for i in range(N_circle)]
+  joint5_traj[0:N_circle] = [q0[4] + 0.5 * np.sin(i*config['dt']*OMEGA) for i in range(N_circle)]
   target_position_traj[N_circle:, :] = target_position_traj[N_circle-1,:]
+  joint5_traj[N_circle:] = joint5_traj[N_circle-1]
   target_velocity_traj[N_circle:, :] = np.zeros(3)
   target_position = np.zeros((config['N_h']+1, 3)) 
   target_position[:,:] = pdes.copy()
   target_velocity = np.zeros((config['N_h']+1, 3)) 
   anchor_point = pdes.copy()
+  target_joint5 = np.zeros(config['N_h']+1) 
   # Warmstart and solve
   xs_init = [y0 for i in range(config['N_h']+1)]
   us_init = [u0 for i in range(config['N_h'])] #ddp.problem.quasiStatic(xs_init[:-1])
@@ -287,14 +308,14 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   TASK_PHASE      = 0
   NH_SIMU   = int(config['N_h']*sim_data.dt/sim_data.dt_simu)
   T_REACH   = int(config['T_REACH']/sim_data.dt_simu)
-  # T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
+  T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
   T_CONTACT = int(config['T_CONTACT']/sim_data.dt_simu)
   T_CIRCLE   = int(config['T_CIRCLE']/sim_data.dt_simu)
   OCP_TO_MPC_CYCLES = 1./(sim_data.dt_plan / config['dt'])
   OCP_TO_SIMU_CYCLES = 1./(sim_data.dt_simu / config['dt'])
   logger.debug("Size of MPC horizon in simu cycles     = "+str(NH_SIMU))
   logger.debug("Start of reaching phase in simu cycles = "+str(T_REACH))
-  # logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
+  logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
   logger.debug("Start of contact phase in simu cycles  = "+str(T_CONTACT))
   logger.debug("Start of circle phase in simu cycles   = "+str(T_CIRCLE))
   logger.debug("OCP to PLAN time ratio = "+str(OCP_TO_MPC_CYCLES))
@@ -316,7 +337,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
       # # Update OCP  #
       # # # # # # # # # 
       time_to_reach   = int(i - T_REACH)
-      # time_to_track   = int(i - T_TRACK)
+      time_to_track   = int(i - T_TRACK)
       time_to_contact = int(i - T_CONTACT)
       time_to_circle  = int(i - T_CIRCLE)
 
@@ -330,15 +351,15 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
               # Select IAM
               node_id_reach = config['N_h'] - int(time_to_reach/OCP_TO_SIMU_CYCLES)
 
-      # if(time_to_track == 0): 
-      #     logger.warning("Entering tracking phase")
-      # # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
-      # if(0 <= time_to_track and time_to_track <= NH_SIMU):
-      #     TASK_PHASE = 2
-      #     # If current time matches an OCP node 
-      #     if(time_to_track%OCP_TO_SIMU_CYCLES == 0):
-      #         # Select IAM
-      #         node_id_track = config['N_h'] - int(time_to_track/OCP_TO_SIMU_CYCLES)
+      if(time_to_track == 0): 
+          logger.warning("Entering tracking phase")
+      # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
+      if(0 <= time_to_track and time_to_track <= NH_SIMU):
+          TASK_PHASE = 2
+          # If current time matches an OCP node 
+          if(time_to_track%OCP_TO_SIMU_CYCLES == 0):
+              # Select IAM
+              node_id_track = config['N_h'] - int(time_to_track/OCP_TO_SIMU_CYCLES)
 
       if(time_to_contact == 0): 
           logger.warning("Entering contact phase ( RESET_ANCHOR = "+str(RESET_ANCHOR_POINT)+" )")
@@ -389,7 +410,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           # Record target signals                
           target_velocity[:,:2] = target_velocity_traj[ti:tf,:2] 
           target_velocity[:,2]  = 0.
-
+          target_joint5 = joint5_traj[ti:tf]
 
       # Solve OCP if we are in a planning cycle (MPC/planning frequency)
       if(i%int(sim_data.simu_freq/sim_data.plan_freq) == 0):
@@ -402,7 +423,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
           # Solve OCP 
           # bench.start_timer()
           # bench.start_croco_profiler()
-          solveOCP(q, v, f, ddp, config['maxiter'], node_id_reach, target_position, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
+          solveOCP(q, v, f, ddp, config['maxiter'], node_id_reach, target_position, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force, target_joint5)
           # bench.record_profiles()
           # bench.stop_timer(nb_iter=ddp.iter)
           # bench.stop_croco_profiler()
@@ -491,16 +512,16 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
                           '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
                           '_DELAY='+str(config['DELAY_OCP'] or config['DELAY_SIM'])+\
                           '_Fp='+str(sim_data.plan_freq/1000)+'_Fc='+str(sim_data.ctrl_freq/1000)+'_Fs'+str(sim_data.simu_freq/1000)
-  # # Extract plot data from sim data
-  # plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
-  # # Plot results
-  # sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
-  #                                     PLOT_PREDICTIONS=True, 
-  #                                     pred_plot_sampling=int(sim_data.plan_freq/10),
-  #                                     SAVE=False,
-  #                                     SAVE_DIR=save_dir,
-  #                                     SAVE_NAME=save_name,
-  #                                     AUTOSCALE=False)
+  # Extract plot data from sim data
+  plot_data = sim_data.extract_data(frame_of_interest=frame_of_interest)
+  # Plot results
+  sim_data.plot_mpc_results(plot_data, which_plots=sim_data.WHICH_PLOTS,
+                                      PLOT_PREDICTIONS=True, 
+                                      pred_plot_sampling=int(sim_data.plan_freq/10),
+                                      SAVE=False,
+                                      SAVE_DIR=save_dir,
+                                      SAVE_NAME=save_name,
+                                      AUTOSCALE=False)
   # Save optionally
   if(config['SAVE_DATA']):
     sim_data.save_data(sim_data, save_name=save_name, save_dir=save_dir)

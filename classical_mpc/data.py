@@ -365,10 +365,7 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
     '''
     self.state_mea_no_noise_SIMU[nb_simu+1, :] = x_mea_SIMU
     self.state_mea_SIMU[nb_simu+1, :]          = x_mea_no_noise_SIMU
-    if(self.PIN_REF_FRAME == pin.LOCAL):
-        self.force_mea_SIMU[nb_simu, :]            = -f_mea_SIMU
-    else:
-        self.force_mea_SIMU[nb_simu, :]            = f_mea_SIMU
+    self.force_mea_SIMU[nb_simu, :]            = f_mea_SIMU
     self.tau_mea_SIMU[nb_simu, :]              = tau_mea_SIMU
     if(nb_simu > 0):
         self.tau_mea_derivative_SIMU[nb_simu, :] = (tau_mea_SIMU - self.tau_mea_SIMU[nb_simu-1, :])/self.dt_simu
@@ -587,7 +584,6 @@ class MPCDataHandlerClassical(MPCDataHandlerAbstract):
       
       if(SHOW):
           plt.show() 
-      plt.close('all')
 
   def plot_mpc_state(self, plot_data, PLOT_PREDICTIONS=False, 
                             pred_plot_sampling=100, 
