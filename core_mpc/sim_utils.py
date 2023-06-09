@@ -1,5 +1,3 @@
-from cmath import log
-from os import link
 import numpy as np
 import pinocchio as pin
 
@@ -14,43 +12,16 @@ FOUND_ROB_PROP_TALOS_PKG      = importlib.util.find_spec("robot_properties_talos
 FOUND_BULLET_UTILS_PKG        = importlib.util.find_spec("bullet_utils")           is not None
 # FOUND_EXAMPLE_ROBOT_DATA_PKG  = importlib.util.find_spec("example_robot_data")     is not None
 
-if(FOUND_PYBULLET_PKG):
+if(FOUND_PYBULLET_PKG): 
     import pybullet as p
 else:
     logger.error('You need to install PyBullet ( https://pypi.org/project/pybullet/ )')
 
-if(FOUND_ROB_PROP_KUKA_PKG):
-    from robot_properties_kuka.iiwaWrapper import IiwaRobot as IiwaRobot
-    from robot_properties_kuka.iiwaReducedWrapper import IiwaReducedRobot as IiwaReducedRobot
-else:
-    logger.error('You need to install robot_properties_kuka ( https://github.com/machines-in-motion/robot_properties_kuka )')
-
-if(FOUND_ROB_PROP_TALOS_PKG):
-    try:
-        from robot_properties_talos.talosArmWrapper import TalosArmRobot
-    except:
-        logger.warning("no talos arm found.")
-    try:
-        from robot_properties_talos.talosReducedWrapper import TalosReducedRobot
-    except:
-        logger.warning("no reduced talos found.")
-    try:
-        from robot_properties_talos.talosFullWrapper import TalosFullRobot
-    except:
-        logger.warning("no full talos found.")
-else:
-    logger.error('You need to install robot_properties_talos ( https://github.com/machines-in-motion/robot_properties_talos )')
-
 if(FOUND_BULLET_UTILS_PKG):
     from bullet_utils.env import BulletEnvWithGround
-    from bullet_utils.wrapper import PinBulletWrapper
 else:
     logger.error('You need to install bullet_utils ( https://github.com/machines-in-motion/bullet_utils )')
 
-# if(FOUND_EXAMPLE_ROBOT_DATA_PKG):
-#     import example_robot_data
-# else:
-#     logger.error('You need to install example_robot_data !')
 
 # Global & default settings (change CAREFULLY)
 SUPPORTED_ROBOTS         = ['iiwa', 'iiwa_reduced', 'talos_arm', 'talos_reduced']
@@ -72,6 +43,10 @@ TALOS_REDUCED_DEFAULT_BASE_RPY = [0, 0, 0]
 def init_bullet_simulation(robot_name, dt=1e3, x0=None):
     '''
     Initialize a PyBullet simulation environment with robot SUPPORTED_ROBOTS
+      INPUT:
+        robot_name : robot name in SUPPORTED_ROBOTS (string)
+        dt         : simulator time step (double)
+        x0         : initial robot state (q0,v0) (vector nq+nv)
     '''
     if(robot_name not in SUPPORTED_ROBOTS):
         logger.error("Specified robot not supported ! Select a robot in "+str(SUPPORTED_ROBOTS))
@@ -92,13 +67,19 @@ def init_iiwa_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIWA_DEFAUL
     Loads KUKA LBR iiwa model in PyBullet simulator
     using the PinBullet wrapper to simplify interactions
       INPUT:
-        dt        : simulator time step
-        x0        : initial robot state (pos and vel)
+        dt      : simulator time step (double)
+        x0      : initial robot state (q0,v0) (vector nq+nv)
+        pos     : position of the kuka base in simulator WORLD frame (vector3)
+        orn     : orientation of the kuka base in simulator WORLD frame ()
     '''
-    # Info log
-    print("")
-    logger.info("Initializing KUKA iiwa in PyBullet simulator...")
-    print("")
+    if(FOUND_ROB_PROP_KUKA_PKG):
+        try: 
+            from robot_properties_kuka.iiwaWrapper import IiwaRobot as IiwaRobot
+        except:
+            logger.error("The IiwaRobot was not found.")
+    else:
+        logger.error('You need to install robot_properties_kuka ( https://github.com/machines-in-motion/robot_properties_kuka )')
+    logger.info("Initializing KUKA iiwa in PyBullet simulator...\n")
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.DIRECT, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
@@ -125,10 +106,15 @@ def init_talos_arm_bullet(dt=1e3, x0=None, pos=TALOS_ARM_DEFAULT_BASE_POS, orn=T
         dt        : simulator time step
         x0        : initial robot state (pos and vel)
     '''
+    if(FOUND_ROB_PROP_TALOS_PKG):
+        try:
+            from robot_properties_talos.talosArmWrapper import TalosArmRobot
+        except:
+            logger.error("The wrapper TalosArmRobot was not found.")
+    else:
+        logger.error('You need to install robot_properties_talos ( https://github.com/machines-in-motion/robot_properties_talos )')
     # Info log
-    print("")
-    logger.info("Initializing TALOS left arm in PyBullet simulator...")
-    print("")
+    logger.info("Initializing TALOS left arm in PyBullet simulator...\n")
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.GUI, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
@@ -155,10 +141,14 @@ def init_talos_reduced_bullet(dt=1e3, x0=None, pos=TALOS_REDUCED_DEFAULT_BASE_PO
         dt        : simulator time step
         x0        : initial robot state (pos and vel)
     '''
-    # Info log
-    print("")
-    logger.info("Initializing TALOS reduced model in PyBullet simulator...")
-    print("")
+    if(FOUND_ROB_PROP_TALOS_PKG):
+        try:
+            from robot_properties_talos.talosReducedWrapper import TalosReducedRobot
+        except:
+            logger.error("The wrapper TalosReducedRobot was not found.")
+    else:
+        logger.error('You need to install robot_properties_talos ( https://github.com/machines-in-motion/robot_properties_talos )')
+    logger.info("Initializing TALOS reduced model in PyBullet simulator...\n")
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.DIRECT, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
@@ -189,12 +179,16 @@ def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIW
         dt        : simulator time step
         x0        : initial robot state (pos and vel)
     '''
-    # Info log
-    print("")
-    logger.info("Initializing iiwa reduced in PyBullet simulator...")
-    print("")
-    # HARD CODED !!!
+    if(FOUND_ROB_PROP_KUKA_PKG):
+        try: 
+            from robot_properties_kuka.iiwaReducedWrapper import IiwaReducedRobot
+        except:
+            logger.error("The IiwaReducedRobot was not found.")
+    else:
+        logger.error('You need to install robot_properties_kuka ( https://github.com/machines-in-motion/robot_properties_kuka )')
+    logger.info("Initializing KUKA iiwa in PyBullet simulator...\n")
     controlled_joints =  ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']
+    logger.info("Reduced model with controlled joints = "+str(controlled_joints))
     qref = np.zeros(7)
     # Create PyBullet sim environment + initialize sumulator
     env = BulletEnvWithGround(p.GUI, dt=dt)
@@ -219,7 +213,7 @@ def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIW
 
 
 
-# Get contact wrench from robot simulator
+# PROTOTYPE  : angular part does not work for now
 def get_contact_wrench(pybullet_simulator, id_endeff, ref=pin.LOCAL):
     '''
     Get contact wrench in ref contact frame
