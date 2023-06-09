@@ -372,7 +372,7 @@ def main(robot_name):
                 # Measure new state + forces from simulation 
                 q_mea_SIMU, v_mea_SIMU = robot_simulator.get_state()
                 robot_simulator.forward_robot(q_mea_SIMU, v_mea_SIMU)
-                f_mea_SIMU = robot_simulator.end_effector_forces(softContactModel.pinRefFrame)[1][0]
+                f_mea_SIMU = robot_simulator.end_effector_forces()[1][0]
                 fz_mea_SIMU = np.array([f_mea_SIMU[2]])
                 if(i%1000==0): 
                     logger.info("f_mea  = "+str(f_mea_SIMU))
