@@ -49,8 +49,9 @@ class OptimalControlProblemAbstract:
     assert(type(attribute)==str), "Attribute to be checked must be a string"
     if(not hasattr(self, attribute)):
       logger.error("The OCP config parameter : "+str(attribute)+ " has not been defined ! Please correct the yaml config file.")
-    return True
-  
+      return False
+    else: return True 
+     
   def check_config(self):
     self.check_attribute('dt')
     self.check_attribute('N_h')

@@ -49,7 +49,8 @@ class DDPDataHandlerSoftContactAugmented(DDPDataHandlerClassical):
         fdes_lin = np.array([self.ddp.problem.runningModels[i].differential.f_des for i in range(ddp_data['T'])])
     else:
         fs_lin = np.zeros((ddp_data['T'],3))
-        fs_lin[:,self.softContactModel.mask] = np.array([self.softContactModel.computeForce_(ddp_data['pin_model'], xs[i,:nq], xs[i,nq:nq+nv]) for i in range(ddp_data['T'])])
+        fs_lin[:,self.softContactModel.mask] = [xs[i,-1] for i in range(ddp_data['T'])]
+        # fs_lin[:,self.softContactModel.mask] = np.array([self.softContactModel.computeForce_(ddp_data['pin_model'], xs[i,:nq], xs[i,nq:nq+nv]) for i in range(ddp_data['T'])])
         fdes_lin = np.zeros((ddp_data['T'],3))
         # fdes_lin[:,self.softContactModel.mask] = np.array([self.ddp.problem.runningModels[i].differential.f_des for i in range(ddp_data['T'])])
     fs_ang = np.zeros((ddp_data['T'], 3))
