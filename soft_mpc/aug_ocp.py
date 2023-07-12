@@ -264,7 +264,8 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
     problem = crocoddyl.ShootingProblem(y0, runningModels, terminalModel)
   
   # Creating the DDP solver 
-    ddp = crocoddyl.SolverFDDP(problem)
+    # ddp = crocoddyl.SolverFDDP(problem)
+    ddp = crocoddyl.SolverGNMS(problem)
   
   # Callbacks
     if(callbacks):

@@ -299,7 +299,8 @@ class OptimalControlProblemLPF(ocp.OptimalControlProblemAbstract):
     problem = crocoddyl.ShootingProblem(y0, runningModels, terminalModel)
   
   # Creating the DDP solver 
-    ddp = crocoddyl.SolverFDDP(problem)
+    # ddp = crocoddyl.SolverFDDP(problem)
+    ddp = crocoddyl.SolverGNMS(problem)
     if(callbacks):
       ddp.setCallbacks([crocoddyl.CallbackLogger(),
                         crocoddyl.CallbackVerbose()])

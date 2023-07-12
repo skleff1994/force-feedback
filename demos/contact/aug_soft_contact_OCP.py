@@ -66,7 +66,8 @@ def main(robot_name, PLOT, DISPLAY):
     else:
         softContactModel = SoftContactModel3D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff, config['pinRefFrame'])
     
-    f0 = 200 #softContactModel.computeForce_(robot.model, q0, v0)
+    # v0 = np.random.rand(nv)
+    f0 = 45 #200 #softContactModel.computeForce_(robot.model, q0, v0)
     y0 = np.hstack([x0, f0])  
     
     logger.debug(str(y0))
@@ -81,8 +82,8 @@ def main(robot_name, PLOT, DISPLAY):
     f_ext = pin_utils.get_external_joint_torques(oMc, config['frameForceRef'], robot)
     u0 = pin_utils.get_tau(q0, v0, np.zeros((nq,1)), f_ext, robot.model, config['armature'])
     
-    ddp.xs = [y0 for i in range(Nh+1)]
-    ddp.us = [u0 for i in range(Nh)]
+    # ddp.xs = [y0 for i in range(Nh+1)]
+    # ddp.us = [u0 for i in range(Nh)]
     xs_init = [y0 for i in range(config['N_h']+1)]
     us_init = [u0 for i in range(config['N_h'])]
 
@@ -92,14 +93,15 @@ def main(robot_name, PLOT, DISPLAY):
         m.differential.cost_ref = pin.LOCAL_WORLD_ALIGNED
 
     ddp.with_callbacks = True
-    ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
+    ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+    
     print(ddp.xs[0])
     # werpighewoib
     if(PLOT):
         #  Plot
         ddp_handler = DDPDataHandlerSoftContactAugmented(ddp, softContactModel)
         ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name, model=robot.model)
-        _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=['all'], 
+        _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=['f'], 
                                                             colors=['r'], 
                                                             markers=['.'], 
                                                             SHOW=True)

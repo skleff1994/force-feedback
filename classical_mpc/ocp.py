@@ -256,10 +256,8 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
     problem = crocoddyl.ShootingProblem(x0, runningModels, terminalModel)
   
   # Creating the DDP solver 
-    if(USE_GNMS):
-      ddp = crocoddyl.SolverGNMS(problem)
-    else:
-      ddp = crocoddyl.SolverFDDP(problem)
+    ddp = crocoddyl.SolverGNMS(problem)
+    # ddp = crocoddyl.SolverFDDP(problem)
   
   # Callbacks
     if(callbacks):
