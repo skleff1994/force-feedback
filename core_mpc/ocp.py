@@ -201,15 +201,15 @@ class OptimalControlProblemAbstract:
     '''
     Create control gravity torque regularization cost model
     '''
-    self.check_attribute('ctrlRegWeights')
-    self.check_attribute('ctrlRegWeight')
+    self.check_attribute('ctrlRegGravWeights')
+    self.check_attribute('ctrlRegGravWeight')
     if(self.nb_contacts > 0):
       residual = crocoddyl.ResidualModelContactControlGrav(state)
     else:
       residual = crocoddyl.ResidualModelControlGrav(state)
-    ctrlRegWeights = np.asarray(self.ctrlRegWeights)
+    ctrlRegGravWeights = np.asarray(self.ctrlRegGravWeights)
     uRegGravCost = crocoddyl.CostModelResidual(state, 
-                                          crocoddyl.ActivationModelWeightedQuad(ctrlRegWeights**2), 
+                                          crocoddyl.ActivationModelWeightedQuad(ctrlRegGravWeights**2), 
                                           residual)
     return uRegGravCost
   

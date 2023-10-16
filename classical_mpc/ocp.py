@@ -58,7 +58,7 @@ class OptimalControlProblemClassical(ocp.OptimalControlProblemAbstract):
     # Control regularization (gravity)
     if('ctrlRegGrav' in self.WHICH_COSTS):
       uRegGravCost = self.create_ctrl_reg_grav_cost(state)
-      runningModel.differential.costs.addCost("ctrlRegGrav", uRegGravCost, self.ctrlRegWeight)
+      runningModel.differential.costs.addCost("ctrlRegGrav", uRegGravCost, self.ctrlRegGravWeight)
     # State limits penalization
     if('stateLim' in self.WHICH_COSTS):
       xLimitCost = self.create_state_limit_cost(state, actuation)
@@ -371,7 +371,7 @@ class OptimalControlProblemClassicalWithConstraints(ocp.OptimalControlProblemAbs
         # Control regularization (gravity)
         if('ctrlRegGrav' in self.WHICH_COSTS):
           uRegGravCost = self.create_ctrl_reg_grav_cost(state)
-          runningModels[i].differential.costs.addCost("ctrlRegGrav", uRegGravCost, self.ctrlRegWeight)
+          runningModels[i].differential.costs.addCost("ctrlRegGrav", uRegGravCost, self.ctrlRegGravWeight)
         # State limits penalization
         if('stateLim' in self.WHICH_COSTS):
           xLimitCost = self.create_state_limit_cost(state, actuation)
