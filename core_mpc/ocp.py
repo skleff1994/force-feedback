@@ -23,8 +23,8 @@ if(FOUND_SOBEC):
     import sobec 
 else:
     logger.warning('You need to install Sobec !')
-
-
+    
+    
 class OptimalControlProblemAbstract:
   '''
   Abstract class for Optimal Control Problem (OCP) with Crocoddyl
@@ -44,15 +44,16 @@ class OptimalControlProblemAbstract:
     
   def check_attribute(self, attribute):
     '''
-    Check whether attribute exists and is well defined
+    Check whether the attribute exists and is well-defined
     '''
     assert(type(attribute)==str), "Attribute to be checked must be a string"
     if(not hasattr(self, attribute)):
-      logger.error("The OCP config parameter : "+str(attribute)+ " has not been defined ! Please correct the yaml config file.")
+      logger.error("The OCP config parameter : "+str(attribute)+ " has not been defined ! Please correct the YAML config file.")
       return False
     else: return True 
      
   def check_config(self):
+    self.check_attribute('SOLVER')
     self.check_attribute('dt')
     self.check_attribute('N_h')
     self.check_attribute('maxiter')
@@ -519,13 +520,13 @@ class OptimalControlProblemAbstract:
 
 
 
-  def create_state_constraint(self, state, name, actuation):
+  def create_state_constraint(self, state, actuation):
     '''
     Create state box constraint model 
     '''
     # Check attributes 
     self.check_attribute('stateLowerLimit')
-    self.check_attribute('stateUpperLimit')
+    self.check_attribute('stateUpperLimit')            
     # Lower
     if(self.stateLowerLimit == 'None'):
       clip_state_min = -np.array([np.inf]*state.nx)
@@ -540,10 +541,10 @@ class OptimalControlProblemAbstract:
       clip_state_max = state.ub 
     else:
       clip_state_max = np.asarray(self.stateUpperLimit)
-    xBoxCstr = crocoddyl.StateConstraintModel(state, actuation.nu, clip_state_min, clip_state_max, name)  
+    xBoxCstr = crocoddyl.ConstraintModelResidual(state, crocoddyl.ResidualModelState(state, actuation.nu), clip_state_min, clip_state_max)  
     return xBoxCstr
-
-  def create_ctrl_constraint(self, state, name, actuation):
+  
+  def create_ctrl_constraint(self, state, actuation):
     '''
     Create control box constraint model 
     '''
@@ -555,7 +556,7 @@ class OptimalControlProblemAbstract:
       clip_ctrl = state.pinocchio.effortLimit
     else:
       clip_ctrl = np.asarray(self.ctrlLimit)
-    uBoxCstr = crocoddyl.ControlConstraintModel(state, actuation.nu,  -clip_ctrl, clip_ctrl, name)
+    uBoxCstr = crocoddyl.ConstraintModelResidual(state, crocoddyl.ResidualModelControl(state, actuation.nu), -clip_ctrl, clip_ctrl)  
     return uBoxCstr
   
   def create_translation_constraint(self, state, name, actuation):
@@ -577,7 +578,7 @@ class OptimalControlProblemAbstract:
     else:
       lmax = np.asarray(self.eeUpperLimit)
     fid = self.rmodel.getFrameId(self.eeConstraintFrameName)
-    eeBoxCstr = crocoddyl.FrameTranslationConstraintModel(state, actuation.nu, fid, lmin, lmax, name)
+    eeBoxCstr = crocoddyl.ConstraintModelResidual(state, crocoddyl.ResidualModelFrameTranslation(state, fid, np.zeros(3), actuation.nu), lmin, lmax)
     return eeBoxCstr
 
   def create_force_constraint(self, state, name, actuation):
@@ -590,22 +591,17 @@ class OptimalControlProblemAbstract:
     self.check_attribute('forceConstraintFrameName')
     self.check_attribute('forceConstraintReferenceFrame')
     self.check_attribute('forceConstraintType')
-    if(self.forceConstraintReferenceFrame == 'LOCAL'):
-      pinRefFrame = pin.LOCAL
-    elif(self.forceConstraintReferenceFrame == 'LOCAL_WORLD_ALIGNED' or self.forceConstraintReferenceFrame == 'WORLD'):
-      pinRefFrame = pin.LOCAL_WORLD_ALIGNED
-    else:
-      logger.error('forceConstraintReferenceFrame must be in [LOCAL, WORLD, LOCAL_WORLD_ALIGNED]')
     if(self.forceConstraintType == '6D'):
       nc= 6
     elif(self.forceConstraintType == '3D'):
       nc=3
     elif('1D' in self.forceConstraintType):
-      nc=1
-      if('x' in self.forceConstraintType): mask = 0
-      elif('y' in self.forceConstraintType): mask = 1
-      elif('z' in self.forceConstraintType): mask = 2
-      else: logger.error("Force constraint 1D must be in [1Dx, 1Dy, 1Dz]")
+      nc = 1
+      mask = 2
+      # if('x' in self.forceConstraintType): mask = 0
+      # elif('y' in self.forceConstraintType): mask = 1
+      # elif('z' in self.forceConstraintType): mask = 2
+      # else: logger.error("Force constraint 1D must be in [1Dx, 1Dy, 1Dz]")
     else:
       logger.error("Force constraint type must be in [1Dx, 1Dy, 1Dz, 3D, 6D]")
     # Lower
@@ -620,25 +616,14 @@ class OptimalControlProblemAbstract:
       lmax = np.asarray(self.forceUpperLimit)
     fid = self.rmodel.getFrameId(self.forceConstraintFrameName)
     if(nc==6):
-      forceBoxCstr = crocoddyl.ContactForceConstraintModel6D(state, actuation.nu, fid, lmin, lmax, name, pinRefFrame)
+      forceBoxCstr = crocoddyl.ConstraintModelResidual(state, crocoddyl.ResidualModelContactForce(state, fid, pin.Force.Zero(), 6, actuation.nu), lmin, lmax)
     elif(nc==3):
-      lmin3d = lmin[:3]
-      lmax3d = lmax[:3]
-      forceBoxCstr = crocoddyl.ContactForceConstraintModel3D(state, actuation.nu, fid, lmin3d, lmax3d, name, pinRefFrame)
+      forceBoxCstr = crocoddyl.ConstraintModelResidual(state, crocoddyl.ResidualModelContactForce(state, fid, pin.Force.Zero(), 3, actuation.nu), lmin[:3], lmax[:3])
     elif(nc==1):
-      logger.warning("mask = "+str(mask))
-      lmin1d = np.array([lmin[mask]])
-      lmax1d = np.array([lmax[mask]])
-      forceBoxCstr = crocoddyl.ContactForceConstraintModel1D(state, actuation.nu, fid, lmin1d, lmax1d, name, pinRefFrame, mask)
+      forceBoxCstr = crocoddyl.ConstraintModelResidual(state, crocoddyl.ResidualModelContactForce(state, fid, pin.Force.Zero(), 1, actuation.nu), np.array([lmin[mask]]), np.array([lmax[mask]]))
     else:
       logger.error("Force constraint should be of type 1d, 3d or 6d !")
     return forceBoxCstr 
-  
-  def create_no_constraint(self, state, name, actuation):
-    '''
-    Returns void constraint
-    '''
-    return crocoddyl.NoConstraintModel(state, actuation.nu, name)
 
 
 
