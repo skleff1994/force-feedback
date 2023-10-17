@@ -319,12 +319,12 @@ class OptimalControlProblemClassicalWithConstraints(OptimalControlProblemClassic
                                                               crocoddyl.ConstraintModelManager(state, actuation.nu))
     return dam, contactModels
   
-  def init_running_model(self, state, actuation, runningModel, node_id):
+  def init_constrained_running_model(self, state, actuation, runningModel, contactModels, node_id):
     '''
     Populate running model with costs, contacts and constraints
     '''
     # Add costs and contacts 
-    super().init_running_model(self, state, actuation, runningModel)
+    self.init_running_model(state, actuation, runningModel, contactModels)
 
     # Add constraints
     # State limits
@@ -344,16 +344,16 @@ class OptimalControlProblemClassicalWithConstraints(OptimalControlProblemClassic
       forceBoxConstraint = self.create_force_constraint(state, actuation)
       runningModel.differential.constraints.addConstraint('forceBox', forceBoxConstraint)
       
-  def init_terminal_model(self, state, actuation, terminalModel, node_id):
+  def init_constrained_terminal_model(self, state, actuation, terminalModel, contactModels):
     ''' 
     Populate terminal model with costs, contacts and constraints
     '''
     # Add costs and contacts 
-    super().init_terminal_model(self, state, actuation, terminalModel)
+    self.init_terminal_model(state, actuation, terminalModel, contactModels)
 
     # Add constraints
     # State limits
-    if('stateBox' in self.WHICH_CONSTRAINTS and node_id != 0):
+    if('stateBox' in self.WHICH_CONSTRAINTS):
       stateBoxConstraint = self.create_state_constraint(state, actuation)   
       terminalModel.differential.constraints.addConstraint('stateBox', stateBoxConstraint)
     # Control limits
@@ -361,13 +361,9 @@ class OptimalControlProblemClassicalWithConstraints(OptimalControlProblemClassic
       ctrlBoxConstraint = self.create_ctrl_constraint(state, actuation)
       terminalModel.differential.constraints.addConstraint('ctrlBox', ctrlBoxConstraint)
     # End-effector position limits
-    if('translationBox' in self.WHICH_CONSTRAINTS and node_id != 0):
+    if('translationBox' in self.WHICH_CONSTRAINTS):
       translationBoxConstraint = self.create_translation_constraint(state, actuation)
       terminalModel.differential.constraints.addConstraint('translationBox', translationBoxConstraint)
-    # Contact force 
-    if('forceBox' in self.WHICH_CONSTRAINTS and node_id != 0):
-      forceBoxConstraint = self.create_force_constraint(state, actuation)
-      terminalModel.differential.constraints.addConstraint('forceBox', forceBoxConstraint)
 
   def success_log(self):
     '''
@@ -405,12 +401,12 @@ class OptimalControlProblemClassicalWithConstraints(OptimalControlProblemClassic
       # Create DAM (Contact or FreeFwd), IAM Euler and initialize costs+contacts+constraints
         dam, contactModels = self.create_differential_action_model(state, actuation) 
         runningModels.append(crocoddyl.IntegratedActionModelEuler(dam, stepTime=self.dt))
-        self.init_running_model(state, actuation, runningModels[i], contactModels, i)
+        self.init_constrained_running_model(state, actuation, runningModels[i], contactModels, i)
 
     # Terminal model
     dam_t, contactModels = self.create_differential_action_model(state, actuation)  
     terminalModel = crocoddyl.IntegratedActionModelEuler( dam_t, stepTime=0. )
-    self.init_terminal_model(state, actuation, terminalModel, contactModels, i)
+    self.init_constrained_terminal_model(state, actuation, terminalModel, contactModels)
     
     logger.info("Created IAMs.")  
 
@@ -427,16 +423,16 @@ class OptimalControlProblemClassicalWithConstraints(OptimalControlProblemClassic
       ddp = mim_solvers.SolverCSQP(problem)
       
   # Callbacks & solver parameters
-    ddp.with_callbacks = callbacks
-    ddp.use_filter_ls = self.use_filter_ls
-    ddp.filter_size = self.filter_size
-    ddp.warm_start = self.warm_start
-    ddp.termination_tol = self.termination_tol
-    ddp.max_qp_iters = self.max_qp_iters
-    ddp.eps_abs = self.qp_termination_tol_abs
-    ddp.eps_rel = self.qp_termination_tol_rel
-    ddp.warm_start_y = self.warm_start_y
-    ddp.reset_rho = self.reset_rho
+    ddp.with_callbacks  = callbacks
+    ddp.use_filter_ls   = self.use_filter_ls
+    ddp.filter_size     = self.filter_size
+    ddp.warm_start      = self.warm_start
+    ddp.termination_tol = self.solver_termination_tolerance
+    ddp.max_qp_iters    = self.max_qp_iter
+    ddp.eps_abs         = self.qp_termination_tol_abs
+    ddp.eps_rel         = self.qp_termination_tol_rel
+    ddp.warm_start_y    = self.warm_start_y
+    ddp.reset_rho       = self.reset_rho
   
   # Finish
     self.success_log()

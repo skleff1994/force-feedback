@@ -559,7 +559,7 @@ class OptimalControlProblemAbstract:
     uBoxCstr = crocoddyl.ConstraintModelResidual(state, crocoddyl.ResidualModelControl(state, actuation.nu), -clip_ctrl, clip_ctrl)  
     return uBoxCstr
   
-  def create_translation_constraint(self, state, name, actuation):
+  def create_translation_constraint(self, state, actuation):
     '''
     Create end-effector position box constraint model 
     '''
@@ -581,7 +581,7 @@ class OptimalControlProblemAbstract:
     eeBoxCstr = crocoddyl.ConstraintModelResidual(state, crocoddyl.ResidualModelFrameTranslation(state, fid, np.zeros(3), actuation.nu), lmin, lmax)
     return eeBoxCstr
 
-  def create_force_constraint(self, state, name, actuation):
+  def create_force_constraint(self, state, actuation):
     '''
     Create contact force box constraint model 
     '''
