@@ -11,7 +11,7 @@ import pinocchio as pin
 from soft_mpc.soft_models_1D import DAMSoftContactDynamics
 from core_mpc.pin_utils import load_robot_wrapper
 from classical_mpc.data import DDPDataHanlderClassical
-from core_mpc import pin_utils
+from core_mpc_utils import pin_utils
 
 
 REF_FRAME = pin.LOCAL_WORLD_ALIGNED

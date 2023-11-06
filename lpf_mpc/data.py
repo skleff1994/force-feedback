@@ -10,7 +10,7 @@
 """
 
 import numpy as np
-from core_mpc import pin_utils
+from core_mpc_utils import pin_utils
 from core_mpc.data import DDPDataHandlerAbstract, MPCDataHandlerAbstract
 
 from matplotlib.collections import LineCollection
@@ -20,7 +20,7 @@ import matplotlib
 
 import pinocchio as pin
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 

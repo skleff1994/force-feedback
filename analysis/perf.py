@@ -12,11 +12,11 @@
 # sd1.plot_mpc_results(d1, *args)
 
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 from core_mpc.data import load_data
-from core_mpc import analysis_utils
+from . import analysis_utils
 
 
 import sys

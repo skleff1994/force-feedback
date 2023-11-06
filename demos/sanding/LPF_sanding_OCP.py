@@ -19,14 +19,14 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc import ocp, path_utils, pin_utils, misc_utils
+from core_mpc_utils import ocp, path_utils, pin_utils, misc_utils
 
 from lpf_mpc.ocp import OptimalControlProblemLPF, getJointAndStateIds
 from lpf_mpc.data import DDPDataHandlerLPF

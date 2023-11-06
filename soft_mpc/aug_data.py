@@ -9,14 +9,14 @@
 """
 
 import numpy as np
-from core_mpc import pin_utils
+from core_mpc_utils import pin_utils
 from classical_mpc.data import DDPDataHandlerClassical, MPCDataHandlerClassical
 
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.collections import LineCollection
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 

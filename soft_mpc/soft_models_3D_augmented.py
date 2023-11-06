@@ -7,7 +7,7 @@ as well d(ABA)/df . Also df/dt and its derivatives are implemented
 In the IAM , a simple Euler integration (explicit) is used for the contact force
 and the partials are aggregated using DAM partials.
 '''
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np

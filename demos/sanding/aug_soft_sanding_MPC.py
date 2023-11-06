@@ -22,7 +22,7 @@ imperfect actuation (bias, noise, delays) at higher frequency
 import sys
 sys.path.append('.')
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
@@ -30,8 +30,8 @@ import numpy as np
 np.set_printoptions(precision=4, linewidth=180)
 RANDOM_SEED = 19
 
-from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
-from core_mpc import ocp as ocp_utils
+from core_mpc_utils import path_utils, pin_utils, mpc_utils, misc_utils
+from core_mpc_utils import ocp as ocp_utils
 
 from soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented
 from soft_mpc.aug_data import DDPDataHandlerSoftContactAugmented, MPCDataHandlerSoftContactAugmented
@@ -140,11 +140,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   v0 = np.asarray(config['dq0'])
   x0 = np.concatenate([q0, v0])   
   if(simulator == 'bullet'):
-    from core_mpc import sim_utils as simulator_utils
+    from core_mpc_utils import sim_utils as simulator_utils
     env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name+'_reduced', dt=dt_simu, x0=x0)
     robot = robot_simulator.pin_robot
   elif(simulator == 'raisim'):
-    from core_mpc import raisim_utils as simulator_utils
+    from core_mpc_utils import raisim_utils as simulator_utils
     env, robot_simulator = simulator_utils.init_raisim_simulation(robot_name, dt=dt_simu, x0=x0)  
     robot = robot_simulator
   else:

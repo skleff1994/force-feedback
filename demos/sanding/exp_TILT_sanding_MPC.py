@@ -23,7 +23,7 @@ imperfect actuation (bias, noise, delays) at higher frequency
 import sys
 sys.path.append('.')
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
@@ -31,9 +31,9 @@ np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
 
-from core_mpc import path_utils, pin_utils, mpc_utils, misc_utils
-from core_mpc import ocp as ocp_utils
-from core_mpc import sim_utils as simulator_utils
+from core_mpc_utils import path_utils, pin_utils, mpc_utils, misc_utils
+from core_mpc_utils import ocp as ocp_utils
+from core_mpc_utils import sim_utils as simulator_utils
 
 
 from classical_mpc.ocp import OptimalControlProblemClassical

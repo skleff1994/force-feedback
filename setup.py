@@ -14,7 +14,7 @@ setup(
     version="1.0.0",
     package_dir={package_name: path.join('.')},
     # packages=[package_name],
-    packages=find_packages(include=['core_mpc', 'soft_mpc', 'classical_mpc', 'lpf_mpc']),
+    packages=find_packages(include=['core_mpc_utils', 'soft_mpc', 'lpf_mpc']),
     # package_data={package_name: resources},
     # data_files=data_files_to_install,
     # scripts=scripts_list,
