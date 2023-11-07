@@ -9,8 +9,9 @@
 """
 
 import crocoddyl
-import force_feedback_mpc
 import numpy as np
+
+import force_feedback_mpc
 
 from croco_mpc_utils.ocp_core import OptimalControlProblemAbstract
 from croco_mpc_utils import pinocchio_utils as pin_utils

@@ -9,15 +9,16 @@
 """
 
 import numpy as np
-from core_mpc_utils import pin_utils
-from classical_mpc.data import DDPDataHandlerClassical, MPCDataHandlerClassical
+from croco_mpc_utils import pinocchio_utils as pin_utils
+from croco_mpc_utils.ocp_data import DDPDataHandlerClassical, MPCDataHandlerClassical
 
+from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
 import matplotlib
-from matplotlib.collections import LineCollection
 
-from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
+
 
 
 # Classical OCP data handler : extract data + generate fancy plots

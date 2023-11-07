@@ -26,11 +26,15 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc_utils import ocp, path_utils, pin_utils, misc_utils
+from core_mpc_utils import path_utils, misc_utils
 
+from croco_mpc_utils import pinocchio_utils as pin_utils
 from soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented
 from soft_mpc.aug_data import DDPDataHandlerSoftContactAugmented
 from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
+from croco_mpc_utils.math_utils import circle_point_WORLD
+
+import mim_solvers
 
 def main(robot_name, PLOT, DISPLAY):
 
@@ -45,7 +49,7 @@ def main(robot_name, PLOT, DISPLAY):
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0]) 
     # Get pin wrapper
-    robot = pin_utils.load_robot_wrapper(robot_name)
+    robot = misc_utils.load_robot_wrapper(robot_name)
     # Get initial frame placement + dimensions of joint space
     frame_name = config['frame_of_interest']
     id_endeff = robot.model.getFrameId(frame_name)
@@ -73,14 +77,14 @@ def main(robot_name, PLOT, DISPLAY):
 
     # Setup Croco OCP and create solver
     softContactModel.print()
-    ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=True)
+    ocp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel)
     # Warmstart and solve
     xs_init = [y0 for i in range(config['N_h']+1)]
     fext0 = softContactModel.computeExternalWrench_(robot.model, y0[:nq], y0[:nv])
     us_init = [pin_utils.get_tau(y0[:nq], y0[:nv], np.zeros(nv), fext0, robot.model, np.zeros(nv)) for i in range(config['N_h'])] #ddp.problem.quasiStatic(xs_init[:-1])
     
     # Set the force cost reference frame to LWA 
-    models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+    models = list(ocp.runningModels) + [ocp.terminalModel]
     import pinocchio as pin
     for k,m in enumerate(models):
         m.differential.cost_ref = pin.LOCAL_WORLD_ALIGNED
@@ -91,7 +95,7 @@ def main(robot_name, PLOT, DISPLAY):
     for k,m in enumerate(models):
         # Ref
         t = min(k*config['dt'], 2*np.pi/OMEGA)
-        p_ee_ref = ocp.circle_point_WORLD(t, oMf, 
+        p_ee_ref = circle_point_WORLD(t, oMf, 
                                                 radius=RADIUS,
                                                 omega=OMEGA,
                                                 LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
@@ -106,7 +110,7 @@ def main(robot_name, PLOT, DISPLAY):
     xs_init = [] 
     us_init = []
     q_ws = q0
-    for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
+    for k,m in enumerate(list(ocp.runningModels) + [ocp.terminalModel]):
         # Get ref placement
         p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
         Mref = oMf.copy()
@@ -115,13 +119,13 @@ def main(robot_name, PLOT, DISPLAY):
         q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
         xs_init.append(np.concatenate([q_ws, v_ws, np.array([softContactModel.computeForce_(robot.model, q_ws, v_ws)])]))
 
-    
+    ddp = mim_solvers.SolverSQP(ocp)
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
     if(PLOT):
         #  Plot
         ddp_handler = DDPDataHandlerSoftContactAugmented(ddp, softContactModel)
-        ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
+        ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name, model=robot.model)
         _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                             colors=['r'], 
                                                             markers=['.'], 
