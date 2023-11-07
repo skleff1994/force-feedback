@@ -10,8 +10,8 @@
 """
 
 import numpy as np
-from core_mpc_utils import pin_utils
-from core_mpc.data import DDPDataHandlerAbstract, MPCDataHandlerAbstract
+from croco_mpc_utils import pinocchio_utils as pin_utils
+from croco_mpc_utils.ocp_core_data import DDPDataHandlerAbstract, MPCDataHandlerAbstract
 
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
@@ -20,7 +20,7 @@ import matplotlib
 
 import pinocchio as pin
 
-from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 

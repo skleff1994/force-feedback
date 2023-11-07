@@ -75,6 +75,7 @@ def init_iiwa_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIWA_DEFAUL
     if(FOUND_ROB_PROP_KUKA_PKG):
         try: 
             from robot_properties_kuka.iiwaWrapper import IiwaRobot as IiwaRobot
+            from robot_properties_kuka.config import IiwaConfig
         except:
             logger.error("The IiwaRobot was not found.")
     else:
@@ -84,7 +85,8 @@ def init_iiwa_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIWA_DEFAUL
     env = BulletEnvWithGround(p.DIRECT, dt=dt)
     orn_quat = p.getQuaternionFromEuler(orn)
     base_placement = pin.XYZQUATToSE3(pos + list(orn_quat))
-    robot_simulator = env.add_robot(IiwaRobot(pos, orn_quat))
+    config = IiwaConfig()
+    robot_simulator = env.add_robot(IiwaRobot(config, pos, orn_quat))
     # Initialize
     if(x0 is None):
         q0 = np.array([0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.]) 

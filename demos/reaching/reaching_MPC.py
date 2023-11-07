@@ -29,11 +29,13 @@ np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
 
-from croco_mpc_utils import path_utils, pin_utils, mpc_utils, misc_utils
+from core_mpc_utils import path_utils, misc_utils, mpc_utils
 
-from classical_mpc.data import MPCDataHandlerClassical, DDPDataHandlerClassical
-from classical_mpc.ocp import OptimalControlProblemClassical
+from croco_mpc_utils import pinocchio_utils as pin_utils
+from croco_mpc_utils.ocp import OptimalControlProblemClassical
+from croco_mpc_utils.ocp_data import MPCDataHandlerClassical, DDPDataHandlerClassical
 
+import mim_solvers
 
 def main(robot_name, simulator, PLOT_INIT):
 
@@ -65,11 +67,12 @@ def main(robot_name, simulator, PLOT_INIT):
   # # # # # # # # # 
   ### OCP SETUP ###
   # # # # # # # # # 
-  ddp = OptimalControlProblemClassical(robot, config).initialize(x0, callbacks=False)
+  ocp = OptimalControlProblemClassical(robot, config).initialize(x0) 
   # Warm start and solve
   ug  = pin_utils.get_u_grav(q0, robot.model, config['armature'])
   xs_init = [x0 for i in range(config['N_h']+1)]
   us_init = [ug for i in range(config['N_h'])]
+  ddp = mim_solvers.SolverSQP(ocp)
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
   # Frame of interest for reaching task = frame translation ? 
   frame_of_interest = config['frameTranslationFrameName']
