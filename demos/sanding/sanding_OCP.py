@@ -34,6 +34,7 @@ from croco_mpc_utils.math_utils import circle_point_WORLD
 from croco_mpc_utils.ocp_data import DDPDataHandlerClassical
 
 import mim_solvers
+from mim_robots.robot_loader import load_pinocchio_wrapper
 
 WARM_START_IK = True
 
@@ -48,7 +49,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])   
     # Get pin wrapper
-    robot = misc_utils.load_robot_wrapper(robot_name)
+    robot = load_pinocchio_wrapper('iiwa')
     # Get initial frame placement + dimensions of joint space
     frame_name = config['contacts'][0]['contactModelFrameName']
     id_endeff = robot.model.getFrameId(frame_name)

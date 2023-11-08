@@ -27,7 +27,7 @@ the actuation dynamics is modeled as a low pass filter (LPF) in the optimization
 import sys
 sys.path.append('.')
 
-from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
@@ -36,12 +36,19 @@ np.set_printoptions(precision=4, linewidth=180)
 RANDOM_SEED = 19
 
 
-from core_mpc_utils import path_utils, pin_utils, mpc_utils, misc_utils
-from core_mpc_utils import ocp as ocp_utils
+from core_mpc_utils import path_utils, misc_utils, mpc_utils
+from core_mpc_utils import sim_utils as simulator_utils
 
-from classical_mpc.data import MPCDataHandlerClassical, DDPDataHandlerClassical
-from classical_mpc.ocp import OptimalControlProblemClassical
+from croco_mpc_utils import pinocchio_utils as pin_utils
+from croco_mpc_utils.ocp_data import MPCDataHandlerClassical, DDPDataHandlerClassical
+from croco_mpc_utils.ocp import OptimalControlProblemClassical
+from croco_mpc_utils.math_utils import circle_point_WORLD
 
+
+import mim_solvers
+from mim_robots.robot_loader import load_bullet_wrapper
+from mim_robots.pybullet.env import BulletEnvWithGround
+import pybullet as p
 
 WARM_START_IK      = True
 
@@ -136,17 +143,21 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   dt_simu = 1./float(config['simu_freq'])  
   q0 = np.asarray(config['q0'])
   v0 = np.asarray(config['dq0'])
-  x0 = np.concatenate([q0, v0])   
-  if(simulator == 'bullet'):
-    from core_mpc_utils import sim_utils as simulator_utils
-    env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name+'_reduced', dt=dt_simu, x0=x0)
-    robot = robot_simulator.pin_robot
-  elif(simulator == 'raisim'):
-    from core_mpc_utils import raisim_utils as simulator_utils
-    env, robot_simulator, _ = simulator_utils.init_raisim_simulation(robot_name, dt=dt_simu, x0=x0)  
-    robot = robot_simulator
-  else:
-    logger.error('Please choose a simulator from ["bullet", "raisim"] !')
+  x0 = np.concatenate([q0, v0])  
+  env             = BulletEnvWithGround(dt=dt_simu)
+  robot_simulator = load_bullet_wrapper('iiwa', locked_joints=['A7'])
+  env.add_robot(robot_simulator) 
+  robot = robot_simulator.pin_robot
+  # if(simulator == 'bullet'):
+  #   from core_mpc_utils import sim_utils as simulator_utils
+  #   env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name+'_reduced', dt=dt_simu, x0=x0)
+  #   robot = robot_simulator.pin_robot
+  # elif(simulator == 'raisim'):
+  #   from core_mpc_utils import raisim_utils as simulator_utils
+  #   env, robot_simulator, _ = simulator_utils.init_raisim_simulation(robot_name, dt=dt_simu, x0=x0)  
+  #   robot = robot_simulator
+  # else:
+  #   logger.error('Please choose a simulator from ["bullet", "raisim"] !')
   # Get dimensions 
   nq, nv = robot.model.nq, robot.model.nv; nu = nq
   # Placement of LOCAL end-effector frame w.r.t. WORLD frame
@@ -175,9 +186,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   ### OCP SETUP ###
   # # # # # # # # # 
   # Init shooting problem and solver
-  ddp = OptimalControlProblemClassical(robot, config).initialize(x0, callbacks=False)
+  ocp = OptimalControlProblemClassical(robot, config).initialize(x0)
     # Warmstart and solve
-  models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+  models = list(ocp.runningModels) + [ocp.terminalModel]
     
   # !!! Deactivate all costs & contact models initially !!!
   for k,m in enumerate(models):
@@ -225,8 +236,9 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   # q_ws = q0
   # Warmstart and solve
   xs_init = [x0 for i in range(config['N_h']+1)]
-  us_init = ddp.problem.quasiStatic(xs_init[:-1])
+  us_init = ocp.quasiStatic(xs_init[:-1])
   # us_init = [u0 for i in range(config['N_h'])] 
+  ddp = mim_solvers.SolverSQP(ocp)
   ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 
@@ -262,7 +274,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   for i in range(nb_points):
     t = (i/nb_points)*2*np.pi/OMEGA
     # pl = pin_utils.rotate(contact_placement_0, rpy=TILT_RPY)
-    pos = ocp_utils.circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
+    pos = circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
 
   draw_rate = 1000
