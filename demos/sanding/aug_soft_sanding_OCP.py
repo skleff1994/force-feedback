@@ -30,7 +30,7 @@ from core_mpc_utils import path_utils, misc_utils
 
 from croco_mpc_utils import pinocchio_utils as pin_utils
 from soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented
-from soft_mpc.aug_data import DDPDataHandlerSoftContactAugmented
+from soft_mpc.aug_data import OCPDataHandlerSoftContactAugmented
 from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
 from croco_mpc_utils.math_utils import circle_point_WORLD
 
@@ -124,7 +124,7 @@ def main(robot_name, PLOT, DISPLAY):
 
     if(PLOT):
         #  Plot
-        ddp_handler = DDPDataHandlerSoftContactAugmented(ddp, softContactModel)
+        ddp_handler = OCPDataHandlerSoftContactAugmented(ddp, softContactModel)
         ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name, model=robot.model)
         _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                             colors=['r'], 

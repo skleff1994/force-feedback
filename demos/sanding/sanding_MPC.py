@@ -40,7 +40,7 @@ from core_mpc_utils import path_utils, misc_utils, mpc_utils
 from core_mpc_utils import sim_utils as simulator_utils
 
 from croco_mpc_utils import pinocchio_utils as pin_utils
-from croco_mpc_utils.ocp_data import MPCDataHandlerClassical, DDPDataHandlerClassical
+from croco_mpc_utils.ocp_data import MPCDataHandlerClassical, OCPDataHandlerClassical
 from croco_mpc_utils.ocp import OptimalControlProblemClassical
 from croco_mpc_utils.math_utils import circle_point_WORLD
 
@@ -148,16 +148,7 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
   robot_simulator = load_bullet_wrapper('iiwa', locked_joints=['A7'])
   env.add_robot(robot_simulator) 
   robot = robot_simulator.pin_robot
-  # if(simulator == 'bullet'):
-  #   from core_mpc_utils import sim_utils as simulator_utils
-  #   env, robot_simulator, _ = simulator_utils.init_bullet_simulation(robot_name+'_reduced', dt=dt_simu, x0=x0)
-  #   robot = robot_simulator.pin_robot
-  # elif(simulator == 'raisim'):
-  #   from core_mpc_utils import raisim_utils as simulator_utils
-  #   env, robot_simulator, _ = simulator_utils.init_raisim_simulation(robot_name, dt=dt_simu, x0=x0)  
-  #   robot = robot_simulator
-  # else:
-  #   logger.error('Please choose a simulator from ["bullet", "raisim"] !')
+
   # Get dimensions 
   nq, nv = robot.model.nq, robot.model.nv; nu = nq
   # Placement of LOCAL end-effector frame w.r.t. WORLD frame
@@ -244,9 +235,11 @@ def main(robot_name='iiwa', simulator='bullet', PLOT_INIT=False):
 
   # Plot initial solution
   if(PLOT_INIT):
-    ddp_handler = DDPDataHandlerClassical(ddp)
-    ddp_data = ddp_handler.extract_data(frame_of_interest, frame_of_interest)
-    _, _ = ddp_handler.plot_ddp_results(ddp_data, markers=['.'], SHOW=True)
+    ocp_data_handler = OCPDataHandlerClassical(solver.problem)
+    ocp_data = ocp_data_handler.extract_data(solver.xs, solver.us)
+    _, _ = ocp_data_handler.plot_ocp_results(ocp_data, which_plots=config['WHICH_PLOTS'], markers=['.'], colors=['b'], SHOW=True)
+
+
 
 
 

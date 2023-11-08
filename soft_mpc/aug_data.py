@@ -10,7 +10,7 @@
 
 import numpy as np
 from croco_mpc_utils import pinocchio_utils as pin_utils
-from croco_mpc_utils.ocp_data import DDPDataHandlerClassical, MPCDataHandlerClassical
+from croco_mpc_utils.ocp_data import OCPDataHandlerClassical, MPCDataHandlerClassical
 
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
@@ -22,43 +22,43 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 # Classical OCP data handler : extract data + generate fancy plots
-class DDPDataHandlerSoftContactAugmented(DDPDataHandlerClassical):
+class OCPDataHandlerSoftContactAugmented(OCPDataHandlerClassical):
 
-  def __init__(self, ddp, softContactModel):
-    super().__init__(ddp)
+  def __init__(self, ocp, softContactModel):
+    super().__init__(ocp)
     self.softContactModel = softContactModel
 
-  # Temporary patch for augmented soft ddp  --> need to clean it up
-  def extract_data(self, ee_frame_name, ct_frame_name, model):
+  # Temporary patch for augmented soft ocp  --> need to clean it up
+  def extract_data(self, xs, us, model):
     '''
-    Extract data from DDP solver 
+    Extract data from OCP solver 
     Patch for augmented soft contact formulation 
     extracting the contact force from the state 
     and desired force from augmented DAM.
     Set 0 angular force by default.
     '''
-    ddp_data = super().extract_data(ee_frame_name, ct_frame_name)
-    ddp_data['nq'] = model.nq
-    ddp_data['nv'] = model.nv
-    ddp_data['nx'] = model.nq+model.nv
+    ocp_data = super().extract_data(xs, us)
+    ocp_data['nq'] = model.nq
+    ocp_data['nv'] = model.nv
+    ocp_data['nx'] = model.nq+model.nv
     # Compute the visco-elastic contact force & extract the reference force from DAM
-    xs = np.array(ddp_data['xs'])
-    nq = ddp_data['nq']
-    nv = ddp_data['nv']
+    xs = np.array(ocp_data['xs'])
+    nq = ocp_data['nq']
+    nv = ocp_data['nv']
     if(self.softContactModel.nc == 3):
-        fs_lin = np.array([xs[i,-3:] for i in range(ddp_data['T'])])
-        fdes_lin = np.array([self.ddp.problem.runningModels[i].differential.f_des for i in range(ddp_data['T'])])
+        fs_lin = np.array([xs[i,-3:] for i in range(ocp_data['T'])])
+        fdes_lin = np.array([self.ocp.runningModels[i].differential.f_des for i in range(ocp_data['T'])])
     else:
-        fs_lin = np.zeros((ddp_data['T'],3))
-        fs_lin[:,self.softContactModel.mask] = [xs[i,-1] for i in range(ddp_data['T'])]
-        # fs_lin[:,self.softContactModel.mask] = np.array([self.softContactModel.computeForce_(ddp_data['pin_model'], xs[i,:nq], xs[i,nq:nq+nv]) for i in range(ddp_data['T'])])
-        fdes_lin = np.zeros((ddp_data['T'],3))
-        # fdes_lin[:,self.softContactModel.mask] = np.array([self.ddp.problem.runningModels[i].differential.f_des for i in range(ddp_data['T'])])
-    fs_ang = np.zeros((ddp_data['T'], 3))
-    fdes_ang = np.zeros((ddp_data['T'], 3))
-    ddp_data['fs'] = np.hstack([fs_lin, fs_ang])
-    ddp_data['force_ref'] = np.hstack([fdes_lin, fdes_ang])
-    return ddp_data
+        fs_lin = np.zeros((ocp_data['T'],3))
+        fs_lin[:,self.softContactModel.mask] = [xs[i,-1] for i in range(ocp_data['T'])]
+        # fs_lin[:,self.softContactModel.mask] = np.array([self.softContactModel.computeForce_(ocp_data['pin_model'], xs[i,:nq], xs[i,nq:nq+nv]) for i in range(ocp_data['T'])])
+        fdes_lin = np.zeros((ocp_data['T'],3))
+        # fdes_lin[:,self.softContactModel.mask] = np.array([self.ocp.runningModels[i].differential.f_des for i in range(ocp_data['T'])])
+    fs_ang = np.zeros((ocp_data['T'], 3))
+    fdes_ang = np.zeros((ocp_data['T'], 3))
+    ocp_data['fs'] = np.hstack([fs_lin, fs_ang])
+    ocp_data['force_ref'] = np.hstack([fdes_lin, fdes_ang])
+    return ocp_data
 
 
 
@@ -76,8 +76,8 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     '''
     Allocate data for state, control & force predictions
     '''
-    self.state_pred     = np.zeros((self.N_plan, self.N_h+1, self.ny)) # Predicted states  ( self.ddp.xs : {x* = (q*, v*)} )
-    self.ctrl_pred      = np.zeros((self.N_plan, self.N_h, self.nu))   # Predicted torques ( self.ddp.us : {u*} )
+    self.state_pred     = np.zeros((self.N_plan, self.N_h+1, self.ny)) # Predicted states  ( xs : {x* = (q*, v*)} )
+    self.ctrl_pred      = np.zeros((self.N_plan, self.N_h, self.nu))   # Predicted torques ( us : {u*} )
     self.force_pred     = np.zeros((self.N_plan, self.N_h, 6))         # Predicted EE contact forces
     self.state_des_PLAN = np.zeros((self.N_plan+1, self.ny))           # Predicted states at planner frequency  ( x* interpolated at PLAN freq )
     self.ctrl_des_PLAN  = np.zeros((self.N_plan, self.nu))             # Predicted torques at planner frequency ( u* interpolated at PLAN freq )
@@ -123,7 +123,7 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     # Measurements
     self.init_measurements(y0)
 
-    # DDP solver-specific data
+    # OCP solver-specific data
     if(self.RECORD_SOLVER_DATA):
       self.init_solver_data()
    
@@ -132,26 +132,26 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     if(self.INIT_LOG):
       self.print_sim_params(self.init_log_display_time)
 
-  def record_predictions(self, nb_plan, ddpSolver):
+  def record_predictions(self, nb_plan, ocpSolver):
     '''
     - Records the MPC prediction of at the current step 
     '''
-    self.state_pred[nb_plan, :, :] = np.array(ddpSolver.xs)
-    self.ctrl_pred[nb_plan, :, :] = np.array(ddpSolver.us)
+    self.state_pred[nb_plan, :, :] = np.array(ocpSolver.xs)
+    self.ctrl_pred[nb_plan, :, :] = np.array(ocpSolver.us)
     # Extract relevant predictions for interpolations to MPC frequency
     self.y_curr = self.state_pred[nb_plan, 0, :]    # y0* = measured state    (q^,  v^, f^ )
     self.y_pred = self.state_pred[nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, f1*) 
     self.u_curr = self.ctrl_pred[nb_plan, 0, :]     # u0* = optimal control
 
-  def record_cost_references(self, nb_plan, ddpSolver):
+  def record_cost_references(self, nb_plan, ocpSolver):
     '''
     Handy function for MPC + clean plots
     Extract and record cost references of DAM into sim_data at i^th simulation step
      # careful, ref is hard-coded only for the first node
     '''
     # Get nodes
-    super().record_cost_references(nb_plan, ddpSolver)
-    m = ddpSolver.problem.runningModels[0]
+    super().record_cost_references(nb_plan, ocpSolver)
+    m = ocpSolver.problem.runningModels[0]
     self.f_ee_ref[nb_plan, :self.nc] = m.differential.f_des
 
 
