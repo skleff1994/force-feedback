@@ -11,7 +11,7 @@ T_tot: 6.                           # Simu duration (s)n (s)
 DELAY_SIM: True                 # Add delay in reference torques (low-level)
 DELAY_OCP: True                 # Add delay in OCP solution (i.e. ~1ms resolution time)
 SCALE_TORQUES: True             # Affine scaling of reference torque
-NOISE_TORQUES: False             # Add Gaussian noise on reference torques
+NOISE_TORQUES: True             # Add Gaussian noise on reference torques
 NOISE_STATE: True               # Add Gaussian noise on the measured state 
 STATIC_FRICTION: True           # Simulate static friction torque
 VISCOUS_FRICTION: True          # Simulate viscous friction torque
@@ -23,7 +23,7 @@ init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 1000                  # Display sim status once very 'log_rate' sim cycles
 # WHICH_PLOTS: ['w', 'f', 'ee', 'y']   # Which plots to generate after the simulation
-WHICH_PLOTS: ['f']   # Which plots to generate after the simulation
+WHICH_PLOTS: ['f', 'ee']   # Which plots to generate after the simulation
 TILT_SURFACE: True              # Tilt contact surface 
 TILT_PITCH_LOCAL_DEG: 0.      # Tilt angle of the contact surface
 RICCATI: True

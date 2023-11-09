@@ -23,22 +23,27 @@ the contact force is modeled as a spring damper
 import sys
 sys.path.append('.')
 
-from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc_utils import path_utils, pin_utils, mpc_utils, misc_utils
-from core_mpc_utils import ocp as ocp_utils
+from core_mpc_utils import path_utils, misc_utils, mpc_utils
 from core_mpc_utils import sim_utils as simulator_utils
 
+from croco_mpc_utils import pinocchio_utils as pin_utils
+from croco_mpc_utils.math_utils import circle_point_WORLD
 
-from core_mpc_utils import ocp, path_utils, pin_utils, mpc_utils, misc_utils
-from soft_mpc.aug_data import DDPDataHandlerSoftContactAugmented, MPCDataHandlerSoftContactAugmented
-from soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented 
+from soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented
+from soft_mpc.aug_data import MPCDataHandlerSoftContactAugmented
 from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
+
+import mim_solvers
+from mim_robots.robot_loader import load_bullet_wrapper
+from mim_robots.pybullet.env import BulletEnvWithGround
+import pybullet as p
 
 
 RESET_ANCHOR_POINT = True
@@ -55,6 +60,7 @@ N_SEEDS = len(SEEDS)
 
 from aug_soft_sanding_MPC import solveOCP
 
+SAVE_DIR = '/home/skleff/force-feedback/data/soft_contact_article/dataset5_no_tracking'
 
 def main(robot_name):
 
@@ -67,8 +73,10 @@ def main(robot_name):
     dt_simu = 1./float(config['simu_freq'])  
     q0 = np.asarray(config['q0'])
     v0 = np.asarray(config['dq0'])
-    x0 = np.concatenate([q0, v0])   
-    env, robot_simulator, base_placement = simulator_utils.init_bullet_simulation(robot_name+'_reduced', dt=dt_simu, x0=x0)
+    x0 = np.concatenate([q0, v0])  
+    env             = BulletEnvWithGround(dt=dt_simu)
+    robot_simulator = load_bullet_wrapper('iiwa', locked_joints=['A7'])
+    env.add_robot(robot_simulator) 
     robot = robot_simulator.pin_robot
     # Get dimensions 
     nq, nv = robot.model.nq, robot.model.nv; nu = nq
@@ -89,7 +97,7 @@ def main(robot_name):
     # # # # # # # # # 
     # Contact model
     oPc = contact_placement.translation + np.asarray(config['oPc_offset'])
-    simulator_utils.display_ball(oPc, base_placement, RADIUS=0.01, COLOR=[1.,0.,0.,1.])
+    simulator_utils.display_ball(oPc, RADIUS=0.01, COLOR=[1.,0.,0.,1.])
     if('1D' in config['contactType']):
         softContactModel = SoftContactModel1D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff, config['contactType'], config['pinRefFrame'])
     else:
@@ -147,10 +155,10 @@ def main(robot_name):
             anchor_point = pdes.copy()
 
             # Setup Croco OCP and create solver
-            ddp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=False) #True)
+            ocp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel, callbacks=False) #True)
             # !!! Deactivate all costs & contact models initially !!!
             # Set the force cost reference frame to LWA 
-            models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+            models = list(ocp.runningModels) + [ocp.terminalModel]
             for k,m in enumerate(models):
                 m.differential.costs.costs["translation"].active = False
                 m.differential.active_contact = False
@@ -159,7 +167,8 @@ def main(robot_name):
             # solve
             xs_init = [y0 for _ in range(config['N_h']+1)] 
             us_init = [u0 for _ in range(config['N_h'])]
-            ddp.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+            solver = mim_solvers.SolverSQP(ocp)
+            solver.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
             # Reset robot to initial state and set table
             robot_simulator.reset_state(q0, v0)
@@ -178,7 +187,7 @@ def main(robot_name):
             ballsIdReal = []
             for i in range(nb_points):
                 t = (i/nb_points)*2*np.pi/OMEGA
-                pos = ocp_utils.circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
+                pos = circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
                 ballsIdTarget[i] = simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
             draw_rate = 1000
 
@@ -326,14 +335,14 @@ def main(robot_name):
                     # Solve OCP 
                     # bench.start_timer()
                     # bench.start_croco_profiler()
-                    solveOCP(q, v, f, ddp, config['maxiter'], node_id_reach, target_position, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
+                    solveOCP(q, v, f, solver, config['maxiter'], node_id_reach, target_position, anchor_point, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
                     # bench.record_profiles()
-                    # bench.stop_timer(nb_iter=ddp.iter)
+                    # bench.stop_timer(nb_iter=solver.iter)
                     # bench.stop_croco_profiler()
                     # Record MPC predictions, cost references and solver data 
-                    sim_data.record_predictions(nb_plan, ddp)
-                    sim_data.record_cost_references(nb_plan, ddp)
-                    sim_data.record_solver_data(nb_plan, ddp) 
+                    sim_data.record_predictions(nb_plan, solver)
+                    sim_data.record_cost_references(nb_plan, solver)
+                    sim_data.record_solver_data(nb_plan, solver) 
                     # Model communication delay between computer & robot (buffered OCP solution)
                     communicationModel.step(sim_data.y_pred, sim_data.u_curr)
                     # Record interpolated desired state, control and force at MPC frequency
@@ -355,8 +364,8 @@ def main(robot_name):
                     # Optionally interpolate to the control frequency using Riccati gains
                     if(config['RICCATI']):
                         y_filtered = antiAliasingFilter.step(nb_ctrl, i, sim_data.ctrl_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
-                        # tau_des_CTRL += ddp.K[0][:,:nq+nv].dot(ddp.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
-                        tau_des_CTRL += ddp.K[0].dot(ddp.problem.x0 - y_filtered) #position vel force
+                        # tau_des_CTRL += solver.K[0][:,:nq+nv].dot(solver.problem.x0[:nq+nv] - y_filtered[:nq+nv]) #position vel
+                        tau_des_CTRL += solver.K[0].dot(solver.problem.x0 - y_filtered) #position vel force
                     # Compute the motor torque 
                     tau_mot_CTRL = torqueController.step(tau_des_CTRL, tau_mea_CTRL, tau_mea_derivative_CTRL)
                     # Increment control counter
@@ -382,7 +391,7 @@ def main(robot_name):
                     count+=1
                     f0 = target_force[0]
                     err_fz += np.linalg.norm(fz_mea_SIMU - f0)
-                    p0 = target_position[0][:2] #ddp.problem.runningModels[0].differential.costs.costs['translation'].cost.residual.reference[:2]
+                    p0 = target_position[0][:2] #solver.problem.runningModels[0].differential.costs.costs['translation'].cost.residual.reference[:2]
                     err_p += np.linalg.norm(robot_simulator.pin_robot.data.oMf[id_endeff].translation[:2] - p0)
                     
                 # Record data (unnoised)
@@ -412,7 +421,7 @@ def main(robot_name):
             logger.warning("Position error = "+str(err_p/count))
             logger.warning("count = "+str(count))
             
-            save_dir = '/home/skleff/force-feedback/data/soft_contact_article/dataset4_no_tracking' # '/tmp'
+            save_dir = SAVE_DIR #'/home/skleff/force-feedback/data/soft_contact_article/dataset5_no_tracking' # '/tmp'
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\
