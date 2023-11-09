@@ -5,7 +5,7 @@
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
 @date 2020-05-18
-@brief Initializes the OCP + DDP solver (visco-elastic contact)
+@brief Initializes the OCP + solver (visco-elastic contact)
 """
 
 import crocoddyl
@@ -195,14 +195,14 @@ class OptimalControlProblemSoftContactAugmented(OptimalControlProblemAbstract):
 
   def initialize(self, y0, softContactModel):
     '''
-    Initializes OCP and FDDP solver from config parameters and initial state
+    Initializes OCP and  solver from config parameters and initial state
     Soft contact (visco-elastic) augmented formulation, i.e. visco-elastic
     contact force is part of the state . Supported 3D formulation only for now
       INPUT: 
           y0                : initial state of shooting problem
           softContactModel  : SoftContactModel3D (see in utils)
       OUTPUT:
-        FDDP solver
+         solver
 
      A cost term on a variable z(x,u) has the generic form w * a( r( z(x,u) - z0 ) )
      where w <--> cost weight, e.g. 'stateRegWeight' in config file
@@ -272,7 +272,7 @@ class OptimalControlProblemSoftContactAugmentedWithConstraints(OptimalControlPro
 
   def initialize(self, y0, softContactModel, callbacks=False):
     '''
-    Initializes OCP and FDDP solver from config parameters and initial state
+    Initializes OCP and  solver from config parameters and initial state
     Soft contact (visco-elastic) augmented formulation, i.e. visco-elastic
     contact force is part of the state . Supported 3D formulation only for now
       INPUT: 
@@ -280,7 +280,7 @@ class OptimalControlProblemSoftContactAugmentedWithConstraints(OptimalControlPro
           softContactModel  : SoftContactModel3D (see in utils)
           callbacks         : display Crocoddyl's DDP solver callbacks
       OUTPUT:
-        FDDP solver
+         solver
 
      A cost term on a variable z(x,u) has the generic form w * a( r( z(x,u) - z0 ) )
      where w <--> cost weight, e.g. 'stateRegWeight' in config file

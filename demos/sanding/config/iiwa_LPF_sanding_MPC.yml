@@ -88,11 +88,10 @@ stateRegWeight: 0.01
 stateRegWeightTerminal: 0.01
 stateRegRef: 'DEFAULT'
 
- # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
-ctrlRegWeights: [1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.00002
-ctrlRegWeightTerminal: 0.00002
-ctrlRegRef: 'DEFAULT'  # default 0 if None
+ # 'ctrlRegGrav' : torque regularization 
+ctrlRegGravWeights: [1., 1., 1., 1., 1., 1.]
+ctrlRegGravWeight: 0.00002
+ctrlRegGravWeightTerminal: 0.00002
 
 # 'wReg' : unfiltered torque regularization
 wRegWeight: 0.0000001

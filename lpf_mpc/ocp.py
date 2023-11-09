@@ -5,7 +5,7 @@
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
 @date 2022-05-12
-@brief Initializes the OCP + DDP solver
+@brief Initializes the OCP + solver
 """
 
 import crocoddyl
@@ -267,13 +267,13 @@ class OptimalControlProblemLPF(OptimalControlProblemAbstract):
 
   def initialize(self, y0):
     '''
-    Initializes OCP and FDDP solver from config parameters and initial state
+    Initializes OCP and solver from config parameters and initial state
       INPUT: 
           robot       : pinocchio robot wrapper
           config      : dict from YAML config file describing task and MPC params
           y0          : initial augmented state of shooting problem (q0, v0, tau0)
       OUTPUT:
-          FDDP solver
+          solver
 
      A cost term on a variable z(x,u) has the generic form w * r( a( z(x,u) ) )
      where w <--> cost weight, e.g. 'stateRegWeight' in config file
