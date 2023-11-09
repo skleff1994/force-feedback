@@ -103,7 +103,7 @@ class OptimalControlProblemSoftContactAugmented(OptimalControlProblemAbstract):
     # Control regularization (gravity)
     if('ctrlRegGrav' in self.WHICH_COSTS):
       runningModel.differential.with_gravity_torque_reg = True
-      runningModel.differential.tau_grav_weight = self.ctrlRegWeight
+      runningModel.differential.tau_grav_weight = self.ctrlRegGravWeight
     # State limits penalizationself.
     if('stateLim' in self.WHICH_COSTS):
       xLimitCost = self.create_state_limit_cost(state, actuation)
@@ -336,7 +336,7 @@ class OptimalControlProblemSoftContactAugmentedWithConstraints(OptimalControlPro
         # Control regularization (gravity)
         if('ctrlRegGrav' in self.WHICH_COSTS):
           runningModels[i].differential.with_gravity_torque_reg = True
-          runningModels[i].differential.tau_grav_weight = self.ctrlRegWeight
+          runningModels[i].differential.tau_grav_weight = self.ctrlRegGravWeight
         # State limits penalizationself.
         if('stateLim' in self.WHICH_COSTS):
           xLimitCost = self.create_state_limit_cost(state, actuation)

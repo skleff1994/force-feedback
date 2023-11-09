@@ -81,7 +81,7 @@ def main(robot_name, PLOT, DISPLAY):
     # Warmstart and solve
     xs_init = [y0 for i in range(config['N_h']+1)]
     fext0 = softContactModel.computeExternalWrench_(robot.model, y0[:nq], y0[:nv])
-    us_init = [pin_utils.get_tau(y0[:nq], y0[:nv], np.zeros(nv), fext0, robot.model, np.zeros(nv)) for i in range(config['N_h'])] #ddp.problem.quasiStatic(xs_init[:-1])
+    us_init = [pin_utils.get_tau(y0[:nq], y0[:nv], np.zeros(nv), fext0, robot.model, np.zeros(nv)) for i in range(config['N_h'])] 
     
     # Set the force cost reference frame to LWA 
     models = list(ocp.runningModels) + [ocp.terminalModel]
@@ -119,14 +119,14 @@ def main(robot_name, PLOT, DISPLAY):
         q_ws, v_ws, eps = pin_utils.IK_placement(robot, q_ws, id_endeff, Mref, DT=1e-2, IT_MAX=100)
         xs_init.append(np.concatenate([q_ws, v_ws, np.array([softContactModel.computeForce_(robot.model, q_ws, v_ws)])]))
 
-    ddp = mim_solvers.SolverSQP(ocp)
-    ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+    solver = mim_solvers.SolverSQP(ocp)
+    solver.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
     if(PLOT):
         #  Plot
-        ddp_handler = OCPDataHandlerSoftContactAugmented(ddp, softContactModel)
-        ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name, model=robot.model)
-        _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
+        ddp_handler = OCPDataHandlerSoftContactAugmented(solver.problem, softContactModel)
+        ddp_data = ddp_handler.extract_data(solver.xs, solver.us, robot.model)
+        _, _ = ddp_handler.plot_ocp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
                                                             colors=['r'], 
                                                             markers=['.'], 
                                                             SHOW=True)
@@ -136,7 +136,7 @@ def main(robot_name, PLOT, DISPLAY):
     if(DISPLAY):
         import crocoddyl
         display = crocoddyl.GepettoDisplay(robot, frameNames=[frame_name])
-        display.displayFromSolver(ddp, factor=0.1)
+        display.displayFromSolver(solver, factor=0.1)
 
 
 if __name__=='__main__':
