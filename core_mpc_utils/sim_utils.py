@@ -353,7 +353,7 @@ def display_contact_surface(M, robotId=1, radius=.5, length=0.0, bullet_endeff_i
       # Desactivate collisions for all links
       for i in range(p.getNumJoints(robotId)):
             p.setCollisionFilterPair(contactId, robotId, -1, i, 1) # 0
-            logger.info("Set collision pair ("+str(contactId)+","+str(robotId)+"."+str(i)+") to True")
+            # logger.info("Set collision pair ("+str(contactId)+","+str(robotId)+"."+str(i)+") to True")
     #   # activate collisions only for EE ids
     #   for ee_id in bullet_endeff_ids:
     #         p.setCollisionFilterPair(contactId, robotId, -1, ee_id, 1)

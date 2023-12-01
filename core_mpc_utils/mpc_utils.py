@@ -63,7 +63,7 @@ class AntiAliasingFilter:
 
 
 class LowLevelTorqueController:
-    def __init__(self, config, nu):
+    def __init__(self, config, nu, use):
       '''
       Takes in a reference torque (e.g. from MPC) and computes the motor torque 
       to be sent to the robot's motors, optionally using a PID+ controller
@@ -71,8 +71,8 @@ class LowLevelTorqueController:
       self.config = config
       self.nu = nu
       # Simulate low-level torque control 
-      self.TORQUE_TRACKING   = config['TORQUE_TRACKING']               
-      logger.info("Created ActuationModel(TORQUE_TRACKING="+str(self.TORQUE_TRACKING)+").")
+      self.TORQUE_TRACKING   = use           
+      logger.info("Created LowLevelTorqueController(TORQUE_TRACKING="+str(self.TORQUE_TRACKING)+").")
       # PID gains for inner control loop 
       self.gain_P = self.config['Kp_low']*np.eye(nu)      
       self.gain_I = self.config['Ki_low']*np.eye(nu)
@@ -99,6 +99,7 @@ class LowLevelTorqueController:
       motor_torque = reference_torque.copy()
       # Optional PID feedback term 
       if(self.TORQUE_TRACKING and len(measured_torque) !=0):
+          # print(self.TORQUE_TRACKING)
           self.err_P = measured_torque - reference_torque              
           self.err_I += self.err_P
           self.err_D = measured_torque_derivative                 

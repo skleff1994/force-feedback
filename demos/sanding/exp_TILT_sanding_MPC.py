@@ -59,24 +59,30 @@ N_SEEDS = len(SEEDS)
 
 
 from sanding_MPC import solveOCP
+from croco_mpc_utils.utils import load_yaml_file
+
+# SAVE_DIR = '/home/skleff/Desktop/soft_contact_sim_exp/with_torque_control'
 
 
-SAVE_DIR = '/home/skleff/force-feedback/data/soft_contact_article/dataset5_no_tracking'
-
-
-def main(robot_name):
-
+def main(SAVE_DIR, TORQUE_TRACKING):
+    
     # # # # # # # # # # # # # # # # # # #
     ### LOAD ROBOT MODEL and SIMU ENV ### 
     # # # # # # # # # # # # # # # # # # # 
     # Read config file
-    config, config_name = path_utils.load_config_file('sanding_MPC', robot_name)
+    # config, config_name = path_utils.load_config_file('sanding_MPC', robot_name)
+    config_name = 'iiwa_sanding_MPC'
+    config = load_yaml_file('/home/skleff/ws_croco2/workspace/src/force-feedback/demos/sanding/config/iiwa_sanding_MPC.yml')
+    
+    logger.warning("save dir = "+SAVE_DIR)
+    logger.warning("tracking = "+str(TORQUE_TRACKING))
+    
     # Create a simulation environment & simu-pin wrapper 
     dt_simu = 1./float(config['simu_freq'])  
     q0 = np.asarray(config['q0'])
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])  
-    env             = BulletEnvWithGround(dt=dt_simu)
+    env             = BulletEnvWithGround(dt=dt_simu, server=p.DIRECT)
     robot_simulator = load_bullet_wrapper('iiwa', locked_joints=['A7'])
     env.add_robot(robot_simulator) 
     robot = robot_simulator.pin_robot
@@ -92,8 +98,7 @@ def main(robot_name):
     # EE translation target : contact point + vertical offset (radius of the ee ball)
     contactTranslationTarget = np.asarray(config['contactPosition']) + np.asarray(config['oPc_offset'])
     targetId = simulator_utils.display_ball(contactTranslationTarget, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
-
-
+    
     for n_seed in range(N_SEEDS):
         
         print("Set Random Seed to "+str(SEEDS[n_seed]) + " ("+str(n_seed)+"/"+str(N_SEEDS)+")")
@@ -152,6 +157,11 @@ def main(robot_name):
             xs_init = [x0 for _ in range(config['N_h']+1)]
             us_init = ocp.quasiStatic(xs_init[:-1])
             solver = mim_solvers.SolverSQP(ocp)
+            solver.regMax                 = 1e6
+            solver.reg_max                = 1e6
+            solver.termination_tolerance  = 0.0001 
+            solver.use_filter_line_search = True
+            solver.filter_size            = config['maxiter']
             solver.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 
@@ -188,7 +198,11 @@ def main(robot_name):
             communicationModel = mpc_utils.CommunicationModel(config)
             actuationModel     = mpc_utils.ActuationModel(config, nu=nu, SEED=SEEDS[n_seed])
             sensingModel       = mpc_utils.SensorModel(config, SEED=SEEDS[n_seed])
-            torqueController   = mpc_utils.LowLevelTorqueController(config, nu=nu)
+            if(int(TORQUE_TRACKING) == 0):
+                use = False
+            else:
+                use = True
+            torqueController   = mpc_utils.LowLevelTorqueController(config, nu=nu, use=use)
             antiAliasingFilter = mpc_utils.AntiAliasingFilter()
 
 
@@ -419,5 +433,6 @@ def main(robot_name):
 
 
 if __name__=='__main__':
-    args = misc_utils.parse_MPC_script(sys.argv[1:])
-    main(args.robot_name)
+    # args = misc_utils.parse_MPC_script(sys.argv[1:])
+    # main(args.SAVE_DIR)
+    main(sys.argv[1], sys.argv[2])

@@ -152,8 +152,8 @@ class OptimalControlProblemLPF(OptimalControlProblemAbstract):
       collisionCost = self.create_collision_cost(state, actuation)
       runningModel.differential.costs.addCost("collision", collisionCost, self.collisionCostWeight)
 
-    # Armature 
-    runningModel.differential.armature = np.asarray(self.armature)
+    # # Armature 
+    # runningModel.differential.armature = np.asarray(self.armature)
     
     # Contact model
     if(len(contactModels) > 0):
@@ -201,8 +201,8 @@ class OptimalControlProblemLPF(OptimalControlProblemAbstract):
       frameRotationCost = self.create_frame_rotation_cost(state, actuation)
       terminalModel.differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeightTerminal*self.dt)
 
-    # Add armature
-    terminalModel.differential.armature = np.asarray(self.armature)   
+    # # Add armature
+    # terminalModel.differential.armature = np.asarray(self.armature)   
   
     # Add contact model
     if(len(contactModels)):
@@ -256,7 +256,7 @@ class OptimalControlProblemLPF(OptimalControlProblemAbstract):
       if(self.wRegRef== 'zero'):
         w_reg_ref = np.zeros(self.nq)
       elif(self.wRegRef== 'tau0'):
-        w_reg_ref = pin_utils.get_u_grav(y0[:self.nq], self.rmodel, self.armature)
+        w_reg_ref = pin_utils.get_u_grav(y0[:self.nq], self.rmodel)
       else:
         logger.error("Unknown 'wRegRef' in YAML config. Please select in ['zero', 'tau0', 'gravity']")
       # w_reg_ref = np.asarray(self.wRegRef'])

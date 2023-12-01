@@ -66,6 +66,7 @@ def solveOCP(q, v, f, ddp, nb_iter, node_id_reach, target_reach, anchor_point, n
         if(node_id_reach <= ddp.problem.T and node_id_reach >= 0):
             # Updates nodes between node_id and terminal node 
             for k in range( node_id_reach, ddp.problem.T+1, 1 ):
+                m[k].differential.costs.costs["translation"].weight = 10.
                 m[k].differential.costs.costs["translation"].active = True
                 m[k].differential.costs.costs["translation"].cost.residual.reference = target_reach[k]
                 m[k].differential.costs.costs["velocity"].active = True

@@ -36,7 +36,7 @@ T_CIRCLE: 3.
 
 # General 
 LPF_TYPE: 0
-f_c: 10                                             # Low-pass filter cut-off frequency (10Hz without PID, 5Hz with PID)
+f_c: 5                                             # Low-pass filter cut-off frequency (10Hz without PID, 5Hz with PID)
 tau_plus_integration: False
 dt: 0.003                                          # OCP integration step 
 N_h: 10                                            # Horizon length in nodes
