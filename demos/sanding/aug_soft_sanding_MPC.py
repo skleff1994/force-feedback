@@ -39,7 +39,7 @@ from croco_mpc_utils.math_utils import circle_point_WORLD
 
 from soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented
 from soft_mpc.aug_data import OCPDataHandlerSoftContactAugmented, MPCDataHandlerSoftContactAugmented
-from soft_mpc.utils import SoftContactModel3D, SoftContactModel1D
+from soft_mpc.utils import SoftContactModel1D
 from croco_mpc_utils.utils import load_yaml_file
 
 import mim_solvers
@@ -118,13 +118,11 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   q0 = np.asarray(config['q0'])
   v0 = np.asarray(config['dq0'])
   x0 = np.concatenate([q0, v0])  
-  env             = BulletEnvWithGround(dt=dt_simu, server=p.DIRECT)
+  env             = BulletEnvWithGround(dt=dt_simu, server=p.GUI)
   robot_simulator = load_bullet_wrapper('iiwa_ft_sensor_shell', locked_joints=['A7'])
   env.add_robot(robot_simulator) 
-  q_init = np.asarray(config['q0'] )
-  v_init = np.asarray(config['dq0'])
-  robot_simulator.reset_state(q_init, v_init)
-  robot_simulator.forward_robot(q_init, v_init)
+  robot_simulator.reset_state(q0, v0)
+  robot_simulator.forward_robot(q0, v0)
   robot = robot_simulator.pin_robot
   
   # Get dimensions 
@@ -135,8 +133,8 @@ def main(SAVE_DIR, TORQUE_TRACKING):
 
   # simulator_utils.print_dynamics_info(1, 9)
   # EE translation target : contact point + vertical offset (radius of the ee ball)
-  contactTranslationTarget = np.asarray(config['contactPosition']) + np.asarray(config['oPc_offset'])
-  simulator_utils.display_ball(contactTranslationTarget, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
+  oPc = np.asarray(config['contactPosition']) + np.asarray(config['oPc_offset'])
+  simulator_utils.display_ball(oPc, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
   # Display contact surface + optional tilt
   import pinocchio as pin
   contact_placement   = pin.SE3(np.eye(3), np.asarray(config['contactPosition']))
@@ -152,7 +150,6 @@ def main(SAVE_DIR, TORQUE_TRACKING):
 
 
   # Contact model
-  oPc              = np.asarray(config['contactPosition']) + np.asarray(config['oPc_offset'])
   softContactModel = SoftContactModel1D(Kp=np.asarray(config['Kp']), 
                                         Kv=np.asarray(config['Kv']), 
                                         oPc=oPc,
@@ -192,8 +189,6 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   # !!! Deactivate all costs & contact models initially !!!
   models = list(solver.problem.runningModels) + [solver.problem.terminalModel]
   for k,m in enumerate(models):
-      # logger.debug(str(m.differential.costs.active.tolist()))
-      # logger.debug("Initial target for translation cost = "+str(m.differential.costs.costs["translation"].cost.residual.reference))
       m.differential.costs.costs["translation"].active = False
       m.differential.active_contact = False
       m.differential.f_des = np.zeros(1)
@@ -225,13 +220,16 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   N_circle    = int((config['T_tot'] - config['T_CIRCLE'])/dt_simu + config['N_h']*OCP_TO_CTRL_RATIO )
   target_position_traj = np.zeros( (N_total_pos, 3) )
   # absolute desired position
-  radius = 0.07 ; omega = 3.
-  target_position_traj[0:N_circle, :] = [np.array([oPc[0] + radius * (1-np.cos(i*dt_simu*omega)), 
-                                                   oPc[1] - radius * np.sin(i*dt_simu*omega),
+  target_position_traj[0:N_circle, :] = [np.array([oPc[0] + RADIUS * (1-np.cos(i*dt_simu*OMEGA)), 
+                                                   oPc[1] - RADIUS * np.sin(i*dt_simu*OMEGA),
                                                    oPc[2]]) for i in range(N_circle)]
   target_position_traj[N_circle:, :] = target_position_traj[N_circle-1,:]
   target_position = np.zeros((config['N_h']+1, 3)) 
   target_position[:,:] = oPc.copy() 
+  # import matplotlib.pyplot as plt
+  # plt.plot(target_position_traj[:,0])
+  # plt.plot(target_position_traj[:,1])
+  # plt.show()
   
   # if(PLOT_INIT):
   #   #  Plot
@@ -264,13 +262,15 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   antiAliasingFilter = mpc_utils.AntiAliasingFilter()
 
   # Display target circle  trajectory (reference)
-  nb_points = 20 
-  for i in range(nb_points):
-    t = (i/nb_points)*2*np.pi/OMEGA
-    pos = circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
-    simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
-  
-  draw_rate = 1000
+  if(config['DISPLAY_EE']):
+    nb_points = 20 
+    for i in range(nb_points):
+        t = (i/nb_points)*2*np.pi/OMEGA
+        # pl = pin_utils.rotate(contact_placement_0, rpy=TILT_RPY)
+        pos = circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
+        simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
+
+    draw_rate = 1000
   
   
   # # # # # # # # # # # #
@@ -280,18 +280,19 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   # bench = MPCBenchmark()
 
   # Horizon in simu cycles
-  TASK_PHASE      = 0
-  NH_SIMU   = int(config['N_h']*config['dt']/sim_data.dt_simu)
-  T_REACH   = int(config['T_REACH']/sim_data.dt_simu)
-  T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
-  T_CONTACT = int(config['T_CONTACT']/sim_data.dt_simu)
-  T_CIRCLE   = int(config['T_CIRCLE']/sim_data.dt_simu)
+  TASK_PHASE       = 0
+  NH_SIMU          = int(config['N_h']*config['dt']/sim_data.dt_simu)
+  T_REACH          = int(config['T_REACH']/sim_data.dt_simu)
+  T_TRACK          = int(config['T_TRACK']/sim_data.dt_simu)
+  T_CONTACT        = int(config['T_CONTACT']/sim_data.dt_simu)
+  T_CIRCLE         = int(config['T_CIRCLE']/sim_data.dt_simu)
   OCP_TO_MPC_RATIO = config['dt'] / sim_data.dt_plan
   logger.debug("Size of MPC horizon in simu cycles     = "+str(NH_SIMU))
-  logger.debug("Start of reaching phase in simu cycles = "+str(T_REACH))
-  # logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
-  logger.debug("Start of contact phase in simu cycles  = "+str(T_CONTACT))
-  logger.debug("Start of circle phase in simu cycles   = "+str(T_CIRCLE))
+  logger.debug("Start of REACH phase in simu cycles    = "+str(T_REACH))
+  logger.debug("Start of TRACK phase in simu cycles    = "+str(T_TRACK))
+  logger.debug("Start of CONTACT phase in simu cycles  = "+str(T_CONTACT))
+  logger.debug("Start of RAMP phase in simu cycles     = "+str(T_CONTACT))
+  logger.debug("Start of CIRCLE phase in simu cycles   = "+str(T_CIRCLE))
   logger.debug("OCP to PLAN ratio (# of re-replannings between two OCP nodes) = "+str(OCP_TO_MPC_RATIO))
   logger.debug("OCP to SIMU ratio (# of simulate steps between two OCP nodes) = "+str(OCP_TO_CTRL_RATIO))
 
@@ -371,7 +372,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
           # Reset x0 to measured state + warm-start solution
           q = x_filtered[:nq]
           v = x_filtered[nq:nq+nv]
-          f = x_filtered[nq+nv:]
+          f = x_filtered[-softContactModel.nc:]
           # Solve OCP 
           solveOCP(q, v, f, solver, config['maxiter'], target_position, anchor_point, TASK_PHASE, target_force)
           # Record MPC predictions, cost references and solver data 
@@ -428,7 +429,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
         count+=1
         f_err.append(np.abs(f_mea_SIMU[2] - target_force[0]))
         p_err.append(np.abs(robot_simulator.pin_robot.data.oMf[id_endeff].translation[:2] - target_position[0][:2]))
-        
+      
       # Record data (unnoised)
       y_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU, fz_mea_SIMU]).T 
       # Simulate sensing 
@@ -437,7 +438,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
       sim_data.record_simu_cycle_measured(i, y_mea_SIMU, y_mea_no_noise_SIMU, tau_mea_SIMU)
 
       # Display real 
-      if(i%draw_rate==0):
+      if(config['DISPLAY_EE'] and i%draw_rate==0):
         pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
         simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
 

@@ -1,11 +1,11 @@
-# MPC parameters for EE reaching task LPF
-# + PyBullet or Raisim simulation
+# MPC parameters for end-effector circle force task
+# + PyBullet or Raisim simulation
 
 # MPC & sim parameters
 simu_freq: 2000               # Simulation frequency in Hz
 ctrl_freq: 1000               # Control frequency
 plan_freq: 500                # Planning frequency
-T_tot: 6.                     # Simu duration (s)n (s)
+T_tot: 20.                     # Simu duration (s)n (s)
 # Simulation options
 DELAY_SIM: True                 # Add delay in reference torques (low-level)
 DELAY_OCP: True                 # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -17,25 +17,27 @@ VISCOUS_FRICTION: True          # Simulate viscous friction torque
 TORQUE_TRACKING: True           # Low-level torque tracking with a PI controller
 SAVE_DATA: True                 # Save plot_data to npz
 RECORD_SOLVER_DATA: True       # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
-INIT_LOG: True                  # Initial  logs summarizing parameters
+INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 1000                  # Display sim status once very 'log_rate' sim cycles
-WHICH_PLOTS: ['control', 'state', 'force', 'solver']   # Which plots to generate after the simulation
+WHICH_PLOTS: ['control', 'state', 'force', 'solver', 'ee']   # Which plots to generate after the simulation
 TILT_SURFACE: False              # Tilt contact surface 
 TILT_PITCH_LOCAL_DEG: 0.      # Tilt angle of the contact surface
-RICCATI: False
+RICCATI: False                # Interpolate torque command using Riccati gains
+DISPLAY_EE: False             # Display target and actual EE position as balls in PyBullet
 
 # Start of the reaching phase
 T_REACH: 0.
 # Start of the tracking phase
-T_TRACK: 0.
+T_TRACK: 0.5
 # Start of the contact phase
 T_CONTACT: 1.
 # End of ramp
 T_RAMP: 2.
 # Start of the circle tracking phase
 T_CIRCLE: 3.
+
 
 
 # Definition of the contact surface in the simulator
@@ -65,8 +67,7 @@ RESET_ANCHOR_POINT: True
 Kp: [1000] 
 Kv: [100]
 contactPosition: [0.65, 0., 0.01]  
-# oPc_offset: [0., 0., -0.00]  # just table
-oPc_offset: [0., 0., 0.025] # with wood piece (tilt experiment)
+oPc_offset: [0., 0., -0.00]  # just table
 contactFrameName: 'contact'
 contactType: '1Dz'    
 pinRefFrame: 'LOCAL_WORLD_ALIGNED' 
@@ -108,7 +109,7 @@ frameTranslationWeightTerminal: 100.
 alpha_quadflatlog: 0.01
 frameTranslationRef: 'DEFAULT'
 frameTranslationFrameName: 'contact'
-frameCircleTrajectoryRadius: 0.1  # in m
+frameCircleTrajectoryRadius: 0.07  # in m
 frameCircleTrajectoryVelocity: 3 # in rad/s
 numberOfRounds: 10
 CIRCLE_LOCAL_PLANE: 'XY'

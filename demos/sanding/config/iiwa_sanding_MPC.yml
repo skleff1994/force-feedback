@@ -5,7 +5,7 @@
 simu_freq: 2000               # Simulation frequency in Hz
 ctrl_freq: 1000               # Control frequency
 plan_freq: 500                # Planning frequency
-T_tot: 6.                     # Simu duration (s)n (s)
+T_tot: 20.                     # Simu duration (s)n (s)
 # Simulation options
 DELAY_SIM: True                 # Add delay in reference torques (low-level)
 DELAY_OCP: True                 # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -21,16 +21,17 @@ INIT_LOG: True                  # Initial logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 1000                  # Display sim status once very 'log_rate' sim cycles
-# WHICH_PLOTS: ['w', 'f', 'ee', 'y']   # Which plots to generate after the simulation
-WHICH_PLOTS: ['control', 'state', 'force', 'solver']   # Which plots to generate after the simulation
+WHICH_PLOTS: ['control', 'state', 'force', 'solver', 'ee']   # Which plots to generate after the simulation
 TILT_SURFACE: False              # Tilt contact surface 
 TILT_PITCH_LOCAL_DEG: 0.      # Tilt angle of the contact surface
-RICCATI: False
+RICCATI: False                # Interpolate torque command using Riccati gains
+DISPLAY_EE: False             # Display target and actual EE position as balls in PyBullet
+
 
 # Start of the reaching phase
 T_REACH: 0.
 # Start of the tracking phase
-T_TRACK: 0.
+T_TRACK: 0.5
 # Start of the contact phase
 T_CONTACT: 1.
 # End of ramp
@@ -67,8 +68,8 @@ contacts:
       contactModelGains: [0, 10],                         # Baumgarte stabilization gains
       active: False                                       # Initially active? 
     }
-contactPosition: [0.65, 0., 0.0] # table
-oPc_offset: [0., 0., 0.] 
+contactPosition: [0.65, 0., 0.01]  
+oPc_offset: [0., 0., -0.00]  # just table
 contactFrameName: 'contact'
 contactType: '1Dz'    
 pinRefFrame: 'LOCAL_WORLD_ALIGNED' 
