@@ -26,9 +26,9 @@ import matplotlib.pyplot as plt
 
 
 PREFIX = '/home/skleff/Desktop/soft_contact_sim_exp/with_torque_control/'
-prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
-prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
-prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=1.0_Fc=2.0_Fs5.0'
+prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.5_Fc=1.0_Fs2.0'
+prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.5_Fc=1.0_Fs2.0'
+prefix_classical = PREFIX+'iiwa_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.5_Fc=1.0_Fs2.0'
 
 CUTOFF = 3. # in seconds
 
@@ -144,7 +144,7 @@ for n_seed in range(N_SEEDS):
         # Extract soft 
         sd   = load_data(prefix_soft+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
         # sd   = load_data(prefix_soft+'.npz')
-        data = sd.extract_data(frame_of_interest='contact')
+        data = sd#.extract_data(frame_of_interest='contact')
         # Smooth if necessary
         if(FILTER > 0):
             data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)
