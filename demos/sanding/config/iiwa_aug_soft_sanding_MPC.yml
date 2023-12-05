@@ -5,7 +5,7 @@
 simu_freq: 2000               # Simulation frequency in Hz
 ctrl_freq: 1000               # Control frequency
 plan_freq: 500                # Planning frequency
-T_tot: 20.                     # Simu duration (s)n (s)
+T_tot: 10.                     # Simu duration (s)n (s)
 # Simulation options
 DELAY_SIM: True                 # Add delay in reference torques (low-level)
 DELAY_OCP: True                 # Add delay in OCP solution (i.e. ~1ms resolution time)
@@ -150,6 +150,6 @@ delay_sim_cycle: 1
 static_friction_max_torque: 1.
 viscous_friction_slope: 0.5
   # Proportional-integral torque control gains
-Kp_low: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
-Ki_low: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+Kp_low: [0.7, 0.7, 0.7, 0.7, 0.7, 0.7]
+Ki_low: [0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
 Kd_low: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]

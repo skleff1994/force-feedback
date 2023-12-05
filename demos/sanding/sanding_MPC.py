@@ -33,7 +33,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
-RANDOM_SEED = 19
+RANDOM_SEED = 1 #19
 
 
 from core_mpc_utils import path_utils, misc_utils, mpc_utils
@@ -129,7 +129,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   q0 = np.asarray(config['q0'])
   v0 = np.asarray(config['dq0'])
   x0 = np.concatenate([q0, v0])  
-  env             = BulletEnvWithGround(dt=dt_simu, server=p.GUI)
+  env             = BulletEnvWithGround(dt=dt_simu, server=p.DIRECT)
   robot_simulator = load_bullet_wrapper('iiwa_ft_sensor_shell', locked_joints=['A7'])
   env.add_robot(robot_simulator) 
   robot_simulator.reset_state(q0, v0)
@@ -142,7 +142,6 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   frame_of_interest = config['frame_of_interest']
   id_endeff = robot.model.getFrameId(frame_of_interest)
 
-  # simulator_utils.print_dynamics_info(1, 9)
   # EE translation target : contact point + vertical offset (radius of the ee ball)
   oPc = np.asarray(config['contactPosition']) + np.asarray(config['oPc_offset'])
   simulator_utils.display_ball(oPc, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
@@ -370,7 +369,9 @@ def main(SAVE_DIR, TORQUE_TRACKING):
           sim_data.record_plan_cycle_desired(nb_plan)
           # Increment planning counter
           nb_plan += 1
-          torqueController.reset_integral_error()
+        #   torqueController.reset_integral_error()
+
+
 
       # # # # # # # # # #
       # # Send policy # #

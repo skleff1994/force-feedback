@@ -28,7 +28,6 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
-np.random.seed(1)
 np.set_printoptions(precision=4, linewidth=180)
 
 
@@ -60,9 +59,7 @@ N_SEEDS = len(SEEDS)
 
 from sanding_MPC import solveOCP
 from croco_mpc_utils.utils import load_yaml_file
-
-# SAVE_DIR = '/home/skleff/Desktop/soft_contact_sim_exp/with_torque_control'
-
+import pinocchio as pin
 
 def main(SAVE_DIR, TORQUE_TRACKING):
     
@@ -85,65 +82,37 @@ def main(SAVE_DIR, TORQUE_TRACKING):
     env             = BulletEnvWithGround(dt=dt_simu, server=p.DIRECT)
     robot_simulator = load_bullet_wrapper('iiwa_ft_sensor_shell', locked_joints=['A7'])
     env.add_robot(robot_simulator) 
-    q_init = np.asarray(config['q0'] )
-    v_init = np.asarray(config['dq0'])
-    robot_simulator.reset_state(q_init, v_init)
-    robot_simulator.forward_robot(q_init, v_init)
+    robot_simulator.reset_state(q0, v0)
+    robot_simulator.forward_robot(q0, v0)
     robot = robot_simulator.pin_robot
+  
     # Get dimensions 
     nq, nv = robot.model.nq, robot.model.nv; nu = nq
     # Placement of LOCAL end-effector frame w.r.t. WORLD frame
     frame_of_interest = config['frame_of_interest']
     id_endeff = robot.model.getFrameId(frame_of_interest)
-    oMf = robot.data.oMf[id_endeff].copy()
-    import pinocchio as pin
-    contact_placement   = pin.SE3(np.eye(3), np.asarray(config['contactPosition']))
-    contact_placement_0 = contact_placement.copy()
+    
     # EE translation target : contact point + vertical offset (radius of the ee ball)
-    contactTranslationTarget = np.asarray(config['contactPosition']) + np.asarray(config['oPc_offset'])
-    targetId = simulator_utils.display_ball(contactTranslationTarget, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
+    oPc = np.asarray(config['contactPosition']) + np.asarray(config['oPc_offset'])
+    simulator_utils.display_ball(oPc, RADIUS=0.02, COLOR=[1.,0.,0.,0.2])
     
     for n_seed in range(N_SEEDS):
         
-        print("Set Random Seed to "+str(SEEDS[n_seed]) + " ("+str(n_seed)+"/"+str(N_SEEDS)+")")
+        print("\n ============================================================================= ")
+        print(" ============================================================================= ")
+        print(" Set Random Seed to "+str(SEEDS[n_seed]) + " ("+str(n_seed+1)+"/"+str(N_SEEDS)+")")
+        print(" ============================================================================= ")
+        print(" ============================================================================= \n")
         np.random.seed(SEEDS[n_seed])
 
         for n_exp in range(N_EXP):
-            
-            # Construct target force and position trajectories + OCP warm-start
-            RADIUS = config['frameCircleTrajectoryRadius'] 
-            OMEGA  = config['frameCircleTrajectoryVelocity']
-            # Force trajectory
-            F_MIN = 5.
-            F_MAX = config['frameForceRef'][2]
-            N_total = 10000 # int((config['T_tot'] - config['T_CONTACT'])/config['dt'] + config['N_h'])
-            N_min  = 5
-            N_ramp = N_min + 10
-            target_force_traj = np.zeros( (N_total, 3) )
-            target_force_traj[0:N_min*config['N_h'], 2] = F_MIN
-            target_force_traj[N_min*config['N_h']:N_ramp*config['N_h'], 2] = [F_MIN + (F_MAX - F_MIN)*i/((N_ramp-N_min)*config['N_h']) for i in range((N_ramp-N_min)*config['N_h'])]
-            target_force_traj[N_ramp*config['N_h']:, 2] = F_MAX
-            target_force = np.zeros(config['N_h']+1)
-            force_weight = np.asarray(config['frameForceWeight'])
-            # Circle trajectory 
-            N_total_pos = 10000 # int((config['T_tot'] - config['T_REACH'])/config['dt'] + config['N_h'])
-            N_circle = 10000 # int((config['T_tot'] - config['T_CIRCLE'])/config['dt']) + config['N_h']
-            target_position_traj = np.zeros( (N_total_pos, 3) )
-            target_velocity_traj = np.zeros( (N_total_pos, 3) )
-            # absolute desired position
-            oPc_offset = np.asarray(config['oPc_offset'])
-            pdes = np.asarray(config['contactPosition']) + oPc_offset
-            target_position_traj[0:N_circle, :] = [np.array([pdes[0] + RADIUS * np.sin(i*config['dt']*OMEGA), 
-                                                                    pdes[1] + RADIUS * (1-np.cos(i*config['dt']*OMEGA)),
-                                                                    pdes[2]]) for i in range(N_circle)]
-            target_velocity_traj[0:N_circle, :] = [np.array([RADIUS * OMEGA * np.cos(i*config['dt']*OMEGA), 
-                                                                    RADIUS * OMEGA * np.sin(i*config['dt']*OMEGA),
-                                                                    0.]) for i in range(N_circle)]
-            target_position_traj[N_circle:, :] = target_position_traj[N_circle-1,:]
-            target_velocity_traj[N_circle:, :] = np.zeros(3)
-            target_position = np.zeros((config['N_h']+1, 3)) 
-            target_position[:,:] = pdes.copy()
-            target_velocity = np.zeros((config['N_h']+1, 3)) 
+
+            print("\n       ============================================================================= ")
+            print("       Set TILT ANGLE to "+str(TILT_ANGLES_DEG[n_exp]) + " ("+str(n_exp+1)+"/"+str(N_EXP)+")")
+            print("       ============================================================================= \n")
+            # # # # # # # # # 
+            ### OCP SETUP ###
+            # # # # # # # # # 
 
             # Initialize Optimal Control Problem
             ocp = OptimalControlProblemClassical(robot, config).initialize(x0)
@@ -164,7 +133,38 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                 m.differential.contacts.changeContactStatus("contact", False)
                 m.differential.costs.costs['rotation'].active = False
                 m.differential.costs.costs['rotation'].cost.residual.reference = pin.utils.rpyToMatrix(np.pi, 0., np.pi)
+                
             solver.solve(xs_init, us_init, maxiter=100, isFeasible=False)
+            
+            
+            # Setup tracking problem with circle ref EE trajectory + Warm start state = IK of circle trajectory
+            OCP_TO_CTRL_RATIO = int(config['dt']/dt_simu)
+                    
+            RADIUS = config['frameCircleTrajectoryRadius'] 
+            OMEGA  = config['frameCircleTrajectoryVelocity']
+            
+            # Force trajectory
+            F_MIN = 5.
+            F_MAX = config['frameForceRef'][2]
+            N_total = int((config['T_tot'] - config['T_CONTACT']) / dt_simu + config['N_h']*OCP_TO_CTRL_RATIO)
+            N_ramp  = int((config['T_RAMP'] - config['T_CONTACT']) / dt_simu)
+
+            target_force_traj             = np.zeros((N_total, 3))
+            target_force_traj[:N_ramp, 2] = [F_MIN + (F_MAX - F_MIN)*i/N_ramp for i in range(N_ramp)]
+            target_force_traj[N_ramp:, 2] = F_MAX
+            target_force                  = np.zeros(config['N_h']+1)
+            
+            # Circle trajectory 
+            N_total_pos = int((config['T_tot'] - config['T_REACH'])/dt_simu + config['N_h']*OCP_TO_CTRL_RATIO)
+            N_circle    = int((config['T_tot'] - config['T_CIRCLE'])/dt_simu + config['N_h']*OCP_TO_CTRL_RATIO )
+            target_position_traj = np.zeros( (N_total_pos, 3) )
+            # absolute desired position
+            target_position_traj[0:N_circle, :] = [np.array([oPc[0] + RADIUS * (1-np.cos(i*dt_simu*OMEGA)), 
+                                                            oPc[1] - RADIUS * np.sin(i*dt_simu*OMEGA),
+                                                            oPc[2]]) for i in range(N_circle)]
+            target_position_traj[N_circle:, :] = target_position_traj[N_circle-1,:]
+            target_position = np.zeros((config['N_h']+1, 3)) 
+            target_position[:,:] = oPc.copy() 
 
 
             # Reset robot to initial state and set table
@@ -174,20 +174,22 @@ def main(SAVE_DIR, TORQUE_TRACKING):
             contact_placement        = pin.SE3(np.eye(3), np.asarray(config['contactPosition']))
             contact_placement_0      = contact_placement.copy()
             contact_placement        = pin_utils.rotate(contact_placement, rpy=TILT_RPY[n_exp])
-            contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, np.asarray(config['contactPosition']), bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
+            contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
             # Make the contact soft (e.g. tennis ball or sponge on the robot)
             simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
             simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 10000, 500)
-            # Display target circle  trajectory (reference)
-            nb_points = 20 
-            ballsIdTarget = np.zeros(nb_points, dtype=int)
-            ballsIdReal = []
-            for i in range(nb_points):
-                t = (i/nb_points)*2*np.pi/OMEGA
-                pos = circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
-                ballsIdTarget[i] = simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
-            draw_rate = 1000
             
+            # Display target circle  trajectory (reference)
+            if(config['DISPLAY_EE']):
+                nb_points = 20 
+                ballsIdTarget = np.zeros(nb_points, dtype=int)
+                ballsIdReal = []
+                for i in range(nb_points):
+                    t = (i/nb_points)*2*np.pi/OMEGA
+                    pos = circle_point_WORLD(t, contact_placement_0, radius=RADIUS, omega=OMEGA, LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
+                    ballsIdTarget[i] = simulator_utils.display_ball(pos, RADIUS=0.01, COLOR=[1., 0., 0., 1.])
+                draw_rate = 1000
+                
             # # # # # # # # # # #
             ### INIT MPC SIMU ###
             # # # # # # # # # # #
@@ -211,33 +213,31 @@ def main(SAVE_DIR, TORQUE_TRACKING):
             # # # # # # # # # # # #
             ### SIMULATION LOOP ###
             # # # # # # # # # # # #
-            # from core_mpc.analysis_utils import MPCBenchmark
-            # bench = MPCBenchmark()
-
             # Horizon in simu cycles
-            TASK_PHASE      = 0
-            NH_SIMU   = int(config['N_h']*sim_data.dt/sim_data.dt_simu)
-            T_REACH   = int(config['T_REACH']/sim_data.dt_simu)
-            T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
-            T_CONTACT = int(config['T_CONTACT']/sim_data.dt_simu)
-            T_CIRCLE   = int(config['T_CIRCLE']/sim_data.dt_simu)
-            OCP_TO_MPC_CYCLES = 1./(sim_data.dt_plan / config['dt'])
-            OCP_TO_SIMU_CYCLES = 1./(sim_data.dt_simu / config['dt'])
+            TASK_PHASE       = 0
+            NH_SIMU          = int(config['N_h']*config['dt']/sim_data.dt_simu)
+            T_REACH          = int(config['T_REACH']/sim_data.dt_simu)
+            T_TRACK          = int(config['T_TRACK']/sim_data.dt_simu)
+            T_CONTACT        = int(config['T_CONTACT']/sim_data.dt_simu)
+            T_CIRCLE         = int(config['T_CIRCLE']/sim_data.dt_simu)
+            OCP_TO_MPC_RATIO = config['dt'] / sim_data.dt_plan
             logger.debug("Size of MPC horizon in simu cycles     = "+str(NH_SIMU))
-            logger.debug("Start of reaching phase in simu cycles = "+str(T_REACH))
-            # logger.debug("Start of tracking phase in simu cycles = "+str(T_TRACK))
-            logger.debug("Start of contact phase in simu cycles  = "+str(T_CONTACT))
-            logger.debug("Start of circle phase in simu cycles   = "+str(T_CIRCLE))
-            logger.debug("OCP to PLAN time ratio = "+str(OCP_TO_MPC_CYCLES))
+            logger.debug("Start of REACH phase in simu cycles    = "+str(T_REACH))
+            logger.debug("Start of TRACK phase in simu cycles    = "+str(T_TRACK))
+            logger.debug("Start of CONTACT phase in simu cycles  = "+str(T_CONTACT))
+            logger.debug("Start of RAMP phase in simu cycles     = "+str(T_CONTACT))
+            logger.debug("Start of CIRCLE phase in simu cycles   = "+str(T_CIRCLE))
+            logger.debug("OCP to PLAN ratio (# of re-replannings between two OCP nodes) = "+str(OCP_TO_MPC_RATIO))
+            logger.debug("OCP to SIMU ratio (# of simulate steps between two OCP nodes) = "+str(OCP_TO_CTRL_RATIO))
 
 
             # SIMULATE
             sim_data.tau_mea_SIMU[0,:] = solver.us[0]
             x_filtered = x0
-            err_fz = 0
-            err_p = 0
             count = 0
-            
+            f_err = []
+            p_err = []
+  
             for i in range(sim_data.N_simu): 
 
                 if(i%config['log_rate']==0 and config['LOG']): 
@@ -259,28 +259,25 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                 if(0 <= time_to_reach and time_to_reach <= NH_SIMU):
                     TASK_PHASE = 1
 
-
                 if(time_to_track == 0): 
                     logger.warning("Entering tracking phase")
                 # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
                 if(0 <= time_to_track and time_to_track <= NH_SIMU):
                     TASK_PHASE = 2
 
-
                 if(time_to_contact == 0): 
                     # Record end-effector position at the time of the contact switch
                     position_at_contact_switch = robot.data.oMf[id_endeff].translation.copy()
                     target_position[:,:] = position_at_contact_switch.copy()
-                    print("Entering contact phase")
+                    logger.warning("Entering contact phase")
                 # If contact phase enters horizon start updating models from the the end with contact models
                 if(0 <= time_to_contact and time_to_contact <= NH_SIMU):
                     TASK_PHASE = 3
 
 
-                if(0 <= time_to_contact and time_to_contact%OCP_TO_SIMU_CYCLES == 0):
-                    ti  = int(time_to_contact/OCP_TO_SIMU_CYCLES)
-                    tf  = ti + config['N_h']+1
-                    target_force = target_force_traj[ti:tf,2]
+                if(0 <= time_to_contact and time_to_contact%OCP_TO_CTRL_RATIO == 0):
+                    tf  = time_to_contact + (config['N_h']+1)*OCP_TO_CTRL_RATIO
+                    target_force = target_force_traj[time_to_contact:tf:OCP_TO_CTRL_RATIO, 2]
 
                 if(time_to_circle == 0): 
                     logger.warning("Entering circle phase")
@@ -288,24 +285,17 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                 if(0 <= time_to_circle and time_to_circle <= NH_SIMU):
                     TASK_PHASE = 4
 
-
-                if(0 <= time_to_circle and time_to_circle%OCP_TO_SIMU_CYCLES == 0):
+                if(0 <= time_to_circle and time_to_circle%OCP_TO_CTRL_RATIO == 0):
                     # set position refs over current horizon
-                    ti  = int(time_to_circle/OCP_TO_SIMU_CYCLES)
-                    tf  = ti + config['N_h']+1
+                    tf  = time_to_circle + (config['N_h']+1)*OCP_TO_CTRL_RATIO
                     # Target in (x,y)  = circle trajectory + offset to start from current position instead of absolute target
-                    offset_xy = position_at_contact_switch[:2] - pdes[:2]
-                    target_position[:,:2] = target_position_traj[ti:tf,:2] + offset_xy
-                    # Target in z is fixed to the anchor at switch (equals absolute target if RESET_ANCHOR = False)
-                    # No position tracking in z : redundant with zero activation weight on z
-                    target_position[:,2]  = robot_simulator.pin_robot.data.oMf[id_endeff].translation[2].copy()
-                    # Record target signals                
-                    target_velocity[:,:2] = target_velocity_traj[ti:tf,:2] 
-                    target_velocity[:,2]  = 0.
+                    target_position[:,:2] = target_position_traj[time_to_circle:tf:OCP_TO_CTRL_RATIO,:2] + position_at_contact_switch[:2] - oPc[:2]
 
 
 
-
+                # # # # # # # # #
+                # # Solve OCP # #
+                # # # # # # # # #
                 # Solve OCP if we are in a planning cycle (MPC/planning frequency)
                 if(i%int(sim_data.simu_freq/sim_data.plan_freq) == 0):    
                     # Anti-aliasing filter for measured state
@@ -315,12 +305,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                     q = x_filtered[:nq]
                     v = x_filtered[nq:nq+nv]
                     # Solve OCP 
-                    # bench.start_timer()
-                    # bench.start_croco_profiler()
                     solveOCP(q, v, solver, config['maxiter'], target_position, TASK_PHASE, target_force)
-                    # bench.record_profiles()
-                    # bench.stop_timer(nb_iter=solver.iter)
-                    # bench.stop_croco_profiler()
                     # Record MPC predictions, cost references and solver data 
                     sim_data.record_predictions(nb_plan, solver)
                     sim_data.record_cost_references(nb_plan, solver)
@@ -332,6 +317,8 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                     # Increment planning counter
                     nb_plan += 1
                     # torqueController.reset_integral_error()
+
+
 
                 # # # # # # # # # #
                 # # Send policy # #
@@ -356,7 +343,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
 
 
                 # Simulate actuation 
-                tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL, joint_vel=sim_data.state_mea_SIMU[i,nq:nq+nv])
+                tau_mea_SIMU = actuationModel.step(tau_mot_CTRL, joint_vel=sim_data.state_mea_SIMU[i,nq:nq+nv])
                 # Step PyBullet simulator
                 robot_simulator.send_joint_command(tau_mea_SIMU)
                 env.step()
@@ -371,10 +358,8 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                 # Compute force and position errors
                 if(i >= T_CIRCLE):
                     count+=1
-                    f0 = target_force[0]
-                    err_fz += np.linalg.norm(fz_mea_SIMU - f0)
-                    p0 = target_position[0][:2] #solver.problem.runningModels[0].differential.costs.costs['translation'].cost.residual.reference[:2]
-                    err_p += np.linalg.norm(robot_simulator.pin_robot.data.oMf[id_endeff].translation[:2] - p0)
+                    f_err.append(np.abs(f_mea_SIMU[2] - target_force[0]))
+                    p_err.append(np.abs(robot_simulator.pin_robot.data.oMf[id_endeff].translation[:2] - target_position[0][:2]))
                 
                 # Record data (unnoised)
                 x_mea_SIMU = np.concatenate([q_mea_SIMU, v_mea_SIMU]).T 
@@ -384,25 +369,30 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                 sim_data.record_simu_cycle_measured(i, x_mea_SIMU, x_mea_no_noise_SIMU, tau_mea_SIMU, f_mea_SIMU)
 
                 # Display real 
-                if(i%draw_rate==0):
+                if(config['DISPLAY_EE'] and i%draw_rate==0):
                     pos = robot_simulator.pin_robot.data.oMf[id_endeff].translation.copy()
                     ballId = simulator_utils.display_ball(pos, RADIUS=0.03, COLOR=[0.,0.,1.,0.3])
                     ballsIdReal.append(ballId)
             
             # # Remove table
             simulator_utils.remove_body_from_sim(contact_surface_bulletId)
-            for ballId in ballsIdTarget:
-                simulator_utils.remove_body_from_sim(ballId)
-            for ballId in ballsIdReal:
-                simulator_utils.remove_body_from_sim(ballId)
+            if(config['DISPLAY_EE']):
+                for ballId in ballsIdTarget:
+                    simulator_utils.remove_body_from_sim(ballId)
+                for ballId in ballsIdReal:
+                    simulator_utils.remove_body_from_sim(ballId)
 
             # # # # # # # # # # #
             # PLOT SIM RESULTS  #
             # # # # # # # # # # #
-            logger.warning("Force error = "+str(err_fz/count))
-            logger.warning("Position error = "+str(err_p/count))
             logger.warning("count = "+str(count))
-            save_dir = SAVE_DIR  #'/home/skleff/force-feedback/data/soft_contact_article/dataset5_no_tracking' # '/tmp'
+            logger.warning("------------------------------------")
+            logger.warning("------------------------------------")
+            logger.warning(" Fz MAE  = "+str(np.mean(f_err)))
+            logger.warning(" Pxy MAE = "+str(np.mean(p_err)))
+            logger.warning("------------------------------------")
+            logger.warning("------------------------------------")
+            save_dir = SAVE_DIR  
             save_name = config_name+'_bullet_'+\
                                     '_BIAS='+str(config['SCALE_TORQUES'])+\
                                     '_NOISE='+str(config['NOISE_STATE'] or config['NOISE_TORQUES'])+\

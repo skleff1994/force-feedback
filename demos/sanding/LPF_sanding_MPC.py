@@ -34,7 +34,7 @@ logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
-RANDOM_SEED = 19
+RANDOM_SEED = 1 #19
 
 from core_mpc_utils import path_utils, misc_utils, mpc_utils
 from core_mpc_utils import sim_utils as simulator_utils
@@ -132,7 +132,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   q0 = np.asarray(config['q0'])
   v0 = np.asarray(config['dq0'])
   x0 = np.concatenate([q0, v0])  
-  env             = BulletEnvWithGround(dt=dt_simu, server=p.GUI)
+  env             = BulletEnvWithGround(dt=dt_simu, server=p.DIRECT)
   robot_simulator = load_bullet_wrapper('iiwa_ft_sensor_shell', locked_joints=['A7'])
   env.add_robot(robot_simulator) 
   robot_simulator.reset_state(q0, v0)
@@ -166,7 +166,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   # # # # # # # # # 
   ### OCP SETUP ###
   # # # # # # # # # 
-  # Create DDP solver + compute warm start torque
+  # Apply masks on joints to extract LPF joints
   u0 = pin_utils.get_u_grav(q0, robot.model)
   lpf_joint_names = robot.model.names[1:] #['A1', 'A2', 'A3', 'A4'] #  #
   _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
@@ -381,7 +381,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
           sim_data.record_plan_cycle_desired(nb_plan)
           # Increment planning counter
           nb_plan += 1
-          torqueController.reset_integral_error()
+          # torqueController.reset_integral_error()
 
 
 
