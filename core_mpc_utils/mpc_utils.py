@@ -153,7 +153,7 @@ class ActuationModel:
         if(self.SCALE_TORQUES):
           logger.info("Torques scaling : alpha = "+str(self.alpha)+" | beta = "+str(self.beta))
 
-    def step(self, i, motor_torque, memory=None, joint_vel=None):
+    def step(self, motor_torque, joint_vel=None):
         '''
         Transforms motor torque into a measured torque
         
@@ -170,7 +170,7 @@ class ActuationModel:
         Input: 
           i            : current simulation cycle number
           motor_torque : desired torque by motor
-          memory       : memory of the measured torques 
+          joint_vel    : joint velocity (used for static / viscous friction)
         '''
         # Perfect actuation if all options = False
         measured_torque = motor_torque.copy()

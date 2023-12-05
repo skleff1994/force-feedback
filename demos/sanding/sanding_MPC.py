@@ -404,7 +404,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
 
 
       # Simulate actuation 
-      tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL, joint_vel=sim_data.state_mea_SIMU[i,nq:nq+nv])
+      tau_mea_SIMU = actuationModel.step(tau_mot_CTRL, joint_vel=sim_data.state_mea_SIMU[i,nq:nq+nv])
       # Step PyBullet simulator
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()

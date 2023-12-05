@@ -138,7 +138,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   q0 = np.asarray(config['q0'])
   v0 = np.asarray(config['dq0'])
   x0 = np.concatenate([q0, v0])  
-  env             = BulletEnvWithGround(dt=dt_simu, server=p.GUI)
+  env             = BulletEnvWithGround(dt=dt_simu, server=p.DIRECT)
   robot_simulator = load_bullet_wrapper('iiwa_ft_sensor_shell', locked_joints=['A7'])
   env.add_robot(robot_simulator) 
   q_init = np.asarray(config['q0'] )
@@ -190,7 +190,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
 
 
   # !!!! CRITICAL PARAMETER !!!!
-  EPSILON_INTERP    = dt_simu / config['dt']
+  EPSILON_INTERP    = (1./config['plan_freq']) / config['dt']
   logger.warning("Epsilon interpolation = "+str(EPSILON_INTERP))
         
   # Init shooting problem and solver
@@ -416,7 +416,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
 
 
       # Simulate actuation
-      tau_mea_SIMU = actuationModel.step(i, tau_mot_CTRL, joint_vel=sim_data.state_mea_SIMU[i,nq:nq+nv])
+      tau_mea_SIMU = actuationModel.step(tau_mot_CTRL, joint_vel=sim_data.state_mea_SIMU[i,nq:nq+nv])
       # Step PyBullet simulator
       robot_simulator.send_joint_command(tau_mea_SIMU)
       env.step()

@@ -348,9 +348,9 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     self.state_pred[nb_plan, :, :] = np.array(ocpSolver.xs)
     self.ctrl_pred[nb_plan, :, :] = np.array(ocpSolver.us)
     # Extract current state & control + first state prediction
-    self.y_curr = self.state_pred[nb_plan, 0, :]    # y0* = measured state    (q0*, v0*, tau0* ) = (q^mea, v^mea, tau^mea )
-    self.y_pred = self.state_pred[nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
-    self.w_curr = self.ctrl_pred[nb_plan, 0, :]     # w0* = optimal control   !! Unfiltered torque !! 
+    self.y_curr = ocpSolver.xs[0]    # y0* = measured state    (q0*, v0*, tau0* ) = (q^mea, v^mea, tau^mea )
+    self.y_pred = ocpSolver.xs[1]    # y1* = predicted state   (q1*, v1*, tau1*) 
+    self.w_curr = ocpSolver.us[0]    # w0* = optimal control   !! Unfiltered torque !! 
     # Record forces predictions in the right frame + extract current & next force
     if(self.is_contact):
         self.force_pred[nb_plan, :, :] = \
