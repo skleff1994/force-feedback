@@ -138,8 +138,8 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   q0 = np.asarray(config['q0'])
   v0 = np.asarray(config['dq0'])
   x0 = np.concatenate([q0, v0])  
-  env             = BulletEnvWithGround(dt=dt_simu, server=p.DIRECT)
-  robot_simulator = load_bullet_wrapper('iiwa', locked_joints=['A7'])
+  env             = BulletEnvWithGround(dt=dt_simu, server=p.GUI)
+  robot_simulator = load_bullet_wrapper('iiwa_ft_sensor_shell', locked_joints=['A7'])
   env.add_robot(robot_simulator) 
   q_init = np.asarray(config['q0'] )
   v_init = np.asarray(config['dq0'])
@@ -376,7 +376,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
           x_filtered = antiAliasingFilter.step(nb_plan, i, sim_data.plan_freq, sim_data.simu_freq, sim_data.state_mea_SIMU)
           q   = x_filtered[:nq]
           v   = x_filtered[nq:nq+nv]
-          tau = x_filtered[nq+nv:]
+          tau = x_filtered[-n_lpf:]
           # Solve OCP 
           solveOCP(q, v, tau, solver, config['maxiter'], target_position, TASK_PHASE, target_force)
           # Record MPC predictions, cost references and solver data 

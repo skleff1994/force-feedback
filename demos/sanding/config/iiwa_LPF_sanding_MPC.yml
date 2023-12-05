@@ -53,7 +53,7 @@ dq0: [0.,0.,0.,0.,0.,0.]                         # Initial robot joint velocity
 
 # LPF 
 LPF_TYPE: 0                            # (0) ZOH (1) Euler (2) exact EMA
-f_c: 5                                # Low-pass filter cut-off frequency (5,50)
+f_c: 50                                # Low-pass filter cut-off frequency (5,50)
 tau_plus_integration: False            # semi-implicit if true, explicit if false
 
 # Pin model frame name of the end-effector 
