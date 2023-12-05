@@ -53,9 +53,7 @@ import pybullet as p
 
 import time
 import pinocchio as pin
-jRc = np.eye(3)
-jpc = np.array([0, 0., 0.12])
-jMc = pin.SE3(jRc, jpc)
+
 
 def solveOCP(q, v, solver, nb_iter, target_reach, TASK_PHASE, target_force):
         # print(target_force)
@@ -109,12 +107,6 @@ def solveOCP(q, v, solver, nb_iter, target_reach, TASK_PHASE, target_force):
                     fref = pin.Force(np.array([0., 0., target_force[k], 0., 0., 0.]))
                     m[k].differential.costs.costs["force"].active = True
                     m[k].differential.costs.costs["force"].cost.residual.reference = fref
-        # get predicted force from rigid model (careful : expressed in LOCAL !!!)
-        # jf = solver.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].f
-        # jMf = solver.problem.runningDatas[0].differential.multibody.contacts.contacts['contact'].jMf
-        # fpred = jMf.actInv(jf).linear
-        # problem_formulation_time = time.time()
-        # t_child_1 =  problem_formulation_time - t
         # Solve OCP 
         solver.solve(xs_init, us_init, maxiter=nb_iter, isFeasible=False)
         # Send solution to parent process + riccati gains
@@ -151,7 +143,6 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   # Placement of LOCAL end-effector frame w.r.t. WORLD frame
   frame_of_interest = config['frame_of_interest']
   id_endeff = robot.model.getFrameId(frame_of_interest)
-  oMf = robot.data.oMf[id_endeff].copy()
 
   # simulator_utils.print_dynamics_info(1, 9)
   # EE translation target : contact point + vertical offset (radius of the ee ball)
@@ -163,7 +154,6 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   contact_placement_0 = contact_placement.copy()
   TILT_RPY = np.zeros(3)
   if(config['TILT_SURFACE']):
-    # TILT_RPY = [0., config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0.]
     TILT_RPY = [config['TILT_PITCH_LOCAL_DEG']*np.pi/180, 0., 0.]
     contact_placement = pin_utils.rotate(contact_placement, rpy=TILT_RPY)
   contact_surface_bulletId = simulator_utils.display_contact_surface(pin.SE3(np.eye(3), np.asarray(config['contactPosition'])), bullet_endeff_ids=robot_simulator.bullet_endeff_ids)

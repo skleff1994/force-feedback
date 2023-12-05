@@ -17,11 +17,11 @@ VISCOUS_FRICTION: True          # Simulate viscous friction torque
 TORQUE_TRACKING: True           # Low-level torque tracking with a PI controller
 SAVE_DATA: True                 # Save plot_data to npz
 RECORD_SOLVER_DATA: True       # Keep trace of Vxx, Riccati gains, reg, Jacobian etc. (more data to save)
-INIT_LOG: True                  # Initial logs summarizing parameters
+INIT_LOG: True                  # Initial  logs summarizing parameters
 init_log_display_time: 1        # How long (s) to display the initial logs ?
 LOG: True                       # Logs during simulation
 log_rate: 1000                  # Display sim status once very 'log_rate' sim cycles
-WHICH_PLOTS: ['state', 'solver']   # Which plots to generate after the simulation
+WHICH_PLOTS: ['control', 'state', 'force', 'solver']   # Which plots to generate after the simulation
 TILT_SURFACE: False              # Tilt contact surface 
 TILT_PITCH_LOCAL_DEG: 0.      # Tilt angle of the contact surface
 RICCATI: False
@@ -53,7 +53,7 @@ dq0: [0.,0.,0.,0.,0.,0.]                         # Initial robot joint velocity
 
 # LPF 
 LPF_TYPE: 0                            # (0) ZOH (1) Euler (2) exact EMA
-f_c: 50                                # Low-pass filter cut-off frequency (5,50)
+f_c: 2                                # Low-pass filter cut-off frequency (5,50)
 tau_plus_integration: False            # semi-implicit if true, explicit if false
 
 # Pin model frame name of the end-effector 

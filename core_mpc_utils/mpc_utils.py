@@ -103,8 +103,8 @@ class LowLevelTorqueController:
           self.err_P = measured_torque - reference_torque              
           self.err_I += self.err_P
           self.err_D = measured_torque_derivative                 
-          motor_torque -= 0.5*self.gain_P.dot(self.err_P) 
-          motor_torque -= 0.1*self.gain_I.dot(self.err_I)
+          motor_torque -= 1.*self.gain_P.dot(self.err_P) 
+          motor_torque -= 0.2*self.gain_I.dot(self.err_I)
           motor_torque -= 0.0001*self.gain_D.dot(self.err_D)
       return motor_torque
 
