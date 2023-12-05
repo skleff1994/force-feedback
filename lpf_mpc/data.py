@@ -437,7 +437,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     plot_data['grav'] = np.zeros((self.N_simu+1, nq))
     # print(plot_data['pin_model'])
     for i in range(plot_data['N_simu']+1):
-      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'], self.armature)
+      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'])
     # EE predictions (at PLAN freq)
       # Linear position velocity of EE
     plot_data['lin_pos_ee_pred'] = np.zeros((self.N_plan, self.N_h+1, 3))
@@ -481,38 +481,42 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     
   def extract_solver_data(self, plot_data):
 
-    nq = self.nq ; nv = self.nv ; nu = nq ; ny = self.ny
-    # Get SVD & diagonal of Ricatti + record in sim data
-    plot_data['K_svd'] = np.zeros((self.N_plan, self.N_h, nq))
-    plot_data['Kp_diag'] = np.zeros((self.N_plan, self.N_h, nq))
-    plot_data['Kv_diag'] = np.zeros((self.N_plan, self.N_h, nv))
-    plot_data['Ktau_diag'] = np.zeros((self.N_plan, self.N_h, nu))
-    for i in range(self.N_plan):
-      for j in range(self.N_h):
-        plot_data['Kp_diag'][i, j, :] = self.K[i, j, :, :nq].diagonal()
-        plot_data['Kv_diag'][i, j, :] = self.K[i, j, :, nq:nq+nv].diagonal()
-        plot_data['Ktau_diag'][i, j, :] = self.K[i, j, :, -nu:].diagonal()
-        _, sv, _ = np.linalg.svd(self.K[i, j, :, :])
-        plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
-    # Get diagonal and eigenvals of Vxx + record in sim data
-    plot_data['Vxx_diag'] = np.zeros((self.N_plan,self.N_h+1, ny))
-    plot_data['Vxx_eig'] = np.zeros((self.N_plan, self.N_h+1, ny))
-    for i in range(self.N_plan):
-      for j in range(self.N_h+1):
-        plot_data['Vxx_diag'][i, j, :] = self.Vxx[i, j, :, :].diagonal()
-        plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Vxx[i, j, :, :]))[::-1]
-    # Get diagonal and eigenvals of Quu + record in sim data
-    plot_data['Quu_diag'] = np.zeros((self.N_plan,self.N_h, nu))
-    plot_data['Quu_eig'] = np.zeros((self.N_plan, self.N_h, nu))
-    for i in range(self.N_plan):
-      for j in range(self.N_h):
-        plot_data['Quu_diag'][i, j, :] = self.Quu[i, j, :, :].diagonal()
-        plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Quu[i, j, :, :]))[::-1]
-    # Get Jacobian
-    plot_data['J_rank'] = self.J_rank
-    # Get solve regs
-    plot_data['xreg'] = self.xreg
-    plot_data['ureg'] = self.ureg
+    # nq = self.nq ; nv = self.nv ; nu = nq ; ny = self.ny
+    # # Get SVD & diagonal of Ricatti + record in sim data
+    # plot_data['K_svd'] = np.zeros((self.N_plan, self.N_h, nq))
+    # plot_data['Kp_diag'] = np.zeros((self.N_plan, self.N_h, nq))
+    # plot_data['Kv_diag'] = np.zeros((self.N_plan, self.N_h, nv))
+    # plot_data['Ktau_diag'] = np.zeros((self.N_plan, self.N_h, nu))
+    # for i in range(self.N_plan):
+    #   for j in range(self.N_h):
+    #     plot_data['Kp_diag'][i, j, :] = self.K[i, j, :, :nq].diagonal()
+    #     plot_data['Kv_diag'][i, j, :] = self.K[i, j, :, nq:nq+nv].diagonal()
+    #     plot_data['Ktau_diag'][i, j, :] = self.K[i, j, :, -nu:].diagonal()
+    #     _, sv, _ = np.linalg.svd(self.K[i, j, :, :])
+    #     plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
+    # # Get diagonal and eigenvals of Vxx + record in sim data
+    # plot_data['Vxx_diag'] = np.zeros((self.N_plan,self.N_h+1, ny))
+    # plot_data['Vxx_eig'] = np.zeros((self.N_plan, self.N_h+1, ny))
+    # for i in range(self.N_plan):
+    #   for j in range(self.N_h+1):
+    #     plot_data['Vxx_diag'][i, j, :] = self.Vxx[i, j, :, :].diagonal()
+    #     plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Vxx[i, j, :, :]))[::-1]
+    # # Get diagonal and eigenvals of Quu + record in sim data
+    # plot_data['Quu_diag'] = np.zeros((self.N_plan,self.N_h, nu))
+    # plot_data['Quu_eig'] = np.zeros((self.N_plan, self.N_h, nu))
+    # for i in range(self.N_plan):
+    #   for j in range(self.N_h):
+    #     plot_data['Quu_diag'][i, j, :] = self.Quu[i, j, :, :].diagonal()
+    #     plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Quu[i, j, :, :]))[::-1]
+    # # Get Jacobian
+    # plot_data['J_rank'] = self.J_rank
+    # # Get solve regs
+    # plot_data['xreg'] = self.xreg
+    # plot_data['ureg'] = self.ureg
+    plot_data['iter'] = self.iter
+    plot_data['KKT']  = self.KKT
+    plot_data['maxiter']  = self.maxiter
+    plot_data['solver_termination_tolerance']  = self.solver_termination_tolerance
 
 
   # Plot data - classical OCP specific plotting functions
@@ -537,14 +541,14 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
       figs = {}; axes = {}
 
-      if('y' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-          figs['y'], axes['y'] = self.plot_mpc_state(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+      if('state' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+          figs['state'], axes['state'] = self.plot_mpc_state(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
       
-      if('w' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-          figs['w'], axes['w'] = self.plot_mpc_control(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+      if('control' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+          figs['control'], axes['control'] = self.plot_mpc_control(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                               pred_plot_sampling=pred_plot_sampling, 
                                               SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                               SHOW=False)
@@ -559,8 +563,8 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
                                               SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                               SHOW=False, AUTOSCALE=AUTOSCALE)
 
-      if('f' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-          figs['f'], axes['f'] = self.plot_mpc_force(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+      if('force' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+          figs['force'], axes['force'] = self.plot_mpc_force(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                               pred_plot_sampling=pred_plot_sampling, 
                                               SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                               SHOW=False, AUTOSCALE=AUTOSCALE)
@@ -583,8 +587,9 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
       if('S' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
           if('S' in plot_data.keys()):
-              figs['S'], axes['S'] = self.plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+              figs['S'] = self.plot_mpc_solver_reg(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                   SHOW=False)
+
 
       if('J' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
           if('J' in plot_data.keys()):
@@ -598,6 +603,9 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
           if('Q_eig' in plot_data.keys()):
               figs['Q_eig'], axes['Q_eig'] = self.plot_mpc_Quu_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                               SHOW=False)
+      if('solver' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+          figs['solver'] = self.plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                  SHOW=False)
       
       if(SHOW):
           plt.show() 
@@ -706,11 +714,11 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
           ax[i,1].grid(True)
 
           # Joint torques
-          ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
+          ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.6)
         #   ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r', label='Measured', linewidth=1, alpha=0.1)
-          ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured (no noise)', alpha=0.6)
+          ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], color='r', marker='.', linestyle='-', label='Measured', alpha=0.2)
           if('ctrlReg' in plot_data['WHICH_COSTS'] or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
-              ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='stateRegRef', alpha=0.9)
+              ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='stateRegRef', alpha=0.3)
           # ax[i,2].plot(t_span_simu, plot_data['grav'][:,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
           ax[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
           ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))

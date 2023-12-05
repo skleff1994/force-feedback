@@ -107,7 +107,7 @@ for n_seed in range(N_SEEDS):
         # Extract LPF
         sd   = load_data(prefix_lpf+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
         # sd   = load_data(prefix_lpf+'.npz')
-        data = sd.extract_data(frame_of_interest='contact')
+        data = sd#.extract_data(frame_of_interest='contact')
         # Smooth if necessary
         if(FILTER > 0):
             data['lin_pos_ee_mea'] = analysis_utils.moving_average_filter(data['lin_pos_ee_mea'].copy(), FILTER)

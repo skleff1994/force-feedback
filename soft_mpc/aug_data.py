@@ -224,7 +224,7 @@ class MPCDataHandlerSoftContactAugmented(MPCDataHandlerClassical):
     plot_data['u_mea'] = self.tau_mea_SIMU
     # print(plot_data['pin_model'])
     for i in range(plot_data['N_simu']+1):
-      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'], self.armature)
+      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'])
     # EE predictions (at PLAN freq)
       # Linear position velocity of EE
     plot_data['lin_pos_ee_pred'] = np.zeros((self.N_plan, self.N_h+1, 3))

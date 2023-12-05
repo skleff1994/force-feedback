@@ -83,8 +83,12 @@ def main(SAVE_DIR, TORQUE_TRACKING):
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])  
     env             = BulletEnvWithGround(dt=dt_simu, server=p.DIRECT)
-    robot_simulator = load_bullet_wrapper('iiwa', locked_joints=['A7'])
+    robot_simulator = load_bullet_wrapper('iiwa_ft_sensor_shell', locked_joints=['A7'])
     env.add_robot(robot_simulator) 
+    q_init = np.asarray(config['q0'] )
+    v_init = np.asarray(config['dq0'])
+    robot_simulator.reset_state(q_init, v_init)
+    robot_simulator.forward_robot(q_init, v_init)
     robot = robot_simulator.pin_robot
     # Get dimensions 
     nq, nv = robot.model.nq, robot.model.nv; nu = nq
@@ -143,16 +147,6 @@ def main(SAVE_DIR, TORQUE_TRACKING):
 
             # Initialize Optimal Control Problem
             ocp = OptimalControlProblemClassical(robot, config).initialize(x0)
-            # !!! Deactivate all costs & contact models initially !!!
-            models = list(ocp.runningModels) + [ocp.terminalModel]
-            for k,m in enumerate(models):
-                # logger.debug(str(m.differential.costs.active.tolist()))
-                m.differential.costs.costs["translation"].active = False
-                if(k < config['N_h']):
-                    m.differential.costs.costs["force"].active = False
-                    m.differential.costs.costs["force"].cost.residual.reference = pin.Force.Zero()
-                m.differential.contacts.changeContactStatus("contact", False)
-
             # Warmstart and solve
             xs_init = [x0 for _ in range(config['N_h']+1)]
             us_init = ocp.quasiStatic(xs_init[:-1])
@@ -162,6 +156,14 @@ def main(SAVE_DIR, TORQUE_TRACKING):
             solver.termination_tolerance  = 0.0001 
             solver.use_filter_line_search = True
             solver.filter_size            = config['maxiter']
+            # !!! Deactivate all costs & contact models initially !!!
+            models = list(solver.problem.runningModels) + [solver.problem.terminalModel]
+            for k,m in enumerate(models):
+                # logger.debug(str(m.differential.costs.active.tolist()))
+                m.differential.costs.costs["translation"].active = False
+                m.differential.contacts.changeContactStatus("contact", False)
+                m.differential.costs.costs['rotation'].active = False
+                m.differential.costs.costs['rotation'].cost.residual.reference = pin.utils.rpyToMatrix(np.pi, 0., np.pi)
             solver.solve(xs_init, us_init, maxiter=100, isFeasible=False)
 
 
@@ -172,10 +174,10 @@ def main(SAVE_DIR, TORQUE_TRACKING):
             contact_placement        = pin.SE3(np.eye(3), np.asarray(config['contactPosition']))
             contact_placement_0      = contact_placement.copy()
             contact_placement        = pin_utils.rotate(contact_placement, rpy=TILT_RPY[n_exp])
-            contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
+            contact_surface_bulletId = simulator_utils.display_contact_surface(contact_placement, np.asarray(config['contactPosition']), bullet_endeff_ids=robot_simulator.bullet_endeff_ids)
             # Make the contact soft (e.g. tennis ball or sponge on the robot)
             simulator_utils.set_lateral_friction(contact_surface_bulletId, 0.5)
-            simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 1e6, 1e3)
+            simulator_utils.set_contact_stiffness_and_damping(contact_surface_bulletId, 10000, 500)
             # Display target circle  trajectory (reference)
             nb_points = 20 
             ballsIdTarget = np.zeros(nb_points, dtype=int)
@@ -213,14 +215,10 @@ def main(SAVE_DIR, TORQUE_TRACKING):
             # bench = MPCBenchmark()
 
             # Horizon in simu cycles
-            node_id_reach   = -1
-            node_id_contact = -1
-            node_id_track   = -1
-            node_id_circle  = -1
             TASK_PHASE      = 0
             NH_SIMU   = int(config['N_h']*sim_data.dt/sim_data.dt_simu)
             T_REACH   = int(config['T_REACH']/sim_data.dt_simu)
-            # T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
+            T_TRACK   = int(config['T_TRACK']/sim_data.dt_simu)
             T_CONTACT = int(config['T_CONTACT']/sim_data.dt_simu)
             T_CIRCLE   = int(config['T_CIRCLE']/sim_data.dt_simu)
             OCP_TO_MPC_CYCLES = 1./(sim_data.dt_plan / config['dt'])
@@ -251,7 +249,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                 # # Update OCP  #
                 # # # # # # # # # 
                 time_to_reach   = int(i - T_REACH)
-                # time_to_track   = int(i - T_TRACK)
+                time_to_track   = int(i - T_TRACK)
                 time_to_contact = int(i - T_CONTACT)
                 time_to_circle  = int(i - T_CIRCLE)
 
@@ -260,20 +258,14 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                 # If tracking phase enters the MPC horizon, start updating models from the end with tracking models      
                 if(0 <= time_to_reach and time_to_reach <= NH_SIMU):
                     TASK_PHASE = 1
-                    # If current time matches an OCP node 
-                    if(time_to_reach%OCP_TO_SIMU_CYCLES == 0):
-                        # Select IAM
-                        node_id_reach = config['N_h'] - int(time_to_reach/OCP_TO_SIMU_CYCLES)
 
-                # if(time_to_track == 0): 
-                #     logger.warning("Entering tracking phase")
-                # # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
-                # if(0 <= time_to_track and time_to_track <= NH_SIMU):
-                #     TASK_PHASE = 2
-                #     # If current time matches an OCP node 
-                #     if(time_to_track%OCP_TO_SIMU_CYCLES == 0):
-                #         # Select IAM
-                #         node_id_track = config['N_h'] - int(time_to_track/OCP_TO_SIMU_CYCLES)
+
+                if(time_to_track == 0): 
+                    logger.warning("Entering tracking phase")
+                # If "increase weights" phase enters the MPC horizon, start updating models from the end with tracking models      
+                if(0 <= time_to_track and time_to_track <= NH_SIMU):
+                    TASK_PHASE = 2
+
 
                 if(time_to_contact == 0): 
                     # Record end-effector position at the time of the contact switch
@@ -283,10 +275,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                 # If contact phase enters horizon start updating models from the the end with contact models
                 if(0 <= time_to_contact and time_to_contact <= NH_SIMU):
                     TASK_PHASE = 3
-                    # If current time matches an OCP node 
-                    if(time_to_contact%OCP_TO_SIMU_CYCLES == 0):
-                        # Select IAM
-                        node_id_contact = config['N_h'] - int(time_to_contact/OCP_TO_SIMU_CYCLES)
+
 
                 if(0 <= time_to_contact and time_to_contact%OCP_TO_SIMU_CYCLES == 0):
                     ti  = int(time_to_contact/OCP_TO_SIMU_CYCLES)
@@ -298,10 +287,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                 # If circle tracking phase enters the MPC horizon, start updating models from the end with tracking models      
                 if(0 <= time_to_circle and time_to_circle <= NH_SIMU):
                     TASK_PHASE = 4
-                    # If current time matches an OCP node 
-                    if(time_to_circle%OCP_TO_SIMU_CYCLES == 0):
-                        # Select IAM
-                        node_id_circle = config['N_h'] - int(time_to_circle/OCP_TO_SIMU_CYCLES)
+
 
                 if(0 <= time_to_circle and time_to_circle%OCP_TO_SIMU_CYCLES == 0):
                     # set position refs over current horizon
@@ -331,7 +317,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
                     # Solve OCP 
                     # bench.start_timer()
                     # bench.start_croco_profiler()
-                    solveOCP(q, v, solver, config['maxiter'], node_id_reach, target_position, node_id_contact, node_id_track, node_id_circle, force_weight, TASK_PHASE, target_force)
+                    solveOCP(q, v, solver, config['maxiter'], target_position, TASK_PHASE, target_force)
                     # bench.record_profiles()
                     # bench.stop_timer(nb_iter=solver.iter)
                     # bench.stop_croco_profiler()
