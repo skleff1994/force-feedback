@@ -23,8 +23,8 @@ stateRegWeightTerminal: 2.
 stateRegRef: 'DEFAULT' # 'DEFAULT' = [q0, v0]
 
  # 'ctrlReg', 'ctrlRegGrav' : torque regularization 
-ctrlRegWeights: [1., 1., 1., 1., 1., 1., 1.]
-ctrlRegWeight: 0.01
+ctrlRegGravWeights: [1., 1., 1., 1., 1., 1., 1.]
+ctrlRegGravWeight: 0.01
 ctrlRegRef: 'DEFAULT' # DEFAULT = g(q) | NOT used for 'ctrlRegGrav' cost
 
  # 'translation' : end-effector frame translation 

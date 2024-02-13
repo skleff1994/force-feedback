@@ -5,30 +5,23 @@
 @license License BSD-3-Clause
 @copyright Copyright (c) 2020, New York University and Max Planck Gesellschaft.
 @date 2020-05-18
-@brief Initializes the OCP + DDP solver (visco-elastic contact)
+@brief Initializes the OCP + solver (visco-elastic contact)
 """
 
 import crocoddyl
 import numpy as np
-from core_mpc import ocp, pin_utils
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+import force_feedback_mpc
+
+from croco_mpc_utils.ocp_core import OptimalControlProblemAbstract
+from croco_mpc_utils import pinocchio_utils as pin_utils
+
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 
-# USE_SOBEC_BINDINGS = True
-# if(USE_SOBEC_BINDINGS):
-from sobec import DAMSoftContact3DAugmentedFwdDynamics as DAMSoft3DAugmented
-from sobec import DAMSoftContact3DAugmentedFrictionFwdDynamics as DAMSoft3DAugmentedFriction
-from sobec import DAMSoftContact1DAugmentedFwdDynamics as DAMSoft1DAugmented
-from sobec import IAMSoftContactAugmented as IAMSoftAugmented
-# else:
-#   from soft_mpc.soft_models_3D_augmented import DAMSoftContactDynamics3D as DAMSoft3DAugmented
-#   from soft_mpc.soft_models_3D_augmented import IAMSoftContactDynamics3D as IAMSoftAugmented
-
-
-class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstract):
+class OptimalControlProblemSoftContactAugmented(OptimalControlProblemAbstract):
   '''
   Helper class for soft contact (augmented) OCP setup with Crocoddyl
   '''
@@ -49,171 +42,110 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
     self.check_attribute('pinRefFrame')
     self.check_attribute('contactType')
 
-  def initialize(self, y0, softContactModel, callbacks=False):
+  def create_differential_action_model(self, state, actuation, softContactModel):
     '''
-    Initializes OCP and FDDP solver from config parameters and initial state
-    Soft contact (visco-elastic) augmented formulation, i.e. visco-elastic
-    contact force is part of the state . Supported 3D formulation only for now
-      INPUT: 
-          y0                : initial state of shooting problem
-          softContactModel  : SoftContactModel3D (see in utils)
-          callbacks         : display Crocoddyl's DDP solver callbacks
-      OUTPUT:
-        FDDP solver
-
-     A cost term on a variable z(x,u) has the generic form w * a( r( z(x,u) - z0 ) )
-     where w <--> cost weight, e.g. 'stateRegWeight' in config file
-           r <--> residual model depending on some reference z0, e.g. 'stateRegRef'
-                  When ref is set to 'DEFAULT' in YAML file, default references hard-coded here are used
-           a <--> weighted activation, with weights e.g. 'stateRegWeights' in config file 
-           z <--> can be state x, control u, frame position or velocity, contact force, etc.
-    ''' 
-    
-  # State and actuation models
-    state = crocoddyl.StateMultibody(self.rmodel)
-    actuation = crocoddyl.ActuationModelFull(state)
-    
-    
-  # Create IAMs
-    runningModels = []
-    for i in range(self.N_h):  
-        # Create DAMContactDyn     
-        if(softContactModel.nc == 3):
-          if(self.check_attribute('mu')):
-            self.check_attribute('eps')
-            logger.warning("Simulate dynamic friction for lateral forces : mu="+str(self.mu)+", eps="+str(self.eps))
-            dam = DAMSoft3DAugmentedFriction(state, 
-                                    actuation, 
-                                    crocoddyl.CostModelSum(state, nu=actuation.nu),
-                                    softContactModel.frameId, 
-                                    softContactModel.Kp,
-                                    softContactModel.Kv,
-                                    softContactModel.oPc,
-                                    softContactModel.pinRefFrame )
-            dam.mu = self.mu
-            dam.eps = self.eps
-          else:
-            dam = DAMSoft3DAugmented(state, 
-                                    actuation, 
-                                    crocoddyl.CostModelSum(state, nu=actuation.nu),
-                                    softContactModel.frameId, 
-                                    softContactModel.Kp,
-                                    softContactModel.Kv,
-                                    softContactModel.oPc,
-                                    softContactModel.pinRefFrame )
-        elif(softContactModel.nc == 1):
-          dam = DAMSoft1DAugmented(state, 
-                                  actuation, 
-                                  crocoddyl.CostModelSum(state, nu=actuation.nu),
-                                  softContactModel.frameId, 
-                                  softContactModel.Kp,
-                                  softContactModel.Kv,
-                                  softContactModel.oPc,
-                                  softContactModel.pinRefFrame,
-                                  softContactModel.sobecType )
-        else:
-          logger.error("softContactModel.nc = 3 or 1")
-
-      # Create IAM from DAM
-        runningModels.append(IAMSoftAugmented(dam, self.dt))
-        
-      # Create and add cost function terms to current IAM
-        # State regularization 
-        if('stateReg' in self.WHICH_COSTS):
-          xRegCost = self.create_state_reg_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("stateReg", xRegCost, self.stateRegWeight)
-        # Control regularization
-        if('ctrlReg' in self.WHICH_COSTS):
-          uRegCost = self.create_ctrl_reg_cost(state)
-          runningModels[i].differential.costs.addCost("ctrlReg", uRegCost, self.ctrlRegWeight)
-        # Control regularization (gravity)
-        if('ctrlRegGrav' in self.WHICH_COSTS):
-          runningModels[i].differential.with_gravity_torque_reg = True
-          runningModels[i].differential.tau_grav_weight = self.ctrlRegWeight
-        # State limits penalizationself.
-        if('stateLim' in self.WHICH_COSTS):
-          xLimitCost = self.create_state_limit_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("stateLim", xLimitCost, self.stateLimWeight)
-        # Control limits penalization
-        if('ctrlLim' in self.WHICH_COSTS):
-          uLimitCost = self.create_ctrl_limit_cost(state)
-          runningModels[i].differential.costs.addCost("ctrlLim", uLimitCost, self.ctrlLimWeight)
-        # End-effector placement 
-        if('placement' in self.WHICH_COSTS):
-          framePlacementCost = self.create_frame_placement_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("placement", framePlacementCost, self.framePlacementWeight)
-        # End-effector velocity
-        if('velocity' in self.WHICH_COSTS): 
-          frameVelocityCost = self.create_frame_velocity_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("velocity", frameVelocityCost, self.frameVelocityWeight)
-        # Frame translation cost
-        if('translation' in self.WHICH_COSTS):
-          frameTranslationCost = self.create_frame_translation_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("translation", frameTranslationCost, self.frameTranslationWeight)
-        # End-effector orientation 
-        if('rotation' in self.WHICH_COSTS):
-          frameRotationCost = self.create_frame_rotation_cost(state, actuation)
-          runningModels[i].differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeight)
-        # Frame force cost
-        if('force' in self.WHICH_COSTS):
-          if(softContactModel.nc == 3):
-            forceRef = np.asarray(self.frameForceRef)[:3]
-          else:
-            forceRef = np.array([np.asarray(self.frameForceRef)[softContactModel.mask]])
-          runningModels[i].differential.f_des = forceRef
-          runningModels[i].differential.f_weight = np.asarray(self.frameForceWeight)
-          runningModels[i].differential.with_force_cost = True
-        # Frame force rate reg cost
-        if('forceRateReg' in self.WHICH_COSTS):
-          runningModels[i].differential.with_force_rate_reg_cost = True
-          runningModels[i].differential.f_rate_reg_weight = np.asarray(self.forceRateRegWeight)
-
-      # # Armature 
-      #   # Add armature to current IAM
-      #   if(self.armature == 'DEFAULT'):
-      #     self.armature = self.rmodel.rotorInertia / (self.rmodel.rotorGearRatio**2)
-      #   runningModels[i].differential.armature = np.asarray(self.armature)
-
-  # Terminal DAM (Contact or FreeFwd)
-    # Create terminal DAMContactDyn
+    Initialize a differential action model with soft contact
+    '''
+    # 3D contact
     if(softContactModel.nc == 3):
-      if(self.check_attribute('mu')):
-        self.check_attribute('eps')
-        dam_t = DAMSoft3DAugmentedFriction(state, 
-                                actuation, 
-                                crocoddyl.CostModelSum(state, nu=actuation.nu),
-                                softContactModel.frameId, 
-                                softContactModel.Kp,
-                                softContactModel.Kv,
-                                softContactModel.oPc,
-                                softContactModel.pinRefFrame )
-        dam_t.mu = self.mu
-        dam_t.eps = self.eps
-      else:
-        dam_t = DAMSoft3DAugmented(state, 
-                                  actuation, 
-                                  crocoddyl.CostModelSum(state, nu=actuation.nu),
-                                  softContactModel.frameId, 
-                                  softContactModel.Kp,
-                                  softContactModel.Kv,
-                                  softContactModel.oPc,
-                                  softContactModel.pinRefFrame )
+      # # If there is friction
+      # if(self.check_attribute('mu')):
+      #   self.check_attribute('eps')
+      #   logger.warning("Simulate dynamic friction for lateral forces : mu="+str(self.mu)+", eps="+str(self.eps))
+      #   dam = DAMSoft3DAugmentedFriction(state, 
+      #                           actuation, 
+      #                           crocoddyl.CostModelSum(state, nu=actuation.nu),
+      #                           softContactModel.frameId, 
+      #                           softContactModel.Kp,
+      #                           softContactModel.Kv,
+      #                           softContactModel.oPc,
+      #                           softContactModel.pinRefFrame )
+      #   dam.mu = self.mu
+      #   dam.eps = self.eps
+      # else:
+      dam = force_feedback_mpc.DAMSoftContact3DAugmentedFwdDynamics(state, 
+                              actuation, 
+                              crocoddyl.CostModelSum(state, nu=actuation.nu),
+                              softContactModel.frameId, 
+                              softContactModel.Kp,
+                              softContactModel.Kv,
+                              softContactModel.oPc,
+                              softContactModel.pinRefFrame )
     elif(softContactModel.nc == 1):
-      dam_t = DAMSoft1DAugmented(state, 
-                                actuation, 
-                                crocoddyl.CostModelSum(state, nu=actuation.nu),
-                                softContactModel.frameId, 
-                                softContactModel.Kp,
-                                softContactModel.Kv,
-                                softContactModel.oPc,
-                                softContactModel.pinRefFrame,
-                                softContactModel.sobecType )
+      dam = force_feedback_mpc.DAMSoftContact1DAugmentedFwdDynamics(state, 
+                              actuation, 
+                              crocoddyl.CostModelSum(state, nu=actuation.nu),
+                              softContactModel.frameId, 
+                              softContactModel.Kp,
+                              softContactModel.Kv,
+                              softContactModel.oPc,
+                              softContactModel.pinRefFrame,
+                              softContactModel.maskType )
     else:
       logger.error("softContactModel.nc = 3 or 1")
 
-  # Create terminal IAM from terminal DAM
-    terminalModel = IAMSoftAugmented( dam_t, 0. )
+    return dam
 
+
+  def init_running_model(self, state, actuation, runningModel, softContactModel):
+    '''
+  Populate running model with costs and contacts
+    '''
+  # Create and add cost function terms to current IAM
+    # State regularization 
+    if('stateReg' in self.WHICH_COSTS):
+      xRegCost = self.create_state_reg_cost(state, actuation)
+      runningModel.differential.costs.addCost("stateReg", xRegCost, self.stateRegWeight)
+    # Control regularization
+    if('ctrlReg' in self.WHICH_COSTS):
+      uRegCost = self.create_ctrl_reg_cost(state)
+      runningModel.differential.costs.addCost("ctrlReg", uRegCost, self.ctrlRegWeight)
+    # Control regularization (gravity)
+    if('ctrlRegGrav' in self.WHICH_COSTS):
+      runningModel.differential.with_gravity_torque_reg = True
+      runningModel.differential.tau_grav_weight = self.ctrlRegGravWeight
+    # State limits penalizationself.
+    if('stateLim' in self.WHICH_COSTS):
+      xLimitCost = self.create_state_limit_cost(state, actuation)
+      runningModel.differential.costs.addCost("stateLim", xLimitCost, self.stateLimWeight)
+    # Control limits penalization
+    if('ctrlLim' in self.WHICH_COSTS):
+      uLimitCost = self.create_ctrl_limit_cost(state)
+      runningModel.differential.costs.addCost("ctrlLim", uLimitCost, self.ctrlLimWeight)
+    # End-effector placement 
+    if('placement' in self.WHICH_COSTS):
+      framePlacementCost = self.create_frame_placement_cost(state, actuation)
+      runningModel.differential.costs.addCost("placement", framePlacementCost, self.framePlacementWeight)
+    # End-effector velocity
+    if('velocity' in self.WHICH_COSTS): 
+      frameVelocityCost = self.create_frame_velocity_cost(state, actuation)
+      runningModel.differential.costs.addCost("velocity", frameVelocityCost, self.frameVelocityWeight)
+    # Frame translation cost
+    if('translation' in self.WHICH_COSTS):
+      frameTranslationCost = self.create_frame_translation_cost(state, actuation)
+      runningModel.differential.costs.addCost("translation", frameTranslationCost, self.frameTranslationWeight)
+    # End-effector orientation 
+    if('rotation' in self.WHICH_COSTS):
+      frameRotationCost = self.create_frame_rotation_cost(state, actuation)
+      runningModel.differential.costs.addCost("rotation", frameRotationCost, self.frameRotationWeight)
+    # Frame force cost
+    if('force' in self.WHICH_COSTS):
+      if(softContactModel.nc == 3):
+        forceRef = np.asarray(self.frameForceRef)[:3]
+      else:
+        forceRef = np.array([np.asarray(self.frameForceRef)[softContactModel.mask]])
+      runningModel.differential.f_des = forceRef
+      runningModel.differential.f_weight = np.asarray(self.frameForceWeight)
+      runningModel.differential.with_force_cost = True
+    # Frame force rate reg cost
+    if('forceRateReg' in self.WHICH_COSTS):
+      runningModel.differential.with_force_rate_reg_cost = True
+      runningModel.differential.f_rate_reg_weight = np.asarray(self.forceRateRegWeight)
+
+  def init_terminal_model(self, state, actuation, terminalModel, softContactModel):
+    ''' 
+    Populate terminal model with costs and contacts 
+    '''
   # Create and add terminal cost models to terminal IAM
     # State regularization
     if('stateReg' in self.WHICH_COSTS):
@@ -253,45 +185,71 @@ class OptimalControlProblemSoftContactAugmented(ocp.OptimalControlProblemAbstrac
       terminalModel.differential.with_force_rate_reg_cost = True
       terminalModel.differential.f_rate_reg_weight = np.asarray(self.forceRateRegWeight)*self.dt
 
-      # Add armature
-    # terminalModel.differential.armature = np.asarray(self.armature)   
-
-    logger.info("Created IAMs.")  
-
-
-
-  # Create the shooting problem
-    problem = crocoddyl.ShootingProblem(y0, runningModels, terminalModel)
-  
-  # Creating the DDP solver 
-    # ddp = crocoddyl.SolverFDDP(problem)
-    ddp = crocoddyl.SolverGNMS(problem)
-  
-  # Callbacks
-    if(callbacks):
-      ddp.setCallbacks([crocoddyl.CallbackLogger(),
-                        crocoddyl.CallbackVerbose()])
-  
-  # Warm start : initial state + gravity compensation
-    ddp.xs = [y0 for i in range(self.N_h+1)]
-    fext0 = softContactModel.computeExternalWrench_(self.rmodel, y0[:self.nq], y0[:self.nv])
-    ddp.us = [pin_utils.get_tau(y0[:self.nq], y0[:self.nv], np.zeros(self.nv), fext0, self.rmodel, np.zeros(self.nq)) for i in range(self.N_h)] #ddp.problem.quasiStatic(xs_init[:-1])
-
-  # Finish
-    logger.info("OCP is ready !")
-    # logger.info(  "USE_SOBEC_BINDINGS = "+str(USE_SOBEC_BINDINGS))
+  def success_log(self, softContactModel):
+    logger.info("OCP (SOFT) is ready !")
     logger.info("    COSTS   = "+str(self.WHICH_COSTS))
     logger.info("    SOFT CONTACT MODEL [ oPc="+str(softContactModel.oPc)+\
       " , Kp="+str(softContactModel.Kp)+\
         ', Kv='+str(softContactModel.Kv)+\
         ', pinRefFrame='+str(softContactModel.pinRefFrame)+']')
+
+  def initialize(self, y0, softContactModel):
+    '''
+    Initializes OCP and  solver from config parameters and initial state
+    Soft contact (visco-elastic) augmented formulation, i.e. visco-elastic
+    contact force is part of the state . Supported 3D formulation only for now
+      INPUT: 
+          y0                : initial state of shooting problem
+          softContactModel  : SoftContactModel3D (see in utils)
+      OUTPUT:
+         solver
+
+     A cost term on a variable z(x,u) has the generic form w * a( r( z(x,u) - z0 ) )
+     where w <--> cost weight, e.g. 'stateRegWeight' in config file
+           r <--> residual model depending on some reference z0, e.g. 'stateRegRef'
+                  When ref is set to 'DEFAULT' in YAML file, default references hard-coded here are used
+           a <--> weighted activation, with weights e.g. 'stateRegWeights' in config file 
+           z <--> can be state x, control u, frame position or velocity, contact force, etc.
+    ''' 
     
-    return ddp
+  # State and actuation models
+    state = crocoddyl.StateMultibody(self.rmodel)
+    actuation = crocoddyl.ActuationModelFull(state)
+    
+    
+  # Create IAMs
+    runningModels = []
+    for i in range(self.N_h):  
+      # Create DAM (Contact or FreeFwd), IAM LPF and initialize costs+contacts
+        dam = self.create_differential_action_model(state, actuation, softContactModel) 
+        runningModels.append(force_feedback_mpc.IAMSoftContactAugmented( dam, self.dt ))
+        self.init_running_model(state, actuation, runningModels[i], softContactModel)
+
+    # Terminal model
+    dam_t = self.create_differential_action_model(state, actuation, softContactModel)  
+    terminalModel = force_feedback_mpc.IAMSoftContactAugmented( dam_t, 0. )
+    self.init_terminal_model(state, actuation, terminalModel, softContactModel)
+    
+    logger.info("Created IAMs.")  
+
+
+  # Create the shooting problem
+    problem = crocoddyl.ShootingProblem(y0, runningModels, terminalModel)
+
+
+  # Finish
+    self.success_log(softContactModel)
+    
+    return problem
+
+  # # Warm start : initial state + gravity compensation
+  #   ddp.xs = [y0 for i in range(self.N_h+1)]
+  #   fext0 = softContactModel.computeExternalWrench_(self.rmodel, y0[:self.nq], y0[:self.nv])
+  #   ddp.us = [pin_utils.get_tau(y0[:self.nq], y0[:self.nv], np.zeros(self.nv), fext0, self.rmodel, np.zeros(self.nq)) for i in range(self.N_h)] #ddp.problem.quasiStatic(xs_init[:-1])
 
 
 
-
-class OptimalControlProblemSoftContactAugmentedWithConstraints(ocp.OptimalControlProblemAbstract):
+class OptimalControlProblemSoftContactAugmentedWithConstraints(OptimalControlProblemAbstract):
   '''
   Helper class for soft contact (augmented) OCP setup with Crocoddyl
   '''
@@ -314,7 +272,7 @@ class OptimalControlProblemSoftContactAugmentedWithConstraints(ocp.OptimalContro
 
   def initialize(self, y0, softContactModel, callbacks=False):
     '''
-    Initializes OCP and FDDP solver from config parameters and initial state
+    Initializes OCP and  solver from config parameters and initial state
     Soft contact (visco-elastic) augmented formulation, i.e. visco-elastic
     contact force is part of the state . Supported 3D formulation only for now
       INPUT: 
@@ -322,7 +280,7 @@ class OptimalControlProblemSoftContactAugmentedWithConstraints(ocp.OptimalContro
           softContactModel  : SoftContactModel3D (see in utils)
           callbacks         : display Crocoddyl's DDP solver callbacks
       OUTPUT:
-        FDDP solver
+         solver
 
      A cost term on a variable z(x,u) has the generic form w * a( r( z(x,u) - z0 ) )
      where w <--> cost weight, e.g. 'stateRegWeight' in config file
@@ -378,7 +336,7 @@ class OptimalControlProblemSoftContactAugmentedWithConstraints(ocp.OptimalContro
         # Control regularization (gravity)
         if('ctrlRegGrav' in self.WHICH_COSTS):
           runningModels[i].differential.with_gravity_torque_reg = True
-          runningModels[i].differential.tau_grav_weight = self.ctrlRegWeight
+          runningModels[i].differential.tau_grav_weight = self.ctrlRegGravWeight
         # State limits penalizationself.
         if('stateLim' in self.WHICH_COSTS):
           xLimitCost = self.create_state_limit_cost(state, actuation)

@@ -10,8 +10,8 @@
 """
 
 import numpy as np
-from core_mpc import pin_utils
-from core_mpc.data import DDPDataHandlerAbstract, MPCDataHandlerAbstract
+from croco_mpc_utils import pinocchio_utils as pin_utils
+from croco_mpc_utils.ocp_core_data import OCPDataHandlerAbstract, MPCDataHandlerAbstract
 
 from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
@@ -20,79 +20,79 @@ import matplotlib
 
 import pinocchio as pin
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 # Classical OCP data handler : extract data + generate fancy plots
-class DDPDataHandlerLPF(DDPDataHandlerAbstract):
-  def __init__(self, ddp, n_lpf):
-    super().__init__(ddp)
+class OCPDataHandlerLPF(OCPDataHandlerAbstract):
+  def __init__(self, ocp, n_lpf):
+    super().__init__(ocp)
     self.n_lpf = n_lpf
 
-  def extract_data(self, ee_frame_name, ct_frame_name):
+  def extract_data(self, xs, us):
     '''
     extract data to plot
     '''
-    ddp_data = super().extract_data(ee_frame_name, ct_frame_name)
+    ocp_data = super().extract_data(xs, us)
     # Add terminal regularization references on filtered torques
-    if('ctrlReg' in ddp_data['active_costs']):
-        ddp_data['ctrlReg_ref'].append(self.ddp.problem.terminalModel.differential.costs.costs['ctrlReg'].cost.residual.reference)
-    if('ctrlRegGrav' in ddp_data['active_costs']):
-        ddp_data['ctrlRegGrav_ref'].append(pin_utils.get_u_grav(self.ddp.xs[-1][:ddp_data['nq']], ddp_data['pin_model'], ddp_data['armature']))
-    return ddp_data
+    if('ctrlReg' in ocp_data['active_costs']):
+        ocp_data['ctrlReg_ref'].append(self.ocp.terminalModel.differential.costs.costs['ctrlReg'].cost.residual.reference)
+    if('ctrlRegGrav' in ocp_data['active_costs']):
+        ocp_data['ctrlRegGrav_ref'].append(pin_utils.get_u_grav(xs[-1][:ocp_data['nq']], ocp_data['pin_model']))
+    return ocp_data
 
-  def plot_ddp_results(self, DDP_DATA, which_plots='all', labels=None, markers=None, colors=None, sampling_plot=1, SHOW=False):
+  def plot_ocp_results(self, OCP_DATA, which_plots='all', labels=None, markers=None, colors=None, sampling_plot=1, SHOW=False):
       '''
-      Plot ddp results from 1 or several DDP solvers
+      Plot ocp results from 1 or several OCP solvers
           X, U, EE trajs
           INPUT 
-          DDP_DATA    : DDP data or list of ddp data (cf. data_utils.extract_ddp_data())
+          OCP_DATA    : OCP data or list of OCP data ( output of self.extract_data )
       '''
-      logger.info("Plotting DDP solver data (LPF)...")
-      if(type(DDP_DATA) != list):
-          DDP_DATA = [DDP_DATA]
+      logger.info("Plotting OCP solver data (LPF)...")
+      if(type(OCP_DATA) != list):
+          OCP_DATA = [OCP_DATA]
       if(labels==None):
-          labels=[None for k in range(len(DDP_DATA))]
+          labels=[None for k in range(len(OCP_DATA))]
       if(markers==None):
-          markers=[None for k in range(len(DDP_DATA))]
+          markers=[None for k in range(len(OCP_DATA))]
       if(colors==None):
-          colors=[None for k in range(len(DDP_DATA))]
-      for k,data in enumerate(DDP_DATA):
+          colors=[None for k in range(len(OCP_DATA))]
+      for k,data in enumerate(OCP_DATA):
           # If last plot, make legend
           make_legend = False
-          if(k+sampling_plot > len(DDP_DATA)-1):
+          if(k+sampling_plot > len(OCP_DATA)-1):
               make_legend=True
           # Return figs and axes object in case need to overlay new plots
           if(k==0):
               if('y' in which_plots or which_plots =='all' or 'all' in which_plots):
                   if('xs' in data.keys()):
-                      fig_x, ax_x = self.plot_ddp_state(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                      fig_x, ax_x = self.plot_ocp_state(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
               if('w' in which_plots or which_plots =='all' or 'all' in which_plots):
                   if('us' in data.keys()):
-                      fig_u, ax_u = self.plot_ddp_control(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                      fig_u, ax_u = self.plot_ocp_control(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
               if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
                   if('xs' in data.keys()):
-                      fig_ee_lin, ax_ee_lin = self.plot_ddp_endeff_linear(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-                      fig_ee_ang, ax_ee_ang = self.plot_ddp_endeff_angular(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                      fig_ee_lin, ax_ee_lin = self.plot_ocp_endeff_linear(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                      fig_ee_ang, ax_ee_ang = self.plot_ocp_endeff_angular(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
               if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                   if('fs' in data.keys()):
-                      fig_f, ax_f = self.plot_ddp_force(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                      fig_f, ax_f = self.plot_ocp_force(data, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
           else:
               if(k%sampling_plot==0):
                   if('y' in which_plots or which_plots =='all' or 'all' in which_plots):
                       if('xs' in data.keys()):
-                          self.plot_ddp_state(data, fig=fig_x, ax=ax_x, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                          self.plot_ocp_state(data, fig=fig_x, ax=ax_x, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                   if('w' in which_plots or which_plots =='all' or 'all' in which_plots):
                       if('us' in data.keys()):
-                          self.plot_ddp_control(data, fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                          self.plot_ocp_control(data, fig=fig_u, ax=ax_u, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                   if('ee' in which_plots or which_plots =='all' or 'all' in which_plots):
                       if('xs' in data.keys()):
-                          self.plot_ddp_endeff_linear(data, fig=fig_ee_lin, ax=ax_ee_lin, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
-                          self.plot_ddp_endeff_angular(data, fig=fig_ee_ang, ax=ax_ee_ang, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                          self.plot_ocp_endeff_linear(data, fig=fig_ee_lin, ax=ax_ee_lin, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                          self.plot_ocp_endeff_angular(data, fig=fig_ee_ang, ax=ax_ee_ang, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
                   if('f' in which_plots or which_plots =='all' or 'all' in which_plots):
                       if('fs' in data.keys()):
-                          self.plot_ddp_force_LPF(data, fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
+                          self.plot_ocp_force_LPF(data, fig=fig_f, ax=ax_f, label=labels[k], marker=markers[k], color=colors[k], MAKE_LEGEND=make_legend, SHOW=False)
       if(SHOW):
           plt.show()
       
@@ -121,28 +121,28 @@ class DDPDataHandlerLPF(DDPDataHandlerAbstract):
 
       return fig, ax
 
-  def plot_ddp_state(self, ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
+  def plot_ocp_state(self, ocp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
       '''
-      Plot ddp results (state)
+      Plot ocp results (state)
       '''
       # Parameters
-      N = ddp_data['T'] 
-      dt = ddp_data['dt']
-      nq = ddp_data['nq'] 
-      nv = ddp_data['nv'] 
-      nu = ddp_data['nu'] 
+      N = ocp_data['T'] 
+      dt = ocp_data['dt']
+      nq = ocp_data['nq'] 
+      nv = ocp_data['nv'] 
+      nu = ocp_data['nu'] 
       # Extract pos, vel trajs
-      x = np.array(ddp_data['xs'])
+      x = np.array(ocp_data['xs'])
       q = x[:,:nq]
       v = x[:,nq:nq+nv]
       tau = x[:,-self.n_lpf:]
       # If tau reg cost, compute gravity torque
-      if('ctrlReg' in ddp_data['active_costs']):
-          ureg_ref  = np.array(ddp_data['ctrlReg_ref']) 
-      if('ctrlRegGrav' in ddp_data['active_costs']):
-          ureg_grav = np.array(ddp_data['ctrlRegGrav_ref'])
-      if('stateReg' in ddp_data['active_costs']):
-          x_reg_ref = np.array(ddp_data['stateReg_ref'])
+      if('ctrlReg' in ocp_data['active_costs']):
+          ureg_ref  = np.array(ocp_data['ctrlReg_ref']) 
+      if('ctrlRegGrav' in ocp_data['active_costs']):
+          ureg_grav = np.array(ocp_data['ctrlRegGrav_ref'])
+      if('stateReg' in ocp_data['active_costs']):
+          x_reg_ref = np.array(ocp_data['stateReg_ref'])
       # Plots
       tspan = np.linspace(0, N*dt, N+1)
       if(ax is None or fig is None):
@@ -152,7 +152,7 @@ class DDPDataHandlerLPF(DDPDataHandlerAbstract):
       for i in range(nq):
           # Positions
           ax[i,0].plot(tspan, q[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
-          if('stateReg' in ddp_data['active_costs']):
+          if('stateReg' in ocp_data['active_costs']):
               handles, labels = ax[i,0].get_legend_handles_labels()
               if('reg_ref' in labels):
                   handles.pop(labels.index('reg_ref'))
@@ -166,7 +166,7 @@ class DDPDataHandlerLPF(DDPDataHandlerAbstract):
       for i in range(nv):
           # Velocities
           ax[i,1].plot(tspan, v[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)  
-          if('stateReg' in ddp_data['active_costs']):
+          if('stateReg' in ocp_data['active_costs']):
               handles, labels = ax[i,1].get_legend_handles_labels()
               if('reg_ref' in labels):
                   handles.pop(labels.index('reg_ref'))
@@ -181,7 +181,7 @@ class DDPDataHandlerLPF(DDPDataHandlerAbstract):
           # Torques
           ax[i,2].plot(tspan, tau[:,i], linestyle='-', marker=marker, label=label, color=color, alpha=alpha)
           # Plot control regularization reference 
-          if('ctrlReg' in ddp_data['active_costs']):
+          if('ctrlReg' in ocp_data['active_costs']):
               handles, labels = ax[i,2].get_legend_handles_labels()
               if('u_reg' in labels):
                   handles.pop(labels.index('u_reg'))
@@ -189,7 +189,7 @@ class DDPDataHandlerLPF(DDPDataHandlerAbstract):
                   labels.remove('u_reg')
               ax[i,2].plot(tspan, ureg_ref[:,i], linestyle='-.', color='k', marker=None, label='u_reg', alpha=0.5)
           # Plot gravity compensation torque
-          if('ctrlRegGrav' in ddp_data['active_costs']):
+          if('ctrlRegGrav' in ocp_data['active_costs']):
               handles, labels = ax[i,2].get_legend_handles_labels()
               if('grav(q)' in labels):
                   handles.pop(labels.index('u_grav(q)'))
@@ -217,23 +217,23 @@ class DDPDataHandlerLPF(DDPDataHandlerAbstract):
           plt.show()
       return fig, ax
 
-  def plot_ddp_control(self, ddp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
+  def plot_ocp_control(self, ocp_data, fig=None, ax=None, label=None, marker=None, color=None, alpha=1., MAKE_LEGEND=False, SHOW=True):
       '''
-      Plot ddp results (control)
+      Plot ocp results (control)
       '''
       # Parameters
-      N = ddp_data['T'] 
-      dt = ddp_data['dt']
-      nu = ddp_data['nu'] 
-      nq = ddp_data['nq'] 
+      N = ocp_data['T'] 
+      dt = ocp_data['dt']
+      nu = ocp_data['nu'] 
+      nq = ocp_data['nq'] 
       # Extract pos, vel trajs
-      w = np.array(ddp_data['us'])
-      x = np.array(ddp_data['xs'])
+      w = np.array(ocp_data['us'])
+      x = np.array(ocp_data['xs'])
       q = x[:,:nq]
       # If tau reg cost, compute gravity torque
       w_reg_ref = np.zeros((N,nu))
       for i in range(N):
-          w_reg_ref[i,:] = pin_utils.get_u_grav(q[i,:], ddp_data['pin_model'], ddp_data['armature'])
+          w_reg_ref[i,:] = pin_utils.get_u_grav(q[i,:], ocp_data['pin_model'])
       # Plots
       tspan = np.linspace(0, N*dt-dt, N)
       if(ax is None or fig is None):
@@ -280,8 +280,8 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     '''
     Allocate data for state, control & force predictions
     '''
-    self.state_pred     = np.zeros((self.N_plan, self.N_h+1, self.ny)) # Predicted states  ( self.ddp.xs : {x* = (q*, v*)} )
-    self.ctrl_pred      = np.zeros((self.N_plan, self.N_h, self.nu))   # Predicted torques ( self.ddp.us : {u*} )
+    self.state_pred     = np.zeros((self.N_plan, self.N_h+1, self.ny)) # Predicted states  ( xs : {x* = (q*, v*)} )
+    self.ctrl_pred      = np.zeros((self.N_plan, self.N_h, self.nu))   # Predicted torques ( us : {u*} )
     self.force_pred     = np.zeros((self.N_plan, self.N_h, 6))         # Predicted EE contact forces
     self.state_des_PLAN = np.zeros((self.N_plan+1, self.ny))           # Predicted states at planner frequency  ( x* interpolated at PLAN freq )
     self.ctrl_des_PLAN  = np.zeros((self.N_plan, self.nu))             # Predicted torques at planner frequency ( u* interpolated at PLAN freq )
@@ -327,7 +327,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     # Measurements
     self.init_measurements(y0)
 
-    # DDP solver-specific data
+    # OCP solver-specific data
     if(self.RECORD_SOLVER_DATA):
       self.init_solver_data()
    
@@ -337,33 +337,24 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
       self.print_sim_params(self.init_log_display_time)
 
 
-  def record_predictions(self, nb_plan, ddpSolver):
+  def record_predictions(self, nb_plan, ocpSolver):
     '''
     Records the MPC predictions at the current step (state, control and forces if contact is specified)
     Input:
       nb_plan   : MPC (a.k.a. replanning) cycle numer
-      ddpSolver : crocoddyl.SolverFDDP object
+      ocpSolver : crocoddyl.SolverFOCP object
     '''
     # State and control predictions
-    self.state_pred[nb_plan, :, :] = np.array(ddpSolver.xs)
-    self.ctrl_pred[nb_plan, :, :] = np.array(ddpSolver.us)
+    self.state_pred[nb_plan, :, :] = np.array(ocpSolver.xs)
+    self.ctrl_pred[nb_plan, :, :] = np.array(ocpSolver.us)
     # Extract current state & control + first state prediction
-    self.y_curr = self.state_pred[nb_plan, 0, :]    # y0* = measured state    (q0*, v0*, tau0* ) = (q^mea, v^mea, tau^mea )
-    self.y_pred = self.state_pred[nb_plan, 1, :]    # y1* = predicted state   (q1*, v1*, tau1*) 
-    self.w_curr = self.ctrl_pred[nb_plan, 0, :]     # w0* = optimal control   !! Unfiltered torque !! 
+    self.y_curr = ocpSolver.xs[0]    # y0* = measured state    (q0*, v0*, tau0* ) = (q^mea, v^mea, tau^mea )
+    self.y_pred = ocpSolver.xs[1]    # y1* = predicted state   (q1*, v1*, tau1*) 
+    self.w_curr = ocpSolver.us[0]    # w0* = optimal control   !! Unfiltered torque !! 
     # Record forces predictions in the right frame + extract current & next force
     if(self.is_contact):
-        id_endeff = self.rmodel.getFrameId(self.contactFrameName)
-        jMf = self.rmodel.frames[id_endeff].placement
-        lwaMf = pin.SE3(self.rdata.oMf[id_endeff].rotation, np.zeros(3))
-        if(self.PIN_REF_FRAME == pin.LOCAL):
-            self.force_pred[nb_plan, :, :] = \
-                np.array([jMf.actInv(ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f).vector for i in range(self.N_h)])
-        elif(self.PIN_REF_FRAME == pin.LOCAL_WORLD_ALIGNED or self.PIN_REF_FRAME == pin.WORLD):
-            self.force_pred[nb_plan, :, :] = \
-                np.array([lwaMf.act(jMf.actInv(ddpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f)).vector for i in range(self.N_h)])
-        else:
-            logger.error("The Pinocchio reference frame must be in ['LOCAL', LOCAL_WORLD_ALIGNED', 'WORLD']")
+        self.force_pred[nb_plan, :, :] = \
+            np.array([ocpSolver.problem.runningDatas[i].differential.multibody.contacts.contacts[self.contactFrameName].f.vector for i in range(self.N_h)])
         self.f_curr = self.force_pred[nb_plan, 0, :]
         self.f_pred = self.force_pred[nb_plan, 1, :]
   
@@ -437,7 +428,7 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     plot_data['grav'] = np.zeros((self.N_simu+1, nq))
     # print(plot_data['pin_model'])
     for i in range(plot_data['N_simu']+1):
-      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'], self.armature)
+      plot_data['grav'][i,:] = pin_utils.get_u_grav(plot_data['q_mea'][i,:], plot_data['pin_model'])
     # EE predictions (at PLAN freq)
       # Linear position velocity of EE
     plot_data['lin_pos_ee_pred'] = np.zeros((self.N_plan, self.N_h+1, 3))
@@ -481,38 +472,42 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
     
   def extract_solver_data(self, plot_data):
 
-    nq = self.nq ; nv = self.nv ; nu = nq ; ny = self.ny
-    # Get SVD & diagonal of Ricatti + record in sim data
-    plot_data['K_svd'] = np.zeros((self.N_plan, self.N_h, nq))
-    plot_data['Kp_diag'] = np.zeros((self.N_plan, self.N_h, nq))
-    plot_data['Kv_diag'] = np.zeros((self.N_plan, self.N_h, nv))
-    plot_data['Ktau_diag'] = np.zeros((self.N_plan, self.N_h, nu))
-    for i in range(self.N_plan):
-      for j in range(self.N_h):
-        plot_data['Kp_diag'][i, j, :] = self.K[i, j, :, :nq].diagonal()
-        plot_data['Kv_diag'][i, j, :] = self.K[i, j, :, nq:nq+nv].diagonal()
-        plot_data['Ktau_diag'][i, j, :] = self.K[i, j, :, -nu:].diagonal()
-        _, sv, _ = np.linalg.svd(self.K[i, j, :, :])
-        plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
-    # Get diagonal and eigenvals of Vxx + record in sim data
-    plot_data['Vxx_diag'] = np.zeros((self.N_plan,self.N_h+1, ny))
-    plot_data['Vxx_eig'] = np.zeros((self.N_plan, self.N_h+1, ny))
-    for i in range(self.N_plan):
-      for j in range(self.N_h+1):
-        plot_data['Vxx_diag'][i, j, :] = self.Vxx[i, j, :, :].diagonal()
-        plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Vxx[i, j, :, :]))[::-1]
-    # Get diagonal and eigenvals of Quu + record in sim data
-    plot_data['Quu_diag'] = np.zeros((self.N_plan,self.N_h, nu))
-    plot_data['Quu_eig'] = np.zeros((self.N_plan, self.N_h, nu))
-    for i in range(self.N_plan):
-      for j in range(self.N_h):
-        plot_data['Quu_diag'][i, j, :] = self.Quu[i, j, :, :].diagonal()
-        plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Quu[i, j, :, :]))[::-1]
-    # Get Jacobian
-    plot_data['J_rank'] = self.J_rank
-    # Get solve regs
-    plot_data['xreg'] = self.xreg
-    plot_data['ureg'] = self.ureg
+    # nq = self.nq ; nv = self.nv ; nu = nq ; ny = self.ny
+    # # Get SVD & diagonal of Ricatti + record in sim data
+    # plot_data['K_svd'] = np.zeros((self.N_plan, self.N_h, nq))
+    # plot_data['Kp_diag'] = np.zeros((self.N_plan, self.N_h, nq))
+    # plot_data['Kv_diag'] = np.zeros((self.N_plan, self.N_h, nv))
+    # plot_data['Ktau_diag'] = np.zeros((self.N_plan, self.N_h, nu))
+    # for i in range(self.N_plan):
+    #   for j in range(self.N_h):
+    #     plot_data['Kp_diag'][i, j, :] = self.K[i, j, :, :nq].diagonal()
+    #     plot_data['Kv_diag'][i, j, :] = self.K[i, j, :, nq:nq+nv].diagonal()
+    #     plot_data['Ktau_diag'][i, j, :] = self.K[i, j, :, -nu:].diagonal()
+    #     _, sv, _ = np.linalg.svd(self.K[i, j, :, :])
+    #     plot_data['K_svd'][i, j, :] = np.sort(sv)[::-1]
+    # # Get diagonal and eigenvals of Vxx + record in sim data
+    # plot_data['Vxx_diag'] = np.zeros((self.N_plan,self.N_h+1, ny))
+    # plot_data['Vxx_eig'] = np.zeros((self.N_plan, self.N_h+1, ny))
+    # for i in range(self.N_plan):
+    #   for j in range(self.N_h+1):
+    #     plot_data['Vxx_diag'][i, j, :] = self.Vxx[i, j, :, :].diagonal()
+    #     plot_data['Vxx_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Vxx[i, j, :, :]))[::-1]
+    # # Get diagonal and eigenvals of Quu + record in sim data
+    # plot_data['Quu_diag'] = np.zeros((self.N_plan,self.N_h, nu))
+    # plot_data['Quu_eig'] = np.zeros((self.N_plan, self.N_h, nu))
+    # for i in range(self.N_plan):
+    #   for j in range(self.N_h):
+    #     plot_data['Quu_diag'][i, j, :] = self.Quu[i, j, :, :].diagonal()
+    #     plot_data['Quu_eig'][i, j, :] = np.sort(np.linalg.eigvals(self.Quu[i, j, :, :]))[::-1]
+    # # Get Jacobian
+    # plot_data['J_rank'] = self.J_rank
+    # # Get solve regs
+    # plot_data['xreg'] = self.xreg
+    # plot_data['ureg'] = self.ureg
+    plot_data['iter'] = self.iter
+    plot_data['KKT']  = self.KKT
+    plot_data['maxiter']  = self.maxiter
+    plot_data['solver_termination_tolerance']  = self.solver_termination_tolerance
 
 
   # Plot data - classical OCP specific plotting functions
@@ -537,14 +532,14 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
       figs = {}; axes = {}
 
-      if('y' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-          figs['y'], axes['y'] = self.plot_mpc_state(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+      if('state' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+          figs['state'], axes['state'] = self.plot_mpc_state(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                             pred_plot_sampling=pred_plot_sampling, 
                                             SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                             SHOW=False)
       
-      if('w' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-          figs['w'], axes['w'] = self.plot_mpc_control(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+      if('control' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+          figs['control'], axes['control'] = self.plot_mpc_control(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                               pred_plot_sampling=pred_plot_sampling, 
                                               SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                               SHOW=False)
@@ -559,8 +554,8 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
                                               SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                               SHOW=False, AUTOSCALE=AUTOSCALE)
 
-      if('f' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
-          figs['f'], axes['f'] = self.plot_mpc_force(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
+      if('force' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+          figs['force'], axes['force'] = self.plot_mpc_force(plot_data, PLOT_PREDICTIONS=PLOT_PREDICTIONS, 
                                               pred_plot_sampling=pred_plot_sampling, 
                                               SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                               SHOW=False, AUTOSCALE=AUTOSCALE)
@@ -583,8 +578,9 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
 
       if('S' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
           if('S' in plot_data.keys()):
-              figs['S'], axes['S'] = self.plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+              figs['S'] = self.plot_mpc_solver_reg(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                                   SHOW=False)
+
 
       if('J' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
           if('J' in plot_data.keys()):
@@ -598,6 +594,9 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
           if('Q_eig' in plot_data.keys()):
               figs['Q_eig'], axes['Q_eig'] = self.plot_mpc_Quu_eig(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
                                               SHOW=False)
+      if('solver' in which_plots or which_plots is None or which_plots =='all' or 'all' in which_plots):
+          figs['solver'] = self.plot_mpc_solver(plot_data, SAVE=SAVE, SAVE_DIR=SAVE_DIR, SAVE_NAME=SAVE_NAME,
+                                                  SHOW=False)
       
       if(SHOW):
           plt.show() 
@@ -706,11 +705,11 @@ class MPCDataHandlerLPF(MPCDataHandlerAbstract):
           ax[i,1].grid(True)
 
           # Joint torques
-          ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.1)
+          ax[i,2].plot(t_span_plan, plot_data['tau_des_PLAN'][:,i], color='b', linestyle='-', marker='.', label='Desired (PLAN rate)', alpha=0.6)
         #   ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], 'r', label='Measured', linewidth=1, alpha=0.1)
-          ax[i,2].plot(t_span_simu, plot_data['tau_mea_no_noise'][:,i], color='r', marker=None, linestyle='-', label='Measured (no noise)', alpha=0.6)
+          ax[i,2].plot(t_span_simu, plot_data['tau_mea'][:,i], color='r', marker='.', linestyle='-', label='Measured', alpha=0.2)
           if('ctrlReg' in plot_data['WHICH_COSTS'] or 'ctrlRegGrav' in plot_data['WHICH_COSTS']):
-              ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='stateRegRef', alpha=0.9)
+              ax[i,2].plot(t_span_plan[:-1], plot_data['ctrl_ref'][:,i], color=[0.,1.,0.,0.], linestyle='-.', marker=None, label='stateRegRef', alpha=0.3)
           # ax[i,2].plot(t_span_simu, plot_data['grav'][:,i], color='k', marker=None, linestyle='-.', label='Reg (grav)', alpha=0.6)
           ax[i,2].set_ylabel('$\\tau{}$'.format(i), fontsize=12)
           ax[i,2].yaxis.set_major_locator(plt.MaxNLocator(2))

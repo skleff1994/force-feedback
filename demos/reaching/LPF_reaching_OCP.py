@@ -17,17 +17,19 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
-
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc import path_utils, pin_utils, misc_utils
+from core_mpc_utils import path_utils, misc_utils, mpc_utils
+from croco_mpc_utils import pinocchio_utils as pin_utils
 
 from lpf_mpc.ocp import OptimalControlProblemLPF, getJointAndStateIds
 from lpf_mpc.data import DDPDataHandlerLPF
+
+import mim_solvers
 
 def main(robot_name, PLOT, DISPLAY):
 
@@ -41,7 +43,7 @@ def main(robot_name, PLOT, DISPLAY):
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])   
     # Get pin wrapper + set model to init state
-    robot = pin_utils.load_robot_wrapper(robot_name)
+    robot = misc_utils.load_robot_wrapper(robot_name)
     robot.framesForwardKinematics(q0)
     robot.computeJointJacobians(q0)
     # Get initial frame placement + dimensions of joint space
@@ -59,11 +61,11 @@ def main(robot_name, PLOT, DISPLAY):
     lpf_joint_names = ['A1', 'A2', 'A3', 'A4'] # [] # ['A4'] #robot.model.names[1:]
     _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
     y0 = np.concatenate([x0, ug[lpfStateIds]])
-    ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=True)
+    ocp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0)
     # Solve and extract solution trajectories
     xs_init = [y0 for i in range(N_h+1)]
     us_init = [ug for i in range(N_h)]
-
+    ddp = mim_solvers.SolverSQP(ocp)
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False) 
     
     if(PLOT):

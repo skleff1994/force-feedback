@@ -17,17 +17,20 @@ The goal of this script is to setup the OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc import path_utils, pin_utils, misc_utils
+from core_mpc_utils import path_utils, misc_utils
 
-from classical_mpc.ocp import OptimalControlProblemClassical
-from classical_mpc.data import DDPDataHandlerClassical
+from croco_mpc_utils import pinocchio_utils as pin_utils
+from croco_mpc_utils.ocp import OptimalControlProblemClassical
+from croco_mpc_utils.ocp_data import DDPDataHandlerClassical
+
+import mim_solvers
 
 def main(robot_name, PLOT, DISPLAY):
 
@@ -40,7 +43,7 @@ def main(robot_name, PLOT, DISPLAY):
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])   
     # Make pin wrapper
-    robot = pin_utils.load_robot_wrapper(robot_name)
+    robot = misc_utils.load_robot_wrapper(robot_name)
     # Get initial frame placement + dimensions of joint space
     frame_name = config['frameTranslationFrameName']
     id_endeff = robot.model.getFrameId(frame_name)
@@ -56,11 +59,12 @@ def main(robot_name, PLOT, DISPLAY):
     ### OCP SETUP ###
     # # # # # # # # # 
     # Setup Croco OCP and create solver
-    ddp = OptimalControlProblemClassical(robot, config).initialize(x0, callbacks=True)
+    ocp = OptimalControlProblemClassical(robot, config).initialize(x0) 
     # Warmstart and solve
     ug = pin_utils.get_u_grav(q0, robot.model, config['armature'])
     xs_init = [x0 for i in range(config['N_h']+1)]
     us_init = [ug  for i in range(config['N_h'])]
+    ddp = mim_solvers.SolverSQP(ocp)
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 

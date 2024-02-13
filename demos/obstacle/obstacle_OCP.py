@@ -18,14 +18,14 @@ from re import L
 import sys
 sys.path.append('.')
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc import path_utils, pin_utils, misc_utils
+from core_mpc_utils import path_utils, pin_utils, misc_utils
 
 from classical_mpc.ocp import OptimalControlProblemClassical
 from classical_mpc.data import DDPDataHandlerClassical
@@ -83,7 +83,7 @@ def main(robot_name, PLOT, DISPLAY):
         import pinocchio as pin
         N_h = config['N_h']
         # Init viewer
-        from core_mpc import gepetto_utils
+        from core_mpc_utils import gepetto_utils
         viz = gepetto_utils.launch_viewer(robot, q0)
         # viz = pin.visualize.GepettoVisualizer(robot.model, robot.collision_model, robot.visual_model)
         # viz.initViewer()

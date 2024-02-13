@@ -391,7 +391,7 @@ pbc2 = crocoddyl.ShootingProblem(x0, [iamc2]*N, tamc2)
 # Compare calc and calcDiff
 # Warm start : initial state + gravity compensation
 lfext0 = [pin.Force.Zero() for _ in range(model.njoints)]
-from core_mpc import pin_utils
+from core_mpc_utils import pin_utils
 xs_init = [x0 for i in range(N+1)]
 us_init = [pin_utils.get_tau(q0, v0, np.zeros(nq), lfext0, model, np.zeros(nq)) for i in range(N)] #ddp.problem.quasiStatic(xs_init[:-1])
 # pbf.calc(xs_init, us_init)

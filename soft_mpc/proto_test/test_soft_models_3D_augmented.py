@@ -10,7 +10,7 @@ import pinocchio as pin
 from soft_mpc.soft_models_3D_augmented import DAMSoftContactDynamics3D, IAMSoftContactDynamics3D, StateSoftContact3D
 from core_mpc.pin_utils import load_robot_wrapper
 from soft_mpc.data import DDPDataHandlerSoftContact
-from core_mpc import pin_utils
+from core_mpc_utils import pin_utils
 
 
 

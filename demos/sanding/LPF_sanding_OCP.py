@@ -19,17 +19,24 @@ The goal of this script is to setup OCP (a.k.a. play with weights)
 import sys
 sys.path.append('.')
 
-from core_mpc.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
-
 
 import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
-from core_mpc import ocp, path_utils, pin_utils, misc_utils
+
+from core_mpc_utils import path_utils, misc_utils
+
+from croco_mpc_utils import pinocchio_utils as pin_utils
+from croco_mpc_utils.math_utils import circle_point_WORLD
 
 from lpf_mpc.ocp import OptimalControlProblemLPF, getJointAndStateIds
-from lpf_mpc.data import DDPDataHandlerLPF
+from lpf_mpc.data import OCPDataHandlerLPF
+
+import mim_solvers
+from mim_robots.robot_loader import load_pinocchio_wrapper
+
 
 WARM_START_IK = True
 
@@ -45,7 +52,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])   
     # Get pin wrapper
-    robot = pin_utils.load_robot_wrapper(robot_name)
+    robot = load_pinocchio_wrapper('iiwa')
     # Get initial frame placement + dimensions of joint space
     frame_name = config['frameTranslationFrameName']
     id_endeff = robot.model.getFrameId(frame_name)
@@ -71,22 +78,20 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
     _, lpfStateIds = getJointAndStateIds(robot.model, lpf_joint_names)
     y0 = np.concatenate([x0, u0[lpfStateIds]])
     n_lpf = len(lpf_joint_names)
-    ddp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0, callbacks=True)
+    ocp = OptimalControlProblemLPF(robot, config, lpf_joint_names).initialize(y0)
     # Setup tracking problem with circle ref EE trajectory
-    models = list(ddp.problem.runningModels) + [ddp.problem.terminalModel]
+    models = list(ocp.runningModels) + [ocp.terminalModel]
     RADIUS = config['frameCircleTrajectoryRadius'] 
     OMEGA  = config['frameCircleTrajectoryVelocity']
     for k,m in enumerate(models):
         # Ref
         t = min(k*config['dt'], 2*np.pi/OMEGA)
-        p_ee_ref = ocp.circle_point_WORLD(t, M_ee, 
+        p_ee_ref = circle_point_WORLD(t, M_ee, 
                                                 radius=RADIUS,
                                                 omega=OMEGA,
                                                 LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
         # Cost translation
         m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
-        # Contact model 1D update z ref (WORLD frame)
-        m.differential.contacts.contacts["contact"].contact.reference = p_ee_ref
 
 
     # Warm start state = IK of circle trajectory
@@ -96,7 +101,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
         xs_init = [] 
         us_init = []
         q_ws = q0
-        for k,m in enumerate(list(ddp.problem.runningModels) + [ddp.problem.terminalModel]):
+        for k,m in enumerate(list(ocp.runningModels) + [ocp.terminalModel]):
             # Get ref placement
             p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
             Mref = M_ee.copy()
@@ -116,18 +121,19 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
         us_init = [u0 for i in range(config['N_h'])]
 
     # Solve initial
-    ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
+    solver = mim_solvers.SolverSQP(ocp)
+    solver.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 
 
     
+
+    #  Plot
     if(PLOT):
-        #  Plot
-        ddp_handler = DDPDataHandlerLPF(ddp, n_lpf=n_lpf)
-        ddp_data = ddp_handler.extract_data(ee_frame_name=frame_name, ct_frame_name=frame_name)
-        _, _ = ddp_handler.plot_ddp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
-                                                            colors=['r'], 
-                                                            markers=['.'], 
-                                                            SHOW=True)
+        ocp_data_handler = OCPDataHandlerLPF(solver.problem, n_lpf)
+        ocp_data = ocp_data_handler.extract_data(solver.xs, solver.us)
+        _, _ = ocp_data_handler.plot_ocp_results(ocp_data, which_plots=config['WHICH_PLOTS'], markers=['.'], colors=['b'], SHOW=True)
+
+
 
     pause = 0.01 # in s
     if(DISPLAY):
@@ -276,7 +282,7 @@ def main(robot_name='iiwa', PLOT=False, DISPLAY=True):
                 # Display force (magnitude and placement)
                 if('force' in config['WHICH_COSTS']):
                     # Display wrench
-                    wrench = ddp.problem.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector
+                    wrench = ocp.runningDatas[i].differential.multibody.contacts.contacts['contact'].f.vector
                     gui.resizeArrow('world/force', real_size, wrench_coef*np.linalg.norm(wrench))
                     m_ct_aligned = m_ct.copy()
                         # Because applying tf on arrow makes arrow coincide with x-axis of tf placement
