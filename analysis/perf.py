@@ -48,12 +48,14 @@ N_SEEDS = len(SEEDS)
 torque_error_AVG_NORM_classical   = np.zeros((N_SEEDS, N_EXP))
 position_error_AVG_NORM_classical = np.zeros((N_SEEDS, N_EXP))
 force_error_AVG_classical         = np.zeros((N_SEEDS, N_EXP))
+force_error_LAT_classical         = np.zeros((N_SEEDS, N_EXP))
 force_error_MAX_classical         = np.zeros((N_SEEDS, N_EXP))
 cycles_not_in_contact_classical   = np.zeros((N_SEEDS, N_EXP))
 
 torque_error_AVG_NORM_lpf   = np.zeros((N_SEEDS, N_EXP))
 position_error_AVG_NORM_lpf = np.zeros((N_SEEDS, N_EXP))
 force_error_AVG_lpf         = np.zeros((N_SEEDS, N_EXP))
+force_error_LAT_lpf         = np.zeros((N_SEEDS, N_EXP))
 force_error_MAX_lpf         = np.zeros((N_SEEDS, N_EXP))
 cycles_not_in_contact_lpf   = np.zeros((N_SEEDS, N_EXP))
 
@@ -106,7 +108,8 @@ for n_seed in range(N_SEEDS):
         force_error = [] 
         for i in range( Ns ):
             force_error.append(np.abs(data['f_ee_mea'][i+N_START_SIMU,2] - force_reference))
-        force_error_MAX_classical[n_seed, n_exp] = np.max(force_error)
+        force_error_MAX_classical[n_seed, n_exp] = np.max(np.abs(data['f_ee_mea'][N_START_SIMU:,2]))
+        force_error_LAT_classical[n_seed, n_exp] = np.mean(np.abs(data['f_ee_mea'][N_START_SIMU:,:2]))
         force_error_AVG_classical[n_seed, n_exp] = np.mean(force_error) 
         # Is in contact
         bool_contact = np.isclose(data['f_ee_mea'][N_START_SIMU:,2], np.zeros(data['f_ee_mea'][N_START_SIMU:,2].shape), rtol=1e-3)
@@ -117,6 +120,7 @@ for n_seed in range(N_SEEDS):
         logger.warning("Classical MPC avg force error     = "+str(force_error_AVG_classical[n_seed, n_exp] ))
         logger.warning("Classical MPC max force           = "+str(force_error_MAX_classical[n_seed, n_exp] ))
         logger.warning("Classical MPC not-in-contact rate = "+str(cycles_not_in_contact_classical[n_seed, n_exp] ))
+        logger.warning("Classical MPC LATERAL FORCES NORM = "+str(force_error_LAT_classical[n_seed, n_exp] ))
 
 
 
@@ -153,7 +157,8 @@ for n_seed in range(N_SEEDS):
         force_error = [] 
         for i in range( Ns ):
             force_error.append(np.abs(data['f_ee_mea'][i+N_START_SIMU,2] - force_reference))
-        force_error_MAX_lpf[n_seed, n_exp]   = np.max(force_error)
+        force_error_MAX_lpf[n_seed, n_exp]   = np.max(np.abs(data['f_ee_mea'][N_START_SIMU:,2]))
+        force_error_LAT_lpf[n_seed, n_exp] = np.mean(np.abs(data['f_ee_mea'][N_START_SIMU:,:2]))
         force_error_AVG_lpf[n_seed, n_exp] = np.mean(force_error) 
         # Is in contact
         bool_contact = np.isclose(data['f_ee_mea'][N_START_SIMU:,2], np.zeros(data['f_ee_mea'][N_START_SIMU:,2].shape), rtol=1e-3)
@@ -164,7 +169,8 @@ for n_seed in range(N_SEEDS):
         logger.warning("LPF MPC avg force error     = "+str(force_error_AVG_lpf[n_seed, n_exp] ))
         logger.warning("LPF MPC max force           = "+str(force_error_MAX_lpf[n_seed, n_exp] ))
         logger.warning("LPF MPC not-in-contact rate = "+str(cycles_not_in_contact_lpf[n_seed, n_exp] ))     
-        
+        logger.warning("LPF MPC LATERAL FORCES NORM = "+str(force_error_LAT_lpf[n_seed, n_exp] ))
+
 
 
 
@@ -200,7 +206,7 @@ for n_seed in range(N_SEEDS):
         force_error = [] 
         for i in range( Ns ):
             force_error.append(np.abs(data['f_ee_mea'][i+N_START_SIMU] - force_reference))
-        force_error_MAX_soft[n_seed, n_exp]   = np.max(force_error)
+        force_error_MAX_soft[n_seed, n_exp]   = np.max(np.abs(data['f_ee_mea'][N_START_SIMU:]))
         force_error_AVG_soft[n_seed, n_exp] = np.sum(force_error, axis=0) / Ns
         # Is in contact
         bool_contact = np.isclose(data['f_ee_mea'][N_START_SIMU:], np.zeros(data['f_ee_mea'][N_START_SIMU:].shape), rtol=1e-3)
