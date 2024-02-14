@@ -1,4 +1,4 @@
-from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 from croco_mpc_utils.ocp_core_data import load_data
@@ -12,8 +12,8 @@ from analysis_utils import linear_interpolation
 
 
 
-PREFIX_1 = '/home/skleff/Desktop/soft_contact_sim_exp/with_torque_control/'
-PREFIX_2 = '/home/skleff/Desktop/soft_contact_sim_exp/no_torque_control/'
+PREFIX_1 = '/home/sebastien/force_feedback_simulation_data/with_tracking/'
+PREFIX_2 = '/home/sebastien/force_feedback_simulation_data/no_tracking/'
 
 data_1 = load_data(PREFIX_1+'errors_TORQUE_CONTROL=True_full.npz')
 data_2 = load_data(PREFIX_2+'errors_TORQUE_CONTROL=False_full.npz')

@@ -72,7 +72,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
     # Read config file
     # config, config_name = path_utils.load_config_file('aug_soft_sanding_MPC', robot_name)
     config_name = 'iiwa_aug_soft_sanding_MPC'
-    config = load_yaml_file('/home/skleff/ws_croco2/workspace/src/force-feedback/demos/sanding/config/iiwa_aug_soft_sanding_MPC.yml')
+    config = load_yaml_file('/home/sebastien/workspace_seb/src/force-feedback/demos/sanding/config/iiwa_aug_soft_sanding_MPC.yml')
 
     logger.warning("save dir = "+SAVE_DIR)
     logger.warning("tracking = "+str(TORQUE_TRACKING))

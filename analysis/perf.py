@@ -12,7 +12,7 @@
 # sd1.plot_mpc_results(d1, *args)
 
 
-from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 from croco_mpc_utils.ocp_core_data import load_data
@@ -24,11 +24,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from analysis_utils import linear_interpolation
 
-TORQUE_CONTROL = False
+TORQUE_CONTROL = True
 if(TORQUE_CONTROL):
-    PREFIX = '/home/skleff/Desktop/soft_contact_sim_exp/with_torque_control/'
+    PREFIX = '/home/sebastien/force_feedback_simulation_data/with_tracking/'
 else:
-    PREFIX = '/home/skleff/Desktop/soft_contact_sim_exp/no_torque_control/'
+    PREFIX = '/home/sebastien/force_feedback_simulation_data/no_tracking/'
     
 prefix_lpf       = PREFIX+'iiwa_LPF_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.5_Fc=1.0_Fs2.0'
 prefix_soft      = PREFIX+'iiwa_aug_soft_sanding_MPC_bullet__BIAS=True_NOISE=True_DELAY=True_Fp=0.5_Fc=1.0_Fs2.0'
@@ -74,7 +74,7 @@ for n_seed in range(N_SEEDS):
     logger.debug("Seed "+str(n_seed+1) + "/" + str(N_SEEDS))
 
     for n_exp in range(N_EXP):
-
+        print('EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed]))
         logger.debug("Experiment n°"+str(n_exp+1)+"/"+str(N_EXP))
         # Extract data classical
         sd   = load_data(prefix_classical+'_EXP_TILT='+str(TILT_ANGLES_DEG[n_exp])+'_SEED='+str(SEEDS[n_seed])+'.npz')
@@ -286,7 +286,7 @@ save_path = PREFIX+'errors_TORQUE_CONTROL='+str(TORQUE_CONTROL)+'_full.npz'
 np.savez_compressed(save_path, data=error_dict)
 logger.info("Saved data to "+str(save_path)+" !")
 
-
+pwroejfref
 for i in range(3):
     # Plot average lines
     if(n_seed == N_SEEDS-1 and n_exp == N_EXP-1):
