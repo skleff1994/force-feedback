@@ -36,7 +36,7 @@ np.set_printoptions(precision=4, linewidth=180)
 RANDOM_SEED = 1 #19
 
 
-from core_mpc_utils import path_utils, misc_utils, mpc_utils
+from core_mpc_utils import mpc_utils
 from core_mpc_utils import sim_utils as simulator_utils
 
 from croco_mpc_utils import pinocchio_utils as pin_utils
@@ -123,7 +123,7 @@ def main(SAVE_DIR, TORQUE_TRACKING):
   # Read config file
   # config, config_name = path_utils.load_config_file(__file__, robot_name)
   config_name = 'iiwa_sanding_MPC'
-  config = load_yaml_file('/home/skleff/ws_croco2/workspace/src/force-feedback/demos/sanding/config/iiwa_sanding_MPC.yml')
+  config = load_yaml_file('/home/skleff/force_feedback_ws/force-feedback/demos/sanding/config/iiwa_sanding_MPC.yml')
   # Create a simulation environment & simu-pin wrapper 
   dt_simu = 1./float(config['simu_freq'])  
   q0 = np.asarray(config['q0'])

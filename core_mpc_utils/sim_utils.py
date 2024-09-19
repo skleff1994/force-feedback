@@ -1,27 +1,20 @@
 import numpy as np
 import pinocchio as pin
 
-from core_mpc_utils.misc_utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
 # Check installed pkg
-import importlib
+import importlib.util
 FOUND_PYBULLET_PKG            = importlib.util.find_spec("pybullet")               is not None
-FOUND_ROB_PROP_KUKA_PKG       = importlib.util.find_spec("robot_properties_kuka")  is not None
+FOUND_ROB_MIM_ROBOTS_PKG      = importlib.util.find_spec("mim_robots")  is not None
 FOUND_ROB_PROP_TALOS_PKG      = importlib.util.find_spec("robot_properties_talos") is not None
-FOUND_BULLET_UTILS_PKG        = importlib.util.find_spec("bullet_utils")           is not None
 # FOUND_EXAMPLE_ROBOT_DATA_PKG  = importlib.util.find_spec("example_robot_data")     is not None
 
 if(FOUND_PYBULLET_PKG): 
     import pybullet as p
 else:
     logger.error('You need to install PyBullet ( https://pypi.org/project/pybullet/ )')
-
-if(FOUND_BULLET_UTILS_PKG):
-    from bullet_utils.env import BulletEnvWithGround
-else:
-    logger.error('You need to install bullet_utils ( https://github.com/machines-in-motion/bullet_utils )')
-
 
 # Global & default settings (change CAREFULLY)
 SUPPORTED_ROBOTS         = ['iiwa', 'iiwa_reduced', 'talos_arm', 'talos_reduced']
@@ -72,7 +65,7 @@ def init_iiwa_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIWA_DEFAUL
         pos     : position of the kuka base in simulator WORLD frame (vector3)
         orn     : orientation of the kuka base in simulator WORLD frame ()
     '''
-    if(FOUND_ROB_PROP_KUKA_PKG):
+    if(FOUND_ROB_MIM_ROBOTS_PKG):
         try: 
             from robot_properties_kuka.iiwaWrapper import IiwaRobot as IiwaRobot
             from robot_properties_kuka.config import IiwaConfig
@@ -181,7 +174,7 @@ def init_iiwa_reduced_bullet(dt=1e3, x0=None, pos=IIWA_DEFAULT_BASE_POS, orn=IIW
         dt        : simulator time step
         x0        : initial robot state (pos and vel)
     '''
-    if(FOUND_ROB_PROP_KUKA_PKG):
+    if(FOUND_ROB_MIM_ROBOTS_PKG):
         try: 
             from robot_properties_kuka.iiwaReducedWrapper import IiwaReducedRobot
             from robot_properties_kuka.config import IiwaReducedConfig
