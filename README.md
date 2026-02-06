@@ -1,3 +1,5 @@
+Re-located to https://github.com/machines-in-motion/force_feedback_mpc
+
 # Description
 Simulation scripts to test & compare several approaches toward the incorporation of Force feedback into Model Predictive Control :
 - Assuming imperfect torque actuation (a.k.a. "LPF" formulation) : it consists in modeling the actuation as a low-pass filter (LPF) on the torques in order to allow joint torque predictive feedback. See more details about this approach in our [IROS22 paper](https://hal.archives-ouvertes.fr/hal-03594295/)
